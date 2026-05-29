@@ -1,0 +1,21 @@
+{
+  "name": "시그널 일정",
+  "short_name": "SIGNAL",
+  "description": "시그널 멤버 일정",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffdddd",
+  "theme_color": "#ffdddd",
+  "icons": [
+    {
+      "src": "https://i.postimg.cc/wjrJrQ0c/A1EAA0.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.postimg.cc/wjrJrQ0c/A1EAA0.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
