@@ -146,32 +146,23 @@ const adminPasswords = {
 };
 
 // =========================================================================
-// 모바일 환경 SOOP(아프리카TV) 어플 연동 스마트 링크 처리 함수
+// 모바일 환경 SOOP(아프리카TV) 연동 스마트 링크 처리 함수 (웹 진입 후 어플 호출)
 // =========================================================================
 function openSmartLink(url) {
     if (!url) return;
     
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const isAndroid = /Android/i.test(navigator.userAgent);
     
     if (isMobileDevice && (url.includes("sooplive.com") || url.includes("afreecatv.com"))) {
-        // 모바일 웹 URL로 변환 (앱 링크가 더 안정적으로 연결됨)
+        // PC버전 주소(www)를 모바일 웹 주소(m)로 변환
+        // 모바일 웹 환경에 접속하면 웹에서 자연스럽게 앱 열기를 유도하거나 딥링크를 발생시킴
         let mobileUrl = url.replace("www.sooplive.com", "m.sooplive.com").replace("www.afreecatv.com", "m.afreecatv.com");
         
-        if (isAndroid) {
-            // 안드로이드: Intent 방식으로 SOOP 앱 강제 실행 및 해당 https 링크 전달
-            const fallback = encodeURIComponent(mobileUrl);
-            const intentUrl = `intent://${mobileUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=kr.co.nowcom.mobile.afreeca;S.browser_fallback_url=${fallback};end`;
-            window.location.href = intentUrl;
-            return;
-        } else {
-            // iOS: 유니버셜 링크 트리거를 위해 location.href 사용 (앱 있으면 바로 이동, 없으면 사파리 모바일웹)
-            window.location.href = mobileUrl;
-            return;
-        }
+        window.open(mobileUrl, '_blank');
+        return;
     }
     
-    // PC 환경이거나 일반 링크는 새 창으로 열기
+    // PC 환경이거나 일반 링크는 새 창 열기
     window.open(url, '_blank');
 }
 
