@@ -146,7 +146,7 @@ const adminPasswords = {
 };
 
 // =========================================================================
-// 스마트 링크 처리 함수 (딥링크 완벽 지원)
+// 스마트 링크 처리 함수 (앱 딥링크 완벽 지원)
 // =========================================================================
 function openSmartLink(url) {
     if (!url) return;
@@ -154,22 +154,12 @@ function openSmartLink(url) {
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     
     if (isMobileDevice) {
-        let targetUrl = url;
-        
-        // SOOP/AfreecaTV 링크인 경우 모바일용 도메인으로 변환
-        if (url.includes("sooplive.com") || url.includes("afreecatv.com")) {
-            targetUrl = url.replace("www.sooplive.com", "m.sooplive.com").replace("www.afreecatv.com", "m.afreecatv.com");
-        }
-        
-        // 모바일에서는 window.open을 피하고, <a> 태그를 생성해 직접 클릭시킵니다.
-        // 이렇게 하면 OS 단위에서 딥링크(App Link)를 정상적으로 캐치하여 어플을 실행합니다.
-        const a = document.createElement('a');
-        a.href = targetUrl;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        // 모바일 환경: window.open 대신 현재 창 이동(location.href)을 사용해야 
+        // OS단에서 딥링크(SOOP, 유튜브, 네이버 카페 등 앱 실행)를 정상적으로 가로챕니다.
+        // ※ 중요: 이전처럼 www를 m으로 강제 변환하면 SOOP 내부 라우팅이 깨져서 에러가 발생하므로 원본 주소 그대로 넘깁니다!
+        window.location.href = url;
     } else {
-        // PC 환경에서는 정상적으로 새 탭 띄우기
+        // PC 환경: 정상적으로 새 탭으로 열기
         window.open(url, '_blank');
     }
 }
