@@ -47,7 +47,7 @@ window.closeUpPopup = closeUpPopup;
 window.moveLink = moveLink; window.editMemberLink = editMemberLink;
 window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
 window.closeMemoModal = closeMemoModal; window.saveMemoAction = saveMemoAction; window.deleteMemo = deleteMemo;
-window.openSmartLink = openSmartLink; // 스마트 링크 함수 바인딩
+window.openSmartLink = openSmartLink;
 
 // =========================================================================
 // Firebase 초기화 및 변수 선언
@@ -146,23 +146,23 @@ const adminPasswords = {
 };
 
 // =========================================================================
-// 모바일 환경 SOOP(아프리카TV) 연동 스마트 링크 처리 함수 (웹 진입 후 어플 호출)
+// 스마트 링크 처리 함수 (딥링크 지원)
 // =========================================================================
 function openSmartLink(url) {
     if (!url) return;
     
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     
+    // SOOP 링크이고 모바일일 때만 특별 처리
     if (isMobileDevice && (url.includes("sooplive.com") || url.includes("afreecatv.com"))) {
-        // PC버전 주소(www)를 모바일 웹 주소(m)로 변환
-        // 모바일 웹 환경에 접속하면 웹에서 자연스럽게 앱 열기를 유도하거나 딥링크를 발생시킴
-        let mobileUrl = url.replace("www.sooplive.com", "m.sooplive.com").replace("www.afreecatv.com", "m.afreecatv.com");
-        
-        window.open(mobileUrl, '_blank');
+        // 주소를 임의로 m.으로 바꾸거나 조작하지 않고 원본 주소로 이동합니다.
+        // 새 창(window.open)으로 열면 딥링크(어플 실행)가 가로채어지지 않는 경우가 
+        // 많기 때문에, 현재 창(location.href)을 이동시켜 OS가 완벽히 앱으로 낚아채게 합니다.
+        window.location.href = url;
         return;
     }
     
-    // PC 환경이거나 일반 링크는 새 창 열기
+    // 그 외 환경(PC)이거나 SOOP이 아닌 일반 링크는 정상적으로 새 탭 열기
     window.open(url, '_blank');
 }
 
