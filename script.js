@@ -1,3 +1,6 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
 // =========================================================================
 // 앱 아이콘(파비콘 및 애플 터치 아이콘) 동적 설정
 // =========================================================================
@@ -22,9 +25,6 @@ function setAppIcon() {
 }
 setAppIcon();
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-
 // =========================================================================
 // 전역 함수 바인딩
 // =========================================================================
@@ -47,7 +47,7 @@ window.closeUpPopup = closeUpPopup;
 window.moveLink = moveLink; window.editMemberLink = editMemberLink;
 window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
 window.closeMemoModal = closeMemoModal; window.saveMemoAction = saveMemoAction; window.deleteMemo = deleteMemo;
-window.openSmartLink = openSmartLink; // 스마트 링크 함수 바인딩
+window.openSmartLink = openSmartLink;
 
 // =========================================================================
 // Firebase 초기화 및 변수 선언
@@ -83,6 +83,25 @@ let sidePanelMode = null;
 let homeTargetDate = new Date(); 
 let individualTargetDate = new Date(); 
 let datePickerCurrentDate = new Date();
+
+// ✨ 탭 이름 ↔ URL 해시(Hash) 변환 맵핑 ✨
+const tabToHash = {
+    '홈': 'home',
+    '달타': 'dalta',
+    '서피카': 'seopica',
+    '다룽': 'darung',
+    '최또': 'choiagain',
+    '카나시': 'kanashi'
+};
+
+const hashToTab = {
+    '#home': '홈',
+    '#dalta': '달타',
+    '#seopica': '서피카',
+    '#darung': '다룽',
+    '#choiagain': '최또',
+    '#kanashi': '카나시'
+};
 
 window.addEventListener('resize', () => {
     const wasMobile = isMobile;
@@ -128,11 +147,11 @@ let dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
 let upLinksList = [];
 
 const adminAccounts = { 
-    'real_email1@naver.com': { name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
+    'dalta20@naver.com': { name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
     'real_email2@naver.com': { name: '서피카', img: 'https://stimg.sooplive.com/LOGO/sp/spica21/spica21.jpg' },
-    'real_email3@naver.com': { name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
-    'real_email4@naver.com': { name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
-    'real_email5@naver.com': { name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' },
+    'daarung22@naver.com': { name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
+    'choiagain333@naver.com': { name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
+    'jhh0029@naver.com': { name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' },
     'rnskrns@naver.com': { name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' },
     'jkolpc@naver.com': { name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' }
 };
@@ -145,21 +164,12 @@ const adminPasswords = {
     '0123': { name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' }
 };
 
-// =========================================================================
-// 스마트 링크 처리 함수 (앱 딥링크 완벽 지원)
-// =========================================================================
 function openSmartLink(url) {
     if (!url) return;
-    
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    
     if (isMobileDevice) {
-        // 모바일 환경: window.open 대신 현재 창 이동(location.href)을 사용해야 
-        // OS단에서 딥링크(SOOP, 유튜브, 네이버 카페 등 앱 실행)를 정상적으로 가로챕니다.
-        // ※ 중요: 이전처럼 www를 m으로 강제 변환하면 SOOP 내부 라우팅이 깨져서 에러가 발생하므로 원본 주소 그대로 넘깁니다!
         window.location.href = url;
     } else {
-        // PC 환경: 정상적으로 새 탭으로 열기
         window.open(url, '_blank');
     }
 }
@@ -750,8 +760,14 @@ async function loadSchedulesFromFirebase() {
     } catch (e) { console.error("데이터 불러오기 실패:", e); }
 }
 
+// ✨ 탭을 변경할 때 주소창 해시(Hash)도 변경하도록 수정 ✨
 function changeTab(tabName) { 
     currentPage = tabName; 
+    
+    // 주소창 업데이트 (예: #home, #dalta 등)
+    if (tabToHash[tabName]) {
+        window.location.hash = tabToHash[tabName];
+    }
     
     if (!isMobile) {
         if(tabName === '홈') {
@@ -1347,6 +1363,17 @@ async function initApp() {
         openSidePanel('UP'); 
     }
     
+    // ✨ 사이트에 처음 들어왔을 때 (또는 새로고침 했을 때) 주소창 확인 ✨
+    const currentHash = window.location.hash;
+    if (currentHash && hashToTab[currentHash]) {
+        currentPage = hashToTab[currentHash];
+    } else {
+        currentPage = '홈'; // 해시가 없거나 이상하면 홈으로!
+    }
+    
+    // 선택된 탭으로 화면 렌더링
+    changeTab(currentPage);
 }
 
+// 앱 실행
 initApp();
