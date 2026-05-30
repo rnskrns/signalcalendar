@@ -4,7 +4,6 @@
 function setAppIcon() {
     const iconUrl = "https://i.postimg.cc/wjrJrQ0c/A1EAA0.png";
     
-    // 일반 파비콘 설정
     let linkIcon = document.querySelector("link[rel~='icon']");
     if (!linkIcon) {
         linkIcon = document.createElement('link');
@@ -13,7 +12,6 @@ function setAppIcon() {
     }
     linkIcon.href = iconUrl;
 
-    // iOS 및 일부 안드로이드 홈 화면 아이콘 설정
     let appleIcon = document.querySelector("link[rel='apple-touch-icon']");
     if (!appleIcon) {
         appleIcon = document.createElement('link');
@@ -32,8 +30,8 @@ import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } 
 // =========================================================================
 window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; window.checkPassword = checkPassword; window.logoutAdmin = logoutAdmin;
 window.openPasswordModal = openPasswordModal; window.closePasswordModal = closePasswordModal; window.closeLogoutModal = closeLogoutModal;
-window.handleDayClick = handleDayClick; window.showContextMenu = showContextMenu; window.deleteFromMenu = deleteFromMenu; window.editFromMenu = editFromMenu;
-window.closeEditModal = closeEditModal; window.saveEditedSchedule = saveEditedSchedule; window.openDetailModal = openDetailModal; window.closeDetailModal = closeDetailModal;
+window.handleDayClick = handleDayClick; window.handleDayRightClick = handleDayRightClick; window.editFromMenu = editFromMenu;
+window.closeEditModal = closeEditModal; window.saveEditedSchedule = saveEditedSchedule; window.deleteScheduleAction = deleteScheduleAction; window.openDetailModal = openDetailModal; window.closeDetailModal = closeDetailModal;
 window.openAllSchedulesModal = openAllSchedulesModal; window.changeTab = changeTab; window.changeMonth = changeMonth; window.openMonthPicker = openMonthPicker;
 window.closeMonthPicker = closeMonthPicker; window.changePickerYear = changePickerYear; window.selectMonth = selectMonth; window.addScheduleInputBlock = addScheduleInputBlock;
 window.closeScheduleModal = closeScheduleModal; window.saveSchedule = saveSchedule; window.toggleFields = toggleFields; 
@@ -45,8 +43,11 @@ window.executeDesktopTabChange = executeDesktopTabChange; window.executeMobileTa
 window.changeHomeDate = changeHomeDate; window.changeIndividualWeek = changeIndividualWeek;
 window.openMobileDatePicker = openMobileDatePicker; window.closeMobileDatePicker = closeMobileDatePicker;
 window.changeDatePickerMonth = changeDatePickerMonth; window.selectMobileDate = selectMobileDate;
-window.closeUpPopup = closeUpPopup; window.saveMemo = saveMemo;
+window.closeUpPopup = closeUpPopup; 
 window.moveLink = moveLink; window.editMemberLink = editMemberLink;
+window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
+window.closeMemoModal = closeMemoModal; window.saveMemoAction = saveMemoAction; window.deleteMemo = deleteMemo;
+window.openSmartLink = openSmartLink;
 
 // =========================================================================
 // Firebase 초기화 및 변수 선언
@@ -65,7 +66,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 let scheduleList = []; 
-let memoData = {}; 
+let memoList = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[] };
 let isAdmin = false;
 let loggedInUser = null; 
 let currentPage = '홈';
@@ -75,6 +76,7 @@ let pickerYear = currentYear;
 let contextTargetId = null;
 let currentEditingIds = [];
 let targetModalContext = { year: currentYear, month: currentMonth, day: 1, member: '홈' };
+let currentEditingMemoId = null;
 
 let isMobile = window.innerWidth <= 1024;
 let sidePanelMode = null; 
@@ -142,6 +144,47 @@ const adminPasswords = {
     '1030': { name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
     '0123': { name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' }
 };
+
+// =========================================================================
+// 모바일 환경 SOOP(아프리카TV) 어플 연동 스마트 링크 처리 함수
+// =========================================================================
+function openSmartLink(url) {
+    if (!url) return;
+    
+    // 모바일 기기 감지 (Android, iOS)
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    // SOOP 또는 아프리카TV 주소 구조 확인
+    if (isMobileDevice && (url.includes("sooplive.com") || url.includes("afreecatv.com"))) {
+        let userId = "";
+        
+        if (url.includes("/station/")) {
+            userId = url.split("/station/")[1].split("?")[0].split("/")[0];
+        } else {
+            const parts = url.replace("https://", "").replace("http://", "").split("/");
+            if (parts.length > 1 && parts[1].trim() !== "" && !parts[1].includes("index")) {
+                userId = parts[1].split("?")[0];
+            }
+        }
+        
+        if (userId) {
+            // SOOP 통합 앱 전용 커스텀 스킴 URL 구성
+            const appScheme = `afreeca://afreeca.com/${userId}/open`; 
+            
+            const start = Date.now();
+            window.location.href = appScheme;
+            
+            setTimeout(() => {
+                if (Date.now() - start < 1500) {
+                    window.open(url, '_blank');
+                }
+            }, 1000);
+            return;
+        }
+    }
+    
+    window.open(url, '_blank');
+}
 
 function initNaverLogin() {
     try {
@@ -230,7 +273,7 @@ function showUpPopup() {
     list.innerHTML = upLinksList.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
         return `
-        <div class="border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-gray-50 flex flex-col gap-1" style="border-color:${theme}" onclick="window.open('${up.url}', '_blank')">
+        <div class="border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-gray-50 flex flex-col gap-1" style="border-color:${theme}" onclick="openSmartLink('${up.url}')">
             <div class="font-bold text-[17px] mb-2 text-gray-800 break-words leading-snug">${up.title}</div>
             <div class="flex justify-between items-end">
                 <span class="text-[12px] font-bold text-white px-2.5 py-1 rounded-md" style="background-color: ${theme}">${up.member}</span>
@@ -268,7 +311,7 @@ function renderHeaderTabs() {
             const hoverColor = colors[tab];
             const links = dynamicLinks[tab] || [];
             let dropdownHtml = links.map(link => `
-                <a href="${link.url}" target="_blank" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">${link.title}</a>
+                <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">${link.title}</a>
             `).join('');
             
             html += `
@@ -323,7 +366,7 @@ function openMobileTabMenu(tab) {
     
     const links = dynamicLinks[tab] || [];
     links.forEach(l => {
-        html += `<a href="${l.url}" target="_blank" class="w-full py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
+        html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
     });
     html += `</div>`;
     container.innerHTML = html;
@@ -395,8 +438,6 @@ window.addEventListener('click', (e) => {
             pMenu.classList.add('hidden'); pMenu.classList.remove('flex');
         }
     });
-    const cMenu = document.getElementById('contextMenu');
-    if (cMenu && !cMenu.classList.contains('hidden')) { cMenu.classList.add('hidden'); cMenu.classList.remove('flex'); }
 });
 
 async function openLinkModal() {
@@ -415,10 +456,10 @@ async function openLinkModal() {
             <div class="flex justify-between items-center bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm">
                 <div class="font-bold text-[15px] text-[#5D4037] w-1/4 truncate">${link.title}</div>
                 <div class="flex items-center gap-1 w-3/4 justify-end">
-                    <a href="${link.url}" target="_blank" class="text-[13px] text-blue-500 underline truncate max-w-[130px] mr-2">${link.url}</a>
-                    <button onclick="editMemberLink('${member}', '${link.id}')" class="text-white bg-blue-500 w-6 h-6 rounded flex items-center justify-center hover:bg-blue-600 transition shrink-0"><i class="fi fi-rr-edit text-[11px]"></i></button>
+                    <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="text-[13px] text-blue-500 underline truncate max-w-[130px] mr-2">${link.url}</a>
                     <button onclick="moveLink('${member}', '${link.id}', -1)" class="p-1 text-gray-500 hover:text-[#5D4037] ${isFirst ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fi fi-rr-angle-up text-lg"></i></button>
                     <button onclick="moveLink('${member}', '${link.id}', 1)" class="p-1 text-gray-500 hover:text-[#5D4037] ${isLast ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fi fi-rr-angle-down text-lg"></i></button>
+                    <button onclick="editMemberLink('${member}', '${link.id}')" class="text-[#5D4037] font-bold text-[13px] border-2 border-[#5D4037] px-2 py-0.5 rounded ml-1 hover:bg-[#5D4037] hover:text-white transition shrink-0">수정</button>
                     <button onclick="deleteMemberLink('${member}', '${link.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0 ml-1"><i class="fi fi-br-cross-small"></i></button>
                 </div>
             </div>
@@ -528,7 +569,6 @@ function toggleMemoPanel() {
 }
 
 function closeSidePanel(instant = false) {
-    if (sidePanelMode === 'MEMO' && isAdmin) saveMemo();
     sidePanelMode = null;
     const panel = document.getElementById('sideExpansionPanel');
     const mobileOverlay = document.getElementById('mobilePanelOverlay');
@@ -552,7 +592,6 @@ function closeSidePanel(instant = false) {
 }
 
 function openSidePanel(mode) {
-    if (sidePanelMode === 'MEMO' && mode !== 'MEMO' && isAdmin) saveMemo(); 
     sidePanelMode = mode;
     const panel = document.getElementById('sideExpansionPanel');
     const mobileOverlay = document.getElementById('mobilePanelOverlay');
@@ -561,23 +600,28 @@ function openSidePanel(mode) {
     if(isMobile && mobileOverlay) { mobileOverlay.classList.remove('hidden'); mobileOverlay.classList.add('block'); }
     
     if (mode === 'MEMO') {
-        const key = currentPage;
-        const content = memoData[key] ? memoData[key].content : '';
+        const memos = memoList[currentPage] || [];
+        const contentHtml = memos.map(memo => `
+            <div class="bg-white p-4 rounded-xl border-[2.5px] border-[#5D4037] relative shadow-sm mb-4 cursor-pointer hover:bg-gray-50 transition" 
+                 oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.openMemoEditModal('${memo.id}'); }">
+                ${isAdmin ? `<button onclick="deleteMemo('${memo.id}')" class="absolute top-2 right-2 text-[#5D4037] hover:text-red-500 font-bold p-1 z-10"><i class="fi fi-br-cross-small"></i></button>` : ''}
+                <div class="text-[13px] font-bold text-gray-500 mb-2 pointer-events-none">${memo.date || ''}</div>
+                <div class="text-[16px] font-medium text-[#5D4037] whitespace-pre-wrap leading-relaxed pointer-events-none">${memo.content}</div>
+            </div>
+        `).join('');
+
         panel.innerHTML = `
             <div class="p-6 border-b-[4px] border-[#5D4037] bg-white flex justify-between items-center shadow-sm z-10 shrink-0">
                 <div class="text-[22px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
                     <i class="fi fi-rr-edit"></i> ${currentPage} 메모장
                 </div>
                 <div class="flex items-center gap-3">
-                    ${isAdmin ? `<button onclick="saveMemo()" class="px-4 py-1.5 bg-[#5D4037] text-white rounded-lg font-bold text-[15px] hover:brightness-110 shadow-sm transition">저장</button>` : ''}
+                    ${isAdmin ? `<button onclick="openMemoAddModal()" class="w-9 h-9 flex items-center justify-center bg-[#5D4037] text-white rounded-full font-bold hover:brightness-110 shadow-sm transition"><i class="fi fi-br-plus"></i></button>` : ''}
                     <button onclick="closeSidePanel()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
                 </div>
             </div>
-            <div class="flex-1 p-0 bg-[#FFFDF5] flex flex-col relative w-full overflow-hidden">
-                <textarea id="memoTextarea" 
-                    class="flex-1 w-full h-full border-none outline-none resize-none font-paperozi text-[20px] bg-transparent"
-                    style="background-image: repeating-linear-gradient(transparent, transparent 38px, #E5E7EB 38px, #E5E7EB 40px); line-height: 40px; padding: 10px 24px; background-attachment: local;"
-                    ${!isAdmin ? 'readonly' : ''}>${content}</textarea>
+            <div class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll w-full">
+                ${contentHtml || '<div class="text-center text-gray-400 font-bold mt-16 text-lg">저장된 메모가 없습니다.</div>'}
             </div>
         `;
     } else if (mode === 'UP') {
@@ -591,6 +635,66 @@ function openSidePanel(mode) {
             panel.classList.remove('h-0', 'opacity-0'); panel.classList.add('h-[890px]', 'opacity-100');
         }
     });
+}
+
+function openMemoAddModal() {
+    currentEditingMemoId = null;
+    document.getElementById('memoModalTitle').innerText = '메모 추가';
+    
+    const now = new Date();
+    const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    document.getElementById('memoDate').value = kstTime.toISOString().split('T')[0];
+    
+    document.getElementById('memoContent').value = '';
+    document.getElementById('memoModal').classList.replace('hidden', 'flex');
+}
+
+function openMemoEditModal(memoId) {
+    if (!isAdmin) return;
+    const memo = memoList[currentPage].find(m => m.id === memoId);
+    if (!memo) return;
+    currentEditingMemoId = memoId;
+    document.getElementById('memoModalTitle').innerText = '메모 수정';
+    document.getElementById('memoDate').value = memo.date || '';
+    document.getElementById('memoContent').value = memo.content || '';
+    document.getElementById('memoModal').classList.replace('hidden', 'flex');
+}
+
+function closeMemoModal() {
+    document.getElementById('memoModal').classList.replace('flex', 'hidden');
+}
+
+async function saveMemoAction() {
+    const date = document.getElementById('memoDate').value;
+    const content = document.getElementById('memoContent').value.trim();
+    if(!content) return alert('내용을 입력하세요.');
+
+    const colName = memoCollectionMap[currentPage];
+    if (!colName) return;
+
+    try {
+        if (currentEditingMemoId) {
+            await updateDoc(doc(db, colName, currentEditingMemoId), { date, content });
+            const m = memoList[currentPage].find(x => x.id === currentEditingMemoId);
+            if(m) { m.date = date; m.content = content; }
+        } else {
+            const docRef = await addDoc(collection(db, colName), { date, content, timestamp: Date.now() });
+            if(!memoList[currentPage]) memoList[currentPage] = [];
+            memoList[currentPage].unshift({ id: docRef.id, collectionName: colName, date, content, timestamp: Date.now() });
+        }
+        closeMemoModal();
+        if (sidePanelMode === 'MEMO') openSidePanel('MEMO');
+    } catch(e) { console.error('메모 저장 실패:', e); }
+}
+
+async function deleteMemo(memoId) {
+    if(!confirm('해당 메모를 삭제하시겠습니까?')) return;
+    const colName = memoCollectionMap[currentPage];
+    try {
+        await deleteDoc(doc(db, colName, memoId));
+        memoList[currentPage] = memoList[currentPage].filter(m => m.id !== memoId);
+        if (sidePanelMode === 'MEMO') openSidePanel('MEMO');
+    } catch(e) { console.error('메모 삭제 실패:', e); }
 }
 
 function renderUpLinksPanel() {
@@ -613,7 +717,7 @@ function renderUpLinksPanel() {
         return `
             <div class="relative w-full border-[3px] rounded-xl p-5 mb-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-[2px] cursor-pointer bg-white shrink-0" 
                  style="border-color: ${theme}; border-left-width: 8px;"
-                 onclick="window.open('${up.url}', '_blank')">
+                 onclick="openSmartLink('${up.url}')">
                 ${deleteBtn}
                 <div class="text-[17px] font-bold font-paperozi mb-4 text-gray-800 break-words pr-6 leading-snug">${up.title}</div>
                 <div class="flex justify-between items-end">
@@ -639,48 +743,36 @@ function renderUpLinksPanel() {
     `;
 }
 
-async function saveMemo() {
-    if (!isAdmin) return;
-    const textarea = document.getElementById('memoTextarea');
-    if(!textarea) return; 
-    
-    const text = textarea.value;
-    const colName = memoCollectionMap[currentPage]; 
-    if (!colName) return;
-    const key = currentPage;
-
-    try {
-        if (memoData[key] && memoData[key].id) {
-            await updateDoc(doc(db, colName, memoData[key].id), { content: text });
-            memoData[key].content = text;
-        } else {
-            const docRef = await addDoc(collection(db, colName), { content: text });
-            memoData[key] = { id: docRef.id, collectionName: colName, content: text };
-        }
-    } catch(e) { console.error("메모 저장 실패:", e); }
-}
-
 async function loadSchedulesFromFirebase() {
     try {
         const eventPromises = Object.entries(collectionMap).map(([member, colName]) => getDocs(collection(db, colName)).then(snapshot => ({ type: 'event', member, colName, snapshot })));
         const memoPromises = Object.entries(memoCollectionMap).map(([member, colName]) => getDocs(collection(db, colName)).then(snapshot => ({ type: 'memo', member, colName, snapshot })));
         
         const results = await Promise.all([...eventPromises, ...memoPromises]);
-        scheduleList = []; memoData = {}; 
+        scheduleList = [];
+        memoList = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[] };
         
         results.forEach(({ type, member, colName, snapshot }) => {
             snapshot.forEach((doc) => {
                 const data = doc.data();
-                if (type === 'memo') memoData[member] = { id: doc.id, collectionName: colName, content: data.content };
-                else scheduleList.push({ id: doc.id, collectionName: colName, ...data });
+                if (type === 'memo') {
+                    if(!memoList[member]) memoList[member] = [];
+                    memoList[member].push({ id: doc.id, collectionName: colName, ...data });
+                } else {
+                    scheduleList.push({ id: doc.id, collectionName: colName, ...data });
+                }
             });
         });
+
+        for(let m in memoList) {
+            memoList[m].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        }
+
         render();
     } catch (e) { console.error("데이터 불러오기 실패:", e); }
 }
 
 function changeTab(tabName) { 
-    if (sidePanelMode === 'MEMO') saveMemo(); 
     currentPage = tabName; 
     
     if (!isMobile) {
@@ -793,7 +885,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
         <div class="schedule-card ${sch.globalType === '휴방' ? 'hubang' : 'bangon'} h-full flex flex-col justify-center w-full" 
              style="color: ${color}; background-color: ${bgColor}; padding: ${isMobileCard ? '4px' : '4px'}; border-radius: 12px !important; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2) !important;" 
              onclick="openDetailModal(event, '${sch.id}')" 
-             oncontextmenu="showContextMenu(event, '${sch.id}')">
+             oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.contextTargetId = '${sch.id}'; window.editFromMenu(); }">
              <div class="w-full flex justify-between items-center px-1 mb-0.5" style="font-size: ${timeSize}; font-weight: 700;">
                 <span style="color: ${sch.globalType === '휴방' ? 'inherit' : cardBroadColor};">${broadType}</span><span>${formattedTime}</span>
              </div>
@@ -887,7 +979,7 @@ function renderMobileHome(grouped) {
                 <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0" style="border-color: ${borderColor}" onclick="window.open('${member.link}', '_blank')">
                     <img src="${member.img}" class="w-full h-full object-cover">
                 </div>
-                <div class="w-1/2 aspect-square p-2 flex flex-col justify-center gap-2 bg-[#FFFDF5] overflow-y-auto" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')">
+                <div class="w-1/2 aspect-square p-2 flex flex-col justify-center gap-2 bg-[#FFFDF5] overflow-y-auto" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')">
                     ${schedulesHtml}
                 </div>
             </div>
@@ -939,7 +1031,7 @@ function renderMobileIndividual(grouped) {
         }
 
         html += `
-            <div class="flex w-full bg-[#FFFDF5] rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[1.5px] cursor-pointer transition-transform hover:-translate-y-1 min-h-[90px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; color: ${isToday ? themeColor : '#3E2723'}" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')">
+            <div class="flex w-full bg-[#FFFDF5] rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[1.5px] cursor-pointer transition-transform hover:-translate-y-1 min-h-[90px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; color: ${isToday ? themeColor : '#3E2723'}" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')">
                 <div class="w-[75px] shrink-0 flex flex-col items-center justify-center border-r-[1.5px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; background-color: ${isToday ? themeColor : '#ffffff'}; color: ${isToday ? 'white' : 'inherit'}; border-top-left-radius: 10px; border-bottom-left-radius: 10px;">
                     <span class="text-[14px] font-bold mb-0.5 opacity-80">${daysLabel[i]}</span>
                     <span class="text-[26px] font-bold">${d.getDate()}</span>
@@ -993,7 +1085,7 @@ function renderDesktopHome(grouped) {
                 
                 schedulesHtml = `<div class="schedule-card w-full h-full flex items-center justify-center overflow-hidden" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 4px;" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" style="border-radius: inherit;" alt="${isHubang ? '휴방' : '뱅온'}"></div>`;
             }
-            daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
+            daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
         });
 
         homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" ${member.link ? `onclick="window.open('${member.link}', '_blank')"` : ''}><img src="${member.img}" alt="${member.name}" style="width: 100%; height: 100%; object-fit: cover;"></div><div class="days-container">${daysCellsHtml}</div></div>`;
@@ -1013,7 +1105,7 @@ function renderDesktopIndividual(grouped) {
             const schedulesHtml = daySchedules.map(sch => buildScheduleCardHtml(sch, false)).join('');
             const isToday = currentYear === realToday.getFullYear() && currentMonth === realToday.getMonth() + 1 && day === realToday.getDate();
             const displayDay = isToday ? `<span class="bg-[#5D4037] text-white w-7 h-7 inline-flex items-center justify-center rounded-md">${day}</span>` : `<span>${day}</span>`;
-            return `<div class="big-cell" onclick="handleDayClick(${currentYear}, ${currentMonth}, ${day}, '${currentPage}')"><div class="w-full flex justify-between items-center mb-1 px-1">${displayDay}</div><div class="w-full flex-1 overflow-y-auto schedule-list flex flex-col gap-1">${schedulesHtml}</div></div>`;
+            return `<div class="big-cell" onclick="handleDayClick(${currentYear}, ${currentMonth}, ${day}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${currentYear}, ${currentMonth}, ${day}, '${currentPage}')"><div class="w-full flex justify-between items-center mb-1 px-1">${displayDay}</div><div class="w-full flex-1 overflow-y-auto schedule-list flex flex-col gap-1">${schedulesHtml}</div></div>`;
         }
         return `<div class="big-cell cursor-default hover:bg-transparent hover:transform-none hover:shadow-none hover:border-dashed"></div>`;
     }).join('');
@@ -1023,14 +1115,16 @@ function renderDesktopIndividual(grouped) {
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
 }
 
-async function deleteFromMenu() {
+async function deleteScheduleAction() {
     if(!contextTargetId) return;
     if (confirm('해당 일정을 삭제하시겠습니까?')) {
         const sch = scheduleList.find(s => s.id === contextTargetId);
         if(!sch) return;
         try {
             await deleteDoc(doc(db, sch.collectionName, contextTargetId));
-            scheduleList = scheduleList.filter(s => s.id !== contextTargetId); render();
+            scheduleList = scheduleList.filter(s => s.id !== contextTargetId); 
+            closeEditModal();
+            render();
         } catch(e) { console.error("삭제 실패:", e); }
     }
 }
@@ -1144,24 +1238,17 @@ function logoutAdmin() {
 function openPasswordModal() { document.getElementById('passwordModal').classList.replace('hidden', 'flex'); }
 function closePasswordModal() { document.getElementById('passwordModal').classList.replace('flex', 'hidden'); }
 function closeLogoutModal() { document.getElementById('logoutModal').classList.replace('flex', 'hidden'); }
-function handleDayClick(year, month, day, member) { if (!isAdmin) return; openScheduleModal(year, month, day, member); }
-function showContextMenu(event, schId) {
-    if (!isAdmin) return; event.preventDefault(); event.stopPropagation(); contextTargetId = schId;
-    const menu = document.getElementById('contextMenu'); menu.style.left = event.clientX + 'px'; menu.style.top = event.clientY + 'px';
-    menu.classList.remove('hidden'); menu.classList.add('flex');
+
+function handleDayClick(year, month, day, member) { 
+    const dateStr = `${year}-${month}-${day}`;
+    openAllSchedulesModal(null, dateStr, member); 
 }
 
-window.addEventListener('click', (e) => {
-    const pMenus = ['desktopProfileMenu', 'mobileProfileMenu'];
-    pMenus.forEach(id => {
-        const pMenu = document.getElementById(id);
-        if(pMenu && !pMenu.classList.contains('hidden') && !e.target.closest('#desktopAuthContainer') && !e.target.closest('#mobileAuthContainer')) {
-            pMenu.classList.add('hidden'); pMenu.classList.remove('flex');
-        }
-    });
-    const cMenu = document.getElementById('contextMenu');
-    if (cMenu && !cMenu.classList.contains('hidden')) { cMenu.classList.add('hidden'); cMenu.classList.remove('flex'); }
-});
+function handleDayRightClick(event, year, month, day, member) {
+    event.preventDefault();
+    if (!isAdmin) return;
+    openScheduleModal(year, month, day, member);
+}
 
 function getScheduleFormHTML(data, isDeletable = true) {
     const id = data.id || ''; const title = data.title || ''; const sDate = data.startDate || ''; const eDate = data.endDate || '';
@@ -1214,41 +1301,54 @@ function editFromMenu() {
 }
 function closeEditModal() { document.getElementById('editScheduleModal').classList.replace('flex', 'hidden'); contextTargetId = null; }
 
-function renderSchedulesInModal(schedules) {
+function renderSchedulesInModal(schedules, y, m, d, member) {
     const modal = document.getElementById('scheduleDetailModal'); const modalContent = modal.querySelector('.modal-content');
     modalContent.style.backgroundColor = '#FFFDF5'; modalContent.style.padding = '12px 20px 20px 20px';
     const closeBtnContainer = modal.querySelector('.justify-end.mb-2'); if (closeBtnContainer) closeBtnContainer.style.marginBottom = '0px';
 
     let htmlContent = '<div class="flex flex-col w-full max-h-[65vh] overflow-y-auto px-2 pt-2 pb-4 modal-scroll">';
-    schedules.forEach((sch, index) => {
-        let timeText = sch.time ? formatTime12(sch.time) : ''; let broadText = sch.broadType || '개인방송'; let memText = sch.memberTag || ''; let detailText = sch.detail || '';
-        
-        let themeColor = themeColors[sch.tabOrMember] || '#5D4037';
-        let isHabBang = broadText === '합방';
-        let broadColor = isHabBang ? '#1b3420' : themeColor;
-        
-        let badgeHtml = sch.globalType === '휴방' ? '' : 
-            `<div class="flex gap-2 justify-center">
-                ${timeText ? `<span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${themeColor}; border-color: ${themeColor};">${timeText}</span>` : ''}
-                <span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${broadColor}; border-color: ${broadColor};">${broadText}</span>
-            </div>`;
+    if (schedules.length === 0) {
+        htmlContent += `<div class="text-center text-gray-500 font-bold mt-6 mb-4 text-lg">일정이 없습니다.</div>`;
+    } else {
+        schedules.forEach((sch, index) => {
+            let timeText = sch.time ? formatTime12(sch.time) : ''; let broadText = sch.broadType || '개인방송'; let memText = sch.memberTag || ''; let detailText = sch.detail || '';
+            let themeColor = themeColors[sch.tabOrMember] || '#5D4037';
+            let isHabBang = broadText === '합방';
+            let broadColor = isHabBang ? '#1b3420' : themeColor;
             
-        htmlContent += `<div class="flex flex-col w-full items-center"><div class="flex flex-col items-center gap-2 mb-4 w-full"><div class="text-[28px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi">${sch.title}</div>${badgeHtml}</div><div class="flex flex-col gap-5 w-full pretendard px-3">${memText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">멤버</div><div class="text-[17px] text-[#5D4037] font-bold">${memText}</div></div>` : ''}${detailText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">상세</div><div class="text-[15px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap">${detailText}</div></div>` : ''}</div></div>`;
-        if (index < schedules.length - 1) htmlContent += `<div class="w-full border-b-2 border-dashed border-[#5D4037] opacity-20 my-8"></div>`;
-    });
+            let badgeHtml = sch.globalType === '휴방' ? '' : 
+                `<div class="flex gap-2 justify-center">
+                    ${timeText ? `<span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${themeColor}; border-color: ${themeColor};">${timeText}</span>` : ''}
+                    <span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${broadColor}; border-color: ${broadColor};">${broadText}</span>
+                </div>`;
+                
+            htmlContent += `<div class="flex flex-col w-full items-center"><div class="flex flex-col items-center gap-2 mb-4 w-full"><div class="text-[28px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi">${sch.title}</div>${badgeHtml}</div><div class="flex flex-col gap-5 w-full pretendard px-3">${memText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">멤버</div><div class="text-[17px] text-[#5D4037] font-bold">${memText}</div></div>` : ''}${detailText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">상세</div><div class="text-[15px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap">${detailText}</div></div>` : ''}</div></div>`;
+            if (index < schedules.length - 1) htmlContent += `<div class="w-full border-b-2 border-dashed border-[#5D4037] opacity-20 my-8"></div>`;
+        });
+    }
     htmlContent += '</div>';
+
     document.getElementById('detailDesc').innerHTML = htmlContent;
     const closeBtn = modal.querySelector('.modal-btn');
     if(closeBtn) { closeBtn.className = "modal-btn w-full bg-[#5D4037] text-white py-4 rounded-2xl font-bold text-[20px] mt-6 hover:brightness-110 transition-all cursor-pointer"; closeBtn.innerText = "닫기"; }
     modal.classList.replace('hidden', 'flex'); modal.style.display = '';
 }
 
-function openDetailModal(event, schId) { event.stopPropagation(); const sch = scheduleList.find(s => s.id === schId); if(!sch) return; renderSchedulesInModal([sch]); }
-function openAllSchedulesModal(event, dateStr, member) {
-    event.stopPropagation(); const [y, m, d] = dateStr.split('-'); const targetDateStr = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-    const allSchedules = scheduleList.filter(s => s.tabOrMember === member && isDateStrInRange(targetDateStr, s.startDate, s.endDate));
-    renderSchedulesInModal(allSchedules);
+function openDetailModal(event, schId) { 
+    event.stopPropagation(); 
+    const sch = scheduleList.find(s => s.id === schId); 
+    if(!sch) return; 
+    renderSchedulesInModal([sch], null, null, null, null); 
 }
+
+function openAllSchedulesModal(event, dateStr, member) {
+    if (event) event.stopPropagation(); 
+    const [y, m, d] = dateStr.split('-'); 
+    const targetDateStr = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    const allSchedules = scheduleList.filter(s => s.tabOrMember === member && isDateStrInRange(targetDateStr, s.startDate, s.endDate));
+    renderSchedulesInModal(allSchedules, y, m, d, member);
+}
+
 function closeDetailModal() { const modal = document.getElementById('scheduleDetailModal'); modal.classList.replace('flex', 'hidden'); modal.style.display = ''; }
 
 async function initApp() {

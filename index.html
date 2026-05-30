@@ -103,11 +103,23 @@
                     <input type="text" id="upTitle" placeholder="컨텐츠 제목" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                     <input type="text" id="upUrl" placeholder="새탭으로 열릴 URL (https://...)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                     <div class="flex items-center gap-3">
-                        <span class="text-sm font-bold text-gray-600 shrink-0">마감일자(선택):</span>
+                        <span class="text-sm font-bold text-gray-600 shrink-0">마감일자:</span>
                         <input type="date" id="upDeadline" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none flex-1">
                     </div>
                     <button onclick="addUpLink()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold mt-2 hover:bg-blue-700 transition">업링크 추가</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="memoModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[400px] shadow-xl border-4 border-[#5D4037]">
+            <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi" id="memoModalTitle">메모 추가</h2>
+            <input type="date" id="memoDate" class="w-full border-2 border-[#5D4037] rounded-lg p-2 mb-3 text-sm outline-none focus:border-[var(--theme-color)]">
+            <textarea id="memoContent" class="w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none h-[120px] resize-none mb-4 text-[15px] font-medium focus:border-[var(--theme-color)]" placeholder="메모 내용을 입력하세요"></textarea>
+            <div class="flex gap-2">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-2.5 rounded-xl font-bold hover:bg-gray-300 transition" onclick="closeMemoModal()">취소</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-2.5 rounded-xl font-bold hover:brightness-110 transition" onclick="saveMemoAction()">저장</button>
             </div>
         </div>
     </div>
@@ -162,7 +174,11 @@
                 <div class="flex-1"><input type="radio" id="editTypeHubang" name="editGlobalSchType" value="휴방" class="type-radio" onchange="toggleFields('editScheduleModal', 'editGlobalSchType')"><label for="editTypeHubang" class="type-label hubang">휴방</label></div>
             </div>
             <div id="editContainer" class="mb-4"></div>
-            <button class="w-full bg-[#5D4037] text-white py-4 rounded-xl font-bold text-xl hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveEditedSchedule()">수정 완료</button>
+            <div class="flex gap-2">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-4 rounded-xl font-bold text-xl hover:bg-gray-300 transition shadow-md cursor-pointer" onclick="closeEditModal()">취소</button>
+                <button class="flex-1 bg-red-500 text-white py-4 rounded-xl font-bold text-xl hover:bg-red-600 transition shadow-md cursor-pointer" onclick="deleteScheduleAction()">삭제</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-4 rounded-xl font-bold text-xl hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveEditedSchedule()">수정</button>
+            </div>
         </div>
     </div>
 
@@ -184,11 +200,6 @@
             <div class="grid grid-cols-4 gap-3 mb-6" id="pickerMonthGrid"></div>
             <button class="w-full bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold text-lg hover:bg-gray-300 transition cursor-pointer" onclick="closeMonthPicker()">취소</button>
         </div>
-    </div>
-
-    <div id="contextMenu" class="hidden fixed bg-white border-2 border-[#5D4037] rounded-lg shadow-xl z-[6000] w-32 flex-col overflow-hidden">
-        <button class="context-menu-btn text-[#5D4037] border-b border-gray-100 hover:bg-gray-100" onclick="editFromMenu()">수정하기</button>
-        <button class="context-menu-btn text-red-500 hover:bg-gray-100" onclick="deleteFromMenu()">삭제하기</button>
     </div>
 
     <div id="mobileDatePickerModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
