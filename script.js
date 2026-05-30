@@ -47,7 +47,7 @@ window.closeUpPopup = closeUpPopup;
 window.moveLink = moveLink; window.editMemberLink = editMemberLink;
 window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
 window.closeMemoModal = closeMemoModal; window.saveMemoAction = saveMemoAction; window.deleteMemo = deleteMemo;
-window.openSmartLink = openSmartLink;
+window.openSmartLink = openSmartLink; // 스마트 링크 함수 바인딩
 
 // =========================================================================
 // Firebase 초기화 및 변수 선언
@@ -151,38 +151,27 @@ const adminPasswords = {
 function openSmartLink(url) {
     if (!url) return;
     
-    // 모바일 기기 감지 (Android, iOS)
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isAndroid = /Android/i.test(navigator.userAgent);
     
-    // SOOP 또는 아프리카TV 주소 구조 확인
     if (isMobileDevice && (url.includes("sooplive.com") || url.includes("afreecatv.com"))) {
-        let userId = "";
+        // 모바일 웹 URL로 변환 (앱 링크가 더 안정적으로 연결됨)
+        let mobileUrl = url.replace("www.sooplive.com", "m.sooplive.com").replace("www.afreecatv.com", "m.afreecatv.com");
         
-        if (url.includes("/station/")) {
-            userId = url.split("/station/")[1].split("?")[0].split("/")[0];
+        if (isAndroid) {
+            // 안드로이드: Intent 방식으로 SOOP 앱 강제 실행 및 해당 https 링크 전달
+            const fallback = encodeURIComponent(mobileUrl);
+            const intentUrl = `intent://${mobileUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=kr.co.nowcom.mobile.afreeca;S.browser_fallback_url=${fallback};end`;
+            window.location.href = intentUrl;
+            return;
         } else {
-            const parts = url.replace("https://", "").replace("http://", "").split("/");
-            if (parts.length > 1 && parts[1].trim() !== "" && !parts[1].includes("index")) {
-                userId = parts[1].split("?")[0];
-            }
-        }
-        
-        if (userId) {
-            // SOOP 통합 앱 전용 커스텀 스킴 URL 구성
-            const appScheme = `afreeca://afreeca.com/${userId}/open`; 
-            
-            const start = Date.now();
-            window.location.href = appScheme;
-            
-            setTimeout(() => {
-                if (Date.now() - start < 1500) {
-                    window.open(url, '_blank');
-                }
-            }, 1000);
+            // iOS: 유니버셜 링크 트리거를 위해 location.href 사용 (앱 있으면 바로 이동, 없으면 사파리 모바일웹)
+            window.location.href = mobileUrl;
             return;
         }
     }
     
+    // PC 환경이거나 일반 링크는 새 창으로 열기
     window.open(url, '_blank');
 }
 
@@ -976,7 +965,7 @@ function renderMobileHome(grouped) {
         
         html += `
             <div class="flex w-full bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[2.5px] overflow-hidden" style="border-color: ${borderColor}">
-                <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0" style="border-color: ${borderColor}" onclick="window.open('${member.link}', '_blank')">
+                <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0" style="border-color: ${borderColor}" onclick="openSmartLink('${member.link}')">
                     <img src="${member.img}" class="w-full h-full object-cover">
                 </div>
                 <div class="w-1/2 aspect-square p-2 flex flex-col justify-center gap-2 bg-[#FFFDF5] overflow-y-auto" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')">
@@ -1088,7 +1077,7 @@ function renderDesktopHome(grouped) {
             daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
         });
 
-        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" ${member.link ? `onclick="window.open('${member.link}', '_blank')"` : ''}><img src="${member.img}" alt="${member.name}" style="width: 100%; height: 100%; object-fit: cover;"></div><div class="days-container">${daysCellsHtml}</div></div>`;
+        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" ${member.link ? `onclick="openSmartLink('${member.link}')"` : ''}><img src="${member.img}" alt="${member.name}" style="width: 100%; height: 100%; object-fit: cover;"></div><div class="days-container">${daysCellsHtml}</div></div>`;
     });
     content.innerHTML = homeHtml + `</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
