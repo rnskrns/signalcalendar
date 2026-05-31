@@ -117,9 +117,9 @@
             <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi" id="memoModalTitle">메모 추가</h2>
             <input type="date" id="memoDate" class="w-full border-2 border-[#5D4037] rounded-lg p-2 mb-3 text-sm outline-none focus:border-[var(--theme-color)]">
             <textarea id="memoContent" class="w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none h-[120px] resize-none mb-4 text-[15px] font-medium focus:border-[var(--theme-color)]" placeholder="메모 내용을 입력하세요"></textarea>
-            <div class="flex gap-2">
-                <button class="flex-1 bg-gray-200 text-[#5D4037] py-2.5 rounded-xl font-bold hover:bg-gray-300 transition" onclick="closeMemoModal()">취소</button>
-                <button class="flex-1 bg-[#5D4037] text-white py-2.5 rounded-xl font-bold hover:brightness-110 transition" onclick="saveMemoAction()">저장</button>
+            <div class="flex gap-3 w-full">
+                <button type="button" class="flex-1 bg-red-500 text-white py-4 rounded-xl font-bold text-xl hover:bg-red-600 transition shadow-md cursor-pointer" onclick="deleteScheduleAction()">삭제</button>
+                <button type="button" class="flex-1 bg-[#5D4037] text-white py-4 rounded-xl font-bold text-xl hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveEditedSchedule()">저장</button>
             </div>
         </div>
     </div>

@@ -422,12 +422,10 @@ function openRollingTopicFromPopup(id) {
     render();
 }
 
-// ✨ 더보기 메뉴(롤링페이퍼) 변경 반영 ✨
 function renderHeaderTabs() {
     const desktopContainer = document.getElementById('headerNavTabs');
     const mobileNav = document.getElementById('mobileBottomNav');
     
-    // '롤링페이퍼' 탭 대신 '더보기' 탭 추가
     const tabs = ['달타', '서피카', '다룽', '최또', '카나시', '더보기'];
     const colors = { '달타': '#FBC02D', '서피카': '#F06292', '다룽': '#1E88E5', '최또': '#D81B60', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
 
@@ -1057,6 +1055,8 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const timeSize = isMobileCard ? '11px' : '12px'; 
     const titleSize = isMobileCard ? '12px' : '18px';
 
+    const displayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
+
     return `
         <div class="schedule-card ${sch.globalType === '휴방' ? 'hubang' : 'bangon'} h-full flex flex-col justify-center w-full" 
              style="color: ${color}; background-color: ${bgColor}; padding: ${isMobileCard ? '4px' : '4px'}; border-radius: 12px !important; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2) !important;" 
@@ -1066,7 +1066,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
                 <span style="color: ${sch.globalType === '휴방' ? 'inherit' : cardBroadColor};">${broadType}</span><span>${formattedTime}</span>
              </div>
              <div class="flex-1 flex items-center justify-center w-full px-1 py-1">
-                <span class="schedule-text font-paperozi leading-snug" style="font-size: ${titleSize} !important;">${sch.title}</span>
+                <span class="schedule-text font-paperozi leading-snug" style="font-size: ${titleSize} !important;">${displayTitle}</span>
             </div>
         </div>
     `;
@@ -1328,13 +1328,17 @@ function renderMobileHome(grouped) {
         if (daySchedules.length > 0) {
             const isHubang = daySchedules.some(s => s.globalType === '휴방');
             const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
+            
+            // 글로벌 타임 추출 (홈 화면 카드용)
+            const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+            const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
 
             if (isHubang) {
-                schedulesHtml = `<div class="schedule-card hubang h-full flex items-center justify-center w-full overflow-hidden" style="color:#9CA3AF; background-color:#F3F4F6; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="휴방"></div>`;
+                schedulesHtml = `<div class="schedule-card hubang h-full flex items-center justify-center w-full overflow-hidden relative" style="color:#9CA3AF; background-color:#F3F4F6; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="휴방"></div>`;
             } else {
                 const borderColor = rowBorderColors[i];
                 const bgColor = '#FFF5F5';
-                schedulesHtml = `<div class="schedule-card h-full w-full flex items-center justify-center overflow-hidden" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="뱅온"></div>`;
+                schedulesHtml = `<div class="schedule-card h-full w-full flex items-center justify-center overflow-hidden relative" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="뱅온">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${rowBorderColors[i]}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
             }
         } else {
             schedulesHtml = `<div class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50"><span class="text-gray-400 text-[15px] font-bold">일정 없음</span></div>`;
@@ -1394,6 +1398,13 @@ function renderMobileIndividual(grouped) {
 
         const isToday = d.getFullYear() === realToday.getFullYear() && d.getMonth() === realToday.getMonth() && d.getDate() === realToday.getDate();
         
+        let dayGlobalTime = '';
+        if (daySchedules.length > 0) {
+            const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+            if (sWithGlobal) dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
+        }
+        const timeDisplayHtml = dayGlobalTime ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white" style="color: ${isToday ? themeColor : '#5D4037'}">${dayGlobalTime}</span>` : '';
+
         if (!schedulesHtml) {
             schedulesHtml = `<div class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50"><span class="text-gray-400 text-[14px] font-bold">일정 없음</span></div>`;
         }
@@ -1402,7 +1413,8 @@ function renderMobileIndividual(grouped) {
             <div class="flex w-full bg-[#FFFDF5] rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[1.5px] cursor-pointer transition-transform hover:-translate-y-1 min-h-[90px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; color: ${isToday ? themeColor : '#3E2723'}" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')">
                 <div class="w-[75px] shrink-0 flex flex-col items-center justify-center border-r-[1.5px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; background-color: ${isToday ? themeColor : '#ffffff'}; color: ${isToday ? 'white' : 'inherit'}; border-top-left-radius: 10px; border-bottom-left-radius: 10px;">
                     <span class="text-[14px] font-bold mb-0.5 opacity-80">${daysLabel[i]}</span>
-                    <span class="text-[26px] font-bold">${d.getDate()}</span>
+                    <span class="text-[26px] font-bold leading-none">${d.getDate()}</span>
+                    ${timeDisplayHtml}
                 </div>
                 <div class="flex-1 p-2 flex flex-col justify-center gap-2 overflow-y-auto bg-white" style="border-top-right-radius: 10px; border-bottom-right-radius: 10px;">
                     ${schedulesHtml}
@@ -1451,7 +1463,11 @@ function renderDesktopHome(grouped) {
                 const bgColor = isHubang ? '#F3F4F6' : rowBgColors[i];
                 const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
                 
-                schedulesHtml = `<div class="schedule-card w-full h-full flex items-center justify-center overflow-hidden" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 4px;" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" style="border-radius: inherit;" alt="${isHubang ? '휴방' : '뱅온'}"></div>`;
+                // 글로벌 타임 추출
+                const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+                const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
+                
+                schedulesHtml = `<div class="schedule-card w-full h-full flex items-center justify-center overflow-hidden relative" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 4px;" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" style="border-radius: inherit;" alt="${isHubang ? '휴방' : '뱅온'}">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${rowBorderColors[i]}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
             }
             daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
         });
@@ -1466,14 +1482,24 @@ function renderDesktopIndividual(grouped) {
     const content = document.getElementById('mainContent');
     const realToday = new Date();
     const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay(); const startIdx = (firstDay === 0) ? 6 : firstDay - 1; const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    
     const cellsHtml = Array.from({length: 35}, (_, i) => {
         const day = i - startIdx + 1;
         if (day > 0 && day <= daysInMonth) {
             const key = `${currentYear}-${currentMonth}-${day}-${currentPage}`; const daySchedules = grouped[key] || [];
             const schedulesHtml = daySchedules.map(sch => buildScheduleCardHtml(sch, false)).join('');
             const isToday = currentYear === realToday.getFullYear() && currentMonth === realToday.getMonth() + 1 && day === realToday.getDate();
+            
+            let dayGlobalTime = '';
+            if (daySchedules.length > 0) {
+                const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+                if (sWithGlobal) dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
+            }
+            // 월간 달력 일(day) 칸 시간 폰트 색상을 고동색(#5D4037)으로 고정
+            const timeDisplayHtml = dayGlobalTime ? `<span class="text-[13px] font-bold text-[#5D4037]">${dayGlobalTime}</span>` : '';
             const displayDay = isToday ? `<span class="bg-[#5D4037] text-white w-7 h-7 inline-flex items-center justify-center rounded-md">${day}</span>` : `<span>${day}</span>`;
-            return `<div class="big-cell" onclick="handleDayClick(${currentYear}, ${currentMonth}, ${day}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${currentYear}, ${currentMonth}, ${day}, '${currentPage}')"><div class="w-full flex justify-between items-center mb-1 px-1">${displayDay}</div><div class="w-full flex-1 overflow-y-auto schedule-list flex flex-col gap-1">${schedulesHtml}</div></div>`;
+            
+            return `<div class="big-cell" onclick="handleDayClick(${currentYear}, ${currentMonth}, ${day}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${currentYear}, ${currentMonth}, ${day}, '${currentPage}')"><div class="w-full flex justify-between items-center mb-1 px-1">${displayDay}${timeDisplayHtml}</div><div class="w-full flex-1 overflow-y-auto schedule-list flex flex-col gap-1">${schedulesHtml}</div></div>`;
         }
         return `<div class="big-cell cursor-default hover:bg-transparent hover:transform-none hover:shadow-none hover:border-dashed"></div>`;
     }).join('');
@@ -1498,35 +1524,70 @@ async function deleteScheduleAction() {
 }
 
 async function saveSchedule() {
-    const globalType = document.querySelector('input[name="globalSchType"]:checked').value;
+    // 1. 여기서 blocks를 먼저 선언해야 합니다.
+    const blocks = document.querySelectorAll('#scheduleInputsContainer .schedule-input-block');
+    
+    const globalTypeEl = document.querySelector('input[name="globalSchType"]:checked');
+    const globalType = globalTypeEl ? globalTypeEl.value : '';
     const isHubang = globalType === '휴방';
     const memberTab = targetModalContext.member;
     const colName = collectionMap[memberTab];
-    if(!colName) { alert("저장할 멤버 정보가 올바르지 않습니다."); return; }
 
+    // 2. 방송 켜는 시간 데이터 가져오기
+    const gAmpm = document.getElementById('globalAmpm') ? document.getElementById('globalAmpm').innerText : '오후';
+    const gHh = document.getElementById('globalHh') ? document.getElementById('globalHh').value : '';
+    const gMm = document.getElementById('globalMm') ? document.getElementById('globalMm').value : '';
+    const globalStartTime = (globalType === '뱅온' && gHh) ? buildTimeStr(gAmpm, gHh, gMm) : '';
+
+    // 기존 데이터 삭제 로직
     for (let oldId of currentEditingIds) {
         const oldSch = scheduleList.find(s => s.id === oldId);
-        if (oldSch) { try { await deleteDoc(doc(db, oldSch.collectionName, oldId)); } catch(e) {} }
+        if (oldSch) {
+            try { await deleteDoc(doc(db, oldSch.collectionName, oldId)); } catch(e) {}
+        }
     }
     scheduleList = scheduleList.filter(s => !currentEditingIds.includes(s.id));
 
-    const blocks = document.querySelectorAll('#scheduleInputsContainer .schedule-input-block');
+    // 3. 각 블록 순회하며 저장
     for (const block of blocks) {
-        const title = block.querySelector('.sch-title').value.trim();
-        if (title) { 
-            const sDate = block.querySelector('.sch-start').value; const eDate = block.querySelector('.sch-end').value;
-            const ampm = block.querySelector('.sch-ampm').innerText; const hh = block.querySelector('.sch-hh').value; const mm = block.querySelector('.sch-mm').value;
-            const broad = isHubang ? '' : block.querySelector('.sch-broad').value; const mem = isHubang ? '' : block.querySelector('.sch-mem').value.trim();
-            const timeStr = isHubang ? '' : buildTimeStr(ampm, hh, mm); const desc = block.querySelector('.sch-desc').value.trim();
-            const newSchedule = { tabOrMember: memberTab, globalType, title, startDate: sDate, endDate: eDate, time: timeStr, broadType: broad, memberTag: mem, detail: desc };
-            
-            try {
-                const docRef = await addDoc(collection(db, colName), newSchedule);
-                newSchedule.id = docRef.id; newSchedule.collectionName = colName; scheduleList.push(newSchedule);
-            } catch(e) { console.error("저장 오류:", e); }
+        let title = block.querySelector('.sch-title').value.trim();
+        // 제목이 비어있으면 유형에 따라 자동 입력
+        if (!title) {
+            title = isHubang ? '휴방' : '뱅온';
         }
+
+        const sDate = block.querySelector('.sch-start').value;
+        const eDate = block.querySelector('.sch-end').value;
+        const ampm = block.querySelector('.sch-ampm').innerText;
+        const hh = block.querySelector('.sch-hh').value;
+        const mm = block.querySelector('.sch-mm').value;
+        const broad = isHubang ? '' : block.querySelector('.sch-broad').value;
+        const mem = isHubang ? '' : block.querySelector('.sch-mem').value.trim();
+        const timeStr = isHubang ? '' : buildTimeStr(ampm, hh, mm);
+        const desc = block.querySelector('.sch-desc').value.trim();
+
+        const newSchedule = { 
+            tabOrMember: memberTab,
+            globalType,
+            globalStartTime, // 방송 시작 시간 저장
+            title, 
+            startDate: sDate, 
+            endDate: eDate, 
+            time: timeStr, 
+            broadType: broad, 
+            memberTag: mem, 
+            detail: desc,
+            timestamp: Date.now()
+        };
+
+        const docRef = await addDoc(collection(db, colName), newSchedule);
+        newSchedule.id = docRef.id;
+        newSchedule.collectionName = colName;
+        scheduleList.push(newSchedule);
     }
-    closeScheduleModal(); render();
+
+    closeScheduleModal(); 
+    render();
 }
 
 async function saveEditedSchedule() {
@@ -1534,21 +1595,46 @@ async function saveEditedSchedule() {
     const block = document.getElementById('editContainer').querySelector('.schedule-input-block');
     const title = block.querySelector('.sch-title').value.trim();
     if(!title) { alert("일정 제목을 입력해주세요."); return; }
-    const globalType = document.querySelector('input[name="editGlobalSchType"]:checked').value;
+    
+    const globalTypeEl = document.querySelector('input[name="editGlobalSchType"]:checked');
+    const globalType = globalTypeEl ? globalTypeEl.value : '';
     const isHubang = globalType === '휴방';
-    const sDate = block.querySelector('.sch-start').value; const eDate = block.querySelector('.sch-end').value;
-    const ampm = block.querySelector('.sch-ampm').innerText; const hh = block.querySelector('.sch-hh').value; const mm = block.querySelector('.sch-mm').value;
-    const broad = isHubang ? '' : block.querySelector('.sch-broad').value; const mem = isHubang ? '' : block.querySelector('.sch-mem').value.trim();
-    const timeStr = isHubang ? '' : buildTimeStr(ampm, hh, mm); const desc = block.querySelector('.sch-desc').value.trim();
-    const updatedData = { globalType, title, startDate: sDate, endDate: eDate, time: timeStr, broadType: broad, memberTag: mem, detail: desc };
-    const sch = scheduleList.find(s => s.id === contextTargetId); if(!sch) return;
+    
+    const sDate = block.querySelector('.sch-start').value; 
+    const eDate = block.querySelector('.sch-end').value;
+    const ampm = block.querySelector('.sch-ampm').innerText; 
+    const hh = block.querySelector('.sch-hh').value; 
+    const mm = block.querySelector('.sch-mm').value;
+    const broad = isHubang ? '' : block.querySelector('.sch-broad').value; 
+    const mem = isHubang ? '' : block.querySelector('.sch-mem').value.trim();
+    const timeStr = isHubang ? '' : buildTimeStr(ampm, hh, mm); 
+    const desc = block.querySelector('.sch-desc').value.trim();
+    
+    // 업데이트할 데이터 준비
+    const updatedData = { 
+        globalType, title, startDate: sDate, endDate: eDate, 
+        time: timeStr, broadType: broad, memberTag: mem, detail: desc 
+    };
+    
+    const sch = scheduleList.find(s => s.id === contextTargetId);
+    if(!sch) return;
 
     try {
+        // 1. 기존 데이터베이스 문서 직접 업데이트
         await updateDoc(doc(db, sch.collectionName, contextTargetId), updatedData);
+        
+        // 2. 메모리 상의 리스트도 바로 업데이트
         const idx = scheduleList.findIndex(s => s.id === contextTargetId);
-        if(idx !== -1) scheduleList[idx] = { ...scheduleList[idx], ...updatedData };
-        closeEditModal(); render();
-    } catch(e) { console.error("수정 오류:", e); }
+        if(idx !== -1) {
+            scheduleList[idx] = { ...scheduleList[idx], ...updatedData };
+        }
+        
+        closeEditModal(); 
+        render(); // 화면 갱신
+    } catch(e) { 
+        console.error("수정 오류:", e); 
+        alert("저장에 실패했습니다.");
+    }
 }
 
 function formatTime12(timeStr) {
@@ -1571,9 +1657,18 @@ function isDateStrInRange(targetDateStr, startStr, endStr) {
 
 function toggleFields(modalId, radioName) {
     const modal = document.getElementById(modalId); if(!modal) return;
-    const radio = modal.querySelector(`input[name="${radioName}"]:checked`); if (!radio) return;
-    const isHubang = radio.value === '휴방';
+    const radio = modal.querySelector(`input[name="${radioName}"]:checked`);
+    
+    // radio가 해제되어 null일 수 있으므로 방어 코드 추가
+    const isHubang = radio && radio.value === '휴방';
     modal.querySelectorAll('.optional-field').forEach(el => { el.style.display = isHubang ? 'none' : ''; });
+
+    if (modalId === 'scheduleModal') {
+        const globalTimeBlock = document.getElementById('globalTimeBlock');
+        if (globalTimeBlock) {
+            globalTimeBlock.style.display = isHubang ? 'none' : 'block';
+        }
+    }
 }
 
 function handleAdminClick() { if (!isAdmin) openPasswordModal(); }
@@ -1608,8 +1703,13 @@ function handleDayRightClick(event, year, month, day, member) {
 }
 
 function getScheduleFormHTML(data, isDeletable = true) {
-    const id = data.id || ''; const title = data.title || ''; const sDate = data.startDate || ''; const eDate = data.endDate || '';
-    const broad = data.broadType || '개인방송'; const mem = data.memberTag || ''; const desc = data.detail || '';
+    const id = data.id || ''; 
+    const title = data.title || ''; // 기존 데이터가 있다면 유지
+    const sDate = data.startDate || ''; 
+    const eDate = data.endDate || '';
+    const broad = data.broadType || '개인방송'; 
+    const mem = data.memberTag || ''; 
+    const desc = data.detail || '';
     let hh = '', mm = '', ampm = '오후';
     if (data.time) { let [h, m] = data.time.split(':'); h = parseInt(h, 10); ampm = h >= 12 ? '오후' : '오전'; h = h % 12; if (h === 0) h = 12; hh = h; mm = m; }
     
@@ -1618,7 +1718,10 @@ function getScheduleFormHTML(data, isDeletable = true) {
     return `
         <div class="schedule-input-block border-2 border-[#5D4037] p-5 rounded-xl bg-white relative shadow-sm pretendard mt-1">
             ${deleteBtnHtml} <input type="hidden" class="sch-id" value="${id}">
-            <div class="mb-4 pr-8"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목</label><input type="text" class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="일정 제목 입력" value="${title}"></div>
+            <div class="mb-4 pr-8">
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목 (공란 시 자동 입력)</label>
+                <input type="text" class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="일정 제목 입력 (선택)" value="${title}">
+            </div>
             <div class="mb-4"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">날짜</label><div class="flex items-center gap-2"><input type="date" class="sch-start flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${sDate}"><span class="font-bold text-[#5D4037]">~</span><input type="date" class="sch-end flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${eDate}"></div></div>
             <div class="flex gap-4 mb-4 optional-field"><div class="flex-1"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">시간</label><div class="flex items-center justify-between border-2 border-[#5D4037] rounded-lg p-1.5 bg-white"><button type="button" class="sch-ampm ampm-btn px-2.5 py-1 font-bold text-[#5D4037] rounded-md text-[13px]" onclick="toggleAmpm(this)">${ampm}</button><input type="number" min="1" max="12" class="sch-hh w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="시" value="${hh}"><span class="font-bold text-[#5D4037]">:</span><input type="number" min="0" max="59" class="sch-mm w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[15px]" placeholder="분" value="${mm}"></div></div><div class="flex-1"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">유형</label><select class="sch-broad w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] bg-white font-bold text-[#5D4037] cursor-pointer"><option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option><option value="합방" ${broad==='합방'?'selected':''}>합방</option><option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option></select></div></div>
             <div class="mb-4 optional-field"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">멤버</label><input type="text" class="sch-mem w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="멤버 태그 입력 (선택)" value="${mem}"></div>
@@ -1628,19 +1731,58 @@ function getScheduleFormHTML(data, isDeletable = true) {
 }
 
 function openScheduleModal(year, month, day, member) {
-    targetModalContext = { year, month, day, member }; document.getElementById('scheduleModalDate').innerText = `${year}년 ${month}월 ${day}일`;
+    targetModalContext = { year, month, day, member }; 
+    document.getElementById('scheduleModalDate').innerText = `${year}년 ${month}월 ${day}일`;
     const targetDateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const targets = scheduleList.filter(s => s.tabOrMember === member && isDateStrInRange(targetDateStr, s.startDate, s.endDate));
-    currentEditingIds = targets.map(t => t.id); const container = document.getElementById('scheduleInputsContainer'); container.innerHTML = '';
+    currentEditingIds = targets.map(t => t.id); 
     
+    const container = document.getElementById('scheduleInputsContainer'); 
+    container.innerHTML = '';
+    
+    // 1. 방송 켜는 시간(글로벌 타임) 블록 확인 및 생성
+    let globalTimeBlock = document.getElementById('globalTimeBlock');
+    if (!globalTimeBlock) {
+        // 모달 내 적절한 위치(컨테이너 상단)에 생성
+        globalTimeBlock = document.createElement('div');
+        globalTimeBlock.id = 'globalTimeBlock';
+        globalTimeBlock.className = 'mb-4 p-4 rounded-xl border-2 border-[#5D4037] bg-[#FFFDF5] shadow-sm';
+        globalTimeBlock.innerHTML = `
+            <label class="block text-[14px] text-[#5D4037] font-bold mb-2">방송 켜는 시간 (선택)</label>
+            <div class="flex items-center gap-2">
+                <button type="button" id="globalAmpm" class="px-3 py-1.5 font-bold text-white bg-[#5D4037] rounded-md text-[14px]" onclick="toggleAmpm(this)">오후</button>
+                <input type="number" min="1" max="12" id="globalHh" class="w-[50px] p-1.5 border-2 border-[#5D4037] rounded-md text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="시">
+                <span class="font-bold text-[#5D4037]">:</span>
+                <input type="number" min="0" max="59" id="globalMm" class="w-[50px] p-1.5 border-2 border-[#5D4037] rounded-md text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="분">
+            </div>
+        `;
+        container.parentNode.insertBefore(globalTimeBlock, container);
+    }
+
+    // 2. 초기값 설정
+    document.getElementById('globalHh').value = '';
+    document.getElementById('globalMm').value = '';
+    document.getElementById('globalAmpm').innerText = '오후';
+
+    // 3. 기존 데이터가 있다면 값 채우기
     if (targets.length > 0) {
-        document.querySelector(`input[name="globalSchType"][value="${targets[0].globalType}"]`).checked = true;
+        const first = targets[0];
+        document.querySelectorAll('input[name="globalSchType"]').forEach(r => r.checked = (r.value === first.globalType));
+        if (first.globalStartTime) {
+            const [hh, mm] = first.globalStartTime.split(':');
+            let h = parseInt(hh, 10);
+            document.getElementById('globalAmpm').innerText = h >= 12 ? '오후' : '오전';
+            document.getElementById('globalHh').value = h % 12 === 0 ? 12 : h % 12;
+            document.getElementById('globalMm').value = mm;
+        }
         targets.forEach(t => container.insertAdjacentHTML('beforeend', getScheduleFormHTML(t, true)));
     } else {
         document.querySelector('input[name="globalSchType"][value="뱅온"]').checked = true;
         container.insertAdjacentHTML('beforeend', getScheduleFormHTML({ startDate: targetDateStr, endDate: targetDateStr }, true));
     }
-    document.getElementById('scheduleModal').classList.replace('hidden', 'flex'); toggleFields('scheduleModal', 'globalSchType');
+    
+    document.getElementById('scheduleModal').classList.replace('hidden', 'flex'); 
+    toggleFields('scheduleModal', 'globalSchType');
 }
 
 function addScheduleInputBlock() {
@@ -1651,11 +1793,33 @@ function addScheduleInputBlock() {
 function closeScheduleModal() { document.getElementById('scheduleModal').classList.replace('flex', 'hidden'); }
 
 function editFromMenu() {
-    if(!contextTargetId) return; const sch = scheduleList.find(s => s.id === contextTargetId); if(!sch) return;
+    if(!contextTargetId) return; 
+    const sch = scheduleList.find(s => s.id === contextTargetId); 
+    if(!sch) return;
+    
     document.querySelector(`input[name="editGlobalSchType"][value="${sch.globalType}"]`).checked = true;
     document.getElementById('editContainer').innerHTML = getScheduleFormHTML(sch, false);
-    document.getElementById('editScheduleModal').classList.replace('hidden', 'flex'); toggleFields('editScheduleModal', 'editGlobalSchType');
+    document.getElementById('editScheduleModal').classList.replace('hidden', 'flex'); 
+    toggleFields('editScheduleModal', 'editGlobalSchType');
+
+    // 🔥 HTML 수정 없이 JS에서 강제로 팝업 하단 버튼을 2개(삭제/저장)로 변경합니다.
+    const editModal = document.getElementById('editScheduleModal');
+    // 기존 버튼들이 담긴 컨테이너를 찾습니다.
+    const btnContainer = editModal.querySelector('.flex.gap-2') || editModal.querySelector('.flex.gap-3');
+    
+    if (btnContainer) {
+        btnContainer.className = "flex gap-3 w-full mt-2"; // 간격과 너비 재조정
+        btnContainer.innerHTML = `
+            <button type="button" onclick="deleteScheduleAction()" class="flex-1 bg-red-500 text-white font-bold text-[18px] py-4 rounded-xl hover:bg-red-600 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
+                삭제
+            </button>
+            <button type="button" onclick="saveEditedSchedule()" class="flex-1 bg-[#5D4037] text-white font-bold text-[18px] py-4 rounded-xl hover:brightness-110 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
+                저장
+            </button>
+        `;
+    }
 }
+
 function closeEditModal() { document.getElementById('editScheduleModal').classList.replace('flex', 'hidden'); contextTargetId = null; }
 
 function renderSchedulesInModal(schedules, y, m, d, member) {
@@ -1716,6 +1880,24 @@ document.addEventListener('selectstart', event => event.preventDefault());
 document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'u')) {
         e.preventDefault();
+    }
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.name === 'globalSchType' || e.target.name === 'editGlobalSchType') {
+        const modalId = e.target.name === 'globalSchType' ? 'scheduleModal' : 'editScheduleModal';
+        
+        // 이전에 체크된 상태였으면 체크 해제
+        if (e.target.dataset.wasChecked === 'true') {
+            e.target.checked = false;
+            e.target.dataset.wasChecked = 'false';
+        } else {
+            // 다른 요소들은 체크 해제 상태로 변경
+            document.querySelectorAll(`input[name="${e.target.name}"]`).forEach(radio => radio.dataset.wasChecked = 'false');
+            e.target.dataset.wasChecked = 'true';
+        }
+        
+        toggleFields(modalId, e.target.name);
     }
 });
 
