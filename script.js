@@ -147,7 +147,7 @@ let dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
 let upLinksList = [];
 
 const adminAccounts = { 
-    'dalta20@naver.com': { name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
+    'dalta0127@naver.com': { name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
     'real_email2@naver.com': { name: '서피카', img: 'https://stimg.sooplive.com/LOGO/sp/spica21/spica21.jpg' },
     'daarung22@naver.com': { name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
     'choiagain333@naver.com': { name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
