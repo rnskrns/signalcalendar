@@ -1,12 +1,38 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 // =========================================================================
-// 앱 아이콘(파비콘 및 애플 터치 아이콘) 동적 설정
+// PC 해상도 자동 스케일링 (2560px 기준)
 // =========================================================================
+function adjustDesktopScale() {
+    const currentWidth = window.innerWidth;
+    
+    // 1024px 초과 (PC 화면)일 때만 적용
+    if (currentWidth > 1024) {
+        const designWidth = 2560; // 기준 해상도
+        let scaleRatio = currentWidth / designWidth;
+        
+        // 창을 2560보다 크게 늘렸을 때 무한정 커지는 것을 방지 (최대 1배)
+        scaleRatio = Math.min(scaleRatio, 1);
+        
+        document.body.style.zoom = scaleRatio;
+    } else {
+        // 모바일 해상도일 때는 100% 원래 배율로 복구
+        document.body.style.zoom = 1;
+    }
+}
+
+// =========================================================================
+// 공통 헬퍼 함수
+// =========================================================================
+function getTodayYYYYMMDD() {
+    const now = new Date();
+    const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    return kstTime.toISOString().split('T')[0];
+}
+
 function setAppIcon() {
     const iconUrl = "https://i.postimg.cc/wjrJrQ0c/A1EAA0.png";
-    
     let linkIcon = document.querySelector("link[rel~='icon']");
     if (!linkIcon) {
         linkIcon = document.createElement('link');
@@ -14,7 +40,6 @@ function setAppIcon() {
         document.head.appendChild(linkIcon);
     }
     linkIcon.href = iconUrl;
-
     let appleIcon = document.querySelector("link[rel='apple-touch-icon']");
     if (!appleIcon) {
         appleIcon = document.createElement('link');
@@ -48,6 +73,15 @@ window.moveLink = moveLink; window.editMemberLink = editMemberLink;
 window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
 window.closeMemoModal = closeMemoModal; window.saveMemoAction = saveMemoAction; window.deleteMemo = deleteMemo;
 window.openSmartLink = openSmartLink;
+
+window.openRollingTopicModal = openRollingTopicModal; window.closeRollingTopicModal = closeRollingTopicModal; window.saveRollingTopic = saveRollingTopic;
+window.deleteRollingTopic = deleteRollingTopic; window.openRollingTopic = openRollingTopic; window.closeRollingTopic = closeRollingTopic;
+window.openRollingEntryModal = openRollingEntryModal; window.closeRollingEntryModal = closeRollingEntryModal; window.openEditRollingEntryModal = openEditRollingEntryModal;
+window.saveRollingEntry = saveRollingEntry; window.deleteRollingEntry = deleteRollingEntry; window.openRollingDetailModal = openRollingDetailModal;
+window.closeRollingDetailModal = closeRollingDetailModal; window.navigateRollingDetail = navigateRollingDetail; window.openRollingTopicFromMenu = openRollingTopicFromMenu;
+window.openRollingTopicFromPopup = openRollingTopicFromPopup;
+
+window.openInfoModal = openInfoModal; window.closeInfoModal = closeInfoModal; window.updateUserInfo = updateUserInfo;
 
 // =========================================================================
 // Firebase 초기화 및 변수 선언
@@ -84,38 +118,28 @@ let homeTargetDate = new Date();
 let individualTargetDate = new Date(); 
 let datePickerCurrentDate = new Date();
 
-// ✨ 탭 이름 ↔ URL 해시(Hash) 변환 맵핑 ✨
-const tabToHash = {
-    '홈': 'home',
-    '달타': 'dalta',
-    '서피카': 'seopica',
-    '다룽': 'darung',
-    '최또': 'choiagain',
-    '카나시': 'kanashi'
-};
+let rollingTopics = [];
+let rollingEntries = [];
+let currentRollingTopic = null; 
+let currentTopicEntries = [];
+let currentEntryIndex = 0;
+let editRollingEntryId = null;
 
-const hashToTab = {
-    '#home': '홈',
-    '#dalta': '달타',
-    '#seopica': '서피카',
-    '#darung': '다룽',
-    '#choiagain': '최또',
-    '#kanashi': '카나시'
-};
+const tabToHash = { '홈': 'home', '달타': 'dalta', '서피카': 'seopica', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', '롤링페이퍼': 'rolling' };
+const hashToTab = { '#home': '홈', '#dalta': '달타', '#seopica': '서피카', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', '#rolling': '롤링페이퍼' };
 
+// ✨ 해상도 변경 감지 (비율 조정 및 모바일 레이아웃 전환)
 window.addEventListener('resize', () => {
+    adjustDesktopScale(); // 화면 크기 변할 때마다 비율 재계산
+    
     const wasMobile = isMobile;
     isMobile = window.innerWidth <= 1024;
     if (wasMobile !== isMobile) {
-        sidePanelMode = null; 
-        closeSidePanel(true);
-        renderHeaderTabs();
-        render();
+        sidePanelMode = null; closeSidePanel(true); renderHeaderTabs(); render();
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '서피카': '#F06292', '다룽': '#1E88E5', '최또': '#D81B60', '카나시': '#F57C00' };
-
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '서피카': '#F06292', '다룽': '#1E88E5', '최또': '#D81B60', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '서피카': 'SEOPICAevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '서피카': 'seopicamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -146,32 +170,32 @@ const defaultMemberLinks = {
 let dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
 let upLinksList = [];
 
-const adminAccounts = { 
-    'dalta0127@naver.com': { name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
-    'real_email2@naver.com': { name: '서피카', img: 'https://stimg.sooplive.com/LOGO/sp/spica21/spica21.jpg' },
-    'daarung22@naver.com': { name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
-    'choiagain333@naver.com': { name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
-    'jhh0029@naver.com': { name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' },
-    'rnskrns@naver.com': { name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' },
-    'jkolpc@naver.com': { name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' }
-};
-
-const adminPasswords = {
-    '0820': { name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
-    '0221': { name: '서피카', img: 'https://stimg.sooplive.com/LOGO/sp/spica21/spica21.jpg' },
-    '1128': { name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
-    '1030': { name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
-    '0123': { name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' }
-};
-
 function openSmartLink(url) {
     if (!url) return;
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobileDevice) {
-        window.location.href = url;
-    } else {
-        window.open(url, '_blank');
-    }
+    if (isMobileDevice) { window.location.href = url; } else { window.open(url, '_blank'); }
+}
+
+async function seedAdmins() {
+    try {
+        const snap = await getDocs(collection(db, 'admins'));
+        if (snap.empty) {
+            console.log("관리자 데이터 초기화 중...");
+            const defaultAdmins = [
+                { id: 'dalta', pw: '08201007', email: 'dalta0127@naver.com', name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
+                { id: 'seopica', pw: '02211028', email: 'real_email2@naver.com', name: '서피카', img: 'https://stimg.sooplive.com/LOGO/sp/spica21/spica21.jpg' },
+                { id: 'darung', pw: '11281106', email: 'daarung22@naver.com', name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
+                { id: 'choiagain', pw: '10300628', email: 'choiagain333@naver.com', name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
+                { id: 'kanashu', pw: '01230607', email: 'jhh0029@naver.com', name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' },
+                { id: '', pw: '', email: 'rnskrns@naver.com', name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' },
+                { id: '', pw: '', email: 'jkolpc@naver.com', name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' }
+            ];
+            for (const admin of defaultAdmins) {
+                await addDoc(collection(db, 'admins'), admin);
+            }
+            console.log("관리자 데이터 세팅 완료");
+        }
+    } catch(e) { console.error("관리자 시드 생성 실패:", e); }
 }
 
 function initNaverLogin() {
@@ -185,18 +209,22 @@ function initNaverLogin() {
             });
             naverLogin.init();
             
-            naverLogin.getLoginStatus(function (status) {
+            naverLogin.getLoginStatus(async function (status) {
                 if (status) {
                     const userEmail = naverLogin.user.getEmail();
-                    if (adminAccounts[userEmail]) {
+                    const q = query(collection(db, "admins"), where("email", "==", userEmail));
+                    const querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                        const adminData = querySnapshot.docs[0].data();
                         isAdmin = true;
-                        loggedInUser = adminAccounts[userEmail];
+                        loggedInUser = { docId: querySnapshot.docs[0].id, ...adminData };
                         sessionStorage.setItem('isAdmin', 'true');
                         sessionStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
                         updateLoginUI(loggedInUser);
                         closePasswordModal();
                     } else {
-                        alert("관리자 권한이 없는 계정입니다.");
+                        alert("관리자 권한이 등록되지 않은 네이버 계정입니다.");
                         naverLogin.logout();
                     }
                 }
@@ -205,12 +233,78 @@ function initNaverLogin() {
     } catch(e) { console.error("Naver Login Init Error:", e); }
 }
 
+async function checkPassword() {
+    const inputId = document.getElementById('idInput').value.trim();
+    const inputPw = document.getElementById('pwInput').value;
+
+    if(!inputId || !inputPw) return alert("아이디와 비밀번호를 모두 입력해주세요.");
+
+    try {
+        const q = query(collection(db, "admins"), where("id", "==", inputId));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const adminData = querySnapshot.docs[0].data();
+            if (adminData.pw === inputPw) {
+                isAdmin = true;
+                loggedInUser = { docId: querySnapshot.docs[0].id, ...adminData };
+                sessionStorage.setItem('isAdmin', 'true');
+                sessionStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                
+                updateLoginUI(loggedInUser);
+                alert(`${adminData.name}님 환영합니다!`); 
+                document.getElementById('idInput').value = '';
+                document.getElementById('pwInput').value = ''; 
+                closePasswordModal();
+            } else {
+                alert('비밀번호가 일치하지 않습니다.');
+                document.getElementById('pwInput').value = '';
+            }
+        } else {
+            alert('존재하지 않는 아이디입니다.');
+        }
+    } catch (e) { console.error("로그인 에러:", e); }
+}
+
+function openInfoModal() {
+    if (!loggedInUser) return;
+    document.getElementById('infoEmail').value = loggedInUser.email || '';
+    document.getElementById('infoPw').value = ''; 
+    document.getElementById('infoModal').classList.replace('hidden', 'flex');
+    
+    ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
+        const pMenu = document.getElementById(id);
+        if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
+    });
+}
+
+function closeInfoModal() {
+    document.getElementById('infoModal').classList.replace('flex', 'hidden');
+}
+
+async function updateUserInfo() {
+    const newEmail = document.getElementById('infoEmail').value.trim();
+    const newPw = document.getElementById('infoPw').value;
+    
+    if (!loggedInUser || !loggedInUser.docId) return;
+
+    try {
+        const updateData = { email: newEmail };
+        if (newPw) { updateData.pw = newPw; }
+        
+        await updateDoc(doc(db, "admins", loggedInUser.docId), updateData);
+        alert("정보가 성공적으로 변경되었습니다. 안전을 위해 다시 로그인해주세요.");
+        closeInfoModal();
+        logoutAdmin(); 
+    } catch (e) {
+        console.error("정보 업데이트 실패:", e);
+        alert("수정에 실패했습니다.");
+    }
+}
+
 async function loadLinksFromFirebase() {
     try {
-        const now = new Date();
-        const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-        const todayYYYYMMDD = kstTime.toISOString().split('T')[0];
-
+        const todayYYYYMMDD = getTodayYYYYMMDD();
         const upSnap = await getDocs(collection(db, 'uplinks'));
         upLinksList = [];
         
@@ -244,25 +338,26 @@ async function loadLinksFromFirebase() {
             dynamicLinks = dbLinks;
         }
         renderHeaderTabs();
-        checkAndShowPopup(todayYYYYMMDD);
     } catch(e) { console.error("링크 로드 실패:", e); }
 }
 
 function checkAndShowPopup(today) {
     const lastClosed = localStorage.getItem('upPopupClosedDate');
-    if (lastClosed !== today && upLinksList.length > 0) {
-        showUpPopup();
+    const activeTopics = rollingTopics.filter(t => t.date >= today);
+    if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0)) {
+        showUpPopup(today);
     }
 }
 
-function showUpPopup() {
+function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
-    list.innerHTML = upLinksList.map(up => {
+    
+    let upHtml = upLinksList.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
         return `
-        <div class="border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-gray-50 flex flex-col gap-1" style="border-color:${theme}" onclick="openSmartLink('${up.url}')">
-            <div class="font-bold text-[17px] mb-2 text-gray-800 break-words leading-snug">${up.title}</div>
+        <div class="border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-gray-50 flex flex-col gap-1 shrink-0" style="border-color:${theme}" onclick="openSmartLink('${up.url}')">
+            <div class="font-bold text-[15px] mb-2 text-gray-800 break-words leading-snug">${up.title}</div>
             <div class="flex justify-between items-end">
                 <span class="text-[12px] font-bold text-white px-2.5 py-1 rounded-md" style="background-color: ${theme}">${up.member}</span>
                 <span class="text-[12px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${up.deadline ? '마감: ' + up.deadline : '마감일 없음'}</span>
@@ -270,23 +365,71 @@ function showUpPopup() {
         </div>
         `;
     }).join('');
+
+    const activeTopics = rollingTopics.filter(t => t.date >= today);
+    let rollingHtml = activeTopics.map(topic => {
+        return `
+        <div class="border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-purple-50 flex flex-col gap-1 shrink-0" style="border-color:#8B5CF6" onclick="openRollingTopicFromPopup('${topic.id}')">
+            <div class="font-bold text-[15px] mb-2 text-gray-800 break-words leading-snug">${topic.title}</div>
+            <div class="flex justify-between items-end">
+                <span class="text-[12px] font-bold text-white px-2.5 py-1 rounded-md bg-[#8B5CF6]">진행중</span>
+                <span class="text-[12px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">마감: ${topic.date}</span>
+            </div>
+        </div>
+        `;
+    }).join('');
+
+    if(!upHtml) upHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">등록된 UP 링크가 없습니다.</div>`;
+    if(!rollingHtml) rollingHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">진행중인 롤링페이퍼가 없습니다.</div>`;
+
+    list.innerHTML = `
+        <div class="flex flex-col md:flex-row gap-6 w-full">
+            <div class="flex-1 flex flex-col w-full md:w-1/2">
+                <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2">
+                    <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+                </div>
+                <div class="overflow-y-auto modal-scroll max-h-[350px] pr-2 flex flex-col">
+                    ${upHtml}
+                </div>
+            </div>
+            
+            <div class="hidden md:block border-l-2 border-dashed border-gray-300 my-2"></div>
+            
+            <div class="flex-1 flex flex-col w-full md:w-1/2">
+                <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2">
+                    <i class="fi fi-rr-envelope"></i> 롤링페이퍼
+                </div>
+                <div class="overflow-y-auto modal-scroll max-h-[350px] pr-2 flex flex-col">
+                    ${rollingHtml}
+                </div>
+            </div>
+        </div>
+    `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
 }
 
-function closeUpPopup() {
-    if (document.getElementById('noMorePopup').checked) {
-        const now = new Date();
-        const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-        localStorage.setItem('upPopupClosedDate', kstTime.toISOString().split('T')[0]);
+function closeUpPopup(forceClose = false) {
+    if (!forceClose && document.getElementById('noMorePopup').checked) {
+        localStorage.setItem('upPopupClosedDate', getTodayYYYYMMDD());
     }
     document.getElementById('upPopupOverlay').classList.add('hidden');
 }
 
+function openRollingTopicFromPopup(id) {
+    closeUpPopup(true); 
+    if (currentPage !== '롤링페이퍼') changeTab('롤링페이퍼');
+    currentRollingTopic = rollingTopics.find(t => t.id === id);
+    render();
+}
+
+// ✨ 더보기 메뉴(롤링페이퍼) 변경 반영 ✨
 function renderHeaderTabs() {
     const desktopContainer = document.getElementById('headerNavTabs');
     const mobileNav = document.getElementById('mobileBottomNav');
-    const tabs = ['달타', '서피카', '다룽', '최또', '카나시'];
-    const colors = { '달타': '#FBC02D', '서피카': '#F06292', '다룽': '#1E88E5', '최또': '#D81B60', '카나시': '#F57C00' };
+    
+    // '롤링페이퍼' 탭 대신 '더보기' 탭 추가
+    const tabs = ['달타', '서피카', '다룽', '최또', '카나시', '더보기'];
+    const colors = { '달타': '#FBC02D', '서피카': '#F06292', '다룽': '#1E88E5', '최또': '#D81B60', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
 
     if (desktopContainer) {
         let html = `
@@ -297,17 +440,29 @@ function renderHeaderTabs() {
         
         tabs.forEach(tab => {
             const hoverColor = colors[tab];
-            const links = dynamicLinks[tab] || [];
-            let dropdownHtml = links.map(link => `
-                <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">${link.title}</a>
-            `).join('');
+            let dropdownHtml = '';
+            let mainLinkHtml = '';
+            let btnContent = tab;
+            let clickAction = `onclick="executeDesktopTabChange('${tab}')"`;
+            
+            if (tab === '더보기') {
+                btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
+                clickAction = ''; 
+                mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">롤링페이퍼</a>`;
+            } else {
+                const links = dynamicLinks[tab] || [];
+                mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors border-b border-gray-100 text-center">일정표</a>`;
+                dropdownHtml = links.map(link => `
+                    <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">${link.title}</a>
+                `).join('');
+            }
             
             html += `
-                <div class="relative group">
-                    <button class="font-paperozi px-5 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200" onclick="executeDesktopTabChange('${tab}')">${tab}</button>
-                    <div class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-32 hidden group-hover:block z-[2000]">
+                <div class="relative group flex items-center">
+                    <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
+                    <div class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
                         <div class="bg-white flex flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden py-1">
-                            <a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors border-b border-gray-100 text-center">일정표</a>
+                            ${mainLinkHtml}
                             ${dropdownHtml}
                         </div>
                     </div>
@@ -320,12 +475,14 @@ function renderHeaderTabs() {
     if (mobileNav) {
         let mHtml = '';
         ['홈', ...tabs].forEach(tab => {
-            const isActive = currentPage === tab;
+            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기');
             const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
             let contentHtml = '';
             
             if (tab === '홈') {
                 contentHtml = `<i class="fi fi-rr-home text-[24px] transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}"></i>`;
+            } else if (tab === '더보기') {
+                contentHtml = `<i class="fi fi-rr-menu-dots text-[24px] mt-1 transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}"></i>`;
             } else {
                 contentHtml = `<span class="text-[16px] font-bold font-paperozi transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}">${tab}</span>`;
             }
@@ -344,18 +501,22 @@ function openMobileTabMenu(tab) {
     if (tab === '홈') { executeDesktopTabChange('홈'); return; }
     const overlay = document.getElementById('mobileTabMenuOverlay');
     const container = document.getElementById('mobileTabMenuContainer');
-    const color = themeColors[tab];
+    const color = themeColors[tab === '더보기' ? '롤링페이퍼' : tab];
 
     let html = `
         <div class="flex flex-col gap-2 relative">
-            <div class="text-center font-bold text-[18px] mb-2 font-paperozi" style="color: ${color}">${tab} 메뉴</div>
-            <button onclick="executeMobileTabChange('${tab}')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">일정표 보기</button>
+            <div class="text-center font-bold text-[18px] mb-2 font-paperozi" style="color: ${color}">${tab === '더보기' ? '더보기' : tab + ' 메뉴'}</div>
     `;
     
-    const links = dynamicLinks[tab] || [];
-    links.forEach(l => {
-        html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
-    });
+    if (tab === '더보기') {
+        html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">롤링페이퍼</button>`;
+    } else {
+        html += `<button onclick="executeMobileTabChange('${tab}')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">일정표 보기</button>`;
+        const links = dynamicLinks[tab] || [];
+        links.forEach(l => {
+            html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
+        });
+    }
     html += `</div>`;
     container.innerHTML = html;
     
@@ -375,6 +536,13 @@ function closeMobileTabMenu() {
     setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('block'); }, 200);
 }
 
+function openRollingTopicFromMenu(id) {
+    closeMobileTabMenu();
+    if (currentPage !== '롤링페이퍼') changeTab('롤링페이퍼');
+    currentRollingTopic = rollingTopics.find(t => t.id === id);
+    render();
+}
+
 function executeDesktopTabChange(tab) { changeTab(tab); }
 function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }
 
@@ -390,6 +558,7 @@ function updateLoginUI(user) {
                 </div>
                 <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
                     <button onclick="openLinkModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">링크관리</button>
+                    <button onclick="openInfoModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">정보관리</button>
                     <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
             </div>
@@ -404,6 +573,7 @@ function updateLoginUI(user) {
                 </div>
                 <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
                     <button onclick="openLinkModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">링크관리</button>
+                    <button onclick="openInfoModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">정보관리</button>
                     <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
             </div>
@@ -731,6 +901,16 @@ function renderUpLinksPanel() {
     `;
 }
 
+function sortRollingTopics() {
+    const todayDate = new Date(getTodayYYYYMMDD()).getTime();
+    rollingTopics.sort((a, b) => {
+        const diffA = Math.abs(new Date(a.date).getTime() - todayDate);
+        const diffB = Math.abs(new Date(b.date).getTime() - todayDate);
+        if (diffA === diffB) return (b.timestamp || 0) - (a.timestamp || 0);
+        return diffA - diffB;
+    });
+}
+
 async function loadSchedulesFromFirebase() {
     try {
         const eventPromises = Object.entries(collectionMap).map(([member, colName]) => getDocs(collection(db, colName)).then(snapshot => ({ type: 'event', member, colName, snapshot })));
@@ -756,26 +936,28 @@ async function loadSchedulesFromFirebase() {
             memoList[m].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
 
+        const topicSnap = await getDocs(collection(db, 'rollingTopics'));
+        rollingTopics = [];
+        topicSnap.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
+        sortRollingTopics();
+
+        const entrySnap = await getDocs(collection(db, 'rollingEntries'));
+        rollingEntries = [];
+        entrySnap.forEach(doc => rollingEntries.push({ id: doc.id, ...doc.data() }));
+        rollingEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        renderHeaderTabs(); 
         render();
     } catch (e) { console.error("데이터 불러오기 실패:", e); }
 }
 
-// ✨ 탭을 변경할 때 주소창 해시(Hash)도 변경하도록 수정 ✨
 function changeTab(tabName) { 
     currentPage = tabName; 
-    
-    // 주소창 업데이트 (예: #home, #dalta 등)
-    if (tabToHash[tabName]) {
-        window.location.hash = tabToHash[tabName];
-    }
+    if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
     
     if (!isMobile) {
-        if(tabName === '홈') {
-            sidePanelMode = 'UP';
-            openSidePanel('UP');
-        } else {
-            closeSidePanel(true);
-        }
+        if(tabName === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
+        else { closeSidePanel(true); }
     } else {
         closeSidePanel(true);
     }
@@ -891,7 +1073,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '서피카': '#FFF5F9', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '서피카': '#FFF5F9', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF' };
     document.body.style.backgroundColor = tabBackgrounds[currentPage] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', themeColors[currentPage]);
     
@@ -900,12 +1082,22 @@ function render() {
     
     const mobileUpBtnHtml = `<button onclick="toggleUpPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-arrow-up-right"></i> UP</button>`;
     const mobileMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-edit"></i> 메모</button>`;
-
     const desktopUpBtnHtml = `<button onclick="toggleUpPanel()" class="px-6 py-2.5 bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-gray-200"><i class="fi fi-rr-arrow-up-right"></i> UP</button>`;
     const desktopMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="px-6 py-2.5 bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-gray-200"><i class="fi fi-rr-edit"></i> 메모</button>`;
 
-    if (mBtnContainer) mBtnContainer.innerHTML = (currentPage === '홈') ? mobileUpBtnHtml : mobileMemoBtnHtml;
-    if (dBtnContainer) dBtnContainer.innerHTML = (currentPage === '홈') ? desktopUpBtnHtml : desktopMemoBtnHtml;
+    const mobileRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-3 py-[6px] bg-purple-100 text-purple-700 font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-purple-300 hover:bg-purple-200"><i class="fi fi-br-plus"></i> 주제추가</button>` : '';
+    const desktopRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-6 py-2.5 bg-purple-50 text-purple-700 font-bold rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-purple-200"><i class="fi fi-br-plus"></i> 주제 추가</button>` : '';
+
+    if (mBtnContainer) {
+        if (currentPage === '홈') mBtnContainer.innerHTML = mobileUpBtnHtml;
+        else if (currentPage === '롤링페이퍼') mBtnContainer.innerHTML = mobileRollingBtnHtml; 
+        else mBtnContainer.innerHTML = mobileMemoBtnHtml;
+    }
+    if (dBtnContainer) {
+        if (currentPage === '홈') dBtnContainer.innerHTML = desktopUpBtnHtml;
+        else if (currentPage === '롤링페이퍼') dBtnContainer.innerHTML = desktopRollingBtnHtml; 
+        else dBtnContainer.innerHTML = desktopMemoBtnHtml;
+    }
     
     const content = document.getElementById('mainContent'); if(!content) return; content.innerHTML = '';
     
@@ -919,13 +1111,195 @@ function render() {
         }
     });
 
-    if (isMobile) {
-        if (currentPage === '홈') renderMobileHome(grouped);
-        else renderMobileIndividual(grouped);
+    if (currentPage === '롤링페이퍼') {
+        renderRollingPaper();
     } else {
-        if (currentPage === '홈') renderDesktopHome(grouped);
-        else renderDesktopIndividual(grouped);
+        if (isMobile) {
+            if (currentPage === '홈') renderMobileHome(grouped);
+            else renderMobileIndividual(grouped);
+        } else {
+            if (currentPage === '홈') renderDesktopHome(grouped);
+            else renderDesktopIndividual(grouped);
+        }
     }
+}
+
+function renderRollingPaper() {
+    const content = document.getElementById('mainContent');
+    const bgClass = isMobile ? 'p-4' : 'p-10';
+    let html = `<div class="big-white-box relative theme-rolling" style="min-height: 1200px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">`;
+    const todayStr = getTodayYYYYMMDD();
+
+    if (!currentRollingTopic) {
+        html += `
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi">롤링페이퍼 주제 목록</h2>
+            </div>
+            <div class="flex flex-wrap justify-start gap-6">
+        `;
+        rollingTopics.forEach(topic => {
+            const isExpired = topic.date < todayStr;
+            const badgeHtml = isExpired 
+                ? `<span class="bg-gray-400 text-white text-[12px] px-2 py-1 rounded font-bold mr-2 align-middle">마감</span>` 
+                : `<span class="bg-[#8B5CF6] text-white text-[12px] px-2 py-1 rounded font-bold mr-2 align-middle">진행중</span>`;
+            
+            html += `
+                <div class="w-full md:w-[calc(50%-0.75rem)] max-w-[850px] min-h-[200px] flex flex-col justify-center bg-white border-[3px] border-[#5D4037] rounded-2xl p-10 cursor-pointer shadow-[4px_4px_0px_0px_rgba(93,64,55,1)] hover:-translate-y-1 transition group relative" onclick="openRollingTopic('${topic.id}')">
+                    ${isAdmin ? `<button onclick="event.stopPropagation(); deleteRollingTopic('${topic.id}')" class="absolute top-5 right-5 text-red-500 hover:text-red-700 p-1 opacity-0 group-hover:opacity-100 transition"><i class="fi fi-br-cross-small text-2xl"></i></button>` : ''}
+                    <div class="text-[24px] font-bold text-[#5D4037] mb-4 font-paperozi line-clamp-2">${badgeHtml}${topic.title}</div>
+                    <div class="text-gray-500 font-bold text-[17px]">${topic.date}</div>
+                </div>
+            `;
+        });
+        if(rollingTopics.length === 0) html += `<div class="w-full text-center text-gray-400 font-bold py-16 text-lg">생성된 롤링페이퍼 주제가 없습니다.</div>`;
+        html += `</div>`;
+    } else {
+        currentTopicEntries = rollingEntries.filter(e => e.topicId === currentRollingTopic.id);
+        const isExpired = currentRollingTopic.date < todayStr;
+        const actionBtn = isExpired 
+            ? `<button class="px-6 py-3 bg-gray-400 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(156,163,175,1)] cursor-not-allowed font-paperozi text-lg shrink-0" onclick="alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 없습니다.')"><i class="fi fi-rr-lock"></i> 마감됨</button>`
+            : `<button onclick="openRollingEntryModal()" class="px-6 py-3 bg-[#8B5CF6] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-lg shrink-0"><i class="fi fi-rr-edit"></i> 작성하기</button>`;
+
+        html += `
+            <div class="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b-[3px] border-[#5D4037] pb-5 gap-4">
+                <div class="flex items-center gap-3">
+                    <button onclick="closeRollingTopic()" class="text-3xl text-[#5D4037] hover:scale-110 transition"><i class="fi fi-rr-angle-left"></i></button>
+                    <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi line-clamp-1">${currentRollingTopic.title}</h2>
+                </div>
+                ${actionBtn}
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        `;
+        currentTopicEntries.forEach((entry, idx) => {
+            html += `
+                <div class="bg-[#FFFDF5] border-[3px] border-[#5D4037] rounded-xl p-5 cursor-pointer shadow-[3px_3px_0px_0px_rgba(93,64,55,1)] hover:-translate-y-1 transition relative flex flex-col h-[400px]" onclick="openRollingDetailModal(${idx})">
+                    ${isAdmin ? `
+                    <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5] rounded-md px-1">
+                        <button onclick="event.stopPropagation(); openEditRollingEntryModal('${entry.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
+                        <button onclick="event.stopPropagation(); deleteRollingEntry('${entry.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
+                    </div>
+                    ` : ''}
+                    <div class="text-[16px] text-[#5D4037] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical;">${entry.content}</div>
+                    <div class="text-right text-[14px] font-bold text-gray-500 mt-3 pt-2 border-t-2 border-dashed border-gray-300 pointer-events-none shrink-0">- ${entry.nickname || '익명'}</div>
+                </div>
+            `;
+        });
+        if(currentTopicEntries.length === 0) html += `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-lg">첫 번째 방명록을 남겨주세요!</div>`;
+        html += `</div>`;
+    }
+    html += `</div>`;
+    content.innerHTML = html;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+}
+
+function openRollingTopicModal() {
+    document.getElementById('rtTitle').value = '';
+    document.getElementById('rtDate').value = getTodayYYYYMMDD();
+    document.getElementById('rollingTopicModal').classList.replace('hidden', 'flex');
+}
+function closeRollingTopicModal() { document.getElementById('rollingTopicModal').classList.replace('flex', 'hidden'); }
+
+async function saveRollingTopic() {
+    const title = document.getElementById('rtTitle').value.trim();
+    const date = document.getElementById('rtDate').value;
+    if(!title) return alert("주제를 입력해주세요.");
+    
+    try {
+        const newTopic = { title, date, timestamp: Date.now() };
+        const docRef = await addDoc(collection(db, 'rollingTopics'), newTopic);
+        rollingTopics.push({ id: docRef.id, ...newTopic });
+        sortRollingTopics();
+        closeRollingTopicModal();
+        renderHeaderTabs(); 
+        render();
+    } catch(e) { console.error(e); }
+}
+
+async function deleteRollingTopic(id) {
+    if(!confirm("주제를 삭제하면 안에 있는 방명록도 모두 지워집니다. 삭제하시겠습니까?")) return;
+    try {
+        await deleteDoc(doc(db, 'rollingTopics', id));
+        rollingTopics = rollingTopics.filter(t => t.id !== id);
+        renderHeaderTabs(); 
+        render();
+    } catch(e) { console.error(e); }
+}
+
+function openRollingTopic(id) { currentRollingTopic = rollingTopics.find(t => t.id === id); render(); }
+function closeRollingTopic() { currentRollingTopic = null; render(); }
+
+function openRollingEntryModal() {
+    if (currentRollingTopic && currentRollingTopic.date < getTodayYYYYMMDD()) {
+        alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 없습니다.');
+        return;
+    }
+    editRollingEntryId = null;
+    document.getElementById('reModalTitle').innerText = '작성하기';
+    document.getElementById('reContent').value = '';
+    document.getElementById('reNickname').value = '';
+    document.getElementById('rollingEntryModal').classList.replace('hidden', 'flex');
+}
+function closeRollingEntryModal() { document.getElementById('rollingEntryModal').classList.replace('flex', 'hidden'); }
+
+function openEditRollingEntryModal(id) {
+    const entry = rollingEntries.find(e => e.id === id);
+    if(!entry) return;
+    editRollingEntryId = id;
+    document.getElementById('reModalTitle').innerText = '방명록 수정 (관리자)';
+    document.getElementById('reContent').value = entry.content;
+    document.getElementById('reNickname').value = entry.nickname;
+    document.getElementById('rollingEntryModal').classList.replace('hidden', 'flex');
+}
+
+async function saveRollingEntry() {
+    const content = document.getElementById('reContent').value.trim();
+    const nickname = document.getElementById('reNickname').value.trim();
+    if(!content) return alert("내용을 입력해주세요.");
+    
+    try {
+        if(editRollingEntryId) {
+            await updateDoc(doc(db, 'rollingEntries', editRollingEntryId), { content, nickname });
+            const idx = rollingEntries.findIndex(e => e.id === editRollingEntryId);
+            if(idx > -1) { rollingEntries[idx].content = content; rollingEntries[idx].nickname = nickname; }
+        } else {
+            const newEntry = { topicId: currentRollingTopic.id, content, nickname, timestamp: Date.now() };
+            const docRef = await addDoc(collection(db, 'rollingEntries'), newEntry);
+            rollingEntries.unshift({ id: docRef.id, ...newEntry });
+        }
+        closeRollingEntryModal();
+        render();
+    } catch(e) { console.error(e); }
+}
+
+async function deleteRollingEntry(id) {
+    if(!confirm("이 방명록을 삭제하시겠습니까?")) return;
+    try {
+        await deleteDoc(doc(db, 'rollingEntries', id));
+        rollingEntries = rollingEntries.filter(e => e.id !== id);
+        render();
+    } catch(e) { console.error(e); }
+}
+
+function openRollingDetailModal(index) {
+    currentEntryIndex = index;
+    updateRollingDetailModal();
+    document.getElementById('rollingDetailModal').classList.replace('hidden', 'flex');
+}
+function closeRollingDetailModal() { document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden'); }
+
+function navigateRollingDetail(direction) {
+    let newIndex = currentEntryIndex + direction;
+    if(newIndex < 0) newIndex = currentTopicEntries.length - 1;
+    if(newIndex >= currentTopicEntries.length) newIndex = 0;
+    currentEntryIndex = newIndex;
+    updateRollingDetailModal();
+}
+
+function updateRollingDetailModal() {
+    const entry = currentTopicEntries[currentEntryIndex];
+    if(!entry) return;
+    document.getElementById('rdContent').innerText = entry.content;
+    document.getElementById('rdNickname').innerText = "- " + (entry.nickname || '익명');
 }
 
 function renderMobileHome(grouped) {
@@ -1203,17 +1577,6 @@ function toggleFields(modalId, radioName) {
 }
 
 function handleAdminClick() { if (!isAdmin) openPasswordModal(); }
-function checkPassword() {
-    const val = document.getElementById('pwInput').value; const user = adminPasswords[val]; 
-    if (user) {
-        isAdmin = true; loggedInUser = user;
-        sessionStorage.setItem('isAdmin', 'true');
-        sessionStorage.setItem('loggedInUser', JSON.stringify(user));
-        
-        updateLoginUI(user);
-        alert(`${user.name}님 환영합니다!`); document.getElementById('pwInput').value = ''; closePasswordModal();
-    } else { alert('비밀번호가 틀렸습니다.'); document.getElementById('pwInput').value = ''; }
-}
 
 function logoutAdmin() {
     isAdmin = false; loggedInUser = null;
@@ -1346,15 +1709,10 @@ function openAllSchedulesModal(event, dateStr, member) {
 function closeDetailModal() { const modal = document.getElementById('scheduleDetailModal'); modal.classList.replace('flex', 'hidden'); modal.style.display = ''; }
 
 // =========================================================================
-// 우클릭, 드래그, 복사 금지 (종합 선물 세트 - Method 3)
+// 우클릭, 드래그, 복사 금지
 // =========================================================================
-// 1. 우클릭 방지 (단, 커스텀 우클릭 이벤트에서 stopPropagation()을 사용하는 경우 그 기능은 정상 작동함)
 document.addEventListener('contextmenu', event => event.preventDefault());
-
-// 2. 드래그 방지
 document.addEventListener('selectstart', event => event.preventDefault());
-
-// 3. 복사 단축키(Ctrl+C, Ctrl+A, Ctrl+U 등) 방지
 document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'u')) {
         e.preventDefault();
@@ -1362,6 +1720,10 @@ document.addEventListener('keydown', function(e) {
 });
 
 async function initApp() {
+    adjustDesktopScale(); // 화면 로딩 시 배율 즉시 적용
+
+    await seedAdmins();
+
     const savedAdmin = sessionStorage.getItem('isAdmin');
     const savedUser = sessionStorage.getItem('loggedInUser');
     
@@ -1379,15 +1741,16 @@ async function initApp() {
         openSidePanel('UP'); 
     }
     
-    // ✨ 사이트에 처음 들어왔을 때 (또는 새로고침 했을 때) 주소창 확인 ✨
+    const today = getTodayYYYYMMDD();
+    checkAndShowPopup(today);
+
     const currentHash = window.location.hash;
     if (currentHash && hashToTab[currentHash]) {
         currentPage = hashToTab[currentHash];
     } else {
-        currentPage = '홈'; // 해시가 없거나 이상하면 홈으로!
+        currentPage = '홈';
     }
     
-    // 선택된 탭으로 화면 렌더링
     changeTab(currentPage);
 }
 

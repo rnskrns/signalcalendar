@@ -126,17 +126,22 @@
 
     <div id="passwordModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
         <div class="modal-content bg-white p-6 rounded-xl w-80 shadow-xl border-4 border-[#5D4037]">
-            <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">관리자 인증</h2>
+            <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">관리자 로그인</h2>
+            
             <div id="naverIdLogin" class="flex justify-center mb-4"></div>
+            
             <div class="relative flex py-3 items-center">
                 <div class="flex-grow border-t border-gray-300"></div>
-                <span class="flex-shrink-0 mx-4 text-gray-400 text-sm font-bold">또는 비밀번호</span>
+                <span class="flex-shrink-0 mx-4 text-gray-400 text-sm font-bold">또는 아이디/비밀번호</span>
                 <div class="flex-grow border-t border-gray-300"></div>
             </div>
-            <input type="password" id="pwInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-lg tracking-widest mt-2" placeholder="비밀번호 입력" onkeypress="if(event.key==='Enter') checkPassword()">
+            
+            <input type="text" id="idInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] mt-2 font-bold outline-none focus:border-blue-400" placeholder="아이디 (멤버 전용)">
+            <input type="password" id="pwInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-lg tracking-widest font-bold outline-none focus:border-blue-400" placeholder="비밀번호" onkeypress="if(event.key==='Enter') checkPassword()">
+            
             <div class="flex gap-2">
                 <button class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-bold hover:bg-gray-300 transition cursor-pointer" onclick="closePasswordModal()">취소</button>
-                <button class="flex-1 bg-[#5D4037] text-white py-2 rounded font-bold hover:brightness-110 transition cursor-pointer" onclick="checkPassword()">확인</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-2 rounded font-bold hover:brightness-110 transition cursor-pointer" onclick="checkPassword()">로그인</button>
             </div>
         </div>
     </div>
@@ -147,6 +152,24 @@
             <div class="flex gap-2 mt-6">
                 <button class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-bold hover:bg-gray-300 transition cursor-pointer" onclick="closeLogoutModal()">취소</button>
                 <button class="flex-1 bg-red-500 text-white py-2 rounded font-bold hover:bg-red-600 transition cursor-pointer" onclick="logoutAdmin()">로그아웃</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="infoModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[400px] shadow-xl border-4 border-[#5D4037]">
+            <h2 class="text-2xl font-bold text-[#5D4037] mb-6 text-center font-paperozi">정보 관리</h2>
+            <div class="mb-4">
+                <label class="block text-[13px] font-bold text-gray-500 mb-1">연동된 네이버 이메일</label>
+                <input type="email" id="infoEmail" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="네이버 이메일 입력">
+            </div>
+            <div class="mb-6">
+                <label class="block text-[13px] font-bold text-gray-500 mb-1">새 비밀번호 (변경 시에만 입력)</label>
+                <input type="password" id="infoPw" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="변경할 비밀번호">
+            </div>
+            <div class="flex gap-2">
+                <button class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-xl font-bold hover:bg-gray-300 transition" onclick="closeInfoModal()">취소</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-2.5 rounded-xl font-bold hover:brightness-110 transition" onclick="updateUserInfo()">저장 및 로그아웃</button>
             </div>
         </div>
     </div>
@@ -218,17 +241,54 @@
     </div>
 
     <div id="upPopupOverlay" class="hidden fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
-        <div class="bg-[#FFFDF5] w-full max-w-[400px] rounded-2xl shadow-2xl border-4 border-[#5D4037] overflow-hidden flex flex-col">
-            <div class="p-6 border-b-[4px] border-[#5D4037] bg-white text-center">
-                <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">UP 해줘!</h2>
-            </div>
-            <div id="upPopupList" class="p-4 max-h-[400px] overflow-y-auto modal-scroll"></div>
-            <div class="flex justify-between items-center p-4 border-t-2 border-[#5D4037] bg-white">
+        <div class="bg-[#FFFDF5] w-full max-w-[750px] rounded-2xl shadow-2xl border-4 border-[#5D4037] overflow-hidden flex flex-col">
+            <div id="upPopupList" class="p-6"></div>
+            <div class="flex justify-between items-center p-4 border-t-[3px] border-[#5D4037] bg-white">
                 <label class="flex items-center gap-2 text-sm font-bold text-[#5D4037] cursor-pointer">
                     <input type="checkbox" id="noMorePopup" class="w-4 h-4 accent-[#5D4037]"> 오늘 하루 보지 않기
                 </label>
                 <button onclick="closeUpPopup()" class="px-6 py-2 bg-[#5D4037] text-white font-bold rounded-lg hover:brightness-110 transition">닫기</button>
             </div>
+        </div>
+    </div>
+
+    <div id="rollingTopicModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[400px] shadow-xl border-4 border-[#5D4037]">
+            <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi">롤링페이퍼 주제 추가</h2>
+            <input type="text" id="rtTitle" placeholder="주제 (예: 달타님 생일 축하해요!)" class="w-full border-2 border-[#5D4037] rounded-lg p-3 mb-3 text-[15px] outline-none focus:border-[#8B5CF6] font-bold">
+            <input type="date" id="rtDate" class="w-full border-2 border-[#5D4037] rounded-lg p-3 mb-4 text-[15px] outline-none focus:border-[#8B5CF6] font-bold">
+            <div class="flex gap-2">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold hover:bg-gray-300 transition" onclick="closeRollingTopicModal()">취소</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-3 rounded-xl font-bold hover:brightness-110 transition" onclick="saveRollingTopic()">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rollingEntryModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-[95%] max-w-[800px] shadow-xl border-4 border-[#5D4037]">
+            <h2 class="text-3xl font-bold text-[#5D4037] mb-2 text-center font-paperozi" id="reModalTitle">작성하기</h2>
+            <p class="text-center text-gray-400 text-[14px] font-bold mb-6">저장시 수정 및 삭제가 불가능합니다.</p>
+            
+            <textarea id="reContent" class="w-full border-2 border-[#5D4037] rounded-xl p-6 outline-none h-[400px] resize-none mb-6 text-[18px] font-medium focus:border-[#8B5CF6]" placeholder="따뜻한 마음을 남겨주세요."></textarea>
+            <div class="flex justify-between items-center gap-6">
+                <input type="text" id="reNickname" placeholder="닉네임 (선택)" class="w-1/2 border-2 border-[#5D4037] rounded-xl p-4 text-[16px] outline-none focus:border-[#8B5CF6] font-bold">
+                <div class="flex gap-3 w-1/2">
+                    <button class="flex-1 bg-gray-200 text-[#5D4037] py-4 rounded-xl font-bold text-lg hover:bg-gray-300 transition" onclick="closeRollingEntryModal()">취소</button>
+                    <button class="flex-1 bg-[#8B5CF6] text-white py-4 rounded-xl font-bold text-lg hover:brightness-110 transition shadow-sm" onclick="saveRollingEntry()">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rollingDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <button class="absolute top-6 right-8 text-5xl text-white hover:scale-110 transition cursor-pointer" onclick="closeRollingDetailModal()"><i class="fi fi-br-cross-small"></i></button>
+        <div class="flex items-center justify-between w-full max-w-[1200px] px-4 gap-6">
+            <button onclick="navigateRollingDetail(-1)" class="w-16 h-16 flex items-center justify-center bg-white/20 text-white rounded-full hover:bg-white/40 transition text-3xl shrink-0"><i class="fi fi-rr-angle-left"></i></button>
+            <div class="modal-content bg-[#FFFDF5] p-10 rounded-3xl w-full shadow-2xl border-4 border-[#5D4037] min-h-[600px] flex flex-col justify-between relative">
+                <div id="rdContent" class="text-[24px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[75vh] modal-scroll break-words"></div>
+                <div id="rdNickname" class="text-right text-[20px] font-bold text-gray-500 mt-8 pt-6 border-t-2 border-dashed border-[#5D4037]"></div>
+            </div>
+            <button onclick="navigateRollingDetail(1)" class="w-16 h-16 flex items-center justify-center bg-white/20 text-white rounded-full hover:bg-white/40 transition text-3xl shrink-0"><i class="fi fi-rr-angle-right"></i></button>
         </div>
     </div>
 

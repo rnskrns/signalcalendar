@@ -20,7 +20,6 @@
     font-display: swap;
 }
 
-/* 2. 주간 일정카드용 학교안심 꽈배기 폰트 추가 */
 @font-face {
     font-family: 'SchoolSafeTwist';
     src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2402_keris@1.0/TTHakgyoansimKkwabaegiR.woff2') format('woff2');
@@ -81,7 +80,6 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 .schedule-list::-webkit-scrollbar { display: none; }
 .schedule-list { -ms-overflow-style: none; scrollbar-width: none; display: flex; flex-direction: column; flex: 1; gap: 4px; overflow-y: auto !important; }
 
-/* 1. 월간 캘린더 등 전체 일정카드의 폰트를 페이퍼로지로 적용 */
 .schedule-card {
     border-radius: 4px !important; transition: all 0.2s ease; cursor: pointer; border: 1.5px solid currentColor !important;
     box-shadow: 3px 3px 0px 0px rgba(0, 0, 0, 0.3) !important; font-family: 'Paperozi', sans-serif; font-weight: 600; color: var(--text-dark); background-color: #ffffff; position: relative;
@@ -96,7 +94,6 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 .weekly-grid .schedule-card { font-family: 'Paperozi', sans-serif; font-weight: 600; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .big-box-container .schedule-card { flex: 1 1 0%; min-height: 48px; display: flex; flex-direction: column; width: 100%; padding: 4px; }
 
-/* 일정 텍스트 페이퍼로지 통일 */
 .schedule-text { font-family: 'Paperozi', sans-serif !important; font-size: 26px; text-align: center; width: 100%; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
 
 .theme-dalta .big-box-container { background-color: #FFF9C4; box-shadow: 6px 6px 0px #FBC02D, inset 0 0 0 2px #000000; }
@@ -152,4 +149,23 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
     body {
         zoom: 0.75;
     }
+}
+
+body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 롤링페이퍼 탭 배경 및 테마 박스설정 */
+.theme-rolling {
+    background-color: #ffffff !important;
+    border: 5px solid #8B5CF6 !important;
+    box-shadow: 8px 8px 0px 0px #8B5CF6, inset 0 0 0 2px #000000 !important;
+}
+
+/* 롤링페이퍼 전용 흰색 박스는 캘린더 여백과 통일감 있게 */
+.theme-rolling.big-white-box {
+    border-radius: 26px;
 }
