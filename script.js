@@ -1345,6 +1345,22 @@ function openAllSchedulesModal(event, dateStr, member) {
 
 function closeDetailModal() { const modal = document.getElementById('scheduleDetailModal'); modal.classList.replace('flex', 'hidden'); modal.style.display = ''; }
 
+// =========================================================================
+// 우클릭, 드래그, 복사 금지 (종합 선물 세트 - Method 3)
+// =========================================================================
+// 1. 우클릭 방지 (단, 커스텀 우클릭 이벤트에서 stopPropagation()을 사용하는 경우 그 기능은 정상 작동함)
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+// 2. 드래그 방지
+document.addEventListener('selectstart', event => event.preventDefault());
+
+// 3. 복사 단축키(Ctrl+C, Ctrl+A, Ctrl+U 등) 방지
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'u')) {
+        e.preventDefault();
+    }
+});
+
 async function initApp() {
     const savedAdmin = sessionStorage.getItem('isAdmin');
     const savedUser = sessionStorage.getItem('loggedInUser');
