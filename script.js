@@ -82,6 +82,23 @@ window.closeRollingDetailModal = closeRollingDetailModal; window.navigateRolling
 window.openRollingTopicFromPopup = openRollingTopicFromPopup;
 
 window.openInfoModal = openInfoModal; window.closeInfoModal = closeInfoModal; window.updateUserInfo = updateUserInfo;
+window.moveScheduleBlock = moveScheduleBlock;
+
+// =========================================================================
+// 일정 순서 변경 함수
+// =========================================================================
+function moveScheduleBlock(btn, direction) {
+    const currentBlock = btn.closest('.schedule-input-block');
+    const container = currentBlock.parentElement;
+
+    if (direction === -1 && currentBlock.previousElementSibling) {
+        // 위로 이동
+        container.insertBefore(currentBlock, currentBlock.previousElementSibling);
+    } else if (direction === 1 && currentBlock.nextElementSibling) {
+        // 아래로 이동
+        container.insertBefore(currentBlock.nextElementSibling, currentBlock);
+    }
+}
 
 // =========================================================================
 // Firebase 초기화 및 변수 선언
@@ -1004,6 +1021,9 @@ async function loadSchedulesFromFirebase() {
             });
         });
 
+        // 🔥 추가: scheduleList를 timestamp(생성 시간) 기준으로 정렬
+        scheduleList.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
         for(let m in memoList) {
             memoList[m].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
@@ -1622,6 +1642,9 @@ async function saveSchedule() {
     }
     scheduleList = scheduleList.filter(s => !currentEditingIds.includes(s.id));
 
+    // 🔥 순서 보장을 위한 변수 추가
+    let timestampOffset = 0;
+
     // 3. 각 블록 순회하며 저장
     for (const block of blocks) {
         let title = block.querySelector('.sch-title').value.trim();
@@ -1651,8 +1674,10 @@ async function saveSchedule() {
             broadType: broad, 
             memberTag: mem, 
             detail: desc,
-            timestamp: Date.now()
+            timestamp: Date.now() + timestampOffset // 🔥 변경: 저장 순서대로 미세하게 시간 추가
         };
+
+        timestampOffset++; // 🔥 다음 블록은 1ms 뒤로 설정
 
         const docRef = await addDoc(collection(db, colName), newSchedule);
         newSchedule.id = docRef.id;
@@ -1789,13 +1814,21 @@ function getScheduleFormHTML(data, isDeletable = true) {
     let hh = '', mm = '', ampm = '오후';
     if (data.time) { let [h, m] = data.time.split(':'); h = parseInt(h, 10); ampm = h >= 12 ? '오후' : '오전'; h = h % 12; if (h === 0) h = 12; hh = h; mm = m; }
     
+    // 삭제 버튼 (기존)
     const deleteBtnHtml = isDeletable ? `<button type="button" class="absolute top-2 right-4 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="this.closest('.schedule-input-block').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>` : '';
+
+    // 🔥 추가: 위/아래 이동 버튼 (삭제 버튼 왼쪽에 위치)
+    const moveBtnsHtml = isDeletable ? `
+        <div class="absolute top-4 right-14 flex gap-2 z-10">
+            <button type="button" class="text-gray-400 hover:text-[#5D4037] text-[20px] font-bold flex items-center justify-center hover:scale-110 transition-all" onclick="moveScheduleBlock(this, -1)" title="위로 이동"><i class="fi fi-rr-angle-up"></i></button>
+            <button type="button" class="text-gray-400 hover:text-[#5D4037] text-[20px] font-bold flex items-center justify-center hover:scale-110 transition-all" onclick="moveScheduleBlock(this, 1)" title="아래로 이동"><i class="fi fi-rr-angle-down"></i></button>
+        </div>
+    ` : '';
 
     return `
         <div class="schedule-input-block border-2 border-[#5D4037] p-5 rounded-xl bg-white relative shadow-sm pretendard mt-1">
-            ${deleteBtnHtml} <input type="hidden" class="sch-id" value="${id}">
-            <div class="mb-4 pr-8">
-                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목 (공란 시 자동 입력)</label>
+            ${moveBtnsHtml} ${deleteBtnHtml} <input type="hidden" class="sch-id" value="${id}">
+            <div class="mb-4 pr-24"> <label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목 (공란 시 자동 입력)</label>
                 <input type="text" class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="일정 제목 입력 (선택)" value="${title}">
             </div>
             <div class="mb-4"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">날짜</label><div class="flex items-center gap-2"><input type="date" class="sch-start flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${sDate}"><span class="font-bold text-[#5D4037]">~</span><input type="date" class="sch-end flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${eDate}"></div></div>
