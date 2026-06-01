@@ -136,9 +136,13 @@
                 <div class="flex-grow border-t border-gray-300"></div>
             </div>
             
-            <input type="text" id="idInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] mt-2 font-bold outline-none focus:border-blue-400" placeholder="아이디 (멤버 전용)">
-            <input type="password" id="pwInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-lg tracking-widest font-bold outline-none focus:border-blue-400" placeholder="비밀번호" onkeypress="if(event.key==='Enter') checkPassword()">
+            <input type="text" id="idInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] mt-2 font-bold outline-none focus:border-blue-400" placeholder="아이디">
+<input type="password" id="pwInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="비밀번호" onkeypress="if(event.key==='Enter') checkPassword()">
             
+            <div class="flex items-center gap-2 mb-4">
+                <input type="checkbox" id="autoLoginCheck" class="w-4 h-4 cursor-pointer">
+                <label for="autoLoginCheck" class="text-[14px] text-[#5D4037] font-bold cursor-pointer">로그인 상태 유지</label>
+            </div>
             <div class="flex gap-2">
                 <button class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-bold hover:bg-gray-300 transition cursor-pointer" onclick="closePasswordModal()">취소</button>
                 <button class="flex-1 bg-[#5D4037] text-white py-2 rounded font-bold hover:brightness-110 transition cursor-pointer" onclick="checkPassword()">로그인</button>

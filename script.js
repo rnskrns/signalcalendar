@@ -220,8 +220,17 @@ function initNaverLogin() {
                         const adminData = querySnapshot.docs[0].data();
                         isAdmin = true;
                         loggedInUser = { docId: querySnapshot.docs[0].id, ...adminData };
-                        sessionStorage.setItem('isAdmin', 'true');
-                        sessionStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                        
+                        // 자동 로그인 체크 여부 확인
+                        const isAutoLogin = document.getElementById('autoLoginCheck')?.checked;
+                        if (isAutoLogin) {
+                            localStorage.setItem('isAdmin', 'true');
+                            localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                        } else {
+                            sessionStorage.setItem('isAdmin', 'true');
+                            sessionStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                        }
+
                         updateLoginUI(loggedInUser);
                         closePasswordModal();
                     } else {
@@ -237,6 +246,7 @@ function initNaverLogin() {
 async function checkPassword() {
     const inputId = document.getElementById('idInput').value.trim();
     const inputPw = document.getElementById('pwInput').value;
+    const isAutoLogin = document.getElementById('autoLoginCheck')?.checked;
 
     if(!inputId || !inputPw) return alert("아이디와 비밀번호를 모두 입력해주세요.");
 
@@ -249,8 +259,15 @@ async function checkPassword() {
             if (adminData.pw === inputPw) {
                 isAdmin = true;
                 loggedInUser = { docId: querySnapshot.docs[0].id, ...adminData };
-                sessionStorage.setItem('isAdmin', 'true');
-                sessionStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                
+                // 자동 로그인 분기
+                if (isAutoLogin) {
+                    localStorage.setItem('isAdmin', 'true');
+                    localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                } else {
+                    sessionStorage.setItem('isAdmin', 'true');
+                    sessionStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                }
                 
                 updateLoginUI(loggedInUser);
                 alert(`${adminData.name}님 환영합니다!`); 
@@ -335,7 +352,7 @@ async function loadLinksFromFirebase() {
                 if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data });
             });
             
-            // 🔥 [핵심 추가] 기존 DB에 데이터가 있더라도 '공지' 데이터가 비어있으면 강제로 기본값을 넣어줍니다.
+            // 공지 데이터 강제 주입
             if (dbLinks['공지'].length === 0) {
                 const defaultNotice = defaultMemberLinks['공지'][0];
                 const docRef = await addDoc(collection(db, 'memberLinks'), { member: '공지', title: defaultNotice.title, url: defaultNotice.url, timestamp: Date.now() });
@@ -620,7 +637,6 @@ window.addEventListener('click', (e) => {
 async function openLinkModal() {
     if(!isAdmin || !loggedInUser) return;
     
-    // 관리자 계정이면 '공지' 링크를 관리, 개별 멤버면 본인 링크 관리
     const member = loggedInUser.name === '관리자' ? '공지' : loggedInUser.name;
 
     const container = document.getElementById('memberLinksContainer');
@@ -692,7 +708,6 @@ async function addMemberLink() {
     const url = document.getElementById('newLinkUrl').value.trim();
     if(!title || !url) return alert('제목과 링크를 입력하세요.');
     
-    // 관리자 계정일 경우 member 값을 '공지'로 할당
     const member = loggedInUser.name === '관리자' ? '공지' : loggedInUser.name;
     const newLink = { member, title, url, timestamp: Date.now() };
     
@@ -1701,6 +1716,8 @@ function handleAdminClick() { if (!isAdmin) openPasswordModal(); }
 function logoutAdmin() {
     isAdmin = false; loggedInUser = null;
     sessionStorage.clear(); 
+    localStorage.removeItem('isAdmin');
+    localStorage.removeItem('loggedInUser');
     
     const desktopContainer = document.getElementById('desktopAuthContainer');
     if(desktopContainer) desktopContainer.innerHTML = `<button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="handleAdminClick()">로그인</button>`;
@@ -1931,12 +1948,19 @@ async function initApp() {
 
     await seedAdmins();
 
-    const savedAdmin = sessionStorage.getItem('isAdmin');
-    const savedUser = sessionStorage.getItem('loggedInUser');
+    // 세션 스토리지와 로컬 스토리지 모두 확인
+    const savedAdminSession = sessionStorage.getItem('isAdmin');
+    const savedUserSession = sessionStorage.getItem('loggedInUser');
+    const savedAdminLocal = localStorage.getItem('isAdmin');
+    const savedUserLocal = localStorage.getItem('loggedInUser');
     
-    if (savedAdmin === 'true' && savedUser) {
+    if (savedAdminSession === 'true' && savedUserSession) {
         isAdmin = true;
-        loggedInUser = JSON.parse(savedUser);
+        loggedInUser = JSON.parse(savedUserSession);
+        updateLoginUI(loggedInUser);
+    } else if (savedAdminLocal === 'true' && savedUserLocal) {
+        isAdmin = true;
+        loggedInUser = JSON.parse(savedUserLocal);
         updateLoginUI(loggedInUser);
     }
 
