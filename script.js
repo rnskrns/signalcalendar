@@ -1209,7 +1209,7 @@ function renderRollingPaper() {
                 </div>
             `;
         });
-        if(currentTopicEntries.length === 0) html += `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-lg">첫 번째 방명록을 남겨주세요!</div>`;
+        if(currentTopicEntries.length === 0) html += `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-lg">첫 번째 롤링페이퍼를 보세요!</div>`;
         html += `</div>`;
     }
     html += `</div>`;
