@@ -833,6 +833,9 @@ function openSidePanel(mode) {
     });
 }
 
+// =========================================================================
+// 메모 모달 관련 함수 (취소/저장 버튼 및 정상 저장 반영)
+// =========================================================================
 function openMemoAddModal() {
     currentEditingMemoId = null;
     document.getElementById('memoModalTitle').innerText = '메모 추가';
@@ -842,6 +845,10 @@ function openMemoAddModal() {
     document.getElementById('memoDate').value = kstTime.toISOString().split('T')[0];
     
     document.getElementById('memoContent').value = '';
+
+    // 🔥 자바스크립트에서 강제로 모달 하단 버튼을 '취소 / 저장'으로 변경
+    setupMemoButtons();
+
     document.getElementById('memoModal').classList.replace('hidden', 'flex');
 }
 
@@ -853,7 +860,34 @@ function openMemoEditModal(memoId) {
     document.getElementById('memoModalTitle').innerText = '메모 수정';
     document.getElementById('memoDate').value = memo.date || '';
     document.getElementById('memoContent').value = memo.content || '';
+
+    // 🔥 수정 창에서도 하단 버튼을 '취소 / 저장'으로 변경
+    setupMemoButtons();
+
     document.getElementById('memoModal').classList.replace('hidden', 'flex');
+}
+
+function setupMemoButtons() {
+    const memoModal = document.getElementById('memoModal');
+    if (!memoModal) return;
+
+    // 모달 내부에 버튼들이 들어있는 컨테이너를 찾습니다.
+    const btnContainer = memoModal.querySelector('.flex.gap-2') || 
+                         memoModal.querySelector('.flex.justify-end') || 
+                         memoModal.querySelector('.flex.gap-3') || 
+                         memoModal.querySelector('.modal-content > div:last-child');
+    
+    if (btnContainer) {
+        btnContainer.className = "flex gap-3 w-full mt-4"; // 간격 및 너비 재조정
+        btnContainer.innerHTML = `
+            <button type="button" onclick="closeMemoModal()" class="flex-1 bg-gray-400 text-white font-bold text-[18px] py-4 rounded-xl hover:bg-gray-500 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
+                취소
+            </button>
+            <button type="button" onclick="saveMemoAction()" class="flex-1 bg-[#5D4037] text-white font-bold text-[18px] py-4 rounded-xl hover:brightness-110 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
+                저장
+            </button>
+        `;
+    }
 }
 
 function closeMemoModal() {
