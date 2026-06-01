@@ -319,6 +319,8 @@ async function loadLinksFromFirebase() {
         }
 
         const linkSnap = await getDocs(collection(db, 'memberLinks'));
+        let dbLinks = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
+
         if (linkSnap.empty) {
             for (const member of Object.keys(defaultMemberLinks)) {
                 for (const link of defaultMemberLinks[member]) {
@@ -326,18 +328,24 @@ async function loadLinksFromFirebase() {
                 }
             }
             const reSnap = await getDocs(collection(db, 'memberLinks'));
-            let dbLinks = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
             reSnap.forEach(doc => { const data = doc.data(); if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data }); });
-            dynamicLinks = dbLinks;
         } else {
-            let dbLinks = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
             linkSnap.forEach(doc => {
                 const data = doc.data();
                 if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data });
             });
+            
+            // 🔥 [핵심 추가] 기존 DB에 데이터가 있더라도 '공지' 데이터가 비어있으면 강제로 기본값을 넣어줍니다.
+            if (dbLinks['공지'].length === 0) {
+                const defaultNotice = defaultMemberLinks['공지'][0];
+                const docRef = await addDoc(collection(db, 'memberLinks'), { member: '공지', title: defaultNotice.title, url: defaultNotice.url, timestamp: Date.now() });
+                dbLinks['공지'].push({ id: docRef.id, member: '공지', title: defaultNotice.title, url: defaultNotice.url, timestamp: Date.now() });
+            }
+
             for(let m in dbLinks) dbLinks[m].sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
-            dynamicLinks = dbLinks;
         }
+        
+        dynamicLinks = dbLinks;
         renderHeaderTabs();
     } catch(e) { console.error("링크 로드 실패:", e); }
 }
