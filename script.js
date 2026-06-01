@@ -164,7 +164,8 @@ const defaultMemberLinks = {
     '서피카': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/85' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/spica21' }, { title: '유튜브', url: 'https://www.youtube.com/@SEOPICA' } ],
     '다룽': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/46' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/daarung22' }, { title: '유튜브', url: 'https://www.youtube.com/@daarung22' } ],
     '최또': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/88' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/choiagain' }, { title: '유튜브', url: 'https://www.youtube.com/@CHOI_AGAIN' } ],
-    '카나시': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/105' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/kjhh0029' }, { title: '유튜브', url: 'https://www.youtube.com/@kanashi_0123' } ]
+    '카나시': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/105' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/kjhh0029' }, { title: '유튜브', url: 'https://www.youtube.com/@kanashi_0123' } ],
+    '공지': [ { title: '260601 패치노트 보러가기', url: 'https://app.notion.com/p/schedule-calender/260601-3725f6fcabcd809b8d89fe83f7d48c83?source=copy_link' } ]
 };
 
 let dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
@@ -325,11 +326,11 @@ async function loadLinksFromFirebase() {
                 }
             }
             const reSnap = await getDocs(collection(db, 'memberLinks'));
-            let dbLinks = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[] };
+            let dbLinks = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
             reSnap.forEach(doc => { const data = doc.data(); if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data }); });
             dynamicLinks = dbLinks;
         } else {
-            let dbLinks = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[] };
+            let dbLinks = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
             linkSnap.forEach(doc => {
                 const data = doc.data();
                 if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data });
@@ -344,7 +345,7 @@ async function loadLinksFromFirebase() {
 function checkAndShowPopup(today) {
     const lastClosed = localStorage.getItem('upPopupClosedDate');
     const activeTopics = rollingTopics.filter(t => t.date >= today);
-    if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0)) {
+    if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || (dynamicLinks['공지'] && dynamicLinks['공지'].length > 0))) {
         showUpPopup(today);
     }
 }
@@ -382,6 +383,17 @@ function showUpPopup(today) {
     if(!upHtml) upHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">등록된 UP 링크가 없습니다.</div>`;
     if(!rollingHtml) rollingHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">진행중인 롤링페이퍼가 없습니다.</div>`;
 
+    // 공지 링크 렌더링 블록
+    const noticeLinks = dynamicLinks['공지'] || [];
+    let noticeHtml = '';
+    if (noticeLinks.length > 0) {
+        noticeHtml = `<div class="w-full flex justify-end mt-4 pt-4 border-t-2 border-dashed border-gray-300">`;
+        noticeLinks.forEach(link => {
+            noticeHtml += `<button onclick="openSmartLink('${link.url}')" class="border-[2.5px] border-red-500 text-red-500 bg-white font-bold px-5 py-2.5 rounded-xl hover:bg-red-50 hover:-translate-y-0.5 transition-all ml-2 font-paperozi shadow-sm flex items-center gap-2"><i class="fi fi-rr-bullhorn"></i> ${link.title}</button>`;
+        });
+        noticeHtml += `</div>`;
+    }
+
     list.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 w-full">
             <div class="flex-1 flex flex-col w-full md:w-1/2">
@@ -404,6 +416,7 @@ function showUpPopup(today) {
                 </div>
             </div>
         </div>
+        ${noticeHtml}
     `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
 }
@@ -598,8 +611,9 @@ window.addEventListener('click', (e) => {
 
 async function openLinkModal() {
     if(!isAdmin || !loggedInUser) return;
-    const member = loggedInUser.name; 
-    if(member === '관리자') { alert("개별 멤버 계정으로 로그인해주세요."); return; }
+    
+    // 관리자 계정이면 '공지' 링크를 관리, 개별 멤버면 본인 링크 관리
+    const member = loggedInUser.name === '관리자' ? '공지' : loggedInUser.name;
 
     const container = document.getElementById('memberLinksContainer');
     container.innerHTML = '';
@@ -669,8 +683,11 @@ async function addMemberLink() {
     const title = document.getElementById('newLinkTitle').value.trim();
     const url = document.getElementById('newLinkUrl').value.trim();
     if(!title || !url) return alert('제목과 링크를 입력하세요.');
-    const member = loggedInUser.name;
+    
+    // 관리자 계정일 경우 member 값을 '공지'로 할당
+    const member = loggedInUser.name === '관리자' ? '공지' : loggedInUser.name;
     const newLink = { member, title, url, timestamp: Date.now() };
+    
     try {
         const docRef = await addDoc(collection(db, 'memberLinks'), newLink);
         newLink.id = docRef.id;
