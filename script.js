@@ -1099,21 +1099,24 @@ async function loadSchedulesFromFirebase() {
 }
 
 function changeTab(tabName) { 
-    currentPage = tabName; 
-    if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
-    
-    if (!isMobile) {
-        if(tabName === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
-        else { closeSidePanel(true); }
-    } else {
-        closeSidePanel(true);
-    }
-    
-    homeTargetDate = new Date();
-    individualTargetDate = new Date();
-    
-    renderHeaderTabs();
-    render(); 
+    currentPage = tabName; 
+    if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
+    
+    if (!isMobile) {
+        if(tabName === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
+        else { closeSidePanel(true); }
+    } else {
+        closeSidePanel(true);
+    }
+    
+    homeTargetDate = new Date();
+    individualTargetDate = new Date();
+    
+    // 탭 이동 시 롤링페이퍼 상세 보기를 해제하고 목록으로 초기화
+    currentRollingTopic = null;
+    
+    renderHeaderTabs();
+    render(); 
 }
 
 function changeMonth(delta) { currentMonth += delta; if (currentMonth > 12) { currentMonth = 1; currentYear++; } else if (currentMonth < 1) { currentMonth = 12; currentYear--; } render(); }
