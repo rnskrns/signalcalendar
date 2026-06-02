@@ -2,22 +2,90 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebas
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 // =========================================================================
+// Cloudinary 설정 (Unsigned Upload)
+// =========================================================================
+const CLOUDINARY_CLOUD_NAME = 'dtlqzklk5';
+const CLOUDINARY_UPLOAD_PRESET = 'IMG_1234'; 
+
+window.uploadImageToCloudinary = async function(file) {
+    if (!file) return null;
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    
+    try {
+        const response = await fetch(url, { method: "POST", body: formData });
+        const data = await response.json();
+        return data.secure_url; 
+    } catch (error) {
+        console.error("Cloudinary 업로드 에러:", error);
+        return null;
+    }
+};
+
+window.handleScheduleImageUpload = async function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    const block = input.closest('.schedule-input-block');
+    const previewContainer = block.querySelector('.sch-img-preview');
+    const hiddenInput = block.querySelector('.sch-image-url');
+    
+    previewContainer.innerHTML = "<span class='text-sm text-blue-500 font-bold'>이미지 업로드 중...⏳</span>";
+    
+    const imageUrl = await window.uploadImageToCloudinary(file);
+    if (imageUrl) {
+        hiddenInput.value = imageUrl;
+        previewContainer.innerHTML = `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">`;
+        const removeBtn = block.querySelector('.sch-img-remove-btn');
+        if (removeBtn) removeBtn.classList.remove('hidden'); // 삭제 버튼 보이기
+    } else {
+        previewContainer.innerHTML = "<span class='text-sm text-red-500 font-bold'>업로드 실패!</span>";
+    }
+};
+
+// 일정 이미지 삭제
+window.removeScheduleImage = function(btn) {
+    const block = btn.closest('.schedule-input-block');
+    const previewContainer = block.querySelector('.sch-img-preview');
+    const hiddenInput = block.querySelector('.sch-image-url');
+    const fileInput = block.querySelector('input[type="file"]');
+    
+    hiddenInput.value = ''; 
+    fileInput.value = '';   
+    previewContainer.innerHTML = ''; 
+    btn.classList.add('hidden'); 
+};
+
+// 롤링페이퍼 이미지 파일 선택 감지
+window.handleRollingImageSelect = function(input) {
+    const removeBtn = document.getElementById('reImageRemoveBtn');
+    if (input.files && input.files.length > 0) {
+        removeBtn.classList.remove('hidden');
+    }
+};
+
+// 롤링페이퍼 이미지 삭제
+window.removeRollingImage = function() {
+    document.getElementById('reImage').value = '';
+    const hiddenUrl = document.getElementById('reImageUrl');
+    if(hiddenUrl) hiddenUrl.value = ''; 
+    document.getElementById('reImageRemoveBtn').classList.add('hidden');
+};
+
+// =========================================================================
 // PC 해상도 자동 스케일링 (2560px 기준)
 // =========================================================================
 function adjustDesktopScale() {
     const currentWidth = window.innerWidth;
     
-    // 1024px 초과 (PC 화면)일 때만 적용
     if (currentWidth > 1024) {
-        const designWidth = 2560; // 기준 해상도
+        const designWidth = 2560; 
         let scaleRatio = currentWidth / designWidth;
-        
-        // 창을 2560보다 크게 늘렸을 때 무한정 커지는 것을 방지 (최대 1배)
         scaleRatio = Math.min(scaleRatio, 1);
-        
         document.body.style.zoom = scaleRatio;
     } else {
-        // 모바일 해상도일 때는 100% 원래 배율로 복구
         document.body.style.zoom = 1;
     }
 }
@@ -92,10 +160,8 @@ function moveScheduleBlock(btn, direction) {
     const container = currentBlock.parentElement;
 
     if (direction === -1 && currentBlock.previousElementSibling) {
-        // 위로 이동
         container.insertBefore(currentBlock, currentBlock.previousElementSibling);
     } else if (direction === 1 && currentBlock.nextElementSibling) {
-        // 아래로 이동
         container.insertBefore(currentBlock.nextElementSibling, currentBlock);
     }
 }
@@ -147,7 +213,7 @@ const hashToTab = { '#home': '홈', '#dalta': '달타', '#seopica': '서피카',
 
 // ✨ 해상도 변경 감지 (비율 조정 및 모바일 레이아웃 전환)
 window.addEventListener('resize', () => {
-    adjustDesktopScale(); // 화면 크기 변할 때마다 비율 재계산
+    adjustDesktopScale(); 
     
     const wasMobile = isMobile;
     isMobile = window.innerWidth <= 1024;
@@ -238,7 +304,6 @@ function initNaverLogin() {
                         isAdmin = true;
                         loggedInUser = { docId: querySnapshot.docs[0].id, ...adminData };
                         
-                        // 자동 로그인 체크 여부 확인
                         const isAutoLogin = document.getElementById('autoLoginCheck')?.checked;
                         if (isAutoLogin) {
                             localStorage.setItem('isAdmin', 'true');
@@ -277,7 +342,6 @@ async function checkPassword() {
                 isAdmin = true;
                 loggedInUser = { docId: querySnapshot.docs[0].id, ...adminData };
                 
-                // 자동 로그인 분기
                 if (isAutoLogin) {
                     localStorage.setItem('isAdmin', 'true');
                     localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
@@ -369,7 +433,6 @@ async function loadLinksFromFirebase() {
                 if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data });
             });
             
-            // 공지 데이터 강제 주입
             if (dbLinks['공지'].length === 0) {
                 const defaultNotice = defaultMemberLinks['공지'][0];
                 const docRef = await addDoc(collection(db, 'memberLinks'), { member: '공지', title: defaultNotice.title, url: defaultNotice.url, timestamp: Date.now() });
@@ -425,11 +488,10 @@ function showUpPopup(today) {
     if(!upHtml) upHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">등록된 UP 링크가 없습니다.</div>`;
     if(!rollingHtml) rollingHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">진행중인 롤링페이퍼가 없습니다.</div>`;
 
-    // 공지 링크 렌더링 블록
     const noticeLinks = dynamicLinks['공지'] || [];
     let noticeHtml = '';
     if (noticeLinks.length > 0) {
-        noticeHtml = `<div class="w-full flex justify-end mt-4 pt-4 border-t-2 border-dashed border-gray-300">`;
+        noticeHtml = `<div class="w-full flex justify-end mt-4 pt-4 border-t-2 border-dashed border-gray-300 shrink-0">`;
         noticeLinks.forEach(link => {
             noticeHtml += `<button onclick="openSmartLink('${link.url}')" class="border-[2.5px] border-red-500 text-red-500 bg-white font-bold px-5 py-2.5 rounded-xl hover:bg-red-50 hover:-translate-y-0.5 transition-all ml-2 font-paperozi shadow-sm flex items-center gap-2"><i class="fi fi-rr-bullhorn"></i> ${link.title}</button>`;
         });
@@ -437,28 +499,30 @@ function showUpPopup(today) {
     }
 
     list.innerHTML = `
-        <div class="flex flex-col md:flex-row gap-6 w-full">
-            <div class="flex-1 flex flex-col w-full md:w-1/2">
-                <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2">
-                    <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+        <div class="overflow-y-auto max-h-[65vh] w-full p-2 modal-scroll">
+            <div class="flex flex-col md:flex-row gap-6 w-full">
+                <div class="flex-1 flex flex-col w-full md:w-1/2">
+                    <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
+                        <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+                    </div>
+                    <div class="flex flex-col">
+                        ${upHtml}
+                    </div>
                 </div>
-                <div class="overflow-y-auto modal-scroll max-h-[350px] pr-2 flex flex-col">
-                    ${upHtml}
+                
+                <div class="hidden md:block border-l-2 border-dashed border-gray-300 my-2"></div>
+                
+                <div class="flex-1 flex flex-col w-full md:w-1/2">
+                    <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
+                        <i class="fi fi-rr-envelope"></i> 롤링페이퍼
+                    </div>
+                    <div class="flex flex-col">
+                        ${rollingHtml}
+                    </div>
                 </div>
             </div>
-            
-            <div class="hidden md:block border-l-2 border-dashed border-gray-300 my-2"></div>
-            
-            <div class="flex-1 flex flex-col w-full md:w-1/2">
-                <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2">
-                    <i class="fi fi-rr-envelope"></i> 롤링페이퍼
-                </div>
-                <div class="overflow-y-auto modal-scroll max-h-[350px] pr-2 flex flex-col">
-                    ${rollingHtml}
-                </div>
-            </div>
+            ${noticeHtml}
         </div>
-        ${noticeHtml}
     `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
 }
@@ -850,9 +914,6 @@ function openSidePanel(mode) {
     });
 }
 
-// =========================================================================
-// 메모 모달 관련 함수 (취소/저장 버튼 및 정상 저장 반영)
-// =========================================================================
 function openMemoAddModal() {
     currentEditingMemoId = null;
     document.getElementById('memoModalTitle').innerText = '메모 추가';
@@ -863,9 +924,7 @@ function openMemoAddModal() {
     
     document.getElementById('memoContent').value = '';
 
-    // 🔥 자바스크립트에서 강제로 모달 하단 버튼을 '취소 / 저장'으로 변경
     setupMemoButtons();
-
     document.getElementById('memoModal').classList.replace('hidden', 'flex');
 }
 
@@ -878,9 +937,7 @@ function openMemoEditModal(memoId) {
     document.getElementById('memoDate').value = memo.date || '';
     document.getElementById('memoContent').value = memo.content || '';
 
-    // 🔥 수정 창에서도 하단 버튼을 '취소 / 저장'으로 변경
     setupMemoButtons();
-
     document.getElementById('memoModal').classList.replace('hidden', 'flex');
 }
 
@@ -888,14 +945,13 @@ function setupMemoButtons() {
     const memoModal = document.getElementById('memoModal');
     if (!memoModal) return;
 
-    // 모달 내부에 버튼들이 들어있는 컨테이너를 찾습니다.
     const btnContainer = memoModal.querySelector('.flex.gap-2') || 
                          memoModal.querySelector('.flex.justify-end') || 
                          memoModal.querySelector('.flex.gap-3') || 
                          memoModal.querySelector('.modal-content > div:last-child');
     
     if (btnContainer) {
-        btnContainer.className = "flex gap-3 w-full mt-4"; // 간격 및 너비 재조정
+        btnContainer.className = "flex gap-3 w-full mt-4"; 
         btnContainer.innerHTML = `
             <button type="button" onclick="closeMemoModal()" class="flex-1 bg-gray-400 text-white font-bold text-[18px] py-4 rounded-xl hover:bg-gray-500 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
                 취소
@@ -1021,7 +1077,6 @@ async function loadSchedulesFromFirebase() {
             });
         });
 
-        // 🔥 추가: scheduleList를 timestamp(생성 시간) 기준으로 정렬
         scheduleList.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
         for(let m in memoList) {
@@ -1264,17 +1319,24 @@ function renderRollingPaper() {
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         `;
+        
         currentTopicEntries.forEach((entry, idx) => {
+            const bgStyle = entry.imageUrl 
+                ? `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${entry.imageUrl}'); background-size: cover; background-position: center; border: none;` 
+                : `background-color: #FFFDF5; border: 3px solid #5D4037;`;
+            const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
+            const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #d1d5db;`;
+
             html += `
-                <div class="bg-[#FFFDF5] border-[3px] border-[#5D4037] rounded-xl p-5 cursor-pointer shadow-[3px_3px_0px_0px_rgba(93,64,55,1)] hover:-translate-y-1 transition relative flex flex-col h-[400px]" onclick="openRollingDetailModal(${idx})">
+                <div class="rounded-xl p-5 cursor-pointer shadow-[3px_3px_0px_0px_rgba(93,64,55,1)] hover:-translate-y-1 transition relative flex flex-col h-[400px]" style="${bgStyle}" onclick="openRollingDetailModal(${idx})">
                     ${isAdmin ? `
-                    <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5] rounded-md px-1">
+                    <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5] rounded-md px-1" style="${entry.imageUrl ? 'background: rgba(255,255,255,0.8);' : ''}">
                         <button onclick="event.stopPropagation(); openEditRollingEntryModal('${entry.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
                         <button onclick="event.stopPropagation(); deleteRollingEntry('${entry.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
                     </div>
                     ` : ''}
-                    <div class="text-[16px] text-[#5D4037] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical;">${entry.content}</div>
-                    <div class="text-right text-[14px] font-bold text-gray-500 mt-3 pt-2 border-t-2 border-dashed border-gray-300 pointer-events-none shrink-0">- ${entry.nickname || '익명'}</div>
+                    <div class="text-[16px] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical; ${textStyle}">${entry.content}</div>
+                    <div class="text-right text-[14px] font-bold mt-3 pt-2 border-t-2 border-dashed pointer-events-none shrink-0" style="${nickStyle}">- ${entry.nickname || '익명'}</div>
                 </div>
             `;
         });
@@ -1331,8 +1393,14 @@ function openRollingEntryModal() {
     document.getElementById('reModalTitle').innerText = '작성하기';
     document.getElementById('reContent').value = '';
     document.getElementById('reNickname').value = '';
+    
+    if(document.getElementById('reImage')) document.getElementById('reImage').value = '';
+    if(document.getElementById('reImageUrl')) document.getElementById('reImageUrl').value = '';
+    if(document.getElementById('reImageRemoveBtn')) document.getElementById('reImageRemoveBtn').classList.add('hidden');
+    
     document.getElementById('rollingEntryModal').classList.replace('hidden', 'flex');
 }
+
 function closeRollingEntryModal() { document.getElementById('rollingEntryModal').classList.replace('flex', 'hidden'); }
 
 function openEditRollingEntryModal(id) {
@@ -1342,6 +1410,19 @@ function openEditRollingEntryModal(id) {
     document.getElementById('reModalTitle').innerText = '방명록 수정 (관리자)';
     document.getElementById('reContent').value = entry.content;
     document.getElementById('reNickname').value = entry.nickname;
+    
+    if(document.getElementById('reImage')) document.getElementById('reImage').value = '';
+    
+    if(document.getElementById('reImageUrl')) {
+        if (entry.imageUrl) {
+            document.getElementById('reImageUrl').value = entry.imageUrl;
+            document.getElementById('reImageRemoveBtn').classList.remove('hidden');
+        } else {
+            document.getElementById('reImageUrl').value = '';
+            document.getElementById('reImageRemoveBtn').classList.add('hidden');
+        }
+    }
+    
     document.getElementById('rollingEntryModal').classList.replace('hidden', 'flex');
 }
 
@@ -1350,13 +1431,25 @@ async function saveRollingEntry() {
     const nickname = document.getElementById('reNickname').value.trim();
     if(!content) return alert("내용을 입력해주세요.");
     
+    let imageUrl = document.getElementById('reImageUrl') ? document.getElementById('reImageUrl').value : '';
+
+    const fileInput = document.getElementById('reImage');
+    if (fileInput && fileInput.files.length > 0) {
+        const url = await window.uploadImageToCloudinary(fileInput.files[0]);
+        if (url) imageUrl = url;
+    }
+    
     try {
         if(editRollingEntryId) {
-            await updateDoc(doc(db, 'rollingEntries', editRollingEntryId), { content, nickname });
+            await updateDoc(doc(db, 'rollingEntries', editRollingEntryId), { content, nickname, imageUrl });
             const idx = rollingEntries.findIndex(e => e.id === editRollingEntryId);
-            if(idx > -1) { rollingEntries[idx].content = content; rollingEntries[idx].nickname = nickname; }
+            if(idx > -1) { 
+                rollingEntries[idx].content = content; 
+                rollingEntries[idx].nickname = nickname; 
+                rollingEntries[idx].imageUrl = imageUrl; 
+            }
         } else {
-            const newEntry = { topicId: currentRollingTopic.id, content, nickname, timestamp: Date.now() };
+            const newEntry = { topicId: currentRollingTopic.id, content, nickname, imageUrl, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'rollingEntries'), newEntry);
             rollingEntries.unshift({ id: docRef.id, ...newEntry });
         }
@@ -1392,8 +1485,27 @@ function navigateRollingDetail(direction) {
 function updateRollingDetailModal() {
     const entry = currentTopicEntries[currentEntryIndex];
     if(!entry) return;
-    document.getElementById('rdContent').innerText = entry.content;
-    document.getElementById('rdNickname').innerText = "- " + (entry.nickname || '익명');
+    
+    const contentEl = document.getElementById('rdContent');
+    const nickEl = document.getElementById('rdNickname');
+    contentEl.innerText = entry.content;
+    nickEl.innerText = "- " + (entry.nickname || '익명');
+
+    const modalBody = contentEl.parentElement;
+    if (entry.imageUrl) {
+        modalBody.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${entry.imageUrl}')`;
+        modalBody.style.backgroundSize = 'cover';
+        modalBody.style.backgroundPosition = 'center';
+        contentEl.style.color = '#ffffff';
+        nickEl.style.color = '#e5e7eb';
+        modalBody.style.border = 'none';
+    } else {
+        modalBody.style.backgroundImage = 'none';
+        modalBody.style.backgroundColor = '#FFFDF5';
+        contentEl.style.color = '#5D4037';
+        nickEl.style.color = '#6b7280';
+        modalBody.style.border = '3px solid #5D4037';
+    }
 }
 
 function renderMobileHome(grouped) {
@@ -1423,7 +1535,6 @@ function renderMobileHome(grouped) {
             const isHubang = daySchedules.some(s => s.globalType === '휴방');
             const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
             
-            // 글로벌 타임 추출 (홈 화면 카드용)
             const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
             const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
 
@@ -1557,7 +1668,6 @@ function renderDesktopHome(grouped) {
                 const bgColor = isHubang ? '#F3F4F6' : rowBgColors[i];
                 const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
                 
-                // 글로벌 타임 추출
                 const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
                 const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
                 
@@ -1589,7 +1699,6 @@ function renderDesktopIndividual(grouped) {
                 const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
                 if (sWithGlobal) dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
             }
-            // 월간 달력 일(day) 칸 시간 폰트 색상을 고동색(#5D4037)으로 고정
             const timeDisplayHtml = dayGlobalTime ? `<span class="text-[13px] font-bold text-[#5D4037]">${dayGlobalTime}</span>` : '';
             const displayDay = isToday ? `<span class="bg-[#5D4037] text-white w-7 h-7 inline-flex items-center justify-center rounded-md">${day}</span>` : `<span>${day}</span>`;
             
@@ -1618,7 +1727,6 @@ async function deleteScheduleAction() {
 }
 
 async function saveSchedule() {
-    // 1. 여기서 blocks를 먼저 선언해야 합니다.
     const blocks = document.querySelectorAll('#scheduleInputsContainer .schedule-input-block');
     
     const globalTypeEl = document.querySelector('input[name="globalSchType"]:checked');
@@ -1627,13 +1735,11 @@ async function saveSchedule() {
     const memberTab = targetModalContext.member;
     const colName = collectionMap[memberTab];
 
-    // 2. 방송 켜는 시간 데이터 가져오기
     const gAmpm = document.getElementById('globalAmpm') ? document.getElementById('globalAmpm').innerText : '오후';
     const gHh = document.getElementById('globalHh') ? document.getElementById('globalHh').value : '';
     const gMm = document.getElementById('globalMm') ? document.getElementById('globalMm').value : '';
     const globalStartTime = (globalType === '뱅온' && gHh) ? buildTimeStr(gAmpm, gHh, gMm) : '';
 
-    // 기존 데이터 삭제 로직
     for (let oldId of currentEditingIds) {
         const oldSch = scheduleList.find(s => s.id === oldId);
         if (oldSch) {
@@ -1642,16 +1748,11 @@ async function saveSchedule() {
     }
     scheduleList = scheduleList.filter(s => !currentEditingIds.includes(s.id));
 
-    // 🔥 순서 보장을 위한 변수 추가
     let timestampOffset = 0;
 
-    // 3. 각 블록 순회하며 저장
     for (const block of blocks) {
         let title = block.querySelector('.sch-title').value.trim();
-        // 제목이 비어있으면 유형에 따라 자동 입력
-        if (!title) {
-            title = isHubang ? '휴방' : '뱅온';
-        }
+        if (!title) title = isHubang ? '휴방' : '뱅온';
 
         const sDate = block.querySelector('.sch-start').value;
         const eDate = block.querySelector('.sch-end').value;
@@ -1662,11 +1763,12 @@ async function saveSchedule() {
         const mem = isHubang ? '' : block.querySelector('.sch-mem').value.trim();
         const timeStr = isHubang ? '' : buildTimeStr(ampm, hh, mm);
         const desc = block.querySelector('.sch-desc').value.trim();
+        const imageUrl = block.querySelector('.sch-image-url') ? block.querySelector('.sch-image-url').value : '';
 
         const newSchedule = { 
             tabOrMember: memberTab,
             globalType,
-            globalStartTime, // 방송 시작 시간 저장
+            globalStartTime,
             title, 
             startDate: sDate, 
             endDate: eDate, 
@@ -1674,10 +1776,11 @@ async function saveSchedule() {
             broadType: broad, 
             memberTag: mem, 
             detail: desc,
-            timestamp: Date.now() + timestampOffset // 🔥 변경: 저장 순서대로 미세하게 시간 추가
+            imageUrl: imageUrl, 
+            timestamp: Date.now() + timestampOffset
         };
 
-        timestampOffset++; // 🔥 다음 블록은 1ms 뒤로 설정
+        timestampOffset++;
 
         const docRef = await addDoc(collection(db, colName), newSchedule);
         newSchedule.id = docRef.id;
@@ -1708,28 +1811,23 @@ async function saveEditedSchedule() {
     const mem = isHubang ? '' : block.querySelector('.sch-mem').value.trim();
     const timeStr = isHubang ? '' : buildTimeStr(ampm, hh, mm); 
     const desc = block.querySelector('.sch-desc').value.trim();
+    const imageUrl = block.querySelector('.sch-image-url') ? block.querySelector('.sch-image-url').value : '';
     
-    // 업데이트할 데이터 준비
     const updatedData = { 
         globalType, title, startDate: sDate, endDate: eDate, 
-        time: timeStr, broadType: broad, memberTag: mem, detail: desc 
+        time: timeStr, broadType: broad, memberTag: mem, detail: desc, imageUrl 
     };
     
     const sch = scheduleList.find(s => s.id === contextTargetId);
     if(!sch) return;
 
     try {
-        // 1. 기존 데이터베이스 문서 직접 업데이트
         await updateDoc(doc(db, sch.collectionName, contextTargetId), updatedData);
-        
-        // 2. 메모리 상의 리스트도 바로 업데이트
         const idx = scheduleList.findIndex(s => s.id === contextTargetId);
-        if(idx !== -1) {
-            scheduleList[idx] = { ...scheduleList[idx], ...updatedData };
-        }
+        if(idx !== -1) scheduleList[idx] = { ...scheduleList[idx], ...updatedData };
         
         closeEditModal(); 
-        render(); // 화면 갱신
+        render();
     } catch(e) { 
         console.error("수정 오류:", e); 
         alert("저장에 실패했습니다.");
@@ -1758,7 +1856,6 @@ function toggleFields(modalId, radioName) {
     const modal = document.getElementById(modalId); if(!modal) return;
     const radio = modal.querySelector(`input[name="${radioName}"]:checked`);
     
-    // radio가 해제되어 null일 수 있으므로 방어 코드 추가
     const isHubang = radio && radio.value === '휴방';
     modal.querySelectorAll('.optional-field').forEach(el => { el.style.display = isHubang ? 'none' : ''; });
 
@@ -1805,25 +1902,27 @@ function handleDayRightClick(event, year, month, day, member) {
 
 function getScheduleFormHTML(data, isDeletable = true) {
     const id = data.id || ''; 
-    const title = data.title || ''; // 기존 데이터가 있다면 유지
+    const title = data.title || ''; 
     const sDate = data.startDate || ''; 
     const eDate = data.endDate || '';
     const broad = data.broadType || '개인방송'; 
     const mem = data.memberTag || ''; 
     const desc = data.detail || '';
+    const imageUrl = data.imageUrl || ''; 
+    
     let hh = '', mm = '', ampm = '오후';
     if (data.time) { let [h, m] = data.time.split(':'); h = parseInt(h, 10); ampm = h >= 12 ? '오후' : '오전'; h = h % 12; if (h === 0) h = 12; hh = h; mm = m; }
     
-    // 삭제 버튼 (기존)
     const deleteBtnHtml = isDeletable ? `<button type="button" class="absolute top-2 right-4 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="this.closest('.schedule-input-block').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>` : '';
 
-    // 🔥 추가: 위/아래 이동 버튼 (삭제 버튼 왼쪽에 위치)
     const moveBtnsHtml = isDeletable ? `
         <div class="absolute top-4 right-14 flex gap-2 z-10">
             <button type="button" class="text-gray-400 hover:text-[#5D4037] text-[20px] font-bold flex items-center justify-center hover:scale-110 transition-all" onclick="moveScheduleBlock(this, -1)" title="위로 이동"><i class="fi fi-rr-angle-up"></i></button>
             <button type="button" class="text-gray-400 hover:text-[#5D4037] text-[20px] font-bold flex items-center justify-center hover:scale-110 transition-all" onclick="moveScheduleBlock(this, 1)" title="아래로 이동"><i class="fi fi-rr-angle-down"></i></button>
         </div>
     ` : '';
+
+    const removeBtnClass = imageUrl ? '' : 'hidden'; // 이미지 있으면 버튼 보임
 
     return `
         <div class="schedule-input-block border-2 border-[#5D4037] p-5 rounded-xl bg-white relative shadow-sm pretendard mt-1">
@@ -1834,6 +1933,17 @@ function getScheduleFormHTML(data, isDeletable = true) {
             <div class="mb-4"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">날짜</label><div class="flex items-center gap-2"><input type="date" class="sch-start flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${sDate}"><span class="font-bold text-[#5D4037]">~</span><input type="date" class="sch-end flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${eDate}"></div></div>
             <div class="flex gap-4 mb-4 optional-field"><div class="flex-1"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">시간</label><div class="flex items-center justify-between border-2 border-[#5D4037] rounded-lg p-1.5 bg-white"><button type="button" class="sch-ampm ampm-btn px-2.5 py-1 font-bold text-[#5D4037] rounded-md text-[13px]" onclick="toggleAmpm(this)">${ampm}</button><input type="number" min="1" max="12" class="sch-hh w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="시" value="${hh}"><span class="font-bold text-[#5D4037]">:</span><input type="number" min="0" max="59" class="sch-mm w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[15px]" placeholder="분" value="${mm}"></div></div><div class="flex-1"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">유형</label><select class="sch-broad w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] bg-white font-bold text-[#5D4037] cursor-pointer"><option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option><option value="합방" ${broad==='합방'?'selected':''}>합방</option><option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option></select></div></div>
             <div class="mb-4 optional-field"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">멤버</label><input type="text" class="sch-mem w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="멤버 태그 입력 (선택)" value="${mem}"></div>
+            <div class="mb-4 optional-field">
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">이미지 첨부 (선택)</label>
+                <div class="flex items-center gap-2">
+                    <input type="file" accept="image/*" class="flex-1 text-[13px] cursor-pointer" onchange="window.handleScheduleImageUpload(this)">
+                    <button type="button" class="sch-img-remove-btn ${removeBtnClass} px-3 py-1.5 bg-red-500 text-white rounded text-sm font-bold shadow-sm hover:bg-red-600 transition shrink-0" onclick="window.removeScheduleImage(this)">이미지 삭제</button>
+                </div>
+                <input type="hidden" class="sch-image-url" value="${imageUrl}">
+                <div class="sch-img-preview">
+                    ${imageUrl ? `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">` : ''}
+                </div>
+            </div>
             <div><label class="block text-[13px] text-gray-500 font-bold mb-1.5">상세</label><textarea class="sch-desc w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[15px] resize-none h-[75px] font-medium" placeholder="상세 내용을 입력하세요 (선택)">${desc}</textarea></div>
         </div>
     `;
@@ -1849,10 +1959,8 @@ function openScheduleModal(year, month, day, member) {
     const container = document.getElementById('scheduleInputsContainer'); 
     container.innerHTML = '';
     
-    // 1. 방송 켜는 시간(글로벌 타임) 블록 확인 및 생성
     let globalTimeBlock = document.getElementById('globalTimeBlock');
     if (!globalTimeBlock) {
-        // 모달 내 적절한 위치(컨테이너 상단)에 생성
         globalTimeBlock = document.createElement('div');
         globalTimeBlock.id = 'globalTimeBlock';
         globalTimeBlock.className = 'mb-4 p-4 rounded-xl border-2 border-[#5D4037] bg-[#FFFDF5] shadow-sm';
@@ -1868,12 +1976,10 @@ function openScheduleModal(year, month, day, member) {
         container.parentNode.insertBefore(globalTimeBlock, container);
     }
 
-    // 2. 초기값 설정
     document.getElementById('globalHh').value = '';
     document.getElementById('globalMm').value = '';
     document.getElementById('globalAmpm').innerText = '오후';
 
-    // 3. 기존 데이터가 있다면 값 채우기
     if (targets.length > 0) {
         const first = targets[0];
         document.querySelectorAll('input[name="globalSchType"]').forEach(r => r.checked = (r.value === first.globalType));
@@ -1911,13 +2017,11 @@ function editFromMenu() {
     document.getElementById('editScheduleModal').classList.replace('hidden', 'flex'); 
     toggleFields('editScheduleModal', 'editGlobalSchType');
 
-    // 🔥 HTML 수정 없이 JS에서 강제로 팝업 하단 버튼을 2개(삭제/저장)로 변경합니다.
     const editModal = document.getElementById('editScheduleModal');
-    // 기존 버튼들이 담긴 컨테이너를 찾습니다.
     const btnContainer = editModal.querySelector('.flex.gap-2') || editModal.querySelector('.flex.gap-3');
     
     if (btnContainer) {
-        btnContainer.className = "flex gap-3 w-full mt-2"; // 간격과 너비 재조정
+        btnContainer.className = "flex gap-3 w-full mt-2";
         btnContainer.innerHTML = `
             <button type="button" onclick="deleteScheduleAction()" class="flex-1 bg-red-500 text-white font-bold text-[18px] py-4 rounded-xl hover:bg-red-600 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
                 삭제
@@ -1951,8 +2055,10 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                     ${timeText ? `<span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${themeColor}; border-color: ${themeColor};">${timeText}</span>` : ''}
                     <span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${broadColor}; border-color: ${broadColor};">${broadText}</span>
                 </div>`;
-                
-            htmlContent += `<div class="flex flex-col w-full items-center"><div class="flex flex-col items-center gap-2 mb-4 w-full"><div class="text-[28px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi">${sch.title}</div>${badgeHtml}</div><div class="flex flex-col gap-5 w-full pretendard px-3">${memText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">멤버</div><div class="text-[17px] text-[#5D4037] font-bold">${memText}</div></div>` : ''}${detailText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">상세</div><div class="text-[15px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap">${detailText}</div></div>` : ''}</div></div>`;
+            
+            let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" class="w-full max-h-[300px] object-contain rounded-xl my-4 shadow-sm border border-gray-200">` : '';
+
+            htmlContent += `<div class="flex flex-col w-full items-center"><div class="flex flex-col items-center gap-2 mb-4 w-full"><div class="text-[28px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi">${sch.title}</div>${badgeHtml}</div>${imgHtml}<div class="flex flex-col gap-5 w-full pretendard px-3">${memText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">멤버</div><div class="text-[17px] text-[#5D4037] font-bold">${memText}</div></div>` : ''}${detailText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">상세</div><div class="text-[15px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap">${detailText}</div></div>` : ''}</div></div>`;
             if (index < schedules.length - 1) htmlContent += `<div class="w-full border-b-2 border-dashed border-[#5D4037] opacity-20 my-8"></div>`;
         });
     }
@@ -1981,9 +2087,6 @@ function openAllSchedulesModal(event, dateStr, member) {
 
 function closeDetailModal() { const modal = document.getElementById('scheduleDetailModal'); modal.classList.replace('flex', 'hidden'); modal.style.display = ''; }
 
-// =========================================================================
-// 우클릭, 드래그, 복사 금지
-// =========================================================================
 document.addEventListener('contextmenu', event => event.preventDefault());
 document.addEventListener('selectstart', event => event.preventDefault());
 document.addEventListener('keydown', function(e) {
@@ -1996,12 +2099,10 @@ document.addEventListener('click', function(e) {
     if (e.target.name === 'globalSchType' || e.target.name === 'editGlobalSchType') {
         const modalId = e.target.name === 'globalSchType' ? 'scheduleModal' : 'editScheduleModal';
         
-        // 이전에 체크된 상태였으면 체크 해제
         if (e.target.dataset.wasChecked === 'true') {
             e.target.checked = false;
             e.target.dataset.wasChecked = 'false';
         } else {
-            // 다른 요소들은 체크 해제 상태로 변경
             document.querySelectorAll(`input[name="${e.target.name}"]`).forEach(radio => radio.dataset.wasChecked = 'false');
             e.target.dataset.wasChecked = 'true';
         }
@@ -2011,11 +2112,10 @@ document.addEventListener('click', function(e) {
 });
 
 async function initApp() {
-    adjustDesktopScale(); // 화면 로딩 시 배율 즉시 적용
+    adjustDesktopScale(); 
 
     await seedAdmins();
 
-    // 세션 스토리지와 로컬 스토리지 모두 확인
     const savedAdminSession = sessionStorage.getItem('isAdmin');
     const savedUserSession = sessionStorage.getItem('loggedInUser');
     const savedAdminLocal = localStorage.getItem('isAdmin');
