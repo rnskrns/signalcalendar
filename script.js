@@ -1635,7 +1635,7 @@ function renderMobileIndividual(grouped) {
 function renderDesktopHome(grouped) {
     const content = document.getElementById('mainContent');
     const realToday = new Date();
-    const logoImgUrl = "https://i.namu.wiki/i/TJgdKNl8C9pH3EUWbPBNXf8x8nqSfvHC6s7RFIrJpa1q5ZfF5C-ZSZAfVwkc2Cg7fEL3g-_BDyVu0_jnM64v3tzxwaxRpbY0mGi5IqnLninFRLDRo8saqkm7t6dCsymt77vsMQpCs8--nkcxqxADOg.webp";
+    const logoImgUrl = "https://i.postimg.cc/SsC1x8x9/twd-Kl0kpj-m-F6Pga-E2tp-Xs12Soo-ZQYJg-Uyp-HF1GLpbo-ADh-DGCu-THODWZ-LSQ4m-Pz0pz-Rj-XDTxaf3ife-GCn-GMx.webp";
     
     const today = new Date(); const diff = today.getDay() === 0 ? -6 : 1 - today.getDay();
     const monday = new Date(today); monday.setDate(today.getDate() + diff);
