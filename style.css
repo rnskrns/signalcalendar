@@ -169,3 +169,6 @@ body {
 .theme-rolling.big-white-box {
     border-radius: 26px;
 }
+
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

@@ -1479,45 +1479,60 @@ async function deleteRollingEntry(id) {
 }
 
 function openRollingDetailModal(index) {
-    currentEntryIndex = index;
-    updateRollingDetailModal();
-    document.getElementById('rollingDetailModal').classList.replace('hidden', 'flex');
-}
-function closeRollingDetailModal() { document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden'); }
+    currentEntryIndex = index;
+    const container = document.getElementById('rdSliderContainer');
+    
+    container.innerHTML = currentTopicEntries.map((entry, idx) => {
+        const bgStyle = entry.imageUrl 
+            ? `background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${entry.imageUrl}'); background-size: cover; background-position: center; border: none;` 
+            : `background-color: #FFFDF5; border: 0px;`; 
+        const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
+        const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #5D4037;`;
+        const pcBorder = entry.imageUrl ? '' : 'md:border-4 border-[#5D4037]';
+        
+        // ✨ 변경된 부분: 텍스트 영역에 min-h-0 추가 및 모달 래퍼에 overflow-hidden 추가
+        return `
+        <div class="snap-center shrink-0 w-full h-full md:h-[1000px] flex items-center justify-center md:my-auto px-0 md:px-4">
+            <div class="modal-content w-full h-full rounded-none md:rounded-3xl shadow-2xl flex flex-col p-6 pt-20 pb-8 md:p-12 relative overflow-hidden ${pcBorder}" style="${bgStyle}">
+                <div class="text-[20px] md:text-[24px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words px-4 md:px-0 drop-shadow-sm" style="${textStyle}">${entry.content}</div>
+                <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed px-4 md:px-0 drop-shadow-sm shrink-0" style="${nickStyle}">- ${entry.nickname || '익명'}</div>
+            </div>
+        </div>`;
+    }).join('');
 
+    document.getElementById('rollingDetailModal').classList.replace('hidden', 'flex');
+    
+    setTimeout(() => {
+        container.scrollLeft = index * container.clientWidth;
+    }, 10);
+}
+// PC 화살표 내비게이션 (부드러운 스크롤 이동)
 function navigateRollingDetail(direction) {
-    let newIndex = currentEntryIndex + direction;
-    if(newIndex < 0) newIndex = currentTopicEntries.length - 1;
-    if(newIndex >= currentTopicEntries.length) newIndex = 0;
-    currentEntryIndex = newIndex;
-    updateRollingDetailModal();
+    const container = document.getElementById('rdSliderContainer');
+    let newIndex = currentEntryIndex + direction;
+    
+    // 처음과 끝 무한 반복 처리
+    if(newIndex < 0) newIndex = currentTopicEntries.length - 1;
+    if(newIndex >= currentTopicEntries.length) newIndex = 0;
+    
+    currentEntryIndex = newIndex;
+    container.scrollTo({ left: currentEntryIndex * container.clientWidth, behavior: 'smooth' });
 }
 
-function updateRollingDetailModal() {
-    const entry = currentTopicEntries[currentEntryIndex];
-    if(!entry) return;
-    
-    const contentEl = document.getElementById('rdContent');
-    const nickEl = document.getElementById('rdNickname');
-    contentEl.innerText = entry.content;
-    nickEl.innerText = "- " + (entry.nickname || '익명');
-
-    const modalBody = contentEl.parentElement;
-    if (entry.imageUrl) {
-        modalBody.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${entry.imageUrl}')`;
-        modalBody.style.backgroundSize = 'cover';
-        modalBody.style.backgroundPosition = 'center';
-        contentEl.style.color = '#ffffff';
-        nickEl.style.color = '#e5e7eb';
-        modalBody.style.border = 'none';
-    } else {
-        modalBody.style.backgroundImage = 'none';
-        modalBody.style.backgroundColor = '#FFFDF5';
-        contentEl.style.color = '#5D4037';
-        nickEl.style.color = '#6b7280';
-        modalBody.style.border = '3px solid #5D4037';
-    }
+// 모바일에서 스와이프할 때 현재 어떤 방명록을 보고 있는지 계산
+function updateCurrentEntryIndex(container) {
+    if (container.clientWidth > 0) {
+        currentEntryIndex = Math.round(container.scrollLeft / container.clientWidth);
+    }
 }
+
+// 스크롤 방식으로 교체되었으므로 구버전 업데이트 함수는 비워둡니다 (오류 방지용)
+function updateRollingDetailModal() { }
+
+// 모바일 스크롤 이벤트를 HTML에서 접근할 수 있도록 연결 추가
+window.updateCurrentEntryIndex = updateCurrentEntryIndex;
+
+function closeRollingDetailModal() { document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden'); }
 
 function renderMobileHome(grouped) {
     const content = document.getElementById('mainContent');
