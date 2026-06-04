@@ -812,19 +812,27 @@ async function deleteMemberLink(member, linkId) {
 }
 
 async function addUpLink() {
-    const title = document.getElementById('upTitle').value.trim();
-    const url = document.getElementById('upUrl').value.trim();
-    const deadline = document.getElementById('upDeadline').value;
-    if(!title || !url) return alert('제목과 링크를 입력하세요.');
-    const member = loggedInUser.name;
-    const newUp = { member, title, url, deadline, timestamp: Date.now() };
-    try {
-        const docRef = await addDoc(collection(db, 'uplinks'), newUp);
-        upLinksList.push({ id: docRef.id, ...newUp });
-        alert('업링크가 추가되었습니다.');
-        document.getElementById('upTitle').value = ''; document.getElementById('upUrl').value = ''; document.getElementById('upDeadline').value = '';
-        if(sidePanelMode === 'UP') renderUpLinksPanel(); 
-    } catch(e) { console.error(e); }
+    const title = document.getElementById('upTitle').value.trim();
+    const url = document.getElementById('upUrl').value.trim();
+    const deadline = document.getElementById('upDeadline').value;
+    
+    // 추가된 멤버 선택 select 요소 가져오기
+    const memberSelect = document.getElementById('upMember');
+    // select 요소가 있으면 선택된 값을, 없으면 기존대로 로그인한 유저 이름을 사용
+    const member = memberSelect ? memberSelect.value : loggedInUser.name;
+
+    if(!title || !url) return alert('제목과 링크를 입력하세요.');
+    
+    const newUp = { member, title, url, deadline, timestamp: Date.now() };
+    try {
+        const docRef = await addDoc(collection(db, 'uplinks'), newUp);
+        upLinksList.push({ id: docRef.id, ...newUp });
+        alert('업링크가 추가되었습니다.');
+        document.getElementById('upTitle').value = ''; 
+        document.getElementById('upUrl').value = ''; 
+        document.getElementById('upDeadline').value = '';
+        if(sidePanelMode === 'UP') renderUpLinksPanel(); 
+    } catch(e) { console.error(e); }
 }
 
 async function deleteUpLink(upId) {

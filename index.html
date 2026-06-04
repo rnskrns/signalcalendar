@@ -103,9 +103,21 @@
                     <input type="text" id="upTitle" placeholder="컨텐츠 제목" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                     <input type="text" id="upUrl" placeholder="새탭으로 열릴 URL (https://...)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                     <div class="flex items-center gap-3">
-                        <span class="text-sm font-bold text-gray-600 shrink-0">마감일자:</span>
-                        <input type="date" id="upDeadline" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none flex-1">
-                    </div>
+                        <div class="flex-1">
+                            <label class="block text-[13px] text-gray-500 font-bold mb-1.5">마감일자</label>
+                            <input type="date" id="upDeadline" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-[13px] text-gray-500 font-bold mb-1.5">멤버 선택</label>
+                            <select id="upMember" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold text-[#5D4037] cursor-pointer bg-white">
+                                <option value="달타">달타</option>
+                                <option value="서피카">서피카</option>
+                                <option value="다룽">다룽</option>
+                                <option value="최또">최또</option>
+                                <option value="카나시">카나시</option>
+                            </select>
+                        </div>
+                    </div>
                     <button onclick="addUpLink()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold mt-2 hover:bg-blue-700 transition">업링크 추가</button>
                 </div>
             </div>
@@ -293,17 +305,20 @@
         </div>
     </div>
 
-    <div id="rollingDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
-        <button class="absolute top-6 right-8 text-5xl text-white hover:scale-110 transition cursor-pointer" onclick="closeRollingDetailModal()"><i class="fi fi-br-cross-small"></i></button>
-        <div class="flex items-center justify-between w-full max-w-[1200px] px-4 gap-6">
-            <button onclick="navigateRollingDetail(-1)" class="w-16 h-16 flex items-center justify-center bg-white/20 text-white rounded-full hover:bg-white/40 transition text-3xl shrink-0"><i class="fi fi-rr-angle-left"></i></button>
-            <div class="modal-content bg-[#FFFDF5] p-10 rounded-3xl w-full shadow-2xl border-4 border-[#5D4037] min-h-[600px] flex flex-col justify-between relative">
-                <div id="rdContent" class="text-[24px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[75vh] modal-scroll break-words"></div>
-                <div id="rdNickname" class="text-right text-[20px] font-bold text-gray-500 mt-8 pt-6 border-t-2 border-dashed border-[#5D4037]"></div>
-            </div>
-            <button onclick="navigateRollingDetail(1)" class="w-16 h-16 flex items-center justify-center bg-white/20 text-white rounded-full hover:bg-white/40 transition text-3xl shrink-0"><i class="fi fi-rr-angle-right"></i></button>
-        </div>
-    </div>
+    <<div id="rollingDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+                <button class="absolute top-4 right-4 md:top-6 md:right-8 text-4xl md:text-5xl text-white hover:scale-110 transition cursor-pointer z-[5100]" onclick="closeRollingDetailModal()"><i class="fi fi-br-cross-small"></i></button>
+        
+                <div class="flex items-center justify-between w-full max-w-[1200px] px-0 md:px-4 gap-0 md:gap-6 h-full md:h-auto relative">
+                        <button onclick="navigateRollingDetail(-1)" class="absolute left-2 md:relative md:left-auto w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-black/30 md:bg-white/20 text-white rounded-full hover:bg-white/40 transition text-2xl md:text-3xl shrink-0 z-[5050]"><i class="fi fi-rr-angle-left"></i></button>
+            
+                        <div class="modal-content bg-[#FFFDF5] p-6 pt-16 md:p-10 rounded-none md:rounded-3xl w-full shadow-2xl border-0 md:border-4 border-[#5D4037] h-full md:h-auto md:min-h-[600px] flex flex-col justify-between relative">
+                <div id="rdContent" class="text-[20px] md:text-[24px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[85vh] md:max-h-[75vh] modal-scroll break-words"></div>
+                <div id="rdNickname" class="text-right text-[18px] md:text-[20px] font-bold text-gray-500 mt-6 md:mt-8 pt-4 md:pt-6 border-t-2 border-dashed border-[#5D4037]"></div>
+            </div>
+            
+                        <button onclick="navigateRollingDetail(1)" class="absolute right-2 md:relative md:right-auto w-12 h-12 md:w-16 md:h-16 flex items-center justify-center bg-black/30 md:bg-white/20 text-white rounded-full hover:bg-white/40 transition text-2xl md:text-3xl shrink-0 z-[5050]"><i class="fi fi-rr-angle-right"></i></button>
+        </div>
+    </div>
 
     <script type="module" src="script.js"></script>
 </body>
