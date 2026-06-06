@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 // =========================================================================
@@ -183,7 +183,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 let scheduleList = []; 
-let memoList = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[] };
+let memoList = { '달타':[], '다룽':[], '최또':[], '카나시':[] };
 let isAdmin = false;
 let loggedInUser = null; 
 let currentPage = '홈';
@@ -208,8 +208,8 @@ let currentTopicEntries = [];
 let currentEntryIndex = 0;
 let editRollingEntryId = null;
 
-const tabToHash = { '홈': 'home', '달타': 'dalta', '서피카': 'seopica', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', '롤링페이퍼': 'rolling' };
-const hashToTab = { '#home': '홈', '#dalta': '달타', '#seopica': '서피카', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', '#rolling': '롤링페이퍼' };
+const tabToHash = { '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', '롤링페이퍼': 'rolling' };
+const hashToTab = { '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', '#rolling': '롤링페이퍼' };
 
 // ✨ 해상도 변경 감지 (비율 조정 및 모바일 레이아웃 전환)
 window.addEventListener('resize', () => {
@@ -222,13 +222,12 @@ window.addEventListener('resize', () => {
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '서피카': '#F06292', '다룽': '#1E88E5', '최또': '#D81B60', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
-const collectionMap = { '달타': 'daltaevent', '서피카': 'SEOPICAevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
-const memoCollectionMap = { '달타': 'daltamemo', '서피카': 'seopicamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff39c5', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
+const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
+const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
 const members = [
     { name: '달타', img: 'https://i.postimg.cc/y8VYYyZM/dalta-peusa.png', link: '' },
-    { name: '서피카', img: 'https://i.postimg.cc/7YrWFxGX/jemog-eul-iblyeoghaejuseyo-(1).png', link: '' },
     { name: '다룽', img: 'https://i.postimg.cc/bNfB7zDm/jemog-eul-iblyeoghaejuseyo-(2).png', link: '' },
     { name: '최또', img: 'https://i.postimg.cc/fTQrGwtB/jemog-eul-iblyeoghaejuseyo.png', link: '' },
     { name: '카나시', img: 'https://i.postimg.cc/vZQHHtVC/kanasi-peusa.png', link: '' }
@@ -236,7 +235,6 @@ const members = [
 
 const memberCardImages = {
     '달타': { bangon: 'https://i.postimg.cc/P5N94Lsc/jemog-eul-iblyeoghaejuseyo.png', hubang: 'https://i.postimg.cc/br7DBDVt/jemog-eul-iblyeoghaejuseyo-(5).png' },
-    '서피카': { bangon: 'https://i.postimg.cc/0yrFf6RF/jemog-eul-iblyeoghaejuseyo-(2).png', hubang: 'https://i.postimg.cc/T1zL4LNQ/jemog-eul-iblyeoghaejuseyo-(9).png' },
     '다룽': { bangon: 'https://i.postimg.cc/zG36jLZc/jemog-eul-iblyeoghaejuseyo-(3).png', hubang: 'https://i.postimg.cc/MHCMFM3M/jemog-eul-iblyeoghaejuseyo-(8).png' },
     '최또': { bangon: 'https://i.postimg.cc/FH18Zf56/jemog-eul-iblyeoghaejuseyo-(1).png', hubang: 'https://i.postimg.cc/SRB2v21z/jemog-eul-iblyeoghaejuseyo-(6).png' },
     '카나시': { bangon: 'https://i.postimg.cc/8z33n1Nt/jemog-eul-iblyeoghaejuseyo-(4).png', hubang: 'https://i.postimg.cc/vTJgNg29/jemog-eul-iblyeoghaejuseyo-(7).png' }
@@ -244,7 +242,6 @@ const memberCardImages = {
 
 const defaultMemberLinks = {
     '달타': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/20?viewType=L' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/dalta20' }, { title: '유튜브', url: 'https://www.youtube.com/@Dalta20' } ],
-    '서피카': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/85' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/spica21' }, { title: '유튜브', url: 'https://www.youtube.com/@SEOPICA' } ],
     '다룽': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/46' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/daarung22' }, { title: '유튜브', url: 'https://www.youtube.com/@daarung22' } ],
     '최또': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/88' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/choiagain' }, { title: '유튜브', url: 'https://www.youtube.com/@CHOI_AGAIN' } ],
     '카나시': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/105' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/kjhh0029' }, { title: '유튜브', url: 'https://www.youtube.com/@kanashi_0123' } ],
@@ -267,7 +264,6 @@ async function seedAdmins() {
             console.log("관리자 데이터 초기화 중...");
             const defaultAdmins = [
                 { id: 'dalta', pw: '08201007', email: 'dalta0127@naver.com', name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
-                { id: 'seopica', pw: '02211028', email: 'real_email2@naver.com', name: '서피카', img: 'https://stimg.sooplive.com/LOGO/sp/spica21/spica21.jpg' },
                 { id: 'darung', pw: '11281106', email: 'daarung22@naver.com', name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
                 { id: 'choiagain', pw: '10300628', email: 'choiagain333@naver.com', name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
                 { id: 'kanashu', pw: '01230607', email: 'jhh0029@naver.com', name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' },
@@ -417,7 +413,7 @@ async function loadLinksFromFirebase() {
         }
 
         const linkSnap = await getDocs(collection(db, 'memberLinks'));
-        let dbLinks = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
+        let dbLinks = { '달타':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
 
         if (linkSnap.empty) {
             for (const member of Object.keys(defaultMemberLinks)) {
@@ -545,8 +541,8 @@ function renderHeaderTabs() {
     const desktopContainer = document.getElementById('headerNavTabs');
     const mobileNav = document.getElementById('mobileBottomNav');
     
-    const tabs = ['달타', '서피카', '다룽', '최또', '카나시', '더보기'];
-    const colors = { '달타': '#FBC02D', '서피카': '#F06292', '다룽': '#1E88E5', '최또': '#D81B60', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
+    const tabs = ['달타', '다룽', '최또', '카나시', '더보기'];
+    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff39c5', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
 
     if (desktopContainer) {
         let html = `
@@ -1071,7 +1067,7 @@ async function loadSchedulesFromFirebase() {
         
         const results = await Promise.all([...eventPromises, ...memoPromises]);
         scheduleList = [];
-        memoList = { '달타':[], '서피카':[], '다룽':[], '최또':[], '카나시':[] };
+        memoList = { '달타':[], '다룽':[], '최또':[], '카나시':[] };
         
         results.forEach(({ type, member, colName, snapshot }) => {
             snapshot.forEach((doc) => {
@@ -1205,12 +1201,23 @@ function renderMobileDatePicker() {
 }
 
 function buildScheduleCardHtml(sch, isMobileCard = false) {
-    const color = sch.globalType === '휴방' ? '#9CA3AF' : 'var(--theme-color)';
-    const bgColor = sch.globalType === '휴방' ? '#F9FAFB' : '#FFF5F5';
-    const formattedTime = formatTime12(sch.time) || ''; const broadType = sch.broadType || '';
+    // 💡 에러 방지를 위해 함수 내부에서 색상을 안전하게 정의합니다.
+    const safeBgColors = { 
+        '달타': '#FFFDE7', 
+        '다룽': '#E3F2FD', 
+        '최또': '#FFF0F5', 
+        '카나시': '#FFF3E0' 
+    };
 
+    const color = sch.globalType === '휴방' ? '#9CA3AF' : 'var(--theme-color)';
+    
+    // 👇 에러 원인 해결: cardBgColors 대신 방금 정의한 safeBgColors를 사용합니다.
+    const bgColor = sch.globalType === '휴방' ? '#F9FAFB' : (safeBgColors[sch.tabOrMember] || '#FFF5F5');
+    
+    const formattedTime = formatTime12(sch.time) || ''; 
+    const broadType = sch.broadType || ''; 
     const cardThemeColor = themeColors[sch.tabOrMember] || '#5D4037';
-    const cardBroadColor = broadType === '합방' ? '#1b3420' : cardThemeColor;
+    const cardBroadColor = broadType === '합방' ? '#FF5252' : cardThemeColor;
 
     const timeSize = isMobileCard ? '11px' : '12px'; 
     const titleSize = isMobileCard ? '12px' : '18px';
@@ -1233,7 +1240,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '서피카': '#FFF5F9', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF' };
     document.body.style.backgroundColor = tabBackgrounds[currentPage] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', themeColors[currentPage]);
     
@@ -1495,7 +1502,7 @@ function openRollingDetailModal(index) {
         <div class="snap-center shrink-0 w-full h-full md:h-[1000px] flex items-center justify-center md:my-auto px-0 md:px-4">
             <div class="modal-content w-full h-full rounded-none md:rounded-3xl shadow-2xl flex flex-col p-6 pt-20 pb-8 md:p-12 relative overflow-hidden ${pcBorder}" style="${bgStyle}">
                 <div class="text-[20px] md:text-[24px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words px-4 md:px-0 drop-shadow-sm" style="${textStyle}">${entry.content}</div>
-                <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed px-4 md:px-0 drop-shadow-sm shrink-0" style="${nickStyle}">- ${entry.nickname || '익명'}</div>
+                <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed px-4 md:px-0 drop-shadow-sm shrink-0" style="${nickStyle}">- ${entry.nickname || '익명'}</div>
             </div>
         </div>`;
     }).join('');
@@ -1551,13 +1558,13 @@ function renderMobileHome(grouped) {
         <div class="grid grid-cols-1 gap-4 px-4 w-full">
     `;
 
-    const rowBorderColors = ['#FBC02D', '#F06292', '#1E88E5', '#D81B60', '#F57C00'];
+    const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff39c5', '#F57C00'];
     members.forEach((member, i) => {
         const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}-${member.name}`;
         const daySchedules = grouped[key] || [];
         let schedulesHtml = '';
 
-        if (daySchedules.length > 0) {
+if (daySchedules.length > 0) {
             const isHubang = daySchedules.some(s => s.globalType === '휴방');
             const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
             
@@ -1568,7 +1575,7 @@ function renderMobileHome(grouped) {
                 schedulesHtml = `<div class="schedule-card hubang h-full flex items-center justify-center w-full overflow-hidden relative" style="color:#9CA3AF; background-color:#F3F4F6; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="휴방"></div>`;
             } else {
                 const borderColor = rowBorderColors[i];
-                const bgColor = '#FFF5F5';
+                const bgColor = cardBgColors[member.name] || '#FFF5F5';
                 schedulesHtml = `<div class="schedule-card h-full w-full flex items-center justify-center overflow-hidden relative" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="뱅온">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${rowBorderColors[i]}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
             }
         } else {
@@ -1609,6 +1616,12 @@ function renderMobileIndividual(grouped) {
 
     const monthStr = `${weekDates[0].getMonth()+1}월`;
     const themeColor = themeColors[currentPage];
+    const cardBgColors = { 
+    '달타': '#FFFDE7', 
+    '다룽': '#E3F2FD', 
+    '최또': '#FFF0F5', 
+    '카나시': '#FFF3E0' 
+    };
 
     let html = `
         <div class="w-full flex justify-between items-center mb-5 px-4 mt-2">
@@ -1655,7 +1668,7 @@ function renderMobileIndividual(grouped) {
     });
     html += `</div>`;
     content.innerHTML = html;
-    content.className = `shrink-0 transition-all duration-300 w-full max-w-[600px] mx-auto pb-6 theme-${currentPage === '달타'?'dalta':currentPage === '서피카'?'seopika':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}`;
+    content.className = `shrink-0 transition-all duration-300 w-full max-w-[600px] mx-auto pb-6 theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}`;
 }
 
 function renderDesktopHome(grouped) {
@@ -1676,8 +1689,8 @@ function renderDesktopHome(grouped) {
         return `<div class="header-days-cell ${c}"><div class="leading-none mb-1">${daysLabel[i]}</div><div class="text-[14px] text-gray-500 font-bold font-paperozi">${displayDate}</div></div>`;
     }).join('');
 
-    const rowBgColors = ['#FFFDE7', '#FFF5F9', '#E3F2FD', '#FFF0F5', '#FFF3E0'];
-    const rowBorderColors = ['#FBC02D', '#F06292', '#1E88E5', '#D81B60', '#F57C00'];
+    const rowBgColors = ['#FFFDE7', '#E3F2FD', '#FFF0F5', '#FFF3E0'];
+    const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff39c5', '#F57C00'];
 
     let homeHtml = `<div class="home-white-box"><div class="mb-8 w-full"><div class="flex gap-[22px] justify-center items-end"><div class="w-[277px] flex items-center justify-center pb-2"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container">${headerHtml}</div></div></div><div class="weekly-grid">`;
 
@@ -1733,7 +1746,7 @@ function renderDesktopIndividual(grouped) {
         return `<div class="big-cell cursor-default hover:bg-transparent hover:transform-none hover:shadow-none hover:border-dashed"></div>`;
     }).join('');
 
-    content.innerHTML = `<div class="big-white-box relative theme-${currentPage === '달타'?'dalta':currentPage === '서피카'?'seopika':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}">
+    content.innerHTML = `<div class="big-white-box relative theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}">
         <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'DnfBitbeatV2', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div><div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div><div class="big-box-container">${cellsHtml}</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
 }
@@ -2074,7 +2087,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             let timeText = sch.time ? formatTime12(sch.time) : ''; let broadText = sch.broadType || '개인방송'; let memText = sch.memberTag || ''; let detailText = sch.detail || '';
             let themeColor = themeColors[sch.tabOrMember] || '#5D4037';
             let isHabBang = broadText === '합방';
-            let broadColor = isHabBang ? '#1b3420' : themeColor;
+            let broadColor = isHabBang ? '#FF5252' : themeColor;
             
             let badgeHtml = sch.globalType === '휴방' ? '' : 
                 `<div class="flex gap-2 justify-center">
