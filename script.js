@@ -39,13 +39,12 @@ window.handleScheduleImageUpload = async function(input) {
         hiddenInput.value = imageUrl;
         previewContainer.innerHTML = `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">`;
         const removeBtn = block.querySelector('.sch-img-remove-btn');
-        if (removeBtn) removeBtn.classList.remove('hidden'); // 삭제 버튼 보이기
+        if (removeBtn) removeBtn.classList.remove('hidden'); 
     } else {
         previewContainer.innerHTML = "<span class='text-sm text-red-500 font-bold'>업로드 실패!</span>";
     }
 };
 
-// 일정 이미지 삭제
 window.removeScheduleImage = function(btn) {
     const block = btn.closest('.schedule-input-block');
     const previewContainer = block.querySelector('.sch-img-preview');
@@ -58,7 +57,6 @@ window.removeScheduleImage = function(btn) {
     btn.classList.add('hidden'); 
 };
 
-// 롤링페이퍼 이미지 파일 선택 감지
 window.handleRollingImageSelect = function(input) {
     const removeBtn = document.getElementById('reImageRemoveBtn');
     if (input.files && input.files.length > 0) {
@@ -66,7 +64,6 @@ window.handleRollingImageSelect = function(input) {
     }
 };
 
-// 롤링페이퍼 이미지 삭제
 window.removeRollingImage = function() {
     document.getElementById('reImage').value = '';
     const hiddenUrl = document.getElementById('reImageUrl');
@@ -211,7 +208,6 @@ let editRollingEntryId = null;
 const tabToHash = { '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', '롤링페이퍼': 'rolling' };
 const hashToTab = { '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', '#rolling': '롤링페이퍼' };
 
-// ✨ 해상도 변경 감지 (비율 조정 및 모바일 레이아웃 전환)
 window.addEventListener('resize', () => {
     adjustDesktopScale(); 
     
@@ -261,7 +257,6 @@ async function seedAdmins() {
     try {
         const snap = await getDocs(collection(db, 'admins'));
         if (snap.empty) {
-            console.log("관리자 데이터 초기화 중...");
             const defaultAdmins = [
                 { id: 'dalta', pw: '08201007', email: 'dalta0127@naver.com', name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
                 { id: 'darung', pw: '11281106', email: 'daarung22@naver.com', name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
@@ -273,7 +268,6 @@ async function seedAdmins() {
             for (const admin of defaultAdmins) {
                 await addDoc(collection(db, 'admins'), admin);
             }
-            console.log("관리자 데이터 세팅 완료");
         }
     } catch(e) { console.error("관리자 시드 생성 실패:", e); }
 }
@@ -808,27 +802,25 @@ async function deleteMemberLink(member, linkId) {
 }
 
 async function addUpLink() {
-    const title = document.getElementById('upTitle').value.trim();
-    const url = document.getElementById('upUrl').value.trim();
-    const deadline = document.getElementById('upDeadline').value;
+    const title = document.getElementById('upTitle').value.trim();
+    const url = document.getElementById('upUrl').value.trim();
+    const deadline = document.getElementById('upDeadline').value;
     
-    // 추가된 멤버 선택 select 요소 가져오기
     const memberSelect = document.getElementById('upMember');
-    // select 요소가 있으면 선택된 값을, 없으면 기존대로 로그인한 유저 이름을 사용
-    const member = memberSelect ? memberSelect.value : loggedInUser.name;
+    const member = memberSelect ? memberSelect.value : loggedInUser.name;
 
-    if(!title || !url) return alert('제목과 링크를 입력하세요.');
-    
-    const newUp = { member, title, url, deadline, timestamp: Date.now() };
-    try {
-        const docRef = await addDoc(collection(db, 'uplinks'), newUp);
-        upLinksList.push({ id: docRef.id, ...newUp });
-        alert('업링크가 추가되었습니다.');
-        document.getElementById('upTitle').value = ''; 
+    if(!title || !url) return alert('제목과 링크를 입력하세요.');
+    
+    const newUp = { member, title, url, deadline, timestamp: Date.now() };
+    try {
+        const docRef = await addDoc(collection(db, 'uplinks'), newUp);
+        upLinksList.push({ id: docRef.id, ...newUp });
+        alert('업링크가 추가되었습니다.');
+        document.getElementById('upTitle').value = ''; 
         document.getElementById('upUrl').value = ''; 
         document.getElementById('upDeadline').value = '';
-        if(sidePanelMode === 'UP') renderUpLinksPanel(); 
-    } catch(e) { console.error(e); }
+        if(sidePanelMode === 'UP') renderUpLinksPanel(); 
+    } catch(e) { console.error(e); }
 }
 
 async function deleteUpLink(upId) {
@@ -1103,24 +1095,23 @@ async function loadSchedulesFromFirebase() {
 }
 
 function changeTab(tabName) { 
-    currentPage = tabName; 
-    if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
-    
-    if (!isMobile) {
-        if(tabName === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
-        else { closeSidePanel(true); }
-    } else {
-        closeSidePanel(true);
-    }
-    
-    homeTargetDate = new Date();
-    individualTargetDate = new Date();
-    
-    // 탭 이동 시 롤링페이퍼 상세 보기를 해제하고 목록으로 초기화
-    currentRollingTopic = null;
-    
-    renderHeaderTabs();
-    render(); 
+    currentPage = tabName; 
+    if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
+    
+    if (!isMobile) {
+        if(tabName === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
+        else { closeSidePanel(true); }
+    } else {
+        closeSidePanel(true);
+    }
+    
+    homeTargetDate = new Date();
+    individualTargetDate = new Date();
+    
+    currentRollingTopic = null;
+    
+    renderHeaderTabs();
+    render(); 
 }
 
 function changeMonth(delta) { currentMonth += delta; if (currentMonth > 12) { currentMonth = 1; currentYear++; } else if (currentMonth < 1) { currentMonth = 12; currentYear--; } render(); }
@@ -1201,7 +1192,6 @@ function renderMobileDatePicker() {
 }
 
 function buildScheduleCardHtml(sch, isMobileCard = false) {
-    // 💡 에러 방지를 위해 함수 내부에서 색상을 안전하게 정의합니다.
     const safeBgColors = { 
         '달타': '#FFFDE7', 
         '다룽': '#E3F2FD', 
@@ -1210,8 +1200,6 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     };
 
     const color = sch.globalType === '휴방' ? '#9CA3AF' : 'var(--theme-color)';
-    
-    // 👇 에러 원인 해결: cardBgColors 대신 방금 정의한 safeBgColors를 사용합니다.
     const bgColor = sch.globalType === '휴방' ? '#F9FAFB' : (safeBgColors[sch.tabOrMember] || '#FFF5F5');
     
     const formattedTime = formatTime12(sch.time) || ''; 
@@ -1324,7 +1312,7 @@ function renderRollingPaper() {
         currentTopicEntries = rollingEntries.filter(e => e.topicId === currentRollingTopic.id);
         const isExpired = currentRollingTopic.date < todayStr;
         const actionBtn = isExpired 
-            ? `<button class="px-6 py-3 bg-gray-400 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(156,163,175,1)] cursor-not-allowed font-paperozi text-lg shrink-0" onclick="alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 없습니다.')"><i class="fi fi-rr-lock"></i> 마감됨</button>`
+            ? `<button class="px-6 py-3 bg-gray-400 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(156,163,175,1)] cursor-not-allowed font-paperozi text-lg shrink-0" onclick="alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 무 없습니다.')"><i class="fi fi-rr-lock"></i> 마감됨</button>`
             : `<button onclick="openRollingEntryModal()" class="px-6 py-3 bg-[#8B5CF6] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-lg shrink-0"><i class="fi fi-rr-edit"></i> 작성하기</button>`;
 
         html += `
@@ -1486,66 +1474,66 @@ async function deleteRollingEntry(id) {
 }
 
 function openRollingDetailModal(index) {
-    currentEntryIndex = index;
-    const container = document.getElementById('rdSliderContainer');
-    
-    container.innerHTML = currentTopicEntries.map((entry, idx) => {
-        const bgStyle = entry.imageUrl 
-            ? `background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${entry.imageUrl}'); background-size: cover; background-position: center; border: none;` 
-            : `background-color: #FFFDF5; border: 0px;`; 
-        const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
-        const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #5D4037;`;
-        const pcBorder = entry.imageUrl ? '' : 'md:border-4 border-[#5D4037]';
-        
-        // ✨ 변경된 부분: 텍스트 영역에 min-h-0 추가 및 모달 래퍼에 overflow-hidden 추가
-        return `
-        <div class="snap-center shrink-0 w-full h-full md:h-[1000px] flex items-center justify-center md:my-auto px-0 md:px-4">
-            <div class="modal-content w-full h-full rounded-none md:rounded-3xl shadow-2xl flex flex-col p-6 pt-20 pb-8 md:p-12 relative overflow-hidden ${pcBorder}" style="${bgStyle}">
-                <div class="text-[20px] md:text-[24px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words px-4 md:px-0 drop-shadow-sm" style="${textStyle}">${entry.content}</div>
+    currentEntryIndex = index;
+    const container = document.getElementById('rdSliderContainer');
+    
+    container.innerHTML = currentTopicEntries.map((entry, idx) => {
+        const bgStyle = entry.imageUrl 
+            ? `background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${entry.imageUrl}'); background-size: cover; background-position: center; border: none;` 
+            : `background-color: #FFFDF5; border: 0px;`; 
+        const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
+        const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #5D4037;`;
+        const pcBorder = entry.imageUrl ? '' : 'md:border-4 border-[#5D4037]';
+        
+        return `
+        <div class="snap-center shrink-0 w-full h-full md:h-[1000px] flex items-center justify-center md:my-auto px-0 md:px-4">
+            <div class="modal-content w-full h-full rounded-none md:rounded-3xl shadow-2xl flex flex-col p-6 pt-20 pb-8 md:p-12 relative overflow-hidden ${pcBorder}" style="${bgStyle}">
+                <div class="text-[20px] md:text-[24px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words px-4 md:px-0 drop-shadow-sm" style="${textStyle}">${entry.content}</div>
                 <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed px-4 md:px-0 drop-shadow-sm shrink-0" style="${nickStyle}">- ${entry.nickname || '익명'}</div>
-            </div>
-        </div>`;
-    }).join('');
+            </div>
+        </div>`;
+    }).join('');
 
-    document.getElementById('rollingDetailModal').classList.replace('hidden', 'flex');
-    
-    setTimeout(() => {
-        container.scrollLeft = index * container.clientWidth;
-    }, 10);
+    document.getElementById('rollingDetailModal').classList.replace('hidden', 'flex');
+    
+    setTimeout(() => {
+        container.scrollLeft = index * container.clientWidth;
+    }, 10);
 }
-// PC 화살표 내비게이션 (부드러운 스크롤 이동)
 function navigateRollingDetail(direction) {
-    const container = document.getElementById('rdSliderContainer');
-    let newIndex = currentEntryIndex + direction;
-    
-    // 처음과 끝 무한 반복 처리
-    if(newIndex < 0) newIndex = currentTopicEntries.length - 1;
-    if(newIndex >= currentTopicEntries.length) newIndex = 0;
-    
-    currentEntryIndex = newIndex;
-    container.scrollTo({ left: currentEntryIndex * container.clientWidth, behavior: 'smooth' });
+    const container = document.getElementById('rdSliderContainer');
+    let newIndex = currentEntryIndex + direction;
+    
+    if(newIndex < 0) newIndex = currentTopicEntries.length - 1;
+    if(newIndex >= currentTopicEntries.length) newIndex = 0;
+    
+    currentEntryIndex = newIndex;
+    container.scrollTo({ left: currentEntryIndex * container.clientWidth, behavior: 'smooth' });
 }
 
-// 모바일에서 스와이프할 때 현재 어떤 방명록을 보고 있는지 계산
 function updateCurrentEntryIndex(container) {
-    if (container.clientWidth > 0) {
-        currentEntryIndex = Math.round(container.scrollLeft / container.clientWidth);
-    }
+    if (container.clientWidth > 0) {
+        currentEntryIndex = Math.round(container.scrollLeft / container.clientWidth);
+    }
 }
-
-// 스크롤 방식으로 교체되었으므로 구버전 업데이트 함수는 비워둡니다 (오류 방지용)
 function updateRollingDetailModal() { }
-
-// 모바일 스크롤 이벤트를 HTML에서 접근할 수 있도록 연결 추가
 window.updateCurrentEntryIndex = updateCurrentEntryIndex;
 
 function closeRollingDetailModal() { document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden'); }
 
+// ✨ 여기서 모바일 렌더링 부분을 수정했습니다 (이미지와 스케줄 카드 모두 보이게).
 function renderMobileHome(grouped) {
     const content = document.getElementById('mainContent');
     const d = homeTargetDate;
     const dateStr = `${d.getMonth()+1}.${d.getDate()}`;
     const dayStr = ['일','월','화','수','목','금','토'][d.getDay()];
+
+    const cardBgColors = { 
+        '달타': '#FFFDE7', 
+        '다룽': '#E3F2FD', 
+        '최또': '#FFF0F5', 
+        '카나시': '#FFF3E0' 
+    };
 
     let html = `
         <div class="w-full flex justify-between items-center mb-5 px-4 mt-2">
@@ -1557,14 +1545,14 @@ function renderMobileHome(grouped) {
         </div>
         <div class="grid grid-cols-1 gap-4 px-4 w-full">
     `;
-
+    
     const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff39c5', '#F57C00'];
     members.forEach((member, i) => {
         const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}-${member.name}`;
         const daySchedules = grouped[key] || [];
         let schedulesHtml = '';
 
-if (daySchedules.length > 0) {
+        if (daySchedules.length > 0) {
             const isHubang = daySchedules.some(s => s.globalType === '휴방');
             const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
             
@@ -1586,7 +1574,7 @@ if (daySchedules.length > 0) {
         
         html += `
             <div class="flex w-full bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[2.5px] overflow-hidden" style="border-color: ${borderColor}">
-                <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0" style="border-color: ${borderColor}" onclick="openSmartLink('${member.link}')">
+                <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0 shrink-0" style="border-color: ${borderColor}" onclick="openSmartLink('${member.link}')">
                     <img src="${member.img}" class="w-full h-full object-cover">
                 </div>
                 <div class="w-1/2 aspect-square p-2 flex flex-col justify-center gap-2 bg-[#FFFDF5] overflow-y-auto" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')">
@@ -1616,12 +1604,6 @@ function renderMobileIndividual(grouped) {
 
     const monthStr = `${weekDates[0].getMonth()+1}월`;
     const themeColor = themeColors[currentPage];
-    const cardBgColors = { 
-    '달타': '#FFFDE7', 
-    '다룽': '#E3F2FD', 
-    '최또': '#FFF0F5', 
-    '카나시': '#FFF3E0' 
-    };
 
     let html = `
         <div class="w-full flex justify-between items-center mb-5 px-4 mt-2">
@@ -1961,7 +1943,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
         </div>
     ` : '';
 
-    const removeBtnClass = imageUrl ? '' : 'hidden'; // 이미지 있으면 버튼 보임
+    const removeBtnClass = imageUrl ? '' : 'hidden'; 
 
     return `
         <div class="schedule-input-block border-2 border-[#5D4037] p-5 rounded-xl bg-white relative shadow-sm pretendard mt-1">
