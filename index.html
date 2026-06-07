@@ -21,8 +21,6 @@
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-brands/css/uicons-brands.css'>
     <link rel="stylesheet" href="style.css">
-    
-    <script type="text/javascript" src="https://static.nid.naver.com/js/naveridlogin_js_sdk_2.0.2.js" charset="utf-8"></script>
 </head>
 <body class="bg-[#ffdddd] lg:pt-24 pt-[70px] lg:pb-0 pb-[80px] overflow-x-hidden lg:overflow-x-auto min-w-[320px] lg:min-w-[max-content]">
 
@@ -103,8 +101,8 @@
                     <input type="text" id="upTitle" placeholder="컨텐츠 제목" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                     <input type="text" id="upUrl" placeholder="새탭으로 열릴 URL (https://...)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                 <div class="flex items-center gap-3">
-                    <span class="text-sm font-bold text-gray-600 shrink-0">마감일자:</span><input type="date" id="upDeadline" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none flex-1">
-                    </div>
+                    <span class="text-sm font-bold text-gray-600 shrink-0">마감일자:</span><input type="date" id="upDeadline" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none flex-1">
+                    </div>
                     <button onclick="addUpLink()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold mt-2 hover:bg-blue-700 transition">업링크 추가</button>
                 </div>
             </div>
@@ -124,28 +122,30 @@
     </div>
 
     <div id="passwordModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
-        <div class="modal-content bg-white p-6 rounded-xl w-80 shadow-xl border-4 border-[#5D4037]">
+        <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border-4 border-[#5D4037] relative">
+            <button class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer" onclick="closePasswordModal()"><i class="fi fi-br-cross-small"></i></button>
             <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">관리자 로그인</h2>
             
-            <div id="naverIdLogin" class="flex justify-center mb-4"></div>
-            
-            <div class="relative flex py-3 items-center">
+            <div id="savedProfilesSection" class="hidden mb-4">
+                <div class="text-[13px] font-bold text-gray-500 mb-2 text-center">어떤 계정으로 로그인하시겠어요?</div>
+                <div id="savedProfilesList" class="flex gap-4 overflow-x-auto pb-2 px-1 justify-center hide-scrollbar">
+                    </div>
+            </div>
+
+            <div id="loginDivider" class="hidden relative flex py-3 items-center">
                 <div class="flex-grow border-t border-gray-300"></div>
-                <span class="flex-shrink-0 mx-4 text-gray-400 text-sm font-bold">또는 아이디/비밀번호</span>
+                <span class="flex-shrink-0 mx-4 text-gray-400 text-[12px] font-bold">또는 다른 계정으로</span>
                 <div class="flex-grow border-t border-gray-300"></div>
             </div>
             
             <input type="text" id="idInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] mt-2 font-bold outline-none focus:border-blue-400" placeholder="아이디">
-<input type="password" id="pwInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="비밀번호" onkeypress="if(event.key==='Enter') checkPassword()">
+            <input type="password" id="pwInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="비밀번호" onkeypress="if(event.key==='Enter') checkPassword()">
             
-            <div class="flex items-center gap-2 mb-4">
-                <input type="checkbox" id="autoLoginCheck" class="w-4 h-4 cursor-pointer">
+            <div class="flex items-center gap-2 mb-4 justify-center">
+                <input type="checkbox" id="autoLoginCheck" class="w-4 h-4 cursor-pointer accent-[#5D4037]">
                 <label for="autoLoginCheck" class="text-[14px] text-[#5D4037] font-bold cursor-pointer">로그인 상태 유지</label>
             </div>
-            <div class="flex gap-2">
-                <button class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-bold hover:bg-gray-300 transition cursor-pointer" onclick="closePasswordModal()">취소</button>
-                <button class="flex-1 bg-[#5D4037] text-white py-2 rounded font-bold hover:brightness-110 transition cursor-pointer" onclick="checkPassword()">로그인</button>
-            </div>
+            <button class="w-full bg-[#5D4037] text-white py-3 rounded-lg font-bold hover:brightness-110 transition cursor-pointer text-lg" onclick="checkPassword()">로그인</button>
         </div>
     </div>
 
@@ -163,8 +163,8 @@
         <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[400px] shadow-xl border-4 border-[#5D4037]">
             <h2 class="text-2xl font-bold text-[#5D4037] mb-6 text-center font-paperozi">정보 관리</h2>
             <div class="mb-4">
-                <label class="block text-[13px] font-bold text-gray-500 mb-1">연동된 네이버 이메일</label>
-                <input type="email" id="infoEmail" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="네이버 이메일 입력">
+                <label class="block text-[13px] font-bold text-gray-500 mb-1">연동 이메일</label>
+                <input type="email" id="infoEmail" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="이메일 입력">
             </div>
             <div class="mb-6">
                 <label class="block text-[13px] font-bold text-gray-500 mb-1">새 비밀번호 (변경 시에만 입력)</label>
@@ -272,17 +272,17 @@
     </div>
 
     <div id="rollingEntryModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
-        <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-[95%] max-w-[800px] shadow-xl border-4 border-[#5D4037]">
-            <h2 class="text-3xl font-bold text-[#5D4037] mb-2 text-center font-paperozi" id="reModalTitle">작성하기</h2>
-            <p class="text-center text-gray-400 text-[14px] font-bold mb-6">저장시 수정 및 삭제가 불가능합니다.</p>
-            
-                        <textarea id="reContent" class="w-full border-2 border-[#5D4037] rounded-xl p-6 outline-none h-[400px] resize-none mb-4 text-[18px] font-medium focus:border-[#8B5CF6]" placeholder="따뜻한 마음을 남겨주세요."></textarea>
-            
+        <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-[95%] max-w-[800px] shadow-xl border-4 border-[#5D4037]">
+            <h2 class="text-3xl font-bold text-[#5D4037] mb-2 text-center font-paperozi" id="reModalTitle">작성하기</h2>
+            <p class="text-center text-gray-400 text-[14px] font-bold mb-6">저장시 수정 및 삭제가 불가능합니다.</p>
+            
+            <textarea id="reContent" class="w-full border-2 border-[#5D4037] rounded-xl p-6 outline-none h-[400px] resize-none mb-4 text-[18px] font-medium focus:border-[#8B5CF6]" placeholder="따뜻한 마음을 남겨주세요."></textarea>
+            
             <div class="mb-6">
                 <label class="block text-[13px] text-gray-500 font-bold mb-1.5">배경 이미지 첨부 (선택)</label>
                 <input type="file" id="reImage" accept="image/*" class="w-full text-[13px] text-gray-600 cursor-pointer font-bold">
             </div>
-                        <div class="flex justify-between items-center gap-6">
+            <div class="flex justify-between items-center gap-6">
                 <input type="text" id="reNickname" placeholder="닉네임 (선택)" class="w-1/2 border-2 border-[#5D4037] rounded-xl p-4 text-[16px] outline-none focus:border-[#8B5CF6] font-bold">
                 <div class="flex gap-3 w-1/2">
                     <button class="flex-1 bg-gray-200 text-[#5D4037] py-4 rounded-xl font-bold text-lg hover:bg-gray-300 transition" onclick="closeRollingEntryModal()">취소</button>
@@ -304,7 +304,7 @@
             </button>
             
             <div id="rdSliderContainer" class="flex overflow-x-auto snap-x snap-mandatory w-full h-full md:h-auto hide-scrollbar" onscroll="updateCurrentEntryIndex(this)">
-                </div>
+            </div>
     
             <button onclick="navigateRollingDetail(1)" class="hidden md:flex absolute -right-20 top-1/2 -translate-y-1/2 w-16 h-16 items-center justify-center bg-white/20 text-white rounded-full hover:bg-white/40 transition text-3xl z-[5050]">
                 <i class="fi fi-rr-angle-right pl-1"></i>

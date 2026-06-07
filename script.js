@@ -1,5 +1,5 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 // =========================================================================
 // Cloudinary 설정 (Unsigned Upload)
@@ -148,6 +148,7 @@ window.openRollingTopicFromPopup = openRollingTopicFromPopup;
 
 window.openInfoModal = openInfoModal; window.closeInfoModal = closeInfoModal; window.updateUserInfo = updateUserInfo;
 window.moveScheduleBlock = moveScheduleBlock;
+window.loginWithProfile = loginWithProfile; window.deleteSavedProfile = deleteSavedProfile;
 
 // =========================================================================
 // 일정 순서 변경 함수
@@ -262,57 +263,98 @@ async function seedAdmins() {
                 { id: 'darung', pw: '11281106', email: 'daarung22@naver.com', name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
                 { id: 'choiagain', pw: '10300628', email: 'choiagain333@naver.com', name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
                 { id: 'kanashu', pw: '01230607', email: 'jhh0029@naver.com', name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' },
-                { id: '', pw: '', email: 'rnskrns@naver.com', name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' },
-                { id: '', pw: '', email: 'jkolpc@naver.com', name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' }
+                { id: 'admin1', pw: 'admin123!', email: 'rnskrns@naver.com', name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' },
+                { id: 'admin2', pw: 'admin123!', email: 'jkolpc@naver.com', name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' }
             ];
             for (const admin of defaultAdmins) {
-                await addDoc(collection(db, 'admins'), admin);
+                if (admin.id) await addDoc(collection(db, 'admins'), admin);
             }
         }
     } catch(e) { console.error("관리자 시드 생성 실패:", e); }
 }
 
-function initNaverLogin() {
+// 토큰 생성기
+function generateAuthToken() {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+
+// 브라우저에 저장된 프로필 로컬 스토리지 관리 로직
+function getSavedProfiles() {
+    return JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
+}
+
+function saveProfileLocally(profile) {
+    let profiles = getSavedProfiles();
+    profiles = profiles.filter(p => p.docId !== profile.docId); // 중복 제거 후 덮어쓰기
+    profiles.push(profile);
+    localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
+}
+
+function deleteSavedProfile(docId) {
+    let profiles = getSavedProfiles();
+    profiles = profiles.filter(p => p.docId !== docId);
+    localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
+    renderSavedProfiles();
+}
+
+function renderSavedProfiles() {
+    const profiles = getSavedProfiles();
+    const section = document.getElementById('savedProfilesSection');
+    const list = document.getElementById('savedProfilesList');
+    const divider = document.getElementById('loginDivider');
+
+    if (profiles.length > 0) {
+        section.classList.remove('hidden');
+        divider.classList.remove('hidden'); divider.classList.add('flex');
+        
+        list.innerHTML = profiles.map(p => `
+            <div class="relative flex flex-col items-center gap-1 cursor-pointer group shrink-0" onclick="loginWithProfile('${p.docId}', '${p.token}')">
+                <button onclick="event.stopPropagation(); deleteSavedProfile('${p.docId}')" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition z-10 hover:scale-110 shadow-sm"><i class="fi fi-br-cross-small"></i></button>
+                <img src="${p.img || 'https://via.placeholder.com/40'}" class="w-[48px] h-[48px] rounded-full object-cover border-[2.5px] border-gray-200 group-hover:border-[#5D4037] transition">
+                <span class="text-[12px] font-bold text-[#5D4037] truncate w-[54px] text-center">${p.name}</span>
+            </div>
+        `).join('');
+    } else {
+        section.classList.add('hidden');
+        divider.classList.add('hidden'); divider.classList.remove('flex');
+        list.innerHTML = '';
+    }
+}
+
+async function loginWithProfile(docId, token) {
     try {
-        if (typeof naver !== 'undefined') {
-            const naverLogin = new naver.LoginWithNaverId({
-                clientId: "an6qp9jysDqzS6UnwJZy", 
-                callbackUrl: "https://signalcalendar.vercel.app/", 
-                isPopup: false, 
-                loginButton: { color: "green", type: 3, height: 48 }
-            });
-            naverLogin.init();
-            
-            naverLogin.getLoginStatus(async function (status) {
-                if (status) {
-                    const userEmail = naverLogin.user.getEmail();
-                    const q = query(collection(db, "admins"), where("email", "==", userEmail));
-                    const querySnapshot = await getDocs(q);
+        const docRef = doc(db, "admins", docId);
+        const docSnap = await getDoc(docRef);
 
-                    if (!querySnapshot.empty) {
-                        const adminData = querySnapshot.docs[0].data();
-                        isAdmin = true;
-                        loggedInUser = { docId: querySnapshot.docs[0].id, ...adminData };
-                        
-                        const isAutoLogin = document.getElementById('autoLoginCheck')?.checked;
-                        if (isAutoLogin) {
-                            localStorage.setItem('isAdmin', 'true');
-                            localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
-                        } else {
-                            sessionStorage.setItem('isAdmin', 'true');
-                            sessionStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
-                        }
-
-                        updateLoginUI(loggedInUser);
-                        closePasswordModal();
-                    } else {
-                        alert("관리자 권한이 등록되지 않은 네이버 계정입니다.");
-                        naverLogin.logout();
-                    }
+        if (docSnap.exists()) {
+            const adminData = docSnap.data();
+            if (adminData.loginToken === token) {
+                // 토큰 일치: 즉시 로그인 성공
+                isAdmin = true;
+                loggedInUser = { docId, ...adminData };
+                
+                const isAutoLogin = document.getElementById('autoLoginCheck')?.checked;
+                if (isAutoLogin) {
+                    localStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
+                } else {
+                    sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
                 }
-            });
+
+                updateLoginUI(loggedInUser);
+                alert(`${adminData.name}님 환영합니다!`);
+                closePasswordModal();
+            } else {
+                alert("인증이 만료되었습니다. 보안을 위해 아이디와 비밀번호로 다시 로그인해 주세요.");
+                deleteSavedProfile(docId); // 토큰이 무효화되었으므로 삭제
+            }
+        } else {
+            alert("존재하지 않거나 삭제된 관리자입니다.");
+            deleteSavedProfile(docId);
         }
-    } catch(e) { console.error("Naver Login Init Error:", e); }
+    } catch(e) {
+        console.error("프로필 로그인 에러:", e);
+        alert("로그인 중 오류가 발생했습니다.");
+    }
 }
 
 async function checkPassword() {
@@ -327,18 +369,28 @@ async function checkPassword() {
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
-            const adminData = querySnapshot.docs[0].data();
+            const adminDoc = querySnapshot.docs[0];
+            const adminData = adminDoc.data();
+            
             if (adminData.pw === inputPw) {
-                isAdmin = true;
-                loggedInUser = { docId: querySnapshot.docs[0].id, ...adminData };
+                const docId = adminDoc.id;
+                const token = generateAuthToken();
                 
+                // 생성된 토큰을 DB에 저장 (이후 원클릭 인증에 사용됨)
+                await updateDoc(doc(db, "admins", docId), { loginToken: token });
+
+                isAdmin = true;
+                loggedInUser = { docId, ...adminData };
+                
+                // 브라우저의 현재 활동 세션 저장
                 if (isAutoLogin) {
-                    localStorage.setItem('isAdmin', 'true');
-                    localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                    localStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
                 } else {
-                    sessionStorage.setItem('isAdmin', 'true');
-                    sessionStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
+                    sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
                 }
+
+                // 다음 접속 시 보여줄 로컬 프로필 저장
+                saveProfileLocally({ docId, id: inputId, name: adminData.name, img: adminData.img, token });
                 
                 updateLoginUI(loggedInUser);
                 alert(`${adminData.name}님 환영합니다!`); 
@@ -352,7 +404,10 @@ async function checkPassword() {
         } else {
             alert('존재하지 않는 아이디입니다.');
         }
-    } catch (e) { console.error("로그인 에러:", e); }
+    } catch (e) { 
+        console.error("로그인 에러:", e); 
+        alert("시스템 에러로 로그인에 실패했습니다."); 
+    }
 }
 
 function openInfoModal() {
@@ -379,10 +434,13 @@ async function updateUserInfo() {
 
     try {
         const updateData = { email: newEmail };
-        if (newPw) { updateData.pw = newPw; }
+        if (newPw) { 
+            updateData.pw = newPw; 
+            updateData.loginToken = ''; // 비밀번호 변경 시 기존 간편 로그인 토큰 무효화
+        }
         
         await updateDoc(doc(db, "admins", loggedInUser.docId), updateData);
-        alert("정보가 성공적으로 변경되었습니다. 안전을 위해 다시 로그인해주세요.");
+        alert("정보가 성공적으로 변경되었습니다. 보안을 위해 다시 로그인해주세요.");
         closeInfoModal();
         logoutAdmin(); 
     } catch (e) {
@@ -1312,7 +1370,7 @@ function renderRollingPaper() {
         currentTopicEntries = rollingEntries.filter(e => e.topicId === currentRollingTopic.id);
         const isExpired = currentRollingTopic.date < todayStr;
         const actionBtn = isExpired 
-            ? `<button class="px-6 py-3 bg-gray-400 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(156,163,175,1)] cursor-not-allowed font-paperozi text-lg shrink-0" onclick="alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 무 없습니다.')"><i class="fi fi-rr-lock"></i> 마감됨</button>`
+            ? `<button class="px-6 py-3 bg-gray-400 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(156,163,175,1)] cursor-not-allowed font-paperozi text-lg shrink-0" onclick="alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 없습니다.')"><i class="fi fi-rr-lock"></i> 마감됨</button>`
             : `<button onclick="openRollingEntryModal()" class="px-6 py-3 bg-[#8B5CF6] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-lg shrink-0"><i class="fi fi-rr-edit"></i> 작성하기</button>`;
 
         html += `
@@ -1516,12 +1574,10 @@ function updateCurrentEntryIndex(container) {
         currentEntryIndex = Math.round(container.scrollLeft / container.clientWidth);
     }
 }
-function updateRollingDetailModal() { }
 window.updateCurrentEntryIndex = updateCurrentEntryIndex;
 
 function closeRollingDetailModal() { document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden'); }
 
-// ✨ 여기서 모바일 렌더링 부분을 수정했습니다 (이미지와 스케줄 카드 모두 보이게).
 function renderMobileHome(grouped) {
     const content = document.getElementById('mainContent');
     const d = homeTargetDate;
@@ -1888,13 +1944,16 @@ function toggleFields(modalId, radioName) {
     }
 }
 
-function handleAdminClick() { if (!isAdmin) openPasswordModal(); }
+function handleAdminClick() { 
+    if (!isAdmin) openPasswordModal(); 
+}
 
 function logoutAdmin() {
     isAdmin = false; loggedInUser = null;
-    sessionStorage.clear(); 
-    localStorage.removeItem('isAdmin');
-    localStorage.removeItem('loggedInUser');
+    
+    // 로그아웃 시 활성 세션만 삭제 (저장된 프로필 목록은 유지)
+    sessionStorage.removeItem('activeAdminSession'); 
+    localStorage.removeItem('activeAdminSession');
     
     const desktopContainer = document.getElementById('desktopAuthContainer');
     if(desktopContainer) desktopContainer.innerHTML = `<button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="handleAdminClick()">로그인</button>`;
@@ -1902,11 +1961,14 @@ function logoutAdmin() {
     if(mobileContainer) mobileContainer.innerHTML = `<button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="handleAdminClick()">로그인</button>`;
     
     closeSidePanel();
-    localStorage.removeItem('com.naver.nid.access_token'); localStorage.removeItem('com.naver.nid.oauth.state_token');
     alert('로그아웃 되었습니다.'); window.location.reload(); 
 }
 
-function openPasswordModal() { document.getElementById('passwordModal').classList.replace('hidden', 'flex'); }
+function openPasswordModal() { 
+    renderSavedProfiles(); // 모달 오픈 시 저장된 프로필 렌더링
+    document.getElementById('passwordModal').classList.replace('hidden', 'flex'); 
+}
+
 function closePasswordModal() { document.getElementById('passwordModal').classList.replace('flex', 'hidden'); }
 function closeLogoutModal() { document.getElementById('logoutModal').classList.replace('flex', 'hidden'); }
 
@@ -2137,22 +2199,25 @@ async function initApp() {
 
     await seedAdmins();
 
-    const savedAdminSession = sessionStorage.getItem('isAdmin');
-    const savedUserSession = sessionStorage.getItem('loggedInUser');
-    const savedAdminLocal = localStorage.getItem('isAdmin');
-    const savedUserLocal = localStorage.getItem('loggedInUser');
+    // 토큰 기반 세션 확인 (우선순위 1: 자동 로그인)
+    const sessionActive = sessionStorage.getItem('activeAdminSession') || localStorage.getItem('activeAdminSession');
     
-    if (savedAdminSession === 'true' && savedUserSession) {
-        isAdmin = true;
-        loggedInUser = JSON.parse(savedUserSession);
-        updateLoginUI(loggedInUser);
-    } else if (savedAdminLocal === 'true' && savedUserLocal) {
-        isAdmin = true;
-        loggedInUser = JSON.parse(savedUserLocal);
-        updateLoginUI(loggedInUser);
+    if (sessionActive) {
+        const { docId, token } = JSON.parse(sessionActive);
+        try {
+            const docRef = doc(db, "admins", docId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists() && docSnap.data().loginToken === token) {
+                isAdmin = true;
+                loggedInUser = { docId, ...docSnap.data() };
+                updateLoginUI(loggedInUser);
+            } else {
+                sessionStorage.removeItem('activeAdminSession');
+                localStorage.removeItem('activeAdminSession');
+            }
+        } catch(e) { console.error("자동 로그인 검증 실패:", e); }
     }
 
-    initNaverLogin();
     await loadLinksFromFirebase();
     await loadSchedulesFromFirebase();
     
