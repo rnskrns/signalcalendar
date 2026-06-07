@@ -328,7 +328,12 @@ async function loginWithProfile(docId, token) {
 
         if (docSnap.exists()) {
             const adminData = docSnap.data();
-            if (adminData.loginToken === token) {
+            
+            // 🔄 [수정] 파이어베이스 데이터 대신 로컬 스토리지에 저장된 프로필의 토큰과 비교합니다.
+            const savedProfiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
+            const matchedProfile = savedProfiles.find(p => p.docId === docId);
+
+            if (matchedProfile && matchedProfile.token === token) {
                 // 토큰 일치: 즉시 로그인 성공
                 isAdmin = true;
                 loggedInUser = { docId, ...adminData };
@@ -345,7 +350,7 @@ async function loginWithProfile(docId, token) {
                 closePasswordModal();
             } else {
                 alert("인증이 만료되었습니다. 보안을 위해 아이디와 비밀번호로 다시 로그인해 주세요.");
-                deleteSavedProfile(docId); // 토큰이 무효화되었으므로 삭제
+                deleteSavedProfile(docId); // 토큰이 무효화되었으므로 로컬 프로필 삭제
             }
         } else {
             alert("존재하지 않거나 삭제된 관리자입니다.");
@@ -376,8 +381,8 @@ async function checkPassword() {
                 const docId = adminDoc.id;
                 const token = generateAuthToken();
                 
-                // 생성된 토큰을 DB에 저장 (이후 원클릭 인증에 사용됨)
-                await updateDoc(doc(db, "admins", docId), { loginToken: token });
+                // 🛑 [수정] 파이어베이스 DB에 토큰을 저장하던 코드를 제거합니다.
+                // await updateDoc(doc(db, "admins", docId), { loginToken: token });
 
                 isAdmin = true;
                 loggedInUser = { docId, ...adminData };
@@ -389,7 +394,7 @@ async function checkPassword() {
                     sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
                 }
 
-                // 다음 접속 시 보여줄 로컬 프로필 저장
+                // 다음 접속 시 보여줄 로컬 프로필 저장 (여기에 토큰이 로컬로 기록됩니다)
                 saveProfileLocally({ docId, id: inputId, name: adminData.name, img: adminData.img, token });
                 
                 updateLoginUI(loggedInUser);
@@ -436,7 +441,11 @@ async function updateUserInfo() {
         const updateData = { email: newEmail };
         if (newPw) { 
             updateData.pw = newPw; 
-            updateData.loginToken = ''; // 비밀번호 변경 시 기존 간편 로그인 토큰 무효화
+            
+            // 🔄 [수정] 파이어베이스 필드 수정 대신, 로컬 프로필에서 토큰을 지워 만료 처리합니다.
+            let profiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
+            profiles = profiles.filter(p => p.docId !== loggedInUser.docId);
+            localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
         }
         
         await updateDoc(doc(db, "admins", loggedInUser.docId), updateData);
@@ -2201,13 +2210,18 @@ async function initApp() {
 
     // 토큰 기반 세션 확인 (우선순위 1: 자동 로그인)
     const sessionActive = sessionStorage.getItem('activeAdminSession') || localStorage.getItem('activeAdminSession');
-    
+
     if (sessionActive) {
         const { docId, token } = JSON.parse(sessionActive);
         try {
             const docRef = doc(db, "admins", docId);
             const docSnap = await getDoc(docRef);
-            if (docSnap.exists() && docSnap.data().loginToken === token) {
+            
+            // 🔄 [수정] 파이어베이스 대신 로컬 스토리지의 토큰과 일치하는지 확인합니다.
+            const savedProfiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
+            const matchedProfile = savedProfiles.find(p => p.docId === docId);
+            
+            if (docSnap.exists() && matchedProfile && matchedProfile.token === token) {
                 isAdmin = true;
                 loggedInUser = { docId, ...docSnap.data() };
                 updateLoginUI(loggedInUser);
@@ -2217,7 +2231,6 @@ async function initApp() {
             }
         } catch(e) { console.error("자동 로그인 검증 실패:", e); }
     }
-
     await loadLinksFromFirebase();
     await loadSchedulesFromFirebase();
     
