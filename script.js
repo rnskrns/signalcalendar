@@ -1110,8 +1110,15 @@ function renderUpLinksPanel() {
 }
 
 function sortRollingTopics() {
-    const todayDate = new Date(getTodayYYYYMMDD()).getTime();
+    const todayStr = getTodayYYYYMMDD();
+    const todayDate = new Date(todayStr).getTime();
     rollingTopics.sort((a, b) => {
+        const isExpiredA = a.date < todayStr;
+        const isExpiredB = b.date < todayStr;
+        
+        if (isExpiredA && !isExpiredB) return 1;
+        if (!isExpiredA && isExpiredB) return -1;
+
         const diffA = Math.abs(new Date(a.date).getTime() - todayDate);
         const diffB = Math.abs(new Date(b.date).getTime() - todayDate);
         if (diffA === diffB) return (b.timestamp || 0) - (a.timestamp || 0);
