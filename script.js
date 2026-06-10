@@ -227,7 +227,7 @@ const members = [
     { name: '달타', img: 'https://i.postimg.cc/y8VYYyZM/dalta-peusa.png', link: '' },
     { name: '다룽', img: 'https://i.postimg.cc/bNfB7zDm/jemog-eul-iblyeoghaejuseyo-(2).png', link: '' },
     { name: '최또', img: 'https://i.postimg.cc/fTQrGwtB/jemog-eul-iblyeoghaejuseyo.png', link: '' },
-    { name: '카나시', img: 'https://i.postimg.cc/vZQHHtVC/kanasi-peusa.png', link: '' }
+    { name: '카나시', img: 'https://i.postimg.cc/fTjzMdQv/jemog-eul-iblyeoghaejuseyo.png', link: '' }
 ];
 
 const memberCardImages = {
