@@ -461,18 +461,40 @@ async function updateUserInfo() {
 async function loadLinksFromFirebase() {
     try {
         const todayYYYYMMDD = getTodayYYYYMMDD();
-        const upSnap = await getDocs(collection(db, 'uplinks'));
         upLinksList = [];
         
+        // 1. soop_posts 불러오기
+        const soopSnap = await getDocs(collection(db, 'soop_posts'));
+        for (const d of soopSnap.docs) {
+            const data = d.data();
+            
+            // 📌 [수정] 데이터 삭제는 안 하고, 화면에 띄울 리스트에 넣을지 말지만 결정함!
+            if (data.deadline && data.deadline < todayYYYYMMDD) {
+                continue; // 마감일 지났으면 리스트에 넣지 않음(화면에서 숨김)
+            }
+            
+            upLinksList.push({ 
+                id: d.id, 
+                source: 'soop',
+                member: data.member,
+                title: data.title,
+                url: data.link,
+                deadline: data.deadline,
+                timestamp: data.updated_at && data.updated_at.toMillis ? data.updated_at.toMillis() : Date.now()
+            });
+        }
+
+        // 2. uplinks 불러오기 (여기도 동일하게 적용)
+        const upSnap = await getDocs(collection(db, 'uplinks'));
         for (const d of upSnap.docs) {
             const data = d.data();
             if (data.deadline && data.deadline < todayYYYYMMDD) {
-                await deleteDoc(doc(db, 'uplinks', d.id));
-            } else {
-                upLinksList.push({ id: d.id, ...data });
+                continue; // 마감일 지났으면 화면에서 숨김
             }
+            upLinksList.push({ id: d.id, source: 'uplinks', ...data });
         }
 
+        // --- 아래는 기존 memberLinks(링크관리) 로드 로직 (동일) ---
         const linkSnap = await getDocs(collection(db, 'memberLinks'));
         let dbLinks = { '달타':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
 
@@ -881,7 +903,7 @@ async function addUpLink() {
     const newUp = { member, title, url, deadline, timestamp: Date.now() };
     try {
         const docRef = await addDoc(collection(db, 'uplinks'), newUp);
-        upLinksList.push({ id: docRef.id, ...newUp });
+        upLinksList.push({ id: docRef.id, source: 'uplinks', ...newUp });
         alert('업링크가 추가되었습니다.');
         document.getElementById('upTitle').value = ''; 
         document.getElementById('upUrl').value = ''; 
@@ -890,10 +912,13 @@ async function addUpLink() {
     } catch(e) { console.error(e); }
 }
 
-async function deleteUpLink(upId) {
+async function deleteUpLink(upId, source = 'uplinks') {
     if(!confirm('이 업링크를 삭제하시겠습니까?')) return;
     try {
-        await deleteDoc(doc(db, 'uplinks', upId));
+        // 📌 출처에 따라 지워야 할 컬렉션 이름을 다르게 설정!
+        const colName = source === 'soop' ? 'soop_posts' : 'uplinks';
+        await deleteDoc(doc(db, colName, upId));
+        
         upLinksList = upLinksList.filter(u => u.id !== upId);
         if(sidePanelMode === 'UP') renderUpLinksPanel();
     } catch(e) { console.error(e); }
@@ -1077,8 +1102,10 @@ function renderUpLinksPanel() {
     
     let upCardsHtml = sorted.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
+        
+        // 📌 삭제 버튼을 누를 때 데이터 출처(soop/uplinks)도 함께 보내도록 수정
         const deleteBtn = (isAdmin && loggedInUser.name === up.member) ? 
-            `<button onclick="event.stopPropagation(); deleteUpLink('${up.id}')" class="text-red-500 hover:text-red-700 ml-2 font-bold z-20 absolute top-2 right-2"><i class="fi fi-br-cross-small"></i></button>` : '';
+            `<button onclick="event.stopPropagation(); deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-red-500 hover:text-red-700 ml-2 font-bold z-20 absolute top-2 right-2"><i class="fi fi-br-cross-small"></i></button>` : '';
             
         return `
             <div class="relative w-full border-[3px] rounded-xl p-5 mb-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-[2px] cursor-pointer bg-white shrink-0" 
@@ -1287,16 +1314,15 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const displayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
 
     return `
-        <div class="schedule-card ${sch.globalType === '휴방' ? 'hubang' : 'bangon'} h-full flex flex-col justify-center w-full" 
-             style="color: ${color}; background-color: ${bgColor}; padding: ${isMobileCard ? '4px' : '4px'}; border-radius: 12px !important; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2) !important;" 
+        <div class="schedule-card ..." 
              onclick="openDetailModal(event, '${sch.id}')" 
-             oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.contextTargetId = '${sch.id}'; window.editFromMenu(); }">
-             <div class="w-full flex justify-between items-center px-1 mb-0.5" style="font-size: ${timeSize}; font-weight: 700;">
-                <span style="color: ${sch.globalType === '휴방' ? 'inherit' : cardBroadColor};">${broadType}</span><span>${formattedTime}</span>
-             </div>
-             <div class="flex-1 flex items-center justify-center w-full px-1 py-1">
-                <span class="schedule-text font-paperozi leading-snug" style="font-size: ${titleSize} !important;">${displayTitle}</span>
-            </div>
+             oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
+                 event.preventDefault(); 
+                 event.stopPropagation(); 
+                 window.contextTargetId = '${sch.id}'; 
+                 window.editFromMenu(); // 이미 이 함수가 수정창을 띄우도록 설정되어 있습니다.
+             }">
+             <!-- ... -->
         </div>
     `;
 }
