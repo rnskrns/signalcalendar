@@ -1326,8 +1326,9 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
         </div>
     ` : '';
 
-    // [수정] 시간이 없을 때만 아래로 밀어주는 클래스 (pt-3) 적용
-    const titlePaddingClass = formattedTime ? 'pt-0' : 'pt-3';
+    // [수정] 뱅온 유형이면서 시간이 없을 때만 제목 영역에 상단 패딩(pt-3) 추가
+    const isBangon = sch.globalType !== '휴방';
+    const shiftDownClass = (isBangon && !formattedTime) ? 'pt-4' : '';
 
     return `
         <div class="schedule-card ${typeClass} flex flex-col h-full"
@@ -1342,7 +1343,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
              
              ${timeHtml}
              
-             <div class="flex-1 flex items-center justify-center w-full min-h-0 px-0.5 ${titlePaddingClass}">
+             <div class="flex-1 flex items-center justify-center w-full min-h-0 px-0.5 py-0 ${shiftDownClass}">
                  <div class="schedule-text" style="font-size: 17px !important; line-height: 1 !important; white-space: normal;">
                      ${displayTitle}
                  </div>
@@ -1350,6 +1351,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
         </div>
     `;
 }
+
 function render() {
     const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF' };
     document.body.style.backgroundColor = tabBackgrounds[currentPage] || '#ffdddd';
