@@ -1297,40 +1297,59 @@ function renderMobileDatePicker() {
 }
 
 function buildScheduleCardHtml(sch, isMobileCard = false) {
-    const safeBgColors = { 
+    const memberColors = { 
         '달타': '#FFFDE7', 
         '다룽': '#E3F2FD', 
         '최또': '#FFF0F5', 
         '카나시': '#FFF3E0' 
     };
 
-    const color = sch.globalType === '휴방' ? '#9CA3AF' : 'var(--theme-color)';
-    const bgColor = sch.globalType === '휴방' ? '#F9FAFB' : (safeBgColors[sch.tabOrMember] || '#FFF5F5');
+    const memberName = sch.tabOrMember ? sch.tabOrMember.trim() : '';
+    const isHabBang = sch.broadType === '합방';
+
+    let bgColor = sch.globalType === '휴방' ? '#F9FAFB' : (memberColors[memberName] || '#FFFFFF');
+    let textColor = ''; 
     
-    const formattedTime = formatTime12(sch.time) || ''; 
-    const broadType = sch.broadType || ''; 
-    const cardThemeColor = themeColors[sch.tabOrMember] || '#5D4037';
-    const cardBroadColor = broadType === '합방' ? '#FF5252' : cardThemeColor;
+    if (isHabBang) {
+        bgColor = '#ffdddd'; 
+        textColor = 'color: #ff6767 !important;'; 
+    }
 
-    const timeSize = isMobileCard ? '11px' : '12px'; 
-    const titleSize = isMobileCard ? '12px' : '18px';
-
+    const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
     const displayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
+    const formattedTime = (typeof formatTime12 === 'function' && sch.time) ? formatTime12(sch.time) : ''; 
+
+    // 시간이 있을 때만 시간 div 생성
+    const timeHtml = formattedTime ? `
+        <div class="flex justify-end w-full pr-1 pt-0 mt-[-1px] shrink-0">
+            <span class="text-[11px] font-bold" style="color: #5D4037;">${formattedTime}</span>
+        </div>
+    ` : '';
+
+    // [수정] 시간이 없을 때만 아래로 밀어주는 클래스 (pt-3) 적용
+    const titlePaddingClass = formattedTime ? 'pt-0' : 'pt-3';
 
     return `
-        <div class="schedule-card ..." 
+        <div class="schedule-card ${typeClass} flex flex-col h-full"
+             style="background-color: ${bgColor} !important; ${textColor}"
              onclick="openDetailModal(event, '${sch.id}')" 
              oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
                  event.preventDefault(); 
                  event.stopPropagation(); 
                  window.contextTargetId = '${sch.id}'; 
-                 window.editFromMenu(); // 이미 이 함수가 수정창을 띄우도록 설정되어 있습니다.
+                 window.editFromMenu(); 
              }">
-             <!-- ... -->
+             
+             ${timeHtml}
+             
+             <div class="flex-1 flex items-center justify-center w-full min-h-0 px-0.5 ${titlePaddingClass}">
+                 <div class="schedule-text" style="font-size: 17px !important; line-height: 1 !important; white-space: normal;">
+                     ${displayTitle}
+                 </div>
+             </div>
         </div>
     `;
 }
-
 function render() {
     const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF' };
     document.body.style.backgroundColor = tabBackgrounds[currentPage] || '#ffdddd';
