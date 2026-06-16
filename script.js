@@ -1093,24 +1093,28 @@ function renderUpLinksPanel() {
     const sorted = [...upLinksList].sort((a, b) => {
         if (a.deadline && b.deadline) {
             if (a.deadline === b.deadline) return (a.timestamp || 0) - (b.timestamp || 0);
-            return a.deadline < b.deadline ? -1 : 1; 
+            return a.deadline < b.deadline ? -1 : 1;
         }
-        if (a.deadline && !b.deadline) return -1; 
+        if (a.deadline && !b.deadline) return -1;
         if (!a.deadline && b.deadline) return 1;
-        return (a.timestamp || 0) - (b.timestamp || 0); 
+        return (a.timestamp || 0) - (b.timestamp || 0);
     });
-    
+
     let upCardsHtml = sorted.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
         
-        // 📌 삭제 버튼을 누를 때 데이터 출처(soop/uplinks)도 함께 보내도록 수정
+        // 삭제 버튼
         const deleteBtn = (isAdmin && loggedInUser.name === up.member) ? 
             `<button onclick="event.stopPropagation(); deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-red-500 hover:text-red-700 ml-2 font-bold z-20 absolute top-2 right-2"><i class="fi fi-br-cross-small"></i></button>` : '';
+            
+        // 우클릭 이벤트 정의 (함수를 문자열로 정확히 전달)
+        const contextAttr = isAdmin ? `oncontextmenu="event.preventDefault(); window.openEditUpLink('${up.id}', '${up.source || 'uplinks'}');"` : '';
             
         return `
             <div class="relative w-full border-[3px] rounded-xl p-5 mb-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-[2px] cursor-pointer bg-white shrink-0" 
                  style="border-color: ${theme}; border-left-width: 8px;"
-                 onclick="openSmartLink('${up.url}')">
+                 onclick="openSmartLink('${up.url}')"
+                 ${contextAttr}>
                 ${deleteBtn}
                 <div class="text-[17px] font-bold font-paperozi mb-4 text-gray-800 break-words pr-6 leading-snug">${up.title}</div>
                 <div class="flex justify-between items-end">
@@ -2283,6 +2287,38 @@ async function initApp() {
     
     changeTab(currentPage);
 }
+
+window.openEditUpLink = async function(id, source) {
+    console.log("우클릭 감지됨, ID:", id); // F12 개발자 도구 콘솔에 이 메시지가 뜨는지 확인하세요.
+    const upItem = upLinksList.find(u => u.id === id);
+    if (!upItem) {
+        alert("데이터를 찾을 수 없습니다.");
+        return;
+    }
+    const newTitle = prompt("제목을 수정하세요:", upItem.title);
+    if (newTitle === null) return;
+    const newDeadline = prompt("마감 날짜를 수정하세요 (YYYY-MM-DD):", upItem.deadline || "");
+    if (newDeadline === null) return;
+
+    try {
+        const colName = source === 'soop' ? 'soop_posts' : 'uplinks';
+        const docRef = doc(db, colName, id);
+        
+        await updateDoc(docRef, { 
+            title: newTitle, 
+            deadline: newDeadline 
+        });
+
+        // 로컬 데이터 업데이트 및 패널 재렌더링
+        upItem.title = newTitle;
+        upItem.deadline = newDeadline;
+        renderUpLinksPanel();
+        alert("수정되었습니다.");
+    } catch (e) {
+        console.error("수정 실패:", e);
+        alert("수정에 실패했습니다.");
+    }
+};
 
 // 앱 실행
 initApp();
