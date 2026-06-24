@@ -1881,11 +1881,21 @@ async function deleteScheduleAction() {
 async function saveSchedule() {
     const blocks = document.querySelectorAll('#scheduleInputsContainer .schedule-input-block');
     
-    const globalType = '뱅온'; 
+    // ✨ 수정된 부분: 라디오 버튼 값과 입력된 뱅온 시간을 가져옵니다.
+    const globalTypeEl = document.querySelector('input[name="globalSchType"]:checked');
+    const globalType = globalTypeEl ? globalTypeEl.value : '뱅온'; 
+
     const memberTab = targetModalContext.member;
     const colName = collectionMap[memberTab];
-    const globalStartTime = '';
-
+    
+    let globalStartTime = '';
+    if (globalType === '뱅온') {
+        const ampm = document.getElementById('globalAmpmBtn') ? document.getElementById('globalAmpmBtn').innerText : '오후';
+        const hh = document.getElementById('globalHh') ? document.getElementById('globalHh').value : '';
+        const mm = document.getElementById('globalMm') ? document.getElementById('globalMm').value : '';
+        globalStartTime = buildTimeStr(ampm, hh, mm);
+    }
+    
     for (let oldId of currentEditingIds) {
         const oldSch = scheduleList.find(s => s.id === oldId);
         if (oldSch) {
