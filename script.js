@@ -154,7 +154,8 @@ window.loginWithProfile = loginWithProfile; window.deleteSavedProfile = deleteSa
 // 일정 순서 변경 함수
 // =========================================================================
 function moveScheduleBlock(btn, direction) {
-    const currentBlock = btn.closest('.schedule-input-block');
+    // 아코디언 전체를 잡아서 이동시키도록 수정
+    const currentBlock = btn.closest('.schedule-accordion-wrapper') || btn.closest('.schedule-input-block');
     const container = currentBlock.parentElement;
 
     if (direction === -1 && currentBlock.previousElementSibling) {
@@ -205,6 +206,8 @@ let currentRollingTopic = null;
 let currentTopicEntries = [];
 let currentEntryIndex = 0;
 let editRollingEntryId = null;
+
+let customMembers = []; // 멤버 관리에 등록된 멤버 저장용
 
 const tabToHash = { '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', '롤링페이퍼': 'rolling' };
 const hashToTab = { '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', '#rolling': '롤링페이퍼' };
@@ -753,6 +756,7 @@ function updateLoginUI(user) {
                     <i class="fi fi-rr-caret-down text-[#5D4037]"></i>
                 </div>
                 <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
+                    <button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
                     <button onclick="openLinkModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">링크관리</button>
                     <button onclick="openInfoModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">정보관리</button>
                     <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -768,6 +772,7 @@ function updateLoginUI(user) {
                     <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-[20px] h-[20px] rounded-full object-cover border border-[#5D4037]">
                 </div>
                 <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
+                    <button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
                     <button onclick="openLinkModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">링크관리</button>
                     <button onclick="openInfoModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">정보관리</button>
                     <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -1184,6 +1189,10 @@ async function loadSchedulesFromFirebase() {
             memoList[m].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
 
+        const smSnap = await getDocs(collection(db, 'scheduleMembers'));
+        customMembers = [];
+        smSnap.forEach(doc => customMembers.push({ id: doc.id, ...doc.data() }));
+
         const topicSnap = await getDocs(collection(db, 'rollingTopics'));
         rollingTopics = [];
         topicSnap.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
@@ -1319,17 +1328,16 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const displayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
     const formattedTime = (typeof formatTime12 === 'function' && sch.time) ? formatTime12(sch.time) : ''; 
 
-    // 시간이 있을 때만 시간 div 생성
     const timeHtml = formattedTime ? `
         <div class="flex justify-end w-full pr-1 pt-0 mt-[-1px] shrink-0">
             <span class="text-[11px] font-bold" style="color: #5D4037;">${formattedTime}</span>
         </div>
     ` : '';
 
-    // [수정] 뱅온 유형이면서 시간이 없을 때만 제목 영역에 상단 패딩(pt-3) 추가
     const isBangon = sch.globalType !== '휴방';
     const shiftDownClass = (isBangon && !formattedTime) ? 'pt-4' : '';
 
+    // 멤버 렌더링 로직 전체 제거됨
     return `
         <div class="schedule-card ${typeClass} flex flex-col h-full"
              style="background-color: ${bgColor} !important; ${textColor}"
@@ -1347,7 +1355,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
                  <div class="schedule-text" style="font-size: 17px !important; line-height: 1 !important; white-space: normal;">
                      ${displayTitle}
                  </div>
-             </div>
+                 </div>
         </div>
     `;
 }
@@ -1873,16 +1881,10 @@ async function deleteScheduleAction() {
 async function saveSchedule() {
     const blocks = document.querySelectorAll('#scheduleInputsContainer .schedule-input-block');
     
-    const globalTypeEl = document.querySelector('input[name="globalSchType"]:checked');
-    const globalType = globalTypeEl ? globalTypeEl.value : '';
-    const isHubang = globalType === '휴방';
+    const globalType = '뱅온'; 
     const memberTab = targetModalContext.member;
     const colName = collectionMap[memberTab];
-
-    const gAmpm = document.getElementById('globalAmpm') ? document.getElementById('globalAmpm').innerText : '오후';
-    const gHh = document.getElementById('globalHh') ? document.getElementById('globalHh').value : '';
-    const gMm = document.getElementById('globalMm') ? document.getElementById('globalMm').value : '';
-    const globalStartTime = (globalType === '뱅온' && gHh) ? buildTimeStr(gAmpm, gHh, gMm) : '';
+    const globalStartTime = '';
 
     for (let oldId of currentEditingIds) {
         const oldSch = scheduleList.find(s => s.id === oldId);
@@ -1896,16 +1898,20 @@ async function saveSchedule() {
 
     for (const block of blocks) {
         let title = block.querySelector('.sch-title').value.trim();
-        if (!title) title = isHubang ? '휴방' : '뱅온';
+        if (!title) title = '일정';
 
         const sDate = block.querySelector('.sch-start').value;
         const eDate = block.querySelector('.sch-end').value;
-        const ampm = block.querySelector('.sch-ampm').innerText;
-        const hh = block.querySelector('.sch-hh').value;
-        const mm = block.querySelector('.sch-mm').value;
-        const broad = isHubang ? '' : block.querySelector('.sch-broad').value;
-        const mem = isHubang ? '' : block.querySelector('.sch-mem').value.trim();
-        const timeStr = isHubang ? '' : buildTimeStr(ampm, hh, mm);
+        
+        // 다시 복구된 시간, 유형, 멤버 데이터 읽기
+        const ampm = block.querySelector('.sch-ampm') ? block.querySelector('.sch-ampm').innerText : '오후';
+        const hh = block.querySelector('.sch-hh') ? block.querySelector('.sch-hh').value : '';
+        const mm = block.querySelector('.sch-mm') ? block.querySelector('.sch-mm').value : '';
+        const timeStr = buildTimeStr(ampm, hh, mm); 
+        
+        const broad = block.querySelector('.sch-broad') ? block.querySelector('.sch-broad').value : '개인방송'; 
+        const mem = block.querySelector('.sch-mem') ? block.querySelector('.sch-mem').value.trim() : ''; 
+        
         const desc = block.querySelector('.sch-desc').value.trim();
         const imageUrl = block.querySelector('.sch-image-url') ? block.querySelector('.sch-image-url').value : '';
 
@@ -2055,18 +2061,25 @@ function getScheduleFormHTML(data, isDeletable = true) {
     const title = data.title || ''; 
     const sDate = data.startDate || ''; 
     const eDate = data.endDate || '';
-    const broad = data.broadType || '개인방송'; 
-    const mem = data.memberTag || ''; 
+    const broad = data.broadType || '개인방송'; // 유형
+    const mem = data.memberTag || ''; // 멤버
     const desc = data.detail || '';
     const imageUrl = data.imageUrl || ''; 
     
+    // 시간 파싱 로직
     let hh = '', mm = '', ampm = '오후';
-    if (data.time) { let [h, m] = data.time.split(':'); h = parseInt(h, 10); ampm = h >= 12 ? '오후' : '오전'; h = h % 12; if (h === 0) h = 12; hh = h; mm = m; }
+    if (data.time) { 
+        let [h, m] = data.time.split(':'); 
+        h = parseInt(h, 10); 
+        ampm = h >= 12 ? '오후' : '오전'; 
+        h = h % 12; 
+        if (h === 0) h = 12; 
+        hh = h; 
+        mm = m; 
+    }
     
-    const deleteBtnHtml = isDeletable ? `<button type="button" class="absolute top-2 right-4 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="this.closest('.schedule-input-block').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>` : '';
-
     const moveBtnsHtml = isDeletable ? `
-        <div class="absolute top-4 right-14 flex gap-2 z-10">
+        <div class="absolute top-4 right-4 flex gap-2 z-10">
             <button type="button" class="text-gray-400 hover:text-[#5D4037] text-[20px] font-bold flex items-center justify-center hover:scale-110 transition-all" onclick="moveScheduleBlock(this, -1)" title="위로 이동"><i class="fi fi-rr-angle-up"></i></button>
             <button type="button" class="text-gray-400 hover:text-[#5D4037] text-[20px] font-bold flex items-center justify-center hover:scale-110 transition-all" onclick="moveScheduleBlock(this, 1)" title="아래로 이동"><i class="fi fi-rr-angle-down"></i></button>
         </div>
@@ -2076,25 +2089,61 @@ function getScheduleFormHTML(data, isDeletable = true) {
 
     return `
         <div class="schedule-input-block border-2 border-[#5D4037] p-5 rounded-xl bg-white relative shadow-sm pretendard mt-1">
-            ${moveBtnsHtml} ${deleteBtnHtml} <input type="hidden" class="sch-id" value="${id}">
-            <div class="mb-4 pr-24"> <label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목 (공란 시 자동 입력)</label>
-                <input type="text" class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="일정 제목 입력 (선택)" value="${title}">
+            ${moveBtnsHtml} <input type="hidden" class="sch-id" value="${id}">
+            
+            <div class="mb-4 pr-20"> 
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목</label>
+                <input type="text" class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="일정 제목 입력" value="${title}">
             </div>
-            <div class="mb-4"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">날짜</label><div class="flex items-center gap-2"><input type="date" class="sch-start flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${sDate}"><span class="font-bold text-[#5D4037]">~</span><input type="date" class="sch-end flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${eDate}"></div></div>
-            <div class="flex gap-4 mb-4 optional-field"><div class="flex-1"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">시간</label><div class="flex items-center justify-between border-2 border-[#5D4037] rounded-lg p-1.5 bg-white"><button type="button" class="sch-ampm ampm-btn px-2.5 py-1 font-bold text-[#5D4037] rounded-md text-[13px]" onclick="toggleAmpm(this)">${ampm}</button><input type="number" min="1" max="12" class="sch-hh w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="시" value="${hh}"><span class="font-bold text-[#5D4037]">:</span><input type="number" min="0" max="59" class="sch-mm w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[15px]" placeholder="분" value="${mm}"></div></div><div class="flex-1"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">유형</label><select class="sch-broad w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] bg-white font-bold text-[#5D4037] cursor-pointer"><option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option><option value="합방" ${broad==='합방'?'selected':''}>합방</option><option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option></select></div></div>
-            <div class="mb-4 optional-field"><label class="block text-[13px] text-gray-500 font-bold mb-1.5">멤버</label><input type="text" class="sch-mem w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="멤버 태그 입력 (선택)" value="${mem}"></div>
-            <div class="mb-4 optional-field">
+            
+            <div class="mb-4">
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">날짜</label>
+                <div class="flex items-center gap-2">
+                    <input type="date" class="sch-start flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${sDate}">
+                    <span class="font-bold text-[#5D4037]">~</span>
+                    <input type="date" class="sch-end flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${eDate}">
+                </div>
+            </div>
+
+            <div class="flex gap-4 mb-4">
+                <div class="flex-1">
+                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">시간 (선택)</label>
+                    <div class="flex items-center justify-between border-2 border-[#5D4037] rounded-lg p-1.5 bg-white">
+                        <button type="button" class="sch-ampm ampm-btn px-2.5 py-1 font-bold text-[#5D4037] rounded-md text-[13px]" onclick="toggleAmpm(this)">${ampm}</button>
+                        <input type="number" min="1" max="12" class="sch-hh w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="시" value="${hh}">
+                        <span class="font-bold text-[#5D4037]">:</span>
+                        <input type="number" min="0" max="59" class="sch-mm w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[15px]" placeholder="분" value="${mm}">
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">유형</label>
+                    <select class="sch-broad w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] bg-white font-bold text-[#5D4037] cursor-pointer">
+                        <option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option>
+                        <option value="합방" ${broad==='합방'?'selected':''}>합방</option>
+                        <option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">함께하는 멤버 / 크루 (선택)</label>
+                <input type="text" class="sch-mem w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="멤버 혹은 크루 이름 띄어쓰기로 입력" value="${mem}">
+            </div>
+
+            <div class="mb-4">
                 <label class="block text-[13px] text-gray-500 font-bold mb-1.5">이미지 첨부 (선택)</label>
                 <div class="flex items-center gap-2">
                     <input type="file" accept="image/*" class="flex-1 text-[13px] cursor-pointer" onchange="window.handleScheduleImageUpload(this)">
                     <button type="button" class="sch-img-remove-btn ${removeBtnClass} px-3 py-1.5 bg-red-500 text-white rounded text-sm font-bold shadow-sm hover:bg-red-600 transition shrink-0" onclick="window.removeScheduleImage(this)">이미지 삭제</button>
                 </div>
                 <input type="hidden" class="sch-image-url" value="${imageUrl}">
-                <div class="sch-img-preview">
-                    ${imageUrl ? `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">` : ''}
-                </div>
+                <div class="sch-img-preview">${imageUrl ? `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">` : ''}</div>
             </div>
-            <div><label class="block text-[13px] text-gray-500 font-bold mb-1.5">상세</label><textarea class="sch-desc w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[15px] resize-none h-[75px] font-medium" placeholder="상세 내용을 입력하세요 (선택)">${desc}</textarea></div>
+            
+            <div>
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">상세</label>
+                <textarea class="sch-desc w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[15px] resize-none h-[75px] font-medium" placeholder="상세 내용을 입력하세요">${desc}</textarea>
+            </div>
         </div>
     `;
 }
@@ -2108,42 +2157,44 @@ function openScheduleModal(year, month, day, member) {
     
     const container = document.getElementById('scheduleInputsContainer'); 
     container.innerHTML = '';
-    
-    let globalTimeBlock = document.getElementById('globalTimeBlock');
-    if (!globalTimeBlock) {
-        globalTimeBlock = document.createElement('div');
-        globalTimeBlock.id = 'globalTimeBlock';
-        globalTimeBlock.className = 'mb-4 p-4 rounded-xl border-2 border-[#5D4037] bg-[#FFFDF5] shadow-sm';
-        globalTimeBlock.innerHTML = `
-            <label class="block text-[14px] text-[#5D4037] font-bold mb-2">방송 켜는 시간 (선택)</label>
-            <div class="flex items-center gap-2">
-                <button type="button" id="globalAmpm" class="px-3 py-1.5 font-bold text-white bg-[#5D4037] rounded-md text-[14px]" onclick="toggleAmpm(this)">오후</button>
-                <input type="number" min="1" max="12" id="globalHh" class="w-[50px] p-1.5 border-2 border-[#5D4037] rounded-md text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="시">
-                <span class="font-bold text-[#5D4037]">:</span>
-                <input type="number" min="0" max="59" id="globalMm" class="w-[50px] p-1.5 border-2 border-[#5D4037] rounded-md text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="분">
-            </div>
-        `;
-        container.parentNode.insertBefore(globalTimeBlock, container);
-    }
-
-    document.getElementById('globalHh').value = '';
-    document.getElementById('globalMm').value = '';
-    document.getElementById('globalAmpm').innerText = '오후';
 
     if (targets.length > 0) {
-        const first = targets[0];
-        document.querySelectorAll('input[name="globalSchType"]').forEach(r => r.checked = (r.value === first.globalType));
-        if (first.globalStartTime) {
-            const [hh, mm] = first.globalStartTime.split(':');
-            let h = parseInt(hh, 10);
-            document.getElementById('globalAmpm').innerText = h >= 12 ? '오후' : '오전';
-            document.getElementById('globalHh').value = h % 12 === 0 ? 12 : h % 12;
-            document.getElementById('globalMm').value = mm;
-        }
-        targets.forEach(t => container.insertAdjacentHTML('beforeend', getScheduleFormHTML(t, true)));
+        const listHtml = targets.map((sch, index) => {
+            const contentId = `sch-content-${index}`;
+            const btnId = `btn-${index}`;
+            const isHidden = index !== 0 ? 'hidden' : '';
+            const btnText = index !== 0 ? '펼치기' : '접기';
+            
+            return `
+            <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
+                <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
+                    <span class="font-bold text-[#5D4037] text-[16px]">${sch.title || '일정'}</span>
+                    <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold">${btnText}</span>
+                </div>
+                <button type="button" class="absolute top-2 right-2 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="event.stopPropagation(); this.closest('.schedule-accordion-wrapper').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>
+                
+                <div id="${contentId}" class="schedule-accordion-content ${isHidden} mt-3 pt-3 border-t-2 border-gray-100 text-[14px] text-[#5D4037]">
+                    ${getScheduleFormHTML(sch, true)} 
+                </div>
+            </div>`;
+        }).join('');
+        container.insertAdjacentHTML('beforeend', listHtml);
     } else {
-        document.querySelector('input[name="globalSchType"][value="뱅온"]').checked = true;
-        container.insertAdjacentHTML('beforeend', getScheduleFormHTML({ startDate: targetDateStr, endDate: targetDateStr }, true));
+        const contentId = `sch-content-0`;
+        const btnId = `btn-0`;
+        const wrapperHtml = `
+        <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
+            <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
+                <span class="font-bold text-[#5D4037] text-[16px]">새 일정</span>
+                <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold">접기</span>
+            </div>
+            <button type="button" class="absolute top-2 right-2 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="event.stopPropagation(); this.closest('.schedule-accordion-wrapper').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>
+            
+            <div id="${contentId}" class="schedule-accordion-content mt-3 pt-3 border-t-2 border-gray-100 text-[14px] text-[#5D4037]">
+                ${getScheduleFormHTML({ startDate: targetDateStr, endDate: targetDateStr }, true)}
+            </div>
+        </div>`;
+        container.insertAdjacentHTML('beforeend', wrapperHtml);
     }
     
     document.getElementById('scheduleModal').classList.replace('hidden', 'flex'); 
@@ -2151,10 +2202,34 @@ function openScheduleModal(year, month, day, member) {
 }
 
 function addScheduleInputBlock() {
-    const { year, month, day } = targetModalContext; const targetDateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const container = document.getElementById('scheduleInputsContainer'); container.insertAdjacentHTML('beforeend', getScheduleFormHTML({ startDate: targetDateStr, endDate: targetDateStr }, true));
-    container.scrollTop = container.scrollHeight; toggleFields('scheduleModal', 'globalSchType');
+    const { year, month, day } = targetModalContext; 
+    const targetDateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const container = document.getElementById('scheduleInputsContainer');
+    
+    closeAllSchedules(); // 기존 일정 모두 접기
+    
+    const newIndex = document.querySelectorAll('.schedule-accordion-wrapper').length;
+    const contentId = `sch-content-${newIndex}`;
+    const btnId = `btn-${newIndex}`;
+    
+    const wrapperHtml = `
+    <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
+        <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
+            <span class="font-bold text-[#5D4037] text-[16px]">새 일정</span>
+            <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold">접기</span>
+        </div>
+        <button type="button" class="absolute top-2 right-2 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="event.stopPropagation(); this.closest('.schedule-accordion-wrapper').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>
+        
+        <div id="${contentId}" class="schedule-accordion-content mt-3 pt-3 border-t-2 border-gray-100 text-[14px] text-[#5D4037]">
+            ${getScheduleFormHTML({ startDate: targetDateStr, endDate: targetDateStr }, true)}
+        </div>
+    </div>`;
+    
+    container.insertAdjacentHTML('beforeend', wrapperHtml);
+    container.scrollTop = container.scrollHeight; 
+    toggleFields('scheduleModal', 'globalSchType');
 }
+
 function closeScheduleModal() { document.getElementById('scheduleModal').classList.replace('flex', 'hidden'); }
 
 function editFromMenu() {
@@ -2186,29 +2261,84 @@ function editFromMenu() {
 function closeEditModal() { document.getElementById('editScheduleModal').classList.replace('flex', 'hidden'); contextTargetId = null; }
 
 function renderSchedulesInModal(schedules, y, m, d, member) {
-    const modal = document.getElementById('scheduleDetailModal'); const modalContent = modal.querySelector('.modal-content');
-    modalContent.style.backgroundColor = '#FFFDF5'; modalContent.style.padding = '12px 20px 20px 20px';
-    const closeBtnContainer = modal.querySelector('.justify-end.mb-2'); if (closeBtnContainer) closeBtnContainer.style.marginBottom = '0px';
+    const modal = document.getElementById('scheduleDetailModal'); 
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.style.backgroundColor = '#FFFDF5'; 
+    modalContent.style.padding = '32px';
+    const closeBtnContainer = modal.querySelector('.justify-end.mb-2'); 
+    if (closeBtnContainer) closeBtnContainer.style.marginBottom = '0px';
 
-    let htmlContent = '<div class="flex flex-col w-full max-h-[65vh] overflow-y-auto px-2 pt-2 pb-4 modal-scroll">';
+    // 각 멤버별 일정 카드 배경색 정의
+    const cardBgColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FFF0F5', '카나시': '#FFF3E0' };
+
+    let htmlContent = '<div class="flex flex-col w-full max-h-[70vh] overflow-y-auto px-4 pt-2 pb-4 modal-scroll">';
     if (schedules.length === 0) {
         htmlContent += `<div class="text-center text-gray-500 font-bold mt-6 mb-4 text-lg">일정이 없습니다.</div>`;
     } else {
         schedules.forEach((sch, index) => {
-            let timeText = sch.time ? formatTime12(sch.time) : ''; let broadText = sch.broadType || '개인방송'; let memText = sch.memberTag || ''; let detailText = sch.detail || '';
+            let timeText = sch.time ? formatTime12(sch.time) : ''; 
+            let broadText = sch.broadType || '개인방송'; 
+            let detailText = sch.detail || '';
             let themeColor = themeColors[sch.tabOrMember] || '#5D4037';
-            let isHabBang = broadText === '합방';
-            let broadColor = isHabBang ? '#FF5252' : themeColor;
+            
+            // 방송 유형에 따른 뱃지 색상 로직 적용
+            let broadStyle = '';
+            if (broadText === '합방') {
+                broadStyle = 'background-color: #fee2e2; color: #ef4444; border-color: #ef4444;'; 
+            } else if (broadText === '시네티') {
+                broadStyle = 'background-color: #f3e8ff; color: #9333ea; border-color: #9333ea;'; 
+            } else {
+                let bgC = cardBgColors[sch.tabOrMember] || '#ffffff';
+                broadStyle = `background-color: ${bgC}; color: ${themeColor}; border-color: ${themeColor};`;
+            }
             
             let badgeHtml = sch.globalType === '휴방' ? '' : 
                 `<div class="flex gap-2 justify-center">
                     ${timeText ? `<span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${themeColor}; border-color: ${themeColor};">${timeText}</span>` : ''}
-                    <span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${broadColor}; border-color: ${broadColor};">${broadText}</span>
+                    <span class="px-4 py-1.5 text-[13px] font-bold rounded-full border-2 shadow-sm" style="${broadStyle}">${broadText}</span>
                 </div>`;
             
             let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" class="w-full max-h-[300px] object-contain rounded-xl my-4 shadow-sm border border-gray-200">` : '';
 
-            htmlContent += `<div class="flex flex-col w-full items-center"><div class="flex flex-col items-center gap-2 mb-4 w-full"><div class="text-[28px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi">${sch.title}</div>${badgeHtml}</div>${imgHtml}<div class="flex flex-col gap-5 w-full pretendard px-3">${memText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">멤버</div><div class="text-[17px] text-[#5D4037] font-bold">${memText}</div></div>` : ''}${detailText ? `<div class="flex flex-col"><div class="text-[13px] text-gray-400 font-bold mb-1">상세</div><div class="text-[15px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap">${detailText}</div></div>` : ''}</div></div>`;
+            let memGroupHtml = '';
+            if (sch.memberTag) {
+                const parsed = parseMembers(sch.memberTag);
+                memGroupHtml = `
+                <div class="flex flex-wrap justify-center gap-4 mt-6 mb-2 w-full max-w-[500px] mx-auto">
+                    ${parsed.map(m => {
+                        const isCrew = m.isCrew;
+                        return `
+                        <div class="flex flex-col items-center gap-2 ${isCrew ? 'w-full' : 'w-[60px]'}">
+                            <div class="${isCrew ? 'w-full rounded-xl border border-gray-100 shadow-sm' : 'w-[60px] h-[60px] rounded-full border-[3px] border-[#fcdbc6] shadow-sm'} flex items-center justify-center overflow-hidden shrink-0">
+                                <img src="${m.imageUrl}" class="w-full h-full ${isCrew ? 'object-contain' : 'object-cover'}" onerror="this.src='https://via.placeholder.com/60'">
+                            </div>
+                            ${(m.nickname && !isCrew) ? `<span class="text-[12px] font-bold text-[#5D4037] truncate w-full text-center">${m.nickname}</span>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            }
+
+            // '더보기' 기능 완전 제거, 전체 내용 바로 출력
+            let detailHtml = '';
+            if (detailText) {
+                detailHtml = `
+                <div class="flex flex-col mt-4">
+                    <div class="text-[13px] text-gray-400 font-bold mb-1">상세</div>
+                    <div class="text-[15px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap">${detailText.replace(/\n/g, '<br>')}</div>
+                </div>`;
+            }
+
+            htmlContent += `<div class="flex flex-col w-full items-center">
+                <div class="flex flex-col items-center gap-2 mb-2 w-full">
+                    <div class="text-[28px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi">${sch.title}</div>
+                    ${badgeHtml}
+                </div>
+                ${memGroupHtml}
+                ${imgHtml}
+                <div class="flex flex-col gap-5 w-full pretendard px-3">
+                    ${detailHtml}
+                </div>
+            </div>`;
             if (index < schedules.length - 1) htmlContent += `<div class="w-full border-b-2 border-dashed border-[#5D4037] opacity-20 my-8"></div>`;
         });
     }
@@ -2217,7 +2347,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
     document.getElementById('detailDesc').innerHTML = htmlContent;
     const closeBtn = modal.querySelector('.modal-btn');
     if(closeBtn) { closeBtn.className = "modal-btn w-full bg-[#5D4037] text-white py-4 rounded-2xl font-bold text-[20px] mt-6 hover:brightness-110 transition-all cursor-pointer"; closeBtn.innerText = "닫기"; }
-    modal.classList.replace('hidden', 'flex'); modal.style.display = '';
+    modal.classList.replace('hidden', 'flex'); 
 }
 
 function openDetailModal(event, schId) { 
@@ -2339,6 +2469,154 @@ window.openEditUpLink = async function(id, source) {
         console.error("수정 실패:", e);
         alert("수정에 실패했습니다.");
     }
+};
+
+// 멤버 관리 모달 열기/닫기
+window.openMemberManageModal = function() {
+    if(!isAdmin) return;
+    renderCustomMembersList();
+    document.getElementById('memberManageModal').classList.replace('hidden', 'flex');
+    
+    ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
+        const pMenu = document.getElementById(id);
+        if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
+    });
+};
+
+window.closeMemberManageModal = function() {
+    document.getElementById('memberManageModal').classList.replace('flex', 'hidden');
+};
+
+// 기존 멤버 추가 로직에 크루 여부 구분 추가
+window.addCustomMember = async function() {
+    const nickname = document.getElementById('newMemberNickname').value.trim();
+    const soopId = document.getElementById('newMemberSoopId').value.trim();
+    const imageUrlInput = document.getElementById('newMemberImageUrl').value.trim();
+    const isCrew = document.getElementById('isCrewCheckbox').checked;
+    
+    if(!nickname) return alert("이름을 입력해주세요.");
+    
+    // 이미지 우선순위: 직접 입력한 링크 > SOOP ID 자동생성 > 기본 이미지
+    let imageUrl = imageUrlInput;
+    if(!imageUrl && soopId) {
+        const prefix = soopId.substring(0, 2);
+        imageUrl = `https://stimg.sooplive.com/LOGO/${prefix}/${soopId}/${soopId}.jpg`;
+    } else if(!imageUrl) {
+        imageUrl = 'https://via.placeholder.com/60';
+    }
+    
+    try {
+        const newMem = { nickname, soopId, imageUrl, isCrew, timestamp: Date.now() };
+        const docRef = await addDoc(collection(db, 'scheduleMembers'), newMem);
+        customMembers.push({ id: docRef.id, ...newMem });
+        
+        // 입력창 초기화
+        document.getElementById('newMemberNickname').value = '';
+        document.getElementById('newMemberSoopId').value = '';
+        document.getElementById('newMemberImageUrl').value = '';
+        renderCustomMembersList();
+    } catch(e) { console.error(e); alert('추가 실패'); }
+};
+
+window.parseMembers = function(tagString) {
+    if (!tagString) return [];
+    const names = tagString.split(/[, ]+/).filter(n => n.trim() !== '');
+    return names.map(name => {
+        const found = customMembers.find(m => m.nickname === name);
+        if (found) {
+            return { 
+                ...found, // 모든 정보를 포함하여 반환 (isCrew 속성 포함)
+                nickname: found.isCrew ? '' : found.nickname 
+            };
+        }
+        const def = members.find(m => m.name === name);
+        // 기본 멤버나 매칭되지 않는 경우 isCrew: false 설정
+        return def ? { nickname: def.name, imageUrl: def.img, isCrew: false } : { nickname: name, imageUrl: 'https://via.placeholder.com/60', isCrew: false };
+    });
+};
+
+// 멤버 삭제
+window.deleteCustomMember = async function(id) {
+    if(!confirm("이 멤버를 삭제하시겠습니까?")) return;
+    try {
+        await deleteDoc(doc(db, 'scheduleMembers', id));
+        customMembers = customMembers.filter(m => m.id !== id);
+        renderCustomMembersList();
+        render();
+    } catch(e) { console.error(e); }
+};
+
+// 멤버 리스트 렌더링
+window.renderCustomMembersList = function() {
+    const container = document.getElementById('customMembersList');
+    
+    // grid-cols-5를 유지하되, 컨테이너 너비를 강제로 100%로 고정
+    container.innerHTML = `
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 w-full">
+            ${customMembers.map(m => `
+                <div class="flex flex-col items-center bg-white border-2 border-gray-200 p-2 rounded-xl shadow-sm relative w-full box-border">
+                    <button onclick="deleteCustomMember('${m.id}')" class="absolute top-1 right-1 text-red-400 hover:text-red-600 transition p-1">
+                        <i class="fi fi-br-cross-small text-[10px]"></i>
+                    </button>
+                    
+                    <img src="${m.imageUrl}" class="w-12 h-12 rounded-full object-cover border border-[#5D4037] mb-1.5" onerror="this.src='https://via.placeholder.com/40'">
+                    
+                    <div class="text-center w-full overflow-hidden">
+                        <div class="font-bold text-[11px] text-[#5D4037] truncate px-1">${m.nickname}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+};
+
+// 콤마 또는 띄어쓰기로 여러명 파싱 후 DB와 매칭
+window.parseMembers = function(tagString) {
+    if (!tagString) return [];
+    const names = tagString.split(/[, ]+/).filter(n => n.trim() !== '');
+    return names.map(name => {
+        const found = customMembers.find(m => m.nickname === name);
+        if (found) return found;
+        const def = members.find(m => m.name === name); // 기본 멤버 배열 체크
+        if (def) return { nickname: def.name, imageUrl: def.img };
+        return { nickname: name, imageUrl: 'https://via.placeholder.com/40' }; // 매칭 실패시 기본 프사
+    });
+};
+
+// 기존 함수를 아래와 같이 변경합니다.
+window.toggleScheduleItem = function(targetContentId, targetBtnId) {
+    // 1. 모든 일정을 접는 함수 실행
+    closeAllSchedules();
+
+    // 2. 선택한 일정만 펼치기
+    const content = document.getElementById(targetContentId);
+    const btn = document.getElementById(targetBtnId);
+    if (content && content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        btn.innerText = '접기';
+    }
+};
+
+// 모든 일정을 닫는 헬퍼 함수
+function closeAllSchedules() {
+    const contents = document.querySelectorAll('[id^="sch-content-"]');
+    const btns = document.querySelectorAll('[id^="btn-"]');
+    
+    contents.forEach(el => el.classList.add('hidden'));
+    btns.forEach(el => el.innerText = '펼치기');
+}
+
+window.closeAllSchedules = function() {
+    // 기존 일정(openScheduleModal에서 만든 것)과 새 일정(addScheduleInputBlock에서 만든 것)을 모두 선택
+    const contents = document.querySelectorAll('.schedule-accordion-content');
+    const btns = document.querySelectorAll('.accordion-toggle-btn');
+    
+    contents.forEach(el => {
+        el.classList.add('hidden');
+    });
+    btns.forEach(el => {
+        el.innerText = '펼치기';
+    });
 };
 
 // 앱 실행

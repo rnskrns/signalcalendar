@@ -182,3 +182,12 @@ body {
 
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* style.css 하단에 추가 */
+#customMembersList {
+    display: block !important;
+    width: 100% !important;
+}
+#customMembersList > div {
+    width: 100% !important;
+}
