@@ -2131,6 +2131,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
                         <option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option>
                         <option value="합방" ${broad==='합방'?'selected':''}>합방</option>
                         <option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option>
+                        <option value="휴방" ${broad==='휴방'?'selected':''}>휴방</option>
                     </select>
                 </div>
             </div>
@@ -2165,10 +2166,27 @@ function openScheduleModal(year, month, day, member) {
     const targets = scheduleList.filter(s => s.tabOrMember === member && isDateStrInRange(targetDateStr, s.startDate, s.endDate));
     currentEditingIds = targets.map(t => t.id); 
 
-    // ✨ 추가된 부분: 모달 열 때 이전 뱅온 시간 기록 지우기 & 기존 시간 있으면 불러오기
     const globalHh = document.getElementById('globalHh');
     const globalMm = document.getElementById('globalMm');
     const globalAmpm = document.getElementById('globalAmpmBtn');
+
+    // 👇 여기에 뱅온/휴방 라디오 버튼을 일정에 맞게 자동 설정하는 코드를 추가합니다.
+    const typeBangon = document.getElementById('typeBangon');
+    const typeHubang = document.getElementById('typeHubang');
+    
+    if (targets.length > 0 && targets.some(s => s.globalType === '휴방')) {
+        if (typeHubang) {
+            typeHubang.checked = true;
+            typeHubang.dataset.wasChecked = 'true';
+        }
+        if (typeBangon) typeBangon.dataset.wasChecked = 'false';
+    } else {
+        if (typeBangon) {
+            typeBangon.checked = true;
+            typeBangon.dataset.wasChecked = 'true';
+        }
+        if (typeHubang) typeHubang.dataset.wasChecked = 'false';
+    }
 
     if (globalHh && globalMm && globalAmpm) {
         // 1. 새 일정을 위해 일단 빈칸으로 초기화 (7시 기억 삭제!)
@@ -2274,7 +2292,17 @@ function editFromMenu() {
     const sch = scheduleList.find(s => s.id === contextTargetId); 
     if(!sch) return;
     
-    document.querySelector(`input[name="editGlobalSchType"][value="${sch.globalType}"]`).checked = true;
+    // 👇 뱅온/휴방 라디오 버튼 상태 기억 및 토글 버그 방지
+    const radios = document.querySelectorAll('input[name="editGlobalSchType"]');
+    radios.forEach(radio => radio.dataset.wasChecked = 'false');
+    
+    const activeRadio = document.querySelector(`input[name="editGlobalSchType"][value="${sch.globalType}"]`);
+    if (activeRadio) {
+        activeRadio.checked = true;
+        activeRadio.dataset.wasChecked = 'true';
+    }
+    // 👆 수정 완료
+
     document.getElementById('editContainer').innerHTML = getScheduleFormHTML(sch, false);
     document.getElementById('editScheduleModal').classList.replace('hidden', 'flex'); 
     toggleFields('editScheduleModal', 'editGlobalSchType');
