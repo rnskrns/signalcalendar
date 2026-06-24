@@ -1895,7 +1895,7 @@ async function saveSchedule() {
         const mm = document.getElementById('globalMm') ? document.getElementById('globalMm').value : '';
         globalStartTime = buildTimeStr(ampm, hh, mm);
     }
-    
+
     for (let oldId of currentEditingIds) {
         const oldSch = scheduleList.find(s => s.id === oldId);
         if (oldSch) {
@@ -2164,10 +2164,37 @@ function openScheduleModal(year, month, day, member) {
     const targetDateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const targets = scheduleList.filter(s => s.tabOrMember === member && isDateStrInRange(targetDateStr, s.startDate, s.endDate));
     currentEditingIds = targets.map(t => t.id); 
-    
+
+    // ✨ 추가된 부분: 모달 열 때 이전 뱅온 시간 기록 지우기 & 기존 시간 있으면 불러오기
+    const globalHh = document.getElementById('globalHh');
+    const globalMm = document.getElementById('globalMm');
+    const globalAmpm = document.getElementById('globalAmpmBtn');
+
+    if (globalHh && globalMm && globalAmpm) {
+        // 1. 새 일정을 위해 일단 빈칸으로 초기화 (7시 기억 삭제!)
+        globalHh.value = '';
+        globalMm.value = '';
+        globalAmpm.innerText = '오후';
+
+        // 2. 만약 이미 저장된 뱅온 시간이 있다면 해당 시간을 불러옴
+        const sWithGlobal = targets.find(s => s.globalStartTime && s.globalType === '뱅온');
+        if (sWithGlobal && sWithGlobal.globalStartTime) {
+            let [h, m] = sWithGlobal.globalStartTime.split(':');
+            h = parseInt(h, 10);
+            globalAmpm.innerText = h >= 12 ? '오후' : '오전';
+            h = h % 12;
+            if (h === 0) h = 12;
+            
+            globalHh.value = h;
+            globalMm.value = m; 
+        }
+    }
+    // 여기까지 ✨
+
     const container = document.getElementById('scheduleInputsContainer'); 
     container.innerHTML = '';
 
+    // ... (아래는 기존 코드 그대로 유지)
     if (targets.length > 0) {
         const listHtml = targets.map((sch, index) => {
             const contentId = `sch-content-${index}`;
