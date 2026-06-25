@@ -688,6 +688,9 @@ function showUpPopup(today) {
         (!img.deadline || img.deadline >= today)
     );
 
+    // ✨ [추가] 이미지가 있을 때와 없을 때 왼쪽 컨텐츠 영역의 너비 클래스를 동적으로 결정합니다.
+    const leftWidthClass = (activeImg && activeImg.url) ? 'md:w-1/2' : 'w-full';
+
     if (activeImg && activeImg.url) {
         popupImgHtml = `
             <div class="w-full md:w-1/2 shrink-0 flex items-center justify-center bg-black/5 rounded-xl border-2 border-gray-200 overflow-hidden mt-6 md:mt-0">
@@ -736,10 +739,11 @@ function showUpPopup(today) {
     }
 
     // 전체 레이아웃 (왼쪽: 컨텐츠, 오른쪽: 이미지)
+    // 💡 아래 세 번째 줄 컨테이너 클래스에 'md:w-1/2' 대신 '${leftWidthClass}' 변수를 적용했습니다.
     list.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 w-full">
             
-            <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full md:w-1/2 pr-2 modal-scroll">
+            <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full ${leftWidthClass} pr-2 modal-scroll">
                 <div class="flex flex-col gap-6 w-full">
                     <div class="flex flex-col w-full">
                         <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
