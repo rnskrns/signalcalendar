@@ -210,7 +210,7 @@ let currentEntryIndex = 0;
 let editRollingEntryId = null;
 
 let customMembers = []; // 멤버 관리에 등록된 멤버 저장용
-let popupImageData = null; // 팝업 이미지 데이터 { url, deadline }
+let popupImagesList = [];
 
 const tabToHash = { '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', '롤링페이퍼': 'rolling' };
 const hashToTab = { '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', '#rolling': '롤링페이퍼' };
@@ -505,7 +505,7 @@ function previewPopupImgFile(input) {
 async function savePopupImage() {
     const urlInput = document.getElementById('popupImgUrl');
     const fileInput = document.getElementById('popupImgFile');
-    const startDateInput = document.getElementById('popupImgStartDate'); // 추가
+    const startDateInput = document.getElementById('popupImgStartDate');
     const deadlineInput = document.getElementById('popupImgDeadline');
     const urlSection = document.getElementById('popupImgUrlSection');
     const statusEl = document.getElementById('popupImgUploadStatus');
@@ -525,21 +525,28 @@ async function savePopupImage() {
         if (!imageUrl) return alert('이미지 업로드에 실패했습니다.');
     }
 
-    const startDate = startDateInput ? startDateInput.value : ''; // 추가
+    const startDate = startDateInput ? startDateInput.value : '';
     const deadline = deadlineInput ? deadlineInput.value : '';
-    if (!startDate || !deadline) return alert('시작일자와 마감일자를 모두 입력하세요.'); // 수정
+    if (!startDate || !deadline) return alert('시작일자와 마감일자를 모두 입력하세요.');
 
     try {
-        const docRef = doc(db, 'popupImage', 'main');
-        // startDate 추가하여 저장
-        await setDoc(docRef, { url: imageUrl, startDate, deadline, updatedAt: Date.now() }); 
-        popupImageData = { url: imageUrl, startDate, deadline };
-        alert('팝업 이미지가 저장되었습니다.');
-        renderPopupImgCurrentInfo();
+        const newPopup = { url: imageUrl, startDate, deadline, timestamp: Date.now() };
         
-        const preview = document.getElementById('popupImgPreview');
-        const previewImg = document.getElementById('popupImgPreviewImg');
-        if (preview && previewImg) { previewImg.src = imageUrl; preview.classList.remove('hidden'); }
+        // 덮어쓰기(setDoc) 대신 추가하기(addDoc)로 변경 (컬렉션 이름도 popupImages로 복수형 권장)
+        const docRef = await addDoc(collection(db, 'popupImages'), newPopup);
+        newPopup.id = docRef.id;
+        
+        popupImagesList.unshift(newPopup); // 목록 맨 앞에 추가
+        alert('팝업 이미지 예약이 등록되었습니다.');
+        
+        // 등록 후 입력창 및 프리뷰 초기화
+        if(urlInput) urlInput.value = '';
+        if(fileInput) fileInput.value = '';
+        if(startDateInput) startDateInput.value = '';
+        if(deadlineInput) deadlineInput.value = '';
+        document.getElementById('popupImgPreview').classList.add('hidden');
+        
+        renderPopupImgCurrentInfo();
     } catch(e) { console.error(e); alert('저장 실패: ' + e.message); }
 }
 
@@ -558,23 +565,44 @@ async function deletePopupImage() {
 function renderPopupImgCurrentInfo() {
     const el = document.getElementById('popupImgCurrentInfo');
     if (!el) return;
-    if (popupImageData && popupImageData.url) {
-        // 시작일과 마감일을 함께 표시
-        el.textContent = `현재 등록된 이미지 노출 기간: ${popupImageData.startDate || '없음'} ~ ${popupImageData.deadline || '없음'}`;
+    
+    if (popupImagesList.length > 0) {
+        let html = `<div class="text-[13px] font-bold text-gray-500 mb-2">예약된 팝업 목록 (최신순):</div>`;
+        html += popupImagesList.map(img => `
+            <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-200 mb-2 text-xs">
+                <div class="truncate flex-1 mr-2">
+                    <a href="${img.url}" target="_blank" class="text-blue-500 underline font-bold">이미지 링크 확인</a>
+                    <span class="text-gray-500 block mt-1 font-semibold">기간: ${img.startDate} ~ ${img.deadline}</span>
+                </div>
+                <button onclick="deletePopupImage('${img.id}')" class="text-white bg-red-500 text-[11px] font-bold px-2 py-1 rounded hover:bg-red-600 transition shrink-0">삭제</button>
+            </div>
+        `).join('');
+        el.innerHTML = html;
     } else {
         el.textContent = '현재 등록된 팝업 이미지가 없습니다.';
     }
 }
 
-async function loadPopupImageFromFirebase() {
+async function deletePopupImage(id) {
+    if (!confirm('이 팝업 이미지 예약을 삭제하시겠습니까?')) return;
     try {
-        const docSnap = await getDoc(doc(db, 'popupImage', 'main'));
-        if (docSnap.exists()) {
-            popupImageData = docSnap.data();
-        } else {
-            popupImageData = null;
-        }
-    } catch(e) { console.error('팝업 이미지 로드 실패:', e); popupImageData = null; }
+        await deleteDoc(doc(db, 'popupImages', id));
+        popupImagesList = popupImagesList.filter(img => img.id !== id);
+        alert('팝업 이미지 예약이 삭제되었습니다.');
+        renderPopupImgCurrentInfo();
+    } catch(e) { console.error(e); alert('삭제 실패: ' + e.message); }
+}
+
+async function loadPopupImagesFromFirebase() {
+    try {
+        const snap = await getDocs(collection(db, 'popupImages'));
+        popupImagesList = [];
+        snap.forEach(doc => {
+            popupImagesList.push({ id: doc.id, ...doc.data() });
+        });
+        // 최신 등록 순으로 정렬
+        popupImagesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    } catch(e) { console.error('팝업 이미지 목록 로드 실패:', e); popupImagesList = []; }
 }
 
 async function loadLinksFromFirebase() {
@@ -649,11 +677,12 @@ function checkAndShowPopup(today) {
     const lastClosed = localStorage.getItem('upPopupClosedDate');
     const activeTopics = rollingTopics.filter(t => t.date >= today);
     
-    // 유효성 검사에 startDate 조건 추가
-    const hasValidImage = popupImageData && popupImageData.url && 
-                          (!popupImageData.startDate || popupImageData.startDate <= today) && 
-                          (!popupImageData.deadline || popupImageData.deadline >= today);
-                          
+    // 배열 중에서 오늘 날짜 조건에 만족하는 이미지가 하나라도 있는지 체크
+    const hasValidImage = popupImagesList.some(img => 
+        (!img.startDate || img.startDate <= today) && 
+        (!img.deadline || img.deadline >= today)
+    );
+    
     if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || (dynamicLinks['공지'] && dynamicLinks['공지'].length > 0) || hasValidImage)) {
         showUpPopup(today);
     }
@@ -664,18 +693,19 @@ function showUpPopup(today) {
     if(!list) return;
 
     let popupImgHtml = '';
-    if (popupImageData && popupImageData.url) {
-        const imgStart = popupImageData.startDate || ''; // 추가
-        const imgDeadline = popupImageData.deadline || '';
-        
-        // 오늘 날짜가 시작일 이상, 마감일 이하일 때만 이미지 렌더링
-        if ((!imgStart || imgStart <= today) && (!imgDeadline || imgDeadline >= today)) {
-            popupImgHtml = `
-                <div class="w-full md:w-1/2 shrink-0 flex items-center justify-center bg-black/5 rounded-xl border-2 border-gray-200 overflow-hidden mt-6 md:mt-0">
-                    <img src="${popupImageData.url}" alt="공지 이미지" class="w-full h-auto max-h-[65vh] object-contain">
-                </div>
-            `;
-        }
+    
+    // 현재 기간에 유효한 팝업 이미지 중 가장 최신 것 1개 선택
+    const activeImg = popupImagesList.find(img => 
+        (!img.startDate || img.startDate <= today) && 
+        (!img.deadline || img.deadline >= today)
+    );
+
+    if (activeImg && activeImg.url) {
+        popupImgHtml = `
+            <div class="w-full md:w-1/2 shrink-0 flex items-center justify-center bg-black/5 rounded-xl border-2 border-gray-200 overflow-hidden mt-6 md:mt-0">
+                <img src="${activeImg.url}" alt="공지 이미지" class="w-full h-auto max-h-[65vh] object-contain">
+            </div>
+        `;
     }
 
     let upHtml = upLinksList.map(up => {
@@ -974,16 +1004,6 @@ async function openLinkModal() {
     });
     // 팝업 이미지 현재 상태 표시
     renderPopupImgCurrentInfo();
-    if (popupImageData && popupImageData.url) {
-        const preview = document.getElementById('popupImgPreview');
-        const previewImg = document.getElementById('popupImgPreviewImg');
-        const startDateInput = document.getElementById('popupImgStartDate'); // 추가
-        const deadlineInput = document.getElementById('popupImgDeadline');
-        
-        if (preview && previewImg) { previewImg.src = popupImageData.url; preview.classList.remove('hidden'); }
-        if (startDateInput && popupImageData.startDate) startDateInput.value = popupImageData.startDate; // 추가
-        if (deadlineInput && popupImageData.deadline) deadlineInput.value = popupImageData.deadline;
-    }
 }
 function closeLinkModal() { document.getElementById('linkModal').classList.replace('flex', 'hidden'); }
 
@@ -2653,7 +2673,7 @@ async function initApp() {
         } catch(e) { console.error("자동 로그인 검증 실패:", e); }
     }
     await loadLinksFromFirebase();
-    await loadPopupImageFromFirebase();
+    await loadPopupImagesFromFirebase();
     await loadSchedulesFromFirebase();
     
     if (!isMobile) {
