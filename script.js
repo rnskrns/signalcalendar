@@ -688,7 +688,7 @@ function showUpPopup(today) {
         (!img.deadline || img.deadline >= today)
     );
 
-    // ✨ [추가] 이미지가 있을 때와 없을 때 왼쪽 컨텐츠 영역의 너비 클래스를 동적으로 결정합니다.
+    // 이미지가 있을 때와 없을 때 왼쪽 컨텐츠 영역의 너비 클래스를 동적으로 결정
     const leftWidthClass = (activeImg && activeImg.url) ? 'md:w-1/2' : 'w-full';
 
     if (activeImg && activeImg.url) {
@@ -699,10 +699,11 @@ function showUpPopup(today) {
         `;
     }
 
+    // 💡 UP 카드에 bg-white 추가됨
     let upHtml = upLinksList.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
         return `
-        <div class="border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-gray-50 flex flex-col gap-1 shrink-0" style="border-color:${theme}" onclick="openSmartLink('${up.url}')">
+        <div class="bg-white border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-gray-50 flex flex-col gap-1 shrink-0" style="border-color:${theme}" onclick="openSmartLink('${up.url}')">
             <div class="font-bold text-[15px] mb-2 text-gray-800 break-words leading-snug">${up.title}</div>
             <div class="flex justify-between items-end">
                 <span class="text-[12px] font-bold text-white px-2.5 py-1 rounded-md" style="background-color: ${theme}">${up.member}</span>
@@ -712,10 +713,11 @@ function showUpPopup(today) {
         `;
     }).join('');
 
+    // 💡 롤링페이퍼 카드에 bg-white 추가됨
     const activeTopics = rollingTopics.filter(t => t.date >= today);
     let rollingHtml = activeTopics.map(topic => {
         return `
-        <div class="border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-purple-50 flex flex-col gap-1 shrink-0" style="border-color:#8B5CF6" onclick="openRollingTopicFromPopup('${topic.id}')">
+        <div class="bg-white border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-purple-50 flex flex-col gap-1 shrink-0" style="border-color:#8B5CF6" onclick="openRollingTopicFromPopup('${topic.id}')">
             <div class="font-bold text-[15px] mb-2 text-gray-800 break-words leading-snug">${topic.title}</div>
             <div class="flex justify-between items-end">
                 <span class="text-[12px] font-bold text-white px-2.5 py-1 rounded-md bg-[#8B5CF6]">진행중</span>
@@ -739,7 +741,6 @@ function showUpPopup(today) {
     }
 
     // 전체 레이아웃 (왼쪽: 컨텐츠, 오른쪽: 이미지)
-    // 💡 아래 세 번째 줄 컨테이너 클래스에 'md:w-1/2' 대신 '${leftWidthClass}' 변수를 적용했습니다.
     list.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 w-full">
             
