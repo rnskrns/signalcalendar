@@ -112,7 +112,11 @@
                     <div id="popupImgPreview" class="hidden">
                         <img id="popupImgPreviewImg" src="" class="w-full max-h-[200px] object-contain rounded-lg border-2 border-gray-200">
                     </div>
-                    <input type="date" id="popupImgDeadline" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400" placeholder="마감일자">
+                    <div class="flex gap-2">
+                        <input type="date" id="popupImgStartDate" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400" title="시작일자">
+                        <span class="font-bold text-[#5D4037] mt-2">~</span>
+                        <input type="date" id="popupImgDeadline" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400" title="마감일자">
+                    </div>
                     <div class="flex gap-2">
                         <button onclick="savePopupImage()" class="flex-1 bg-[#5D4037] text-white py-2 rounded-lg font-bold text-sm hover:brightness-110 transition">적용</button>
                         <button onclick="deletePopupImage()" class="flex-1 bg-red-500 text-white py-2 rounded-lg font-bold text-sm hover:brightness-110 transition">삭제</button>

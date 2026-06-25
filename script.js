@@ -505,6 +505,7 @@ function previewPopupImgFile(input) {
 async function savePopupImage() {
     const urlInput = document.getElementById('popupImgUrl');
     const fileInput = document.getElementById('popupImgFile');
+    const startDateInput = document.getElementById('popupImgStartDate'); // 추가
     const deadlineInput = document.getElementById('popupImgDeadline');
     const urlSection = document.getElementById('popupImgUrlSection');
     const statusEl = document.getElementById('popupImgUploadStatus');
@@ -524,17 +525,18 @@ async function savePopupImage() {
         if (!imageUrl) return alert('이미지 업로드에 실패했습니다.');
     }
 
+    const startDate = startDateInput ? startDateInput.value : ''; // 추가
     const deadline = deadlineInput ? deadlineInput.value : '';
-    if (!deadline) return alert('마감일자를 입력하세요.');
+    if (!startDate || !deadline) return alert('시작일자와 마감일자를 모두 입력하세요.'); // 수정
 
     try {
-        // Firestore의 'popupImage' 컬렉션에 저장 (단일 문서 'main' 사용)
         const docRef = doc(db, 'popupImage', 'main');
-        await setDoc(docRef, { url: imageUrl, deadline, updatedAt: Date.now() });
-        popupImageData = { url: imageUrl, deadline };
+        // startDate 추가하여 저장
+        await setDoc(docRef, { url: imageUrl, startDate, deadline, updatedAt: Date.now() }); 
+        popupImageData = { url: imageUrl, startDate, deadline };
         alert('팝업 이미지가 저장되었습니다.');
         renderPopupImgCurrentInfo();
-        // 프리뷰 표시
+        
         const preview = document.getElementById('popupImgPreview');
         const previewImg = document.getElementById('popupImgPreviewImg');
         if (preview && previewImg) { previewImg.src = imageUrl; preview.classList.remove('hidden'); }
@@ -557,7 +559,8 @@ function renderPopupImgCurrentInfo() {
     const el = document.getElementById('popupImgCurrentInfo');
     if (!el) return;
     if (popupImageData && popupImageData.url) {
-        el.textContent = `현재 등록된 이미지 마감일: ${popupImageData.deadline || '없음'}`;
+        // 시작일과 마감일을 함께 표시
+        el.textContent = `현재 등록된 이미지 노출 기간: ${popupImageData.startDate || '없음'} ~ ${popupImageData.deadline || '없음'}`;
     } else {
         el.textContent = '현재 등록된 팝업 이미지가 없습니다.';
     }
@@ -645,7 +648,12 @@ async function loadLinksFromFirebase() {
 function checkAndShowPopup(today) {
     const lastClosed = localStorage.getItem('upPopupClosedDate');
     const activeTopics = rollingTopics.filter(t => t.date >= today);
-    const hasValidImage = popupImageData && popupImageData.url && (!popupImageData.deadline || popupImageData.deadline >= today);
+    
+    // 유효성 검사에 startDate 조건 추가
+    const hasValidImage = popupImageData && popupImageData.url && 
+                          (!popupImageData.startDate || popupImageData.startDate <= today) && 
+                          (!popupImageData.deadline || popupImageData.deadline >= today);
+                          
     if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || (dynamicLinks['공지'] && dynamicLinks['공지'].length > 0) || hasValidImage)) {
         showUpPopup(today);
     }
@@ -655,11 +663,13 @@ function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
 
-    // 팝업 이미지 영역 (오른쪽에 배치될 코드)
     let popupImgHtml = '';
     if (popupImageData && popupImageData.url) {
+        const imgStart = popupImageData.startDate || ''; // 추가
         const imgDeadline = popupImageData.deadline || '';
-        if (!imgDeadline || imgDeadline >= today) {
+        
+        // 오늘 날짜가 시작일 이상, 마감일 이하일 때만 이미지 렌더링
+        if ((!imgStart || imgStart <= today) && (!imgDeadline || imgDeadline >= today)) {
             popupImgHtml = `
                 <div class="w-full md:w-1/2 shrink-0 flex items-center justify-center bg-black/5 rounded-xl border-2 border-gray-200 overflow-hidden mt-6 md:mt-0">
                     <img src="${popupImageData.url}" alt="공지 이미지" class="w-full h-auto max-h-[65vh] object-contain">
@@ -667,7 +677,7 @@ function showUpPopup(today) {
             `;
         }
     }
-    
+
     let upHtml = upLinksList.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
         return `
@@ -967,8 +977,11 @@ async function openLinkModal() {
     if (popupImageData && popupImageData.url) {
         const preview = document.getElementById('popupImgPreview');
         const previewImg = document.getElementById('popupImgPreviewImg');
+        const startDateInput = document.getElementById('popupImgStartDate'); // 추가
         const deadlineInput = document.getElementById('popupImgDeadline');
+        
         if (preview && previewImg) { previewImg.src = popupImageData.url; preview.classList.remove('hidden'); }
+        if (startDateInput && popupImageData.startDate) startDateInput.value = popupImageData.startDate; // 추가
         if (deadlineInput && popupImageData.deadline) deadlineInput.value = popupImageData.deadline;
     }
 }
