@@ -655,14 +655,14 @@ function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
 
-    // 팝업 이미지 영역 (마감일 지나지 않은 경우만 표시)
+    // 팝업 이미지 영역 (오른쪽에 배치될 코드)
     let popupImgHtml = '';
     if (popupImageData && popupImageData.url) {
         const imgDeadline = popupImageData.deadline || '';
         if (!imgDeadline || imgDeadline >= today) {
             popupImgHtml = `
-                <div class="w-full mb-4 rounded-xl overflow-hidden border-2 border-gray-200 shrink-0">
-                    <img src="${popupImageData.url}" alt="공지 이미지" class="w-full object-contain max-h-[320px]" style="display:block;">
+                <div class="w-full md:w-1/2 shrink-0 flex items-center justify-center bg-black/5 rounded-xl border-2 border-gray-200 overflow-hidden mt-6 md:mt-0">
+                    <img src="${popupImageData.url}" alt="공지 이미지" class="w-full h-auto max-h-[65vh] object-contain">
                 </div>
             `;
         }
@@ -694,8 +694,8 @@ function showUpPopup(today) {
         `;
     }).join('');
 
-    if(!upHtml) upHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">등록된 UP 링크가 없습니다.</div>`;
-    if(!rollingHtml) rollingHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">진행중인 롤링페이퍼가 없습니다.</div>`;
+    if(!upHtml) upHtml = `<div class="text-center text-gray-400 font-bold mt-10 text-[15px]">등록된 UP 링크가 없습니다.</div>`;
+    if(!rollingHtml) rollingHtml = `<div class="text-center text-gray-400 font-bold mt-10 text-[15px]">진행중인 롤링페이퍼가 없습니다.</div>`;
 
     const noticeLinks = dynamicLinks['공지'] || [];
     let noticeHtml = '';
@@ -707,31 +707,35 @@ function showUpPopup(today) {
         noticeHtml += `</div>`;
     }
 
+    // 전체 레이아웃 (왼쪽: 컨텐츠, 오른쪽: 이미지)
     list.innerHTML = `
-        ${popupImgHtml}
-        <div class="overflow-y-auto max-h-[65vh] w-full p-2 modal-scroll">
-            <div class="flex flex-col md:flex-row gap-6 w-full">
-                <div class="flex-1 flex flex-col w-full md:w-1/2">
-                    <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
-                        <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+        <div class="flex flex-col md:flex-row gap-6 w-full">
+            
+            <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full md:w-1/2 pr-2 modal-scroll">
+                <div class="flex flex-col gap-6 w-full">
+                    <div class="flex flex-col w-full">
+                        <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
+                            <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+                        </div>
+                        <div class="flex flex-col">
+                            ${upHtml}
+                        </div>
                     </div>
-                    <div class="flex flex-col">
-                        ${upHtml}
+                    
+                    <div class="flex flex-col w-full">
+                        <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
+                            <i class="fi fi-rr-envelope"></i> 롤링페이퍼
+                        </div>
+                        <div class="flex flex-col">
+                            ${rollingHtml}
+                        </div>
                     </div>
                 </div>
-                
-                <div class="hidden md:block border-l-2 border-dashed border-gray-300 my-2"></div>
-                
-                <div class="flex-1 flex flex-col w-full md:w-1/2">
-                    <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
-                        <i class="fi fi-rr-envelope"></i> 롤링페이퍼
-                    </div>
-                    <div class="flex flex-col">
-                        ${rollingHtml}
-                    </div>
-                </div>
+                ${noticeHtml}
             </div>
-            ${noticeHtml}
+            
+            ${popupImgHtml}
+            
         </div>
     `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
@@ -1109,11 +1113,12 @@ function openSidePanel(mode) {
     if (mode === 'MEMO') {
         const memos = memoList[currentPage] || [];
         const contentHtml = memos.map(memo => `
-    <div class="bg-white p-4 rounded-xl relative shadow-[0px_0px_50px_0px_rgba(0,0,0,0.1)] mb-4 cursor-pointer hover:bg-gray-50 transition" 
+            <div class="bg-white p-4 rounded-xl border-[2.5px] border-[#5D4037] relative shadow-sm mb-4 cursor-pointer hover:bg-gray-50 transition" 
                  oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.openMemoEditModal('${memo.id}'); }">
                 ${isAdmin ? `<button onclick="deleteMemo('${memo.id}')" class="absolute top-2 right-2 text-[#5D4037] hover:text-red-500 font-bold p-1 z-10"><i class="fi fi-br-cross-small"></i></button>` : ''}
                 <div class="text-[13px] font-bold text-gray-500 mb-2 pointer-events-none">${memo.date || ''}</div>
-                <div class="text-[16px] font-medium text-[#5D4037] whitespace-pre-wrap leading-relaxed pointer-events-none">${memo.content}</div>            </div>
+                <div class="text-[16px] font-medium text-[#5D4037] whitespace-pre-wrap leading-relaxed pointer-events-none">${memo.content}</div>
+            </div>
         `).join('');
 
         panel.innerHTML = `
@@ -1566,7 +1571,7 @@ function renderRollingPaper() {
                 : `<span class="bg-[#8B5CF6] text-white text-[12px] px-2 py-1 rounded font-bold mr-2 align-middle">진행중</span>`;
             
             html += `
-                <div class="w-full md:w-[calc(50%-0.75rem)] max-w-[850px] min-h-[200px] flex flex-col justify-center bg-white border-[3px] border-[#5D4037] rounded-2xl p-10 cursor-pointer shadow-[4px_4px_0px_0px_rgba(93,64,55,1)] hover:-translate-y-1 transition group relative" onclick="openRollingTopic('${topic.id}')">
+                <div class="w-full md:w-[calc(50%-0.75rem)] max-w-[850px] min-h-[200px] flex flex-col justify-center bg-white border-[3px] border-[#8B5CF6] rounded-2xl p-10 cursor-pointer hover:-translate-y-1 transition group relative" onclick="openRollingTopic('${topic.id}')">
                     ${isAdmin ? `<button onclick="event.stopPropagation(); deleteRollingTopic('${topic.id}')" class="absolute top-5 right-5 text-red-500 hover:text-red-700 p-1 opacity-0 group-hover:opacity-100 transition"><i class="fi fi-br-cross-small text-2xl"></i></button>` : ''}
                     <div class="text-[24px] font-bold text-[#5D4037] mb-4 font-paperozi line-clamp-2">${badgeHtml}${topic.title}</div>
                     <div class="text-gray-500 font-bold text-[17px]">${topic.date}</div>
@@ -1939,8 +1944,7 @@ function renderDesktopHome(grouped) {
     const rowBgColors = ['#FFFDE7', '#E3F2FD', '#FFF0F5', '#FFF3E0'];
     const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff39c5', '#F57C00'];
 
-    // 상단 요일 헤더 부분 간격(gap) 제거 후 레이아웃 수정
-    let homeHtml = `<div class="home-white-box"><div class="mb-8 w-full"><div class="flex justify-center items-end w-[1685px] mx-auto"><div class="w-[277px] flex items-center justify-center pb-2 shrink-0 border-r-2 border-transparent"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container">${headerHtml}</div></div></div><div class="weekly-grid">`;
+    let homeHtml = `<div class="home-white-box"><div class="mb-8 w-full"><div class="flex gap-[22px] justify-center items-end"><div class="w-[277px] flex items-center justify-center pb-2"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container">${headerHtml}</div></div></div><div class="weekly-grid">`;
 
     members.forEach((member, i) => {
         let daysCellsHtml = '';
@@ -2011,7 +2015,7 @@ function renderDesktopIndividual(grouped) {
     }).join('');
 
     content.innerHTML = `<div class="big-white-box relative theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}">
-        <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'EutmanGungseo', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div><div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div><div class="big-box-container">${cellsHtml}</div></div>`;
+        <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'DnfBitbeatV2', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div><div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div><div class="big-box-container">${cellsHtml}</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
 }
 
