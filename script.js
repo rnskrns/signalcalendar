@@ -550,18 +550,6 @@ async function savePopupImage() {
     } catch(e) { console.error(e); alert('저장 실패: ' + e.message); }
 }
 
-async function deletePopupImage() {
-    if (!confirm('팝업 이미지를 삭제하시겠습니까?')) return;
-    try {
-        await deleteDoc(doc(db, 'popupImage', 'main'));
-        popupImageData = null;
-        alert('팝업 이미지가 삭제되었습니다.');
-        renderPopupImgCurrentInfo();
-        const preview = document.getElementById('popupImgPreview');
-        if (preview) preview.classList.add('hidden');
-    } catch(e) { console.error(e); alert('삭제 실패: ' + e.message); }
-}
-
 function renderPopupImgCurrentInfo() {
     const el = document.getElementById('popupImgCurrentInfo');
     if (!el) return;
