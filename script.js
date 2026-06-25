@@ -1,5 +1,5 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 // =========================================================================
 // Cloudinary 설정 (Unsigned Upload)
@@ -149,6 +149,8 @@ window.openRollingTopicFromPopup = openRollingTopicFromPopup;
 window.openInfoModal = openInfoModal; window.closeInfoModal = closeInfoModal; window.updateUserInfo = updateUserInfo;
 window.moveScheduleBlock = moveScheduleBlock;
 window.loginWithProfile = loginWithProfile; window.deleteSavedProfile = deleteSavedProfile;
+window.savePopupImage = savePopupImage; window.deletePopupImage = deletePopupImage; window.switchPopupImgTab = switchPopupImgTab;
+window.previewPopupImgFile = previewPopupImgFile;
 
 // =========================================================================
 // 일정 순서 변경 함수
@@ -208,6 +210,7 @@ let currentEntryIndex = 0;
 let editRollingEntryId = null;
 
 let customMembers = []; // 멤버 관리에 등록된 멤버 저장용
+let popupImageData = null; // 팝업 이미지 데이터 { url, deadline }
 
 const tabToHash = { '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', '롤링페이퍼': 'rolling' };
 const hashToTab = { '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', '#rolling': '롤링페이퍼' };
@@ -461,6 +464,116 @@ async function updateUserInfo() {
     }
 }
 
+// =========================================================================
+// 팝업 이미지 관련 함수
+// =========================================================================
+function switchPopupImgTab(tab) {
+    const urlSection = document.getElementById('popupImgUrlSection');
+    const fileSection = document.getElementById('popupImgFileSection');
+    const tabUrl = document.getElementById('popupImgTabUrl');
+    const tabFile = document.getElementById('popupImgTabFile');
+    if (!urlSection || !fileSection) return;
+    if (tab === 'url') {
+        urlSection.classList.remove('hidden');
+        fileSection.classList.add('hidden');
+        tabUrl.classList.add('bg-[#5D4037]', 'text-white');
+        tabUrl.classList.remove('bg-white', 'text-[#5D4037]');
+        tabFile.classList.add('bg-white', 'text-[#5D4037]');
+        tabFile.classList.remove('bg-[#5D4037]', 'text-white');
+    } else {
+        urlSection.classList.add('hidden');
+        fileSection.classList.remove('hidden');
+        tabFile.classList.add('bg-[#5D4037]', 'text-white');
+        tabFile.classList.remove('bg-white', 'text-[#5D4037]');
+        tabUrl.classList.add('bg-white', 'text-[#5D4037]');
+        tabUrl.classList.remove('bg-[#5D4037]', 'text-white');
+    }
+}
+
+function previewPopupImgFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('popupImgPreview');
+        const previewImg = document.getElementById('popupImgPreviewImg');
+        if (preview && previewImg) { previewImg.src = e.target.result; preview.classList.remove('hidden'); }
+    };
+    reader.readAsDataURL(file);
+}
+
+async function savePopupImage() {
+    const urlInput = document.getElementById('popupImgUrl');
+    const fileInput = document.getElementById('popupImgFile');
+    const deadlineInput = document.getElementById('popupImgDeadline');
+    const urlSection = document.getElementById('popupImgUrlSection');
+    const statusEl = document.getElementById('popupImgUploadStatus');
+
+    let imageUrl = '';
+    const isUrlMode = !urlSection.classList.contains('hidden');
+
+    if (isUrlMode) {
+        imageUrl = urlInput ? urlInput.value.trim() : '';
+        if (!imageUrl) return alert('이미지 URL을 입력하세요.');
+    } else {
+        const file = fileInput ? fileInput.files[0] : null;
+        if (!file) return alert('업로드할 파일을 선택하세요.');
+        if (statusEl) { statusEl.classList.remove('hidden'); statusEl.textContent = '업로드 중...⏳'; }
+        imageUrl = await window.uploadImageToCloudinary(file);
+        if (statusEl) statusEl.classList.add('hidden');
+        if (!imageUrl) return alert('이미지 업로드에 실패했습니다.');
+    }
+
+    const deadline = deadlineInput ? deadlineInput.value : '';
+    if (!deadline) return alert('마감일자를 입력하세요.');
+
+    try {
+        // Firestore의 'popupImage' 컬렉션에 저장 (단일 문서 'main' 사용)
+        const docRef = doc(db, 'popupImage', 'main');
+        await setDoc(docRef, { url: imageUrl, deadline, updatedAt: Date.now() });
+        popupImageData = { url: imageUrl, deadline };
+        alert('팝업 이미지가 저장되었습니다.');
+        renderPopupImgCurrentInfo();
+        // 프리뷰 표시
+        const preview = document.getElementById('popupImgPreview');
+        const previewImg = document.getElementById('popupImgPreviewImg');
+        if (preview && previewImg) { previewImg.src = imageUrl; preview.classList.remove('hidden'); }
+    } catch(e) { console.error(e); alert('저장 실패: ' + e.message); }
+}
+
+async function deletePopupImage() {
+    if (!confirm('팝업 이미지를 삭제하시겠습니까?')) return;
+    try {
+        await deleteDoc(doc(db, 'popupImage', 'main'));
+        popupImageData = null;
+        alert('팝업 이미지가 삭제되었습니다.');
+        renderPopupImgCurrentInfo();
+        const preview = document.getElementById('popupImgPreview');
+        if (preview) preview.classList.add('hidden');
+    } catch(e) { console.error(e); alert('삭제 실패: ' + e.message); }
+}
+
+function renderPopupImgCurrentInfo() {
+    const el = document.getElementById('popupImgCurrentInfo');
+    if (!el) return;
+    if (popupImageData && popupImageData.url) {
+        el.textContent = `현재 등록된 이미지 마감일: ${popupImageData.deadline || '없음'}`;
+    } else {
+        el.textContent = '현재 등록된 팝업 이미지가 없습니다.';
+    }
+}
+
+async function loadPopupImageFromFirebase() {
+    try {
+        const docSnap = await getDoc(doc(db, 'popupImage', 'main'));
+        if (docSnap.exists()) {
+            popupImageData = docSnap.data();
+        } else {
+            popupImageData = null;
+        }
+    } catch(e) { console.error('팝업 이미지 로드 실패:', e); popupImageData = null; }
+}
+
 async function loadLinksFromFirebase() {
     try {
         const todayYYYYMMDD = getTodayYYYYMMDD();
@@ -532,7 +645,8 @@ async function loadLinksFromFirebase() {
 function checkAndShowPopup(today) {
     const lastClosed = localStorage.getItem('upPopupClosedDate');
     const activeTopics = rollingTopics.filter(t => t.date >= today);
-    if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || (dynamicLinks['공지'] && dynamicLinks['공지'].length > 0))) {
+    const hasValidImage = popupImageData && popupImageData.url && (!popupImageData.deadline || popupImageData.deadline >= today);
+    if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || (dynamicLinks['공지'] && dynamicLinks['공지'].length > 0) || hasValidImage)) {
         showUpPopup(today);
     }
 }
@@ -540,6 +654,19 @@ function checkAndShowPopup(today) {
 function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
+
+    // 팝업 이미지 영역 (마감일 지나지 않은 경우만 표시)
+    let popupImgHtml = '';
+    if (popupImageData && popupImageData.url) {
+        const imgDeadline = popupImageData.deadline || '';
+        if (!imgDeadline || imgDeadline >= today) {
+            popupImgHtml = `
+                <div class="w-full mb-4 rounded-xl overflow-hidden border-2 border-gray-200 shrink-0">
+                    <img src="${popupImageData.url}" alt="공지 이미지" class="w-full object-contain max-h-[320px]" style="display:block;">
+                </div>
+            `;
+        }
+    }
     
     let upHtml = upLinksList.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
@@ -581,6 +708,7 @@ function showUpPopup(today) {
     }
 
     list.innerHTML = `
+        ${popupImgHtml}
         <div class="overflow-y-auto max-h-[65vh] w-full p-2 modal-scroll">
             <div class="flex flex-col md:flex-row gap-6 w-full">
                 <div class="flex-1 flex flex-col w-full md:w-1/2">
@@ -830,6 +958,15 @@ async function openLinkModal() {
         const pMenu = document.getElementById(id);
         if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
     });
+    // 팝업 이미지 현재 상태 표시
+    renderPopupImgCurrentInfo();
+    if (popupImageData && popupImageData.url) {
+        const preview = document.getElementById('popupImgPreview');
+        const previewImg = document.getElementById('popupImgPreviewImg');
+        const deadlineInput = document.getElementById('popupImgDeadline');
+        if (preview && previewImg) { previewImg.src = popupImageData.url; preview.classList.remove('hidden'); }
+        if (deadlineInput && popupImageData.deadline) deadlineInput.value = popupImageData.deadline;
+    }
 }
 function closeLinkModal() { document.getElementById('linkModal').classList.replace('flex', 'hidden'); }
 
@@ -972,12 +1109,11 @@ function openSidePanel(mode) {
     if (mode === 'MEMO') {
         const memos = memoList[currentPage] || [];
         const contentHtml = memos.map(memo => `
-            <div class="bg-white p-4 rounded-xl border-[2.5px] border-[#5D4037] relative shadow-sm mb-4 cursor-pointer hover:bg-gray-50 transition" 
+    <div class="bg-white p-4 rounded-xl relative shadow-[0px_0px_50px_0px_rgba(0,0,0,0.1)] mb-4 cursor-pointer hover:bg-gray-50 transition" 
                  oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.openMemoEditModal('${memo.id}'); }">
                 ${isAdmin ? `<button onclick="deleteMemo('${memo.id}')" class="absolute top-2 right-2 text-[#5D4037] hover:text-red-500 font-bold p-1 z-10"><i class="fi fi-br-cross-small"></i></button>` : ''}
                 <div class="text-[13px] font-bold text-gray-500 mb-2 pointer-events-none">${memo.date || ''}</div>
-                <div class="text-[16px] font-medium text-[#5D4037] whitespace-pre-wrap leading-relaxed pointer-events-none">${memo.content}</div>
-            </div>
+                <div class="text-[16px] font-medium text-[#5D4037] whitespace-pre-wrap leading-relaxed pointer-events-none">${memo.content}</div>            </div>
         `).join('');
 
         panel.innerHTML = `
@@ -1370,11 +1506,8 @@ function render() {
     
     const mobileUpBtnHtml = `<button onclick="toggleUpPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-arrow-up-right"></i> UP</button>`;
     const mobileMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-edit"></i> 메모</button>`;
-    const desktopUpBtnHtml = `<button onclick="toggleUpPanel()" class="px-6 py-2.5 bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-gray-200"><i class="fi fi-rr-arrow-up-right"></i> UP</button>`;
-    const desktopMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="px-6 py-2.5 bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-gray-200"><i class="fi fi-rr-edit"></i> 메모</button>`;
-
-    const mobileRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-3 py-[6px] bg-purple-100 text-purple-700 font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-purple-300 hover:bg-purple-200"><i class="fi fi-br-plus"></i> 주제추가</button>` : '';
-    const desktopRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-6 py-2.5 bg-purple-50 text-purple-700 font-bold rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-purple-200"><i class="fi fi-br-plus"></i> 주제 추가</button>` : '';
+    const desktopUpBtnHtml = `<button onclick="toggleUpPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-[0px_0px_50px_rgba(0,0,0,0.15)] font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5"><i class="fi fi-rr-arrow-up-right text-xl"></i>UP</button>`;
+    const desktopMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-[0px_0px_50px_rgba(0,0,0,0.15)] font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5"><i class="fi fi-rr-edit text-xl"></i>메모</button>`;    const desktopRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-6 py-2.5 bg-purple-50 text-purple-700 font-bold rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-purple-200"><i class="fi fi-br-plus"></i> 주제 추가</button>` : '';
 
     if (mBtnContainer) {
         if (currentPage === '홈') mBtnContainer.innerHTML = mobileUpBtnHtml;
@@ -1805,7 +1938,8 @@ function renderDesktopHome(grouped) {
     const rowBgColors = ['#FFFDE7', '#E3F2FD', '#FFF0F5', '#FFF3E0'];
     const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff39c5', '#F57C00'];
 
-    let homeHtml = `<div class="home-white-box"><div class="mb-8 w-full"><div class="flex gap-[22px] justify-center items-end"><div class="w-[277px] flex items-center justify-center pb-2"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container">${headerHtml}</div></div></div><div class="weekly-grid">`;
+    // 상단 요일 헤더 부분 간격(gap) 제거 후 레이아웃 수정
+    let homeHtml = `<div class="home-white-box"><div class="mb-8 w-full"><div class="flex justify-center items-end w-[1685px] mx-auto"><div class="w-[277px] flex items-center justify-center pb-2 shrink-0 border-r-2 border-transparent"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container">${headerHtml}</div></div></div><div class="weekly-grid">`;
 
     members.forEach((member, i) => {
         let daysCellsHtml = '';
@@ -1837,14 +1971,20 @@ function renderDesktopHome(grouped) {
 function renderDesktopIndividual(grouped) {
     const content = document.getElementById('mainContent');
     const realToday = new Date();
-    const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay(); const startIdx = (firstDay === 0) ? 6 : firstDay - 1; const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay(); 
+    const startIdx = (firstDay === 0) ? 6 : firstDay - 1; 
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     
     const cellsHtml = Array.from({length: 35}, (_, i) => {
         const day = i - startIdx + 1;
         if (day > 0 && day <= daysInMonth) {
-            const key = `${currentYear}-${currentMonth}-${day}-${currentPage}`; const daySchedules = grouped[key] || [];
+            const key = `${currentYear}-${currentMonth}-${day}-${currentPage}`; 
+            const daySchedules = grouped[key] || [];
             const schedulesHtml = daySchedules.map(sch => buildScheduleCardHtml(sch, false)).join('');
             const isToday = currentYear === realToday.getFullYear() && currentMonth === realToday.getMonth() + 1 && day === realToday.getDate();
+            
+            // [수정] 음력 날짜 호출
+            const lunarDate = getLunarDate(currentYear, currentMonth, day);
             
             let dayGlobalTime = '';
             if (daySchedules.length > 0) {
@@ -1852,15 +1992,25 @@ function renderDesktopIndividual(grouped) {
                 if (sWithGlobal) dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
             }
             const timeDisplayHtml = dayGlobalTime ? `<span class="text-[13px] font-bold text-[#5D4037]">${dayGlobalTime}</span>` : '';
-            const displayDay = isToday ? `<span class="bg-[#5D4037] text-white w-7 h-7 inline-flex items-center justify-center rounded-md">${day}</span>` : `<span>${day}</span>`;
+            const displayDay = isToday ? `<span class="text-white w-7 h-7 inline-flex items-center justify-center rounded-md" style="background-color: var(--theme-color);">${day}</span>` : `<span>${day}</span>`;
             
-            return `<div class="big-cell" onclick="handleDayClick(${currentYear}, ${currentMonth}, ${day}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${currentYear}, ${currentMonth}, ${day}, '${currentPage}')"><div class="w-full flex justify-between items-center mb-1 px-1">${displayDay}${timeDisplayHtml}</div><div class="w-full flex-1 overflow-y-auto schedule-list flex flex-col gap-1">${schedulesHtml}</div></div>`;
+            // [수정] lunar-text 클래스 추가
+            return `<div class="big-cell" onclick="handleDayClick(${currentYear}, ${currentMonth}, ${day}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${currentYear}, ${currentMonth}, ${day}, '${currentPage}')">
+                <div class="w-full flex justify-between items-center mb-1 px-1">
+                    <div class="flex items-center gap-1">
+                        ${displayDay}
+                        <span class="lunar-text text-[10px] text-gray-400 font-normal">${lunarDate}</span>
+                    </div>
+                    ${timeDisplayHtml}
+                </div>
+                <div class="w-full flex-1 overflow-y-auto schedule-list flex flex-col gap-1">${schedulesHtml}</div>
+            </div>`;
         }
         return `<div class="big-cell cursor-default hover:bg-transparent hover:transform-none hover:shadow-none hover:border-dashed"></div>`;
     }).join('');
 
     content.innerHTML = `<div class="big-white-box relative theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}">
-        <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'DnfBitbeatV2', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div><div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div><div class="big-box-container">${cellsHtml}</div></div>`;
+        <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'EutmanGungseo', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div><div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div><div class="big-box-container">${cellsHtml}</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
 }
 
@@ -2485,6 +2635,7 @@ async function initApp() {
         } catch(e) { console.error("자동 로그인 검증 실패:", e); }
     }
     await loadLinksFromFirebase();
+    await loadPopupImageFromFirebase();
     await loadSchedulesFromFirebase();
     
     if (!isMobile) {
@@ -2683,6 +2834,17 @@ window.closeAllSchedules = function() {
         el.innerText = '펼치기';
     });
 };
+
+function getLunarDate(y, m, d) {
+    try {
+        const solar = Solar.fromYmd(y, m, d);
+        const lunar = solar.getLunar();
+        // lunar.getMonth()는 월, lunar.getDay()는 일을 반환합니다.
+        return `${lunar.getMonth()}.${lunar.getDay()}`;
+    } catch (e) {
+        return "";
+    }
+}
 
 // 앱 실행
 initApp();

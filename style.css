@@ -7,6 +7,13 @@
 }
 
 @font-face {
+    font-family: 'EutmanGungseo';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2206-02@1.0/OKGUNG.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+}
+
+@font-face {
     font-family: 'Paperozi';
     src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');
     font-weight: 600;
@@ -43,16 +50,47 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 
 .planner-container { display: flex; align-items: flex-start; justify-content: center; }
 
-.home-white-box, .big-white-box { width: 1795px; background: white; padding: 55px; border-radius: 26px; box-shadow: 0 11px 33px rgba(0,0,0,0.08); display: flex; flex-direction: column; align-items: center; }
+.home-white-box, .big-white-box { width: 1795px; background: white; padding: 55px; border-radius: 26px; box-shadow: 0px 0px 50px 0px #5D4037; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 10; }
 .weekly-grid { display: flex; flex-direction: column; gap: 31px; width: 1685px; align-items: center; }
-.week-row { display: flex; width: 1685px; height: 198px; gap: 22px; align-items: center; justify-content: center; }
+.week-row { 
+    display: flex; 
+    width: 1685px; 
+    height: 198px; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 15px; /* 행 전체를 둥글게 절단 */
+    overflow: hidden; /* 내부 요소가 곡선을 벗어나지 않게 설정 */
+    transition: all 0.2s ease;
+    border: 1px solid #d3d3d3;
+}
 
-.profile-cell { width: 277px; height: 198px; background: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #000000; border-radius: 4px; flex-shrink: 0; box-shadow: 3px 3px 0px 0px #5D4037; overflow: hidden; transition: all 0.2s ease; cursor: pointer; }
-.profile-cell:hover { transform: translateY(-4px); }
-.row-1 .profile-cell:hover { box-shadow: 5px 7px 0px 0px #FBC02D; border-color: #FBC02D; }
-.row-2 .profile-cell:hover { box-shadow: 5px 7px 0px 0px #1E88E5; border-color: #1E88E5; }
-.row-3 .profile-cell:hover { box-shadow: 5px 7px 0px 0px #ff39c5; border-color: #ff39c5; }
-.row-4 .profile-cell:hover { box-shadow: 5px 7px 0px 0px #F57C00; border-color: #F57C00; }
+/* 1. 공통 스타일 (크기, 모양, 애니메이션 등 기본 뼈대만 남깁니다) */
+.profile-cell { 
+    width: 277px; 
+    height: 100%; /* 부모 행 높이에 꽉 차게 설정 */
+    background: #ffffff; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    flex-shrink: 0; 
+    overflow: hidden; 
+    border-right: 1px solid #d3d3d3; /* 우측에만 구분 점선 추가 */
+    cursor: pointer; 
+}
+
+/* 2. 호버 시 공통으로 위로 살짝 떠오르는 효과 */
+
+/* =========================================
+   3. 각 멤버별 '기본' 색상 (호버 전)
+========================================= */
+.week-row.row-1 { box-shadow: 0px 0px 50px 0px #FFF9C4, 0px 0px 50px 2px #FBC02D; background-color: #ffffff; }
+.week-row.row-2 { box-shadow: 0px 0px 50px 0px #BBDEFB, 0px 0px 50px 2px #1E88E5; background-color: #ffffff; }
+.week-row.row-3 { box-shadow: 0px 0px 50px 0px #F8BBD0, 0px 0px 50px 2px #ff39c5; background-color: #FFFfff; }
+.week-row.row-4 { box-shadow: 0px 0px 50px 0px #FFE0B2, 0px 0px 50px 2px #F57C00; background-color: #FFFfff; }
+
+/* =========================================
+   4. 각 멤버별 '호버(마우스 올렸을 때)' 효과
+========================================= */
 
 .days-container { width: 1386px; height: 198px; display: flex; border: 4px solid var(--white-border); border-radius: 9px; flex-shrink: 0; background: #FFFDF5; box-sizing: border-box; }
 .day-cell { flex: 1; height: auto; border-right: 2px solid rgba(0,0,0,0.05); position: relative; display: flex; flex-direction: column; padding: 6px 3px; overflow-y: auto; transition: background-color 0.2s; cursor: pointer; }
@@ -60,8 +98,11 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 .day-cell:last-child { border-right: none; border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
 .day-cell:hover { background-color: rgba(255, 255, 255, 0.5); z-index: 10; border-radius: 9px; }
 
-.header-days-container { width: 1386px; display: flex; background: #FFFDF5; border: 3px solid #5D4037; border-radius: 3px; box-shadow: 3px 3px 0px 0px #5D4037; align-items: center; }
-.header-days-cell { flex: 1; padding: 16px 0; font-family: 'DnfBitbeatV2', sans-serif; font-size: 1.65rem; text-align: center; font-weight: normal; border-right: 2px solid #D7CCC8; letter-spacing: 1px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.header-days-container { 
+    transform: translateY(-28px);    /* 요일 칸을 위로 10px 올림 */
+    width: 1386px; display: flex; background: #FFFDF5; box-shadow: 0px 0px 50px 0px #5D4037; border-radius: 25px; align-items:center;
+}
+.header-days-cell { flex: 1; padding: 16px 0; font-family: 'EutmanGungseo', sans-serif; font-size: 1.65rem; text-align: center; font-weight: normal; border-right: 2px solid #D7CCC8; letter-spacing: 1px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
 .header-days-cell:last-child { border-right: none; }
 
 .nav-container { display: flex; align-items: center; justify-content: center; gap: 22px; margin-bottom: 33px; }
@@ -80,10 +121,9 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 .schedule-list { -ms-overflow-style: none; scrollbar-width: none; display: flex; flex-direction: column; flex: 1; gap: 4px; overflow-y: auto !important; }
 
 .schedule-card {
-    border-radius: 4px !important; 
+    border-radius: 15px !important; 
     transition: transform 0.2s ease; /* 애니메이션 효과 */
     cursor: pointer; 
-    border: 1.5px solid currentColor !important;
     box-shadow: none !important; /* 그림자 삭제 */
     font-family: 'Paperozi', sans-serif; 
     font-weight: 600; 
@@ -109,19 +149,16 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 
 .schedule-text { font-family: 'Paperozi', sans-serif !important; font-size: 15px; text-align: center; width: 100%; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
 
-.theme-dalta .big-box-container { background-color: #FFF9C4; box-shadow: 6px 6px 0px #FBC02D, inset 0 0 0 2px #000000; }
+.theme-dalta .big-box-container { background-color: #ffffff; box-shadow: 0px 0px 15px 0px #FFF9C4, 0px 0px 100px 5px #FBC02D; }
 .theme-dalta .big-cell { border-color: #FBC02D; }
-.theme-darung .big-box-container { background-color: #BBDEFB; box-shadow: 6px 6px 0px #1E88E5, inset 0 0 0 2px #000000; }
+.theme-darung .big-box-container { background-color: #ffffff; box-shadow: 0px 0px 15px 0px #BBDEFB, 0px 0px 100px 5px #1E88E5; }
 .theme-darung .big-cell { border-color: #1E88E5; }
-.theme-choitto .big-box-container { background-color: #ffcce5; box-shadow: 6px 6px 0px #ff39c5, inset 0 0 0 2px #000000; }
+.theme-choitto .big-box-container { background-color: #ffffff; box-shadow: 0px 0px 15px 0px #F8BBD0,0px 0px 100px 5px #ff39c5; }
 .theme-choitto .big-cell { border-color: #ff39c5; }
-.theme-kanasi .big-box-container { background-color: #FFE0B2; box-shadow: 6px 6px 0px #F57C00, inset 0 0 0 2px #000000; }
+.theme-kanasi .big-box-container { background-color: #ffffff; box-shadow: 0px 0px 15px 0px #FFE0B2, 0px 0px 100px 5px #3E2723; }
 .theme-kanasi .big-cell { border-color: #F57C00; }
 
-.row-1 .days-container { background-color: #FFF9C4; box-shadow: 3px 3px 0px 0px #FBC02D, inset 0 0 0 2px #000000; }
-.row-2 .days-container { background-color: #BBDEFB; box-shadow: 3px 3px 0px 0px #1E88E5, inset 0 0 0 2px #000000; }
-.row-3 .days-container { background-color: #F8BBD0; box-shadow: 3px 3px 0px 0px #ff39c5, inset 0 0 0 2px #000000; }
-.row-4 .days-container { background-color: #FFE0B2; box-shadow: 3px 3px 0px 0px #F57C00, inset 0 0 0 2px #000000; }
+
 
 @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 .modal-content { animation: fadeIn 0.15s ease-out forwards; border: 4px solid #5D4037; }
@@ -171,8 +208,7 @@ body {
 /* 롤링페이퍼 탭 배경 및 테마 박스설정 */
 .theme-rolling {
     background-color: #ffffff !important;
-    border: 5px solid #8B5CF6 !important;
-    box-shadow: 8px 8px 0px 0px #8B5CF6, inset 0 0 0 2px #000000 !important;
+    box-shadow: 0px 0px 30px 0px #8B5CF6 !important;
 }
 
 /* 롤링페이퍼 전용 흰색 박스는 캘린더 여백과 통일감 있게 */
@@ -190,4 +226,12 @@ body {
 }
 #customMembersList > div {
     width: 100% !important;
+}
+
+/* style.css에 추가 */
+.lunar-text {
+    font-size: 10px;
+    color: #9CA3AF; /* 회색조 */
+    font-weight: normal;
+    margin-left: 4px;
 }
