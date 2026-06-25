@@ -655,14 +655,14 @@ function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
 
-    // 팝업 이미지 영역 (마감일 지나지 않은 경우만 표시)
+    // 팝업 이미지 영역 (오른쪽에 배치될 코드)
     let popupImgHtml = '';
     if (popupImageData && popupImageData.url) {
         const imgDeadline = popupImageData.deadline || '';
         if (!imgDeadline || imgDeadline >= today) {
             popupImgHtml = `
-                <div class="w-full mb-4 rounded-xl overflow-hidden border-2 border-gray-200 shrink-0">
-                    <img src="${popupImageData.url}" alt="공지 이미지" class="w-full object-contain max-h-[320px]" style="display:block;">
+                <div class="w-full md:w-1/2 shrink-0 flex items-center justify-center bg-black/5 rounded-xl border-2 border-gray-200 overflow-hidden mt-6 md:mt-0">
+                    <img src="${popupImageData.url}" alt="공지 이미지" class="w-full h-auto max-h-[65vh] object-contain">
                 </div>
             `;
         }
@@ -694,8 +694,8 @@ function showUpPopup(today) {
         `;
     }).join('');
 
-    if(!upHtml) upHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">등록된 UP 링크가 없습니다.</div>`;
-    if(!rollingHtml) rollingHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-[15px]">진행중인 롤링페이퍼가 없습니다.</div>`;
+    if(!upHtml) upHtml = `<div class="text-center text-gray-400 font-bold mt-10 text-[15px]">등록된 UP 링크가 없습니다.</div>`;
+    if(!rollingHtml) rollingHtml = `<div class="text-center text-gray-400 font-bold mt-10 text-[15px]">진행중인 롤링페이퍼가 없습니다.</div>`;
 
     const noticeLinks = dynamicLinks['공지'] || [];
     let noticeHtml = '';
@@ -707,31 +707,35 @@ function showUpPopup(today) {
         noticeHtml += `</div>`;
     }
 
+    // 전체 레이아웃 (왼쪽: 컨텐츠, 오른쪽: 이미지)
     list.innerHTML = `
-        ${popupImgHtml}
-        <div class="overflow-y-auto max-h-[65vh] w-full p-2 modal-scroll">
-            <div class="flex flex-col md:flex-row gap-6 w-full">
-                <div class="flex-1 flex flex-col w-full md:w-1/2">
-                    <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
-                        <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+        <div class="flex flex-col md:flex-row gap-6 w-full">
+            
+            <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full md:w-1/2 pr-2 modal-scroll">
+                <div class="flex flex-col gap-6 w-full">
+                    <div class="flex flex-col w-full">
+                        <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
+                            <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+                        </div>
+                        <div class="flex flex-col">
+                            ${upHtml}
+                        </div>
                     </div>
-                    <div class="flex flex-col">
-                        ${upHtml}
+                    
+                    <div class="flex flex-col w-full">
+                        <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
+                            <i class="fi fi-rr-envelope"></i> 롤링페이퍼
+                        </div>
+                        <div class="flex flex-col">
+                            ${rollingHtml}
+                        </div>
                     </div>
                 </div>
-                
-                <div class="hidden md:block border-l-2 border-dashed border-gray-300 my-2"></div>
-                
-                <div class="flex-1 flex flex-col w-full md:w-1/2">
-                    <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
-                        <i class="fi fi-rr-envelope"></i> 롤링페이퍼
-                    </div>
-                    <div class="flex flex-col">
-                        ${rollingHtml}
-                    </div>
-                </div>
+                ${noticeHtml}
             </div>
-            ${noticeHtml}
+            
+            ${popupImgHtml}
+            
         </div>
     `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
