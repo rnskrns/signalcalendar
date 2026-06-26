@@ -225,7 +225,7 @@ window.addEventListener('resize', () => {
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff39c5', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
+const themeColors = { '홈': '#ff8686', '달타': '#FFF9C4', '다룽': '#BBDEFB', '최또': '#F8BBD0', '카나시': '#FFE0B2', '더보기': '#b397f5', '롤링페이퍼': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
