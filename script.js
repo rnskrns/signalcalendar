@@ -693,8 +693,8 @@ function showUpPopup(today) {
 
     if (activeImg && activeImg.url) {
         popupImgHtml = `
-            <div class="w-full md:w-1/2 shrink-0 flex items-center justify-center bg-black/5 rounded-xl border-2 border-gray-200 overflow-hidden mt-6 md:mt-0">
-                <img src="${activeImg.url}" alt="공지 이미지" class="w-full h-auto max-h-[65vh] object-contain">
+            <div class="w-full md:w-1/2 shrink-0">
+                <img src="${activeImg.url}" alt="공지 이미지" class="w-full h-auto max-h-[40vh] md:max-h-[65vh] object-cover rounded-2xl">
             </div>
         `;
     }
@@ -740,9 +740,11 @@ function showUpPopup(today) {
         noticeHtml += `</div>`;
     }
 
-    // 전체 레이아웃 (왼쪽: 컨텐츠, 오른쪽: 이미지)
+    // 전체 레이아웃 (모바일: 이미지 위, 컨텐츠 아래 / 데스크탑: 이미지 왼쪽, 컨텐츠 오른쪽)
     list.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 w-full">
+            
+            ${popupImgHtml}
             
             <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full ${leftWidthClass} pr-2 modal-scroll">
                 <div class="flex flex-col gap-6 w-full">
@@ -766,8 +768,6 @@ function showUpPopup(today) {
                 </div>
                 ${noticeHtml}
             </div>
-            
-            ${popupImgHtml}
             
         </div>
     `;
