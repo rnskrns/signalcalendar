@@ -2565,13 +2565,17 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                 </div>`;
             }
 
-            // '더보기' 기능 완전 제거, 전체 내용 바로 출력
+            // 공책 스타일 상세 내용
             let detailHtml = '';
             if (detailText) {
+                const lines = detailText.split('\n');
+                const lineItems = lines.map(line => 
+                    // 👇 style="..." 부분을 지우고 클래스명만 남깁니다!
+                    `<div class="detail-notebook-line">${line || '&nbsp;'}</div>`
+                ).join('');
                 detailHtml = `
-                <div class="flex flex-col mt-4">
-                    <div class="text-[13px] text-gray-400 font-bold mb-1">상세</div>
-                    <div class="text-[15px] text-[#5D4037] font-medium leading-relaxed whitespace-pre-wrap">${detailText.replace(/\n/g, '<br>')}</div>
+                <div class="detail-notebook-box">
+                    ${lineItems}
                 </div>`;
             }
 
@@ -2581,10 +2585,10 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                     ${badgeHtml}
                 </div>
                 ${memGroupHtml}
-                ${imgHtml}
                 <div class="flex flex-col gap-5 w-full pretendard px-3">
                     ${detailHtml}
                 </div>
+                ${imgHtml}
             </div>`;
             if (index < schedules.length - 1) htmlContent += `<div class="w-full border-b-2 border-dashed border-[#5D4037] opacity-20 my-8"></div>`;
         });
