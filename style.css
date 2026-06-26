@@ -294,3 +294,4 @@ body {
 /* (선택) 마지막 줄은 밑줄을 없애고 싶다면 아래 코드 유지, 끝까지 선을 긋고 싶다면 삭제하세요 */
 .detail-notebook-line:last-child {
     border-bottom: none;
+}
