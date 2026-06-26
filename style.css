@@ -230,3 +230,31 @@ body {
     font-weight: normal;
     margin-left: 4px;
 }
+
+.today-highlight {
+    color: #ffffff !important;
+    border-radius: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: none !important; /* 외곽선 확실히 제거 */
+}
+
+/* 2. 멤버별 배경색과 그림자 적용 */
+/* box-shadow는 반드시 '가로 세로 번짐 색상' 순으로 적어야 작동합니다! */
+.theme-dalta .today-highlight { 
+    background-color: #ffe298 !important; 
+    box-shadow: 0px 0px 0px 2px #ffe298 !important; 
+}
+.theme-darung .today-highlight { 
+    background-color: #BBDEFB !important; 
+    box-shadow: 0px 0px 0px 2px #BBDEFB !important; 
+}
+.theme-choitto .today-highlight { 
+    background-color: #F8BBD0 !important; 
+    box-shadow: 0px 0px 0px 2px #F8BBD0 !important; 
+}
+.theme-kanasi .today-highlight { 
+    background-color: #FFE0B2 !important; 
+    box-shadow: 0px 0px 0px 2px #FFE0B2 !important; 
+}

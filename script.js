@@ -225,7 +225,7 @@ window.addEventListener('resize', () => {
     }
 });
 
-const themeColors = { '홈': '#ff8686', '달타': '#FFF9C4', '다룽': '#BBDEFB', '최또': '#F8BBD0', '카나시': '#FFE0B2', '더보기': '#b397f5', '롤링페이퍼': '#8B5CF6' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff39c5', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -1460,7 +1460,7 @@ function renderMobileDatePicker() {
             if (isSelected) {
                 classes += "bg-[#FF5252] text-white shadow-md";
             } else if (isRealToday) {
-                classes += "bg-gray-200 text-[#5D4037]";
+                classes += "today-highlight";
             } else {
                 classes += "hover:bg-gray-100 text-[#5D4037]";
             }
@@ -1531,7 +1531,8 @@ function render() {
     const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF' };
     document.body.style.backgroundColor = tabBackgrounds[currentPage] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', themeColors[currentPage]);
-    
+    document.body.className = document.body.className.replace(/theme-\S+/g, '');
+    document.body.classList.add('theme-' + currentPage);
     const mBtnContainer = document.getElementById('mobileHeaderRightBtn');
     const dBtnContainer = document.getElementById('dynamicSideBtn');
     
@@ -2023,8 +2024,8 @@ function renderDesktopIndividual(grouped) {
                 if (sWithGlobal) dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
             }
             const timeDisplayHtml = dayGlobalTime ? `<span class="text-[13px] font-bold text-[#5D4037]">${dayGlobalTime}</span>` : '';
-            const displayDay = isToday ? `<span class="text-white w-7 h-7 inline-flex items-center justify-center rounded-md" style="background-color: var(--theme-color);">${day}</span>` : `<span>${day}</span>`;
-            
+            const dateClass = isToday ? "today-highlight text-white w-7 h-7 inline-flex items-center justify-center rounded-md" : "";
+            const displayDay = `<span class="${dateClass}">${day}</span>`;            
             // [수정] lunar-text 클래스 추가
             return `<div class="big-cell" onclick="handleDayClick(${currentYear}, ${currentMonth}, ${day}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${currentYear}, ${currentMonth}, ${day}, '${currentPage}')">
                 <div class="w-full flex justify-between items-center mb-1 px-1">
