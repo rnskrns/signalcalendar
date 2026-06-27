@@ -250,6 +250,18 @@ window.addEventListener('resize', () => {
     }
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'embed') {
+        document.body.classList.add('embed-mode');
+        document.querySelectorAll('header').forEach(el => el.style.display = 'none');
+        const mobileNav = document.getElementById('mobileBottomNav');
+        if (mobileNav) mobileNav.style.display = 'none';
+        document.body.style.paddingTop = '0';
+        document.body.style.paddingBottom = '0';
+    }
+});
+
 const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
@@ -773,6 +785,8 @@ function openRollingTopicFromPopup(id) {
 }
 
 function renderHeaderTabs() {
+    // embed 모드: 탭 렌더 생략
+    if (new URLSearchParams(window.location.search).get('mode') === 'embed') return;
     const desktopContainer = document.getElementById('headerNavTabs');
     const mobileNav = document.getElementById('mobileBottomNav');
     
@@ -1376,6 +1390,10 @@ async function loadSchedulesFromFirebase() {
 }
 
 function changeTab(tabName) {
+    // embed 모드: 탭 전환 차단
+    const _embedP = new URLSearchParams(window.location.search);
+    if (_embedP.get('mode') === 'embed') return;
+
     if (tabName.startsWith('업보정리')) {
         currentPage = '업보정리';
         if (tabName.includes('_')) {
@@ -1660,6 +1678,7 @@ function renderUpboPage() {
                     <div class="flex gap-2 shrink-0">
                         <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#5D4037] text-white font-bold font-paperozi rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
+                        <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
                     </div>
                 </div>
                 <div class="overflow-x-auto lg:overflow-visible border-2 border-[#5D4037] rounded-xl bg-white mb-4 shadow-sm scrollbar-hide">
@@ -3007,9 +3026,23 @@ async function initApp() {
     }
     
     const today = getTodayYYYYMMDD();
-    checkAndShowPopup(today);
+
+    // embed 모드: 팝업 차단, 업보정리 조회창 고정
+    const embedParams = new URLSearchParams(window.location.search);
+    const isEmbedMode = embedParams.get('mode') === 'embed';
+
+    if (!isEmbedMode) {
+        checkAndShowPopup(today);
+    }
 
     // 라우팅 처리
+    if (isEmbedMode) {
+        // embed 모드: URL의 upbo 파라미터로 멤버 결정, 없으면 달타 기본
+        const upboParam = embedParams.get('upbo');
+        upboCurrentMember = upboParam || '달타';
+        currentPage = '업보정리';
+        upboViewMode = 'search'; // 관리자여도 조회창 고정
+    } else {
     const currentHash = window.location.hash;
     if (currentHash && hashToTab[currentHash]) {
         let mapped = hashToTab[currentHash];
@@ -3024,8 +3057,15 @@ async function initApp() {
     } else {
         currentPage = '홈';
     }
+    }
     
+    if (isEmbedMode) {
+        // embed 모드: changeTab 우회하여 바로 렌더
+        renderHeaderTabs();
+        render();
+    } else {
     changeTab(currentPage === '업보정리' ? `업보정리_${upboCurrentMember}` : currentPage);
+    }
 }
 
 window.openEditUpLink = async function(id, source) {
@@ -3182,6 +3222,53 @@ function getLunarDate(y, m, d) {
         return "";
     }
 }
+
+// script.js 파일 맨 끝에 추가
+window.copyEmbedCode = function() {
+    // 현재 접속 중인 주소를 기반으로 임베드 주소 생성
+    const currentUrl = window.location.origin + window.location.pathname;
+    const embedUrl = `${currentUrl}?mode=embed#listdalta`;
+    
+    // iframe 코드 생성
+    const iframeCode = `<iframe src="${embedUrl}" width="100%" height="700px" style="border: none;" sandbox="allow-scripts allow-same-origin"></iframe>`;
+    
+    // 클립보드 복사
+    navigator.clipboard.writeText(iframeCode).then(() => {
+        alert("게시글용 임베드 코드가 복사되었습니다!");
+    }).catch(err => {
+        console.error('복사 실패:', err);
+    });
+};
+
+// 업보데이터 관리표 퍼가기 함수
+window.copyUpboEmbedCode = function() {
+    const currentUrl = window.location.origin + window.location.pathname;
+    // 현재 선택된 멤버 탭 정보 포함
+    const memberParam = typeof upboCurrentMember !== 'undefined' && upboCurrentMember
+        ? `&upbo=${encodeURIComponent(upboCurrentMember)}`
+        : '&upbo=달타';
+    const embedUrl = `${currentUrl}?mode=embed${memberParam}`;
+    const iframeCode = `<iframe src="${embedUrl}" width="100%" height="700px" style="border:none; border-radius:16px;" sandbox="allow-scripts allow-same-origin"></iframe>`;
+
+    navigator.clipboard.writeText(iframeCode).then(() => {
+        // 버튼 피드백
+        const btn = document.querySelector('button[onclick="copyUpboEmbedCode()"]');
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fi fi-rr-check"></i> 복사완료!';
+            btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
+            btn.classList.remove('bg-white', 'text-[#5D4037]');
+            setTimeout(() => {
+                btn.innerHTML = original;
+                btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
+                btn.classList.add('bg-white', 'text-[#5D4037]');
+            }, 2000);
+        }
+    }).catch(() => {
+        // 클립보드 API 실패 시 프롬프트로 fallback
+        prompt('아래 코드를 복사하세요:', iframeCode);
+    });
+};
 
 // 앱 실행
 initApp();
