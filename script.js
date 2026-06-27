@@ -225,7 +225,7 @@ window.addEventListener('resize', () => {
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff39c5', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -793,7 +793,7 @@ function renderHeaderTabs() {
     const mobileNav = document.getElementById('mobileBottomNav');
     
     const tabs = ['달타', '다룽', '최또', '카나시', '더보기'];
-    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff39c5', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
+    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
 
     if (desktopContainer) {
         let html = `
@@ -1476,7 +1476,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const memberColors = { 
         '달타': '#FFFDE7', 
         '다룽': '#E3F2FD', 
-        '최또': '#FFF0F5', 
+        '최또': '#fdecf9', 
         '카나시': '#FFF3E0' 
     };
 
@@ -1494,6 +1494,24 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
     const displayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
     const formattedTime = (typeof formatTime12 === 'function' && sch.time) ? formatTime12(sch.time) : ''; 
+
+    // 모바일 카드: 제목 왼쪽 / 시간 오른쪽 한 줄 레이아웃
+    if (isMobileCard) {
+        return `
+            <div class="schedule-card ${typeClass} w-full"
+                 style="background-color: ${bgColor} !important; ${textColor} display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; padding: 6px 20px !important; min-height: 46px !important;"
+                 onclick="openDetailModal(event, '${sch.id}')" 
+                 oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
+                     event.preventDefault(); 
+                     event.stopPropagation(); 
+                     window.contextTargetId = '${sch.id}'; 
+                     window.editFromMenu(); 
+                 }">
+                <span style="font-family: 'Paperozi', sans-serif; font-size: 15px; font-weight: 600; text-align: left; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3;">${displayTitle}</span>
+                ${formattedTime ? `<span style="font-family: 'Paperozi', sans-serif; font-size: 12px; font-weight: 700; color: #5D4037; flex-shrink: 0; margin-left: 6px; white-space: nowrap;">${formattedTime}</span>` : ''}
+            </div>
+        `;
+    }
 
     const timeHtml = formattedTime ? `
         <div class="flex justify-end w-full pr-1 pt-0 mt-[-1px] shrink-0">
@@ -1843,7 +1861,7 @@ function renderMobileHome(grouped) {
         <div class="grid grid-cols-1 gap-4 px-4 w-full">
     `;
     
-    const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff39c5', '#F57C00'];
+    const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff7fd9', '#F57C00'];
     members.forEach((member, i) => {
         const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}-${member.name}`;
         const daySchedules = grouped[key] || [];
@@ -1969,7 +1987,7 @@ function renderDesktopHome(grouped) {
     }).join('');
 
     const rowBgColors = ['#FFFDE7', '#E3F2FD', '#FFF0F5', '#FFF3E0'];
-    const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff39c5', '#F57C00'];
+    const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff7fd9', '#F57C00'];
 
     let homeHtml = `<div class="home-white-box"><div class="mb-8 w-full"><div class="flex gap-[22px] justify-center items-end"><div class="w-[277px] flex items-center justify-center pb-2"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container">${headerHtml}</div></div></div><div class="weekly-grid">`;
 
@@ -2511,16 +2529,25 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
     const modal = document.getElementById('scheduleDetailModal'); 
     const modalContent = modal.querySelector('.modal-content');
     modalContent.style.backgroundColor = '#FFFDF5'; 
-    modalContent.style.padding = '32px';
-    const closeBtnContainer = modal.querySelector('.justify-end.mb-2'); 
-    if (closeBtnContainer) closeBtnContainer.style.marginBottom = '0px';
+    modalContent.style.padding = '20px';
 
-    // 각 멤버별 일정 카드 배경색 정의
     const cardBgColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FFF0F5', '카나시': '#FFF3E0' };
 
-    let htmlContent = '<div class="flex flex-col w-full max-h-[70vh] overflow-y-auto px-4 pt-2 pb-4 modal-scroll">';
+    // 제목을 헤더 행에 세팅
+    const titleEl = document.getElementById('detailModalTitle');
+    if (titleEl) {
+        if (schedules.length === 1) {
+            titleEl.textContent = schedules[0].title || '';
+        } else if (schedules.length > 1) {
+            titleEl.textContent = (schedules[0].tabOrMember || '') + ' 일정';
+        } else {
+            titleEl.textContent = '';
+        }
+    }
+
+    let htmlContent = '<div class="flex flex-col w-full max-h-[65vh] overflow-y-auto px-2 pt-1 pb-2 modal-scroll">';
     if (schedules.length === 0) {
-        htmlContent += `<div class="text-center text-gray-500 font-bold mt-6 mb-4 text-lg">일정이 없습니다.</div>`;
+        htmlContent += `<div class="text-center text-gray-500 font-bold mt-4 mb-2 text-base">일정이 없습니다.</div>`;
     } else {
         schedules.forEach((sch, index) => {
             let timeText = sch.time ? formatTime12(sch.time) : ''; 
@@ -2528,7 +2555,6 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             let detailText = sch.detail || '';
             let themeColor = themeColors[sch.tabOrMember] || '#5D4037';
             
-            // 방송 유형에 따른 뱃지 색상 로직 적용
             let broadStyle = '';
             if (broadText === '합방') {
                 broadStyle = 'background-color: #fee2e2; color: #ef4444; border-color: #ef4444;'; 
@@ -2538,39 +2564,42 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                 let bgC = cardBgColors[sch.tabOrMember] || '#ffffff';
                 broadStyle = `background-color: ${bgC}; color: ${themeColor}; border-color: ${themeColor};`;
             }
+
+            // 여러 일정일 때만 각 항목 내부에 제목 표시
+            const titleInner = schedules.length > 1
+                ? `<div class="text-[17px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi mb-1">${sch.title}</div>`
+                : '';
             
             let badgeHtml = sch.globalType === '휴방' ? '' : 
                 `<div class="flex gap-2 justify-center">
-                    ${timeText ? `<span class="px-4 py-1.5 bg-white text-[13px] font-bold rounded-full shadow-sm border-2" style="color: ${themeColor}; border-color: ${themeColor};">${timeText}</span>` : ''}
-                    <span class="px-4 py-1.5 text-[13px] font-bold rounded-full border-2 shadow-sm" style="${broadStyle}">${broadText}</span>
+                    ${timeText ? `<span class="px-3 py-1 bg-white text-[11px] font-bold rounded-full shadow-sm border-2" style="color: ${themeColor}; border-color: ${themeColor};">${timeText}</span>` : ''}
+                    <span class="px-3 py-1 text-[11px] font-bold rounded-full border-2 shadow-sm" style="${broadStyle}">${broadText}</span>
                 </div>`;
             
-            let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" class="w-full max-h-[300px] object-contain rounded-xl my-4 shadow-sm border border-gray-200">` : '';
+            let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" class="w-full max-h-[260px] object-contain rounded-xl my-3 shadow-sm border border-gray-200">` : '';
 
             let memGroupHtml = '';
             if (sch.memberTag) {
                 const parsed = parseMembers(sch.memberTag);
                 memGroupHtml = `
-                <div class="flex flex-wrap justify-center gap-4 mt-6 mb-2 w-full max-w-[500px] mx-auto">
+                <div class="flex flex-wrap justify-center gap-3 mt-3 mb-1 w-full max-w-[500px] mx-auto">
                     ${parsed.map(m => {
                         const isCrew = m.isCrew;
                         return `
-                        <div class="flex flex-col items-center gap-2 ${isCrew ? 'w-full' : 'w-[60px]'}">
-                            <div class="${isCrew ? 'w-full rounded-xl border border-gray-100 shadow-sm' : 'w-[60px] h-[60px] rounded-full border-[3px] border-[#fcdbc6] shadow-sm'} flex items-center justify-center overflow-hidden shrink-0">
+                        <div class="flex flex-col items-center gap-1 ${isCrew ? 'w-full' : 'w-[52px]'}">
+                            <div class="${isCrew ? 'w-full rounded-xl border border-gray-100 shadow-sm' : 'w-[52px] h-[52px] rounded-full border-[3px] border-[#fcdbc6] shadow-sm'} flex items-center justify-center overflow-hidden shrink-0">
                                 <img src="${m.imageUrl}" class="w-full h-full ${isCrew ? 'object-contain' : 'object-cover'}" onerror="this.src='https://via.placeholder.com/60'">
                             </div>
-                            ${(m.nickname && !isCrew) ? `<span class="text-[12px] font-bold text-[#5D4037] truncate w-full text-center">${m.nickname}</span>` : ''}
+                            ${(m.nickname && !isCrew) ? `<span class="text-[11px] font-bold text-[#5D4037] truncate w-full text-center">${m.nickname}</span>` : ''}
                         </div>`;
                     }).join('')}
                 </div>`;
             }
 
-            // 공책 스타일 상세 내용
             let detailHtml = '';
             if (detailText) {
                 const lines = detailText.split('\n');
                 const lineItems = lines.map(line => 
-                    // 👇 style="..." 부분을 지우고 클래스명만 남깁니다!
                     `<div class="detail-notebook-line">${line || '&nbsp;'}</div>`
                 ).join('');
                 detailHtml = `
@@ -2580,24 +2609,24 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             }
 
             htmlContent += `<div class="flex flex-col w-full items-center">
-                <div class="flex flex-col items-center gap-2 mb-2 w-full">
-                    <div class="text-[28px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi">${sch.title}</div>
+                ${titleInner}
+                <div class="flex flex-col items-center gap-1.5 mb-1.5 w-full">
                     ${badgeHtml}
                 </div>
                 ${memGroupHtml}
-                <div class="flex flex-col gap-5 w-full pretendard px-3">
+                <div class="flex flex-col gap-2 w-full pretendard px-1">
                     ${detailHtml}
                 </div>
                 ${imgHtml}
             </div>`;
-            if (index < schedules.length - 1) htmlContent += `<div class="w-full border-b-2 border-dashed border-[#5D4037] opacity-20 my-8"></div>`;
+            if (index < schedules.length - 1) htmlContent += `<div class="w-full border-b-2 border-dashed border-[#5D4037] opacity-20 my-4"></div>`;
         });
     }
     htmlContent += '</div>';
 
     document.getElementById('detailDesc').innerHTML = htmlContent;
     const closeBtn = modal.querySelector('.modal-btn');
-    if(closeBtn) { closeBtn.className = "modal-btn w-full bg-[#5D4037] text-white py-4 rounded-2xl font-bold text-[20px] mt-6 hover:brightness-110 transition-all cursor-pointer"; closeBtn.innerText = "닫기"; }
+    if(closeBtn) { closeBtn.className = "modal-btn w-full bg-[#5D4037] text-white py-3 rounded-2xl font-bold text-[18px] mt-3 hover:brightness-110 transition-all cursor-pointer"; closeBtn.innerText = "닫기"; }
     modal.classList.replace('hidden', 'flex'); 
 }
 

@@ -251,10 +251,14 @@
     </div>
 
     <div id="scheduleDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]" onclick="closeDetailModal()">
-        <div class="modal-content bg-[#FFFDF5] p-8 rounded-3xl w-[90%] max-w-[600px] shadow-2xl relative border-4 border-[#5D4037] flex flex-col items-center" onclick="event.stopPropagation()">
-            <div class="w-full flex justify-end mb-2"><button class="text-3xl text-[#5D4037] hover:scale-110 transition modal-arrow-btn cursor-pointer" onclick="closeDetailModal()"><i class="fi fi-rr-cross-small"></i></button></div>
+        <div class="modal-content bg-[#FFFDF5] p-5 rounded-3xl w-[95%] max-w-[680px] shadow-2xl relative border-4 border-[#5D4037] flex flex-col items-center" onclick="event.stopPropagation()">
+            <div class="w-full flex justify-between items-center mb-2">
+                <div class="w-8 shrink-0"></div>
+                <div id="detailModalTitle" class="text-[20px] font-bold text-[#000] leading-tight break-keep font-paperozi flex-1 text-center px-1"></div>
+                <button class="text-3xl text-[#5D4037] hover:scale-110 transition modal-arrow-btn cursor-pointer shrink-0" onclick="closeDetailModal()"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
             <div id="detailDesc" class="w-full"></div>
-            <button class="modal-btn w-full bg-[#5D4037] text-white py-4 rounded-2xl font-bold text-[20px] mt-6 cursor-pointer" onclick="closeDetailModal()">닫기</button>
+            <button class="modal-btn w-full bg-[#5D4037] text-white py-3 rounded-2xl font-bold text-[18px] mt-3 cursor-pointer" onclick="closeDetailModal()">닫기</button>
         </div>
     </div>
 
