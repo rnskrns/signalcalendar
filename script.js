@@ -2582,15 +2582,15 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             if (sch.memberTag) {
                 const parsed = parseMembers(sch.memberTag);
                 memGroupHtml = `
-                <div class="flex flex-wrap justify-center gap-3 mt-3 mb-1 w-full max-w-[500px] mx-auto">
+                <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 12px 8px; margin: 12px auto 4px; width: 100%; max-width: 420px;">
                     ${parsed.map(m => {
                         const isCrew = m.isCrew;
                         return `
-                        <div class="flex flex-col items-center gap-1 ${isCrew ? 'w-full' : 'w-[52px]'}">
-                            <div class="${isCrew ? 'w-full rounded-xl border border-gray-100 shadow-sm' : 'w-[52px] h-[52px] rounded-full border-[3px] border-[#fcdbc6] shadow-sm'} flex items-center justify-center overflow-hidden shrink-0">
-                                <img src="${m.imageUrl}" class="w-full h-full ${isCrew ? 'object-contain' : 'object-cover'}" onerror="this.src='https://via.placeholder.com/60'">
+                        <div style="${isCrew ? 'width:100%;' : 'width: 74px;'} display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                            <div style="${isCrew ? 'width:100%; border-radius:12px; border:1px solid #f3f4f6;' : 'width:72px; height:72px; border-radius:50%; border:3px solid #fcdbc6;'} overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                                <img src="${m.imageUrl}" style="width:100%; height:100%; object-fit:${isCrew ? 'contain' : 'cover'};" onerror="this.src='https://via.placeholder.com/72'">
                             </div>
-                            ${(m.nickname && !isCrew) ? `<span class="text-[11px] font-bold text-[#5D4037] truncate w-full text-center">${m.nickname}</span>` : ''}
+                            ${(m.nickname && !isCrew) ? `<span style="font-size:13px; font-weight:700; color:#5D4037; text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing: -0.5px;">${m.nickname}</span>` : ''}
                         </div>`;
                     }).join('')}
                 </div>`;
