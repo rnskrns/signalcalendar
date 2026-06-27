@@ -1688,6 +1688,27 @@ function renderUpboPage() {
                         <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#5D4037] text-white font-bold font-paperozi rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
                         <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
+                        <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
+                    </div>
+                </div>
+                <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border-2 border-[#5D4037] rounded-2xl p-6 shadow-sm">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-box-open"></i> 업보정리 사용법</div>
+                            <ol class="flex flex-col gap-2">
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>데이터를 입력 후 저장하기를 누른다</li>
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>저장하면 상태와 방송국 바로가기 버튼이 생긴다</li>
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>시청자들이 조회창에서 본인이 구매한 것을 조회할 수 있습니다</li>
+                            </ol>
+                        </div>
+                        <div>
+                            <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-share"></i> 퍼가기 사용법</div>
+                            <ol class="flex flex-col gap-2">
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>저장하기 옆 퍼가기 버튼을 눌러 복사합니다</li>
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>SOOP 게시글 쓰기 기본모드를 HTML모드로 바꾸고 붙여넣고 게시합니다</li>
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>게시글에서 조회창이 나와서 바로 조회가 가능합니다</li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
                 <div class="overflow-x-auto lg:overflow-visible border-2 border-[#5D4037] rounded-xl bg-white mb-4 shadow-sm scrollbar-hide">
@@ -3252,6 +3273,22 @@ window.copyEmbedCode = function() {
     }).catch(err => {
         console.error('복사 실패:', err);
     });
+};
+
+// 업보정리 사용법 토글
+window.toggleUpboGuide = function() {
+    const box = document.getElementById('upboGuideBox');
+    const btn = document.getElementById('upboGuideBtn');
+    if (!box) return;
+    const isHidden = box.classList.contains('hidden');
+    box.classList.toggle('hidden');
+    if (isHidden) {
+        btn.classList.add('bg-[#5D4037]', 'text-white');
+        btn.classList.remove('bg-white', 'text-[#5D4037]');
+    } else {
+        btn.classList.remove('bg-[#5D4037]', 'text-white');
+        btn.classList.add('bg-white', 'text-[#5D4037]');
+    }
 };
 
 // 업보데이터 관리표 퍼가기 함수
