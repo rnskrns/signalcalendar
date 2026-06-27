@@ -159,11 +159,13 @@ window.loginWithProfile = loginWithProfile; window.deleteSavedProfile = deleteSa
 window.savePopupImage = savePopupImage; window.deletePopupImage = deletePopupImage; window.switchPopupImgTab = switchPopupImgTab;
 window.previewPopupImgFile = previewPopupImgFile;
 
+// 업보정리 바인딩
+window.addUpboProduct = addUpboProduct; window.removeUpboProduct = removeUpboProduct; window.addUpboRow = addUpboRow; window.searchUpbo = searchUpbo; window.saveUpboData = saveUpboData; window.toggleUpboViewMode = toggleUpboViewMode;
+
 // =========================================================================
 // 일정 순서 변경 함수
 // =========================================================================
 function moveScheduleBlock(btn, direction) {
-    // 아코디언 전체를 잡아서 이동시키도록 수정
     const currentBlock = btn.closest('.schedule-accordion-wrapper') || btn.closest('.schedule-input-block');
     const container = currentBlock.parentElement;
 
@@ -216,11 +218,27 @@ let currentTopicEntries = [];
 let currentEntryIndex = 0;
 let editRollingEntryId = null;
 
-let customMembers = []; // 멤버 관리에 등록된 멤버 저장용
+let customMembers = []; 
 let popupImagesList = [];
 
-const tabToHash = { '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', '롤링페이퍼': 'rolling' };
-const hashToTab = { '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', '#rolling': '롤링페이퍼' };
+// 업보정리 데이터 상태
+let upboData = {
+    '달타': { products: [], records: [] },
+    '다룽': { products: [], records: [] },
+    '최또': { products: [], records: [] },
+    '카나시': { products: [], records: [] }
+};
+let upboCurrentMember = '달타';
+let upboViewMode = 'search'; // 'search' or 'admin'
+
+const tabToHash = { 
+    '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
+    '롤링페이퍼': 'rolling', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi' 
+};
+const hashToTab = { 
+    '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
+    '#rolling': '롤링페이퍼', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시' 
+};
 
 window.addEventListener('resize', () => {
     adjustDesktopScale(); 
@@ -286,19 +304,17 @@ async function seedAdmins() {
     } catch(e) { console.error("관리자 시드 생성 실패:", e); }
 }
 
-// 토큰 생성기
 function generateAuthToken() {
     return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-// 브라우저에 저장된 프로필 로컬 스토리지 관리 로직
 function getSavedProfiles() {
     return JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
 }
 
 function saveProfileLocally(profile) {
     let profiles = getSavedProfiles();
-    profiles = profiles.filter(p => p.docId !== profile.docId); // 중복 제거 후 덮어쓰기
+    profiles = profiles.filter(p => p.docId !== profile.docId); 
     profiles.push(profile);
     localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
 }
@@ -341,13 +357,10 @@ async function loginWithProfile(docId, token) {
 
         if (docSnap.exists()) {
             const adminData = docSnap.data();
-            
-            // 🔄 [수정] 파이어베이스 데이터 대신 로컬 스토리지에 저장된 프로필의 토큰과 비교합니다.
             const savedProfiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
             const matchedProfile = savedProfiles.find(p => p.docId === docId);
 
             if (matchedProfile && matchedProfile.token === token) {
-                // 토큰 일치: 즉시 로그인 성공
                 isAdmin = true;
                 loggedInUser = { docId, ...adminData };
                 
@@ -363,7 +376,7 @@ async function loginWithProfile(docId, token) {
                 closePasswordModal();
             } else {
                 alert("인증이 만료되었습니다. 보안을 위해 아이디와 비밀번호로 다시 로그인해 주세요.");
-                deleteSavedProfile(docId); // 토큰이 무효화되었으므로 로컬 프로필 삭제
+                deleteSavedProfile(docId); 
             }
         } else {
             alert("존재하지 않거나 삭제된 관리자입니다.");
@@ -393,21 +406,16 @@ async function checkPassword() {
             if (adminData.pw === inputPw) {
                 const docId = adminDoc.id;
                 const token = generateAuthToken();
-                
-                // 🛑 [수정] 파이어베이스 DB에 토큰을 저장하던 코드를 제거합니다.
-                // await updateDoc(doc(db, "admins", docId), { loginToken: token });
 
                 isAdmin = true;
                 loggedInUser = { docId, ...adminData };
                 
-                // 브라우저의 현재 활동 세션 저장
                 if (isAutoLogin) {
                     localStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
                 } else {
                     sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
                 }
 
-                // 다음 접속 시 보여줄 로컬 프로필 저장 (여기에 토큰이 로컬로 기록됩니다)
                 saveProfileLocally({ docId, id: inputId, name: adminData.name, img: adminData.img, token });
                 
                 updateLoginUI(loggedInUser);
@@ -455,7 +463,6 @@ async function updateUserInfo() {
         if (newPw) { 
             updateData.pw = newPw; 
             
-            // 🔄 [수정] 파이어베이스 필드 수정 대신, 로컬 프로필에서 토큰을 지워 만료 처리합니다.
             let profiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
             profiles = profiles.filter(p => p.docId !== loggedInUser.docId);
             localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
@@ -471,9 +478,6 @@ async function updateUserInfo() {
     }
 }
 
-// =========================================================================
-// 팝업 이미지 관련 함수
-// =========================================================================
 function switchPopupImgTab(tab) {
     const urlSection = document.getElementById('popupImgUrlSection');
     const fileSection = document.getElementById('popupImgFileSection');
@@ -539,14 +543,12 @@ async function savePopupImage() {
     try {
         const newPopup = { url: imageUrl, startDate, deadline, timestamp: Date.now() };
         
-        // 덮어쓰기(setDoc) 대신 추가하기(addDoc)로 변경 (컬렉션 이름도 popupImages로 복수형 권장)
         const docRef = await addDoc(collection(db, 'popupImages'), newPopup);
         newPopup.id = docRef.id;
         
-        popupImagesList.unshift(newPopup); // 목록 맨 앞에 추가
+        popupImagesList.unshift(newPopup);
         alert('팝업 이미지 예약이 등록되었습니다.');
         
-        // 등록 후 입력창 및 프리뷰 초기화
         if(urlInput) urlInput.value = '';
         if(fileInput) fileInput.value = '';
         if(startDateInput) startDateInput.value = '';
@@ -595,7 +597,6 @@ async function loadPopupImagesFromFirebase() {
         snap.forEach(doc => {
             popupImagesList.push({ id: doc.id, ...doc.data() });
         });
-        // 최신 등록 순으로 정렬
         popupImagesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     } catch(e) { console.error('팝업 이미지 목록 로드 실패:', e); popupImagesList = []; }
 }
@@ -605,15 +606,10 @@ async function loadLinksFromFirebase() {
         const todayYYYYMMDD = getTodayYYYYMMDD();
         upLinksList = [];
         
-        // 1. soop_posts 불러오기
         const soopSnap = await getDocs(collection(db, 'soop_posts'));
         for (const d of soopSnap.docs) {
             const data = d.data();
-            
-            // 📌 [수정] 데이터 삭제는 안 하고, 화면에 띄울 리스트에 넣을지 말지만 결정함!
-            if (data.deadline && data.deadline < todayYYYYMMDD) {
-                continue; // 마감일 지났으면 리스트에 넣지 않음(화면에서 숨김)
-            }
+            if (data.deadline && data.deadline < todayYYYYMMDD) continue;
             
             upLinksList.push({ 
                 id: d.id, 
@@ -626,17 +622,13 @@ async function loadLinksFromFirebase() {
             });
         }
 
-        // 2. uplinks 불러오기 (여기도 동일하게 적용)
         const upSnap = await getDocs(collection(db, 'uplinks'));
         for (const d of upSnap.docs) {
             const data = d.data();
-            if (data.deadline && data.deadline < todayYYYYMMDD) {
-                continue; // 마감일 지났으면 화면에서 숨김
-            }
+            if (data.deadline && data.deadline < todayYYYYMMDD) continue;
             upLinksList.push({ id: d.id, source: 'uplinks', ...data });
         }
 
-        // --- 아래는 기존 memberLinks(링크관리) 로드 로직 (동일) ---
         const linkSnap = await getDocs(collection(db, 'memberLinks'));
         let dbLinks = { '달타':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
 
@@ -672,7 +664,6 @@ function checkAndShowPopup(today) {
     const lastClosed = localStorage.getItem('upPopupClosedDate');
     const activeTopics = rollingTopics.filter(t => t.date >= today);
     
-    // 배열 중에서 오늘 날짜 조건에 만족하는 이미지가 하나라도 있는지 체크
     const hasValidImage = popupImagesList.some(img => 
         (!img.startDate || img.startDate <= today) && 
         (!img.deadline || img.deadline >= today)
@@ -688,14 +679,7 @@ function showUpPopup(today) {
     if(!list) return;
 
     let popupImgHtml = '';
-    
-    // 현재 기간에 유효한 팝업 이미지 중 가장 최신 것 1개 선택
-    const activeImg = popupImagesList.find(img => 
-        (!img.startDate || img.startDate <= today) && 
-        (!img.deadline || img.deadline >= today)
-    );
-
-    // 이미지가 있을 때와 없을 때 왼쪽 컨텐츠 영역의 너비 클래스를 동적으로 결정
+    const activeImg = popupImagesList.find(img => (!img.startDate || img.startDate <= today) && (!img.deadline || img.deadline >= today));
     const leftWidthClass = (activeImg && activeImg.url) ? 'md:w-1/2' : 'w-full';
 
     if (activeImg && activeImg.url) {
@@ -706,7 +690,6 @@ function showUpPopup(today) {
         `;
     }
 
-    // 💡 UP 카드에 bg-white 추가됨
     let upHtml = upLinksList.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
         return `
@@ -720,7 +703,6 @@ function showUpPopup(today) {
         `;
     }).join('');
 
-    // 💡 롤링페이퍼 카드에 bg-white 추가됨
     const activeTopics = rollingTopics.filter(t => t.date >= today);
     let rollingHtml = activeTopics.map(topic => {
         return `
@@ -747,12 +729,9 @@ function showUpPopup(today) {
         noticeHtml += `</div>`;
     }
 
-    // 전체 레이아웃 (모바일: 이미지 위, 컨텐츠 아래 / 데스크탑: 이미지 왼쪽, 컨텐츠 오른쪽)
     list.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 w-full">
-            
             ${popupImgHtml}
-            
             <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full ${leftWidthClass} pr-2 modal-scroll">
                 <div class="flex flex-col gap-6 w-full">
                     <div class="flex flex-col w-full">
@@ -763,7 +742,6 @@ function showUpPopup(today) {
                             ${upHtml}
                         </div>
                     </div>
-                    
                     <div class="flex flex-col w-full">
                         <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
                             <i class="fi fi-rr-envelope"></i> 롤링페이퍼
@@ -775,7 +753,6 @@ function showUpPopup(today) {
                 </div>
                 ${noticeHtml}
             </div>
-            
         </div>
     `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
@@ -800,7 +777,7 @@ function renderHeaderTabs() {
     const mobileNav = document.getElementById('mobileBottomNav');
     
     const tabs = ['달타', '다룽', '최또', '카나시', '더보기'];
-    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
+    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '업보정리': '#8B5CF6' };
 
     if (desktopContainer) {
         let html = `
@@ -819,7 +796,10 @@ function renderHeaderTabs() {
             if (tab === '더보기') {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
                 clickAction = ''; 
-                mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">롤링페이퍼</a>`;
+                mainLinkHtml = `
+                    <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
+                    <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">업보정리</a>
+                `;
             } else {
                 const links = dynamicLinks[tab] || [];
                 mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors border-b border-gray-100 text-center">일정표</a>`;
@@ -846,7 +826,7 @@ function renderHeaderTabs() {
     if (mobileNav) {
         let mHtml = '';
         ['홈', ...tabs].forEach(tab => {
-            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기');
+            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기');
             const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
             let contentHtml = '';
             
@@ -880,12 +860,13 @@ function openMobileTabMenu(tab) {
     `;
     
     if (tab === '더보기') {
-        html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">롤링페이퍼</button>`;
+        html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">롤링페이퍼</button>`;
+        html += `<button onclick="executeMobileTabChange('업보정리_달타')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">업보정리</button>`;
     } else {
-        html += `<button onclick="executeMobileTabChange('${tab}')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">일정표 보기</button>`;
+        html += `<button onclick="executeMobileTabChange('${tab}')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">일정표 보기</button>`;
         const links = dynamicLinks[tab] || [];
         links.forEach(l => {
-            html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
+            html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95 mb-2" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
         });
     }
     html += `</div>`;
@@ -1002,7 +983,6 @@ async function openLinkModal() {
         const pMenu = document.getElementById(id);
         if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
     });
-    // 팝업 이미지 현재 상태 표시
     renderPopupImgCurrentInfo();
 }
 function closeLinkModal() { document.getElementById('linkModal').classList.replace('flex', 'hidden'); }
@@ -1094,7 +1074,6 @@ async function addUpLink() {
 async function deleteUpLink(upId, source = 'uplinks') {
     if(!confirm('이 업링크를 삭제하시겠습니까?')) return;
     try {
-        // 📌 출처에 따라 지워야 할 컬렉션 이름을 다르게 설정!
         const colName = source === 'soop' ? 'soop_posts' : 'uplinks';
         await deleteDoc(doc(db, colName, upId));
         
@@ -1282,11 +1261,9 @@ function renderUpLinksPanel() {
     let upCardsHtml = sorted.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
         
-        // 삭제 버튼
         const deleteBtn = (isAdmin && loggedInUser.name === up.member) ? 
             `<button onclick="event.stopPropagation(); deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-red-500 hover:text-red-700 ml-2 font-bold z-20 absolute top-2 right-2"><i class="fi fi-br-cross-small"></i></button>` : '';
             
-        // 우클릭 이벤트 정의 (함수를 문자열로 정확히 전달)
         const contextAttr = isAdmin ? `oncontextmenu="event.preventDefault(); window.openEditUpLink('${up.id}', '${up.source || 'uplinks'}');"` : '';
             
         return `
@@ -1377,17 +1354,42 @@ async function loadSchedulesFromFirebase() {
         entrySnap.forEach(doc => rollingEntries.push({ id: doc.id, ...doc.data() }));
         rollingEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
+        // 업보데이터 로드
+        try {
+            const upboSnap = await getDocs(collection(db, 'upboData'));
+            upboSnap.forEach(docSnap => {
+                const mapToKor = {'dalta':'달타', 'darung':'다룽', 'choiagain':'최또', 'kanashi':'카나시'};
+                const k = mapToKor[docSnap.id];
+                if(k) {
+                    upboData[k] = docSnap.data();
+                }
+            });
+            for(let m in upboData) {
+                if(!upboData[m].products) upboData[m].products = [];
+                if(!upboData[m].records) upboData[m].records = [];
+            }
+        } catch(e) { console.error("업보데이터 로드 에러:", e); }
+
         renderHeaderTabs(); 
         render();
     } catch (e) { console.error("데이터 불러오기 실패:", e); }
 }
 
-function changeTab(tabName) { 
-    currentPage = tabName; 
-    if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
+function changeTab(tabName) {
+    if (tabName.startsWith('업보정리')) {
+        currentPage = '업보정리';
+        if (tabName.includes('_')) {
+            upboCurrentMember = tabName.split('_')[1];
+        }
+        const m2e = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
+        window.location.hash = '#list' + m2e[upboCurrentMember];
+    } else {
+        currentPage = tabName; 
+        if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
+    }
     
     if (!isMobile) {
-        if(tabName === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
+        if(currentPage === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
         else { closeSidePanel(true); }
     } else {
         closeSidePanel(true);
@@ -1480,13 +1482,7 @@ function renderMobileDatePicker() {
 }
 
 function buildScheduleCardHtml(sch, isMobileCard = false) {
-    const memberColors = { 
-        '달타': '#FFFDE7', 
-        '다룽': '#E3F2FD', 
-        '최또': '#fdecf9', 
-        '카나시': '#FFF3E0' 
-    };
-
+    const memberColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#fdecf9', '카나시': '#FFF3E0' };
     const memberName = sch.tabOrMember ? sch.tabOrMember.trim() : '';
     const isHabBang = sch.broadType === '합방';
 
@@ -1502,17 +1498,13 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const displayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
     const formattedTime = (typeof formatTime12 === 'function' && sch.time) ? formatTime12(sch.time) : ''; 
 
-    // 모바일 카드: 제목 왼쪽 / 시간 오른쪽 한 줄 레이아웃
     if (isMobileCard) {
         return `
             <div class="schedule-card ${typeClass} w-full"
                  style="background-color: ${bgColor} !important; ${textColor} display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; padding: 6px 20px !important; min-height: 46px !important;"
                  onclick="openDetailModal(event, '${sch.id}')" 
                  oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
-                     event.preventDefault(); 
-                     event.stopPropagation(); 
-                     window.contextTargetId = '${sch.id}'; 
-                     window.editFromMenu(); 
+                     event.preventDefault(); event.stopPropagation(); window.contextTargetId = '${sch.id}'; window.editFromMenu(); 
                  }">
                 <span style="font-family: 'Paperozi', sans-serif; font-size: 15px; font-weight: 600; text-align: left; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3;">${displayTitle}</span>
                 ${formattedTime ? `<span style="font-family: 'Paperozi', sans-serif; font-size: 12px; font-weight: 700; color: #5D4037; flex-shrink: 0; margin-left: 6px; white-space: nowrap;">${formattedTime}</span>` : ''}
@@ -1529,52 +1521,50 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const isBangon = sch.globalType !== '휴방';
     const shiftDownClass = (isBangon && !formattedTime) ? 'pt-4' : '';
 
-    // 멤버 렌더링 로직 전체 제거됨
     return `
         <div class="schedule-card ${typeClass} flex flex-col h-full"
              style="background-color: ${bgColor} !important; ${textColor}"
              onclick="openDetailModal(event, '${sch.id}')" 
              oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
-                 event.preventDefault(); 
-                 event.stopPropagation(); 
-                 window.contextTargetId = '${sch.id}'; 
-                 window.editFromMenu(); 
+                 event.preventDefault(); event.stopPropagation(); window.contextTargetId = '${sch.id}'; window.editFromMenu(); 
              }">
-             
              ${timeHtml}
-             
              <div class="flex-1 flex items-center justify-center w-full min-h-0 px-0.5 py-0 ${shiftDownClass}">
                  <div class="schedule-text" style="font-size: 17px !important; line-height: 1 !important; white-space: normal;">
                      ${displayTitle}
                  </div>
-                 </div>
+             </div>
         </div>
     `;
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5' };
     document.body.style.backgroundColor = tabBackgrounds[currentPage] || '#ffdddd';
-    document.documentElement.style.setProperty('--theme-color', themeColors[currentPage]);
+    document.documentElement.style.setProperty('--theme-color', themeColors[currentPage === '업보정리' ? upboCurrentMember : currentPage] || '#8B5CF6');
     document.body.className = document.body.className.replace(/theme-\S+/g, '');
-    document.body.classList.add('theme-' + currentPage);
+    document.body.classList.add('theme-' + (currentPage === '업보정리' ? 'rolling' : currentPage));
+    
     const mBtnContainer = document.getElementById('mobileHeaderRightBtn');
     const dBtnContainer = document.getElementById('dynamicSideBtn');
     
     const mobileUpBtnHtml = `<button onclick="toggleUpPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-arrow-up-right"></i> UP</button>`;
     const mobileMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-edit"></i> 메모</button>`;
     const desktopUpBtnHtml = `<button onclick="toggleUpPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-arrow-up-right text-xl"></i>UP</button>`;
-    const desktopMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-edit text-xl"></i>메모</button>`;    const mobileRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-3 py-[6px] bg-purple-100 text-purple-700 font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-purple-300 hover:bg-purple-200"><i class="fi fi-br-plus"></i> 주제추가</button>` : '';
+    const desktopMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-edit text-xl"></i>메모</button>`;    
+    const mobileRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-3 py-[6px] bg-purple-100 text-purple-700 font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-purple-300 hover:bg-purple-200"><i class="fi fi-br-plus"></i> 주제추가</button>` : '';
     const desktopRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-6 py-2.5 bg-purple-50 text-purple-700 font-bold rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-purple-200"><i class="fi fi-br-plus"></i> 주제 추가</button>` : '';
 
     if (mBtnContainer) {
         if (currentPage === '홈') mBtnContainer.innerHTML = mobileUpBtnHtml;
         else if (currentPage === '롤링페이퍼') mBtnContainer.innerHTML = mobileRollingBtnHtml; 
+        else if (currentPage === '업보정리') mBtnContainer.innerHTML = ''; // 업보정리 탭에서는 버튼 숨김
         else mBtnContainer.innerHTML = mobileMemoBtnHtml;
     }
     if (dBtnContainer) {
         if (currentPage === '홈') dBtnContainer.innerHTML = desktopUpBtnHtml;
         else if (currentPage === '롤링페이퍼') dBtnContainer.innerHTML = desktopRollingBtnHtml; 
+        else if (currentPage === '업보정리') dBtnContainer.innerHTML = ''; // 업보정리 탭에서는 버튼 숨김
         else dBtnContainer.innerHTML = desktopMemoBtnHtml;
     }
     
@@ -1592,6 +1582,8 @@ function render() {
 
     if (currentPage === '롤링페이퍼') {
         renderRollingPaper();
+    } else if (currentPage === '업보정리') {
+        renderUpboPage();
     } else {
         if (isMobile) {
             if (currentPage === '홈') renderMobileHome(grouped);
@@ -1603,6 +1595,297 @@ function render() {
     }
 }
 
+// =========================================================================
+// 업보정리 (토글 함수)
+// =========================================================================
+function toggleUpboViewMode(mode) {
+    if (!isAdmin) return;
+    upboViewMode = mode;
+    renderUpboPage();
+}
+
+// =========================================================================
+// 업보정리 (구매내역/배송상태) 렌더링 함수들
+// =========================================================================
+function renderUpboPage() {
+    const content = document.getElementById('mainContent');
+    const themeColor = themeColors[upboCurrentMember] || '#8B5CF6';
+
+    // 토글 버튼 HTML (관리자에게만 보임)
+    let toggleBtnHtml = '';
+    if (isAdmin) {
+        const isSearch = upboViewMode === 'search';
+        toggleBtnHtml = `
+            <div class="absolute top-4 right-4 md:top-8 md:right-8 z-10 flex items-center gap-1 bg-gray-100 p-1.5 rounded-xl border-2 border-gray-200 shadow-inner shrink-0">
+                <button onclick="toggleUpboViewMode('search')" class="px-4 py-2 rounded-lg font-bold text-[14px] transition-all ${isSearch ? 'bg-white shadow-sm text-[#5D4037]' : 'text-gray-400 hover:text-gray-600'}">조회</button>
+                <button onclick="toggleUpboViewMode('admin')" class="px-4 py-2 rounded-lg font-bold text-[14px] transition-all ${!isSearch ? 'bg-[#5D4037] shadow-sm text-white' : 'text-gray-400 hover:text-gray-600'}">관리</button>
+            </div>
+        `;
+    }
+
+    let tabsHtml = `<div class="flex justify-center gap-2 mb-8 mt-2 overflow-x-auto whitespace-nowrap px-2">`;
+    ['달타', '다룽', '최또', '카나시'].forEach(m => {
+        const active = m === upboCurrentMember;
+        const mColor = themeColors[m];
+        tabsHtml += `<button onclick="changeTab('업보정리_${m}')" class="px-6 py-2.5 font-bold font-paperozi text-[17px] rounded-full border-2 transition-all shadow-sm" style="border-color:${mColor}; ${active ? `background-color:${mColor}; color:white;` : `background-color:white; color:${mColor};`}">${m}</button>`;
+    });
+    tabsHtml += `</div>`;
+
+    let mainHtml = `<div class="big-white-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">`;
+    mainHtml += toggleBtnHtml; // 토글 버튼 삽입
+    
+    // 모드에 따라 타이틀 변경
+    const titleText = (isAdmin && upboViewMode === 'admin') ? '업보 데이터 관리' : '업보정리 조회';
+    mainHtml += `<h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi text-center mb-6 pt-12 md:pt-0"><i class="fi fi-rr-box-open"></i> ${titleText}</h2>`;
+    
+    mainHtml += tabsHtml;
+
+    if (upboViewMode === 'search' || !isAdmin) {
+        // 검색창 뷰어
+        mainHtml += `
+            <div class="max-w-2xl mx-auto mb-10">
+                <div class="flex gap-2">
+                    <input type="text" id="upboSearchInput" class="flex-1 border-[2.5px] border-[#5D4037] rounded-xl p-4 text-[17px] font-bold outline-none focus:border-[var(--theme-color)]" placeholder="닉네임 또는 아이디를 입력하세요" onkeypress="if(event.key==='Enter') searchUpbo()">
+                    <button onclick="searchUpbo()" class="px-6 py-4 bg-[#5D4037] text-white font-bold rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap text-[17px] font-paperozi"><i class="fi fi-rr-search"></i> 검색</button>
+                </div>
+                <div id="upboSearchResult" class="mt-8"></div>
+            </div>
+        `;
+    } else if (isAdmin && upboViewMode === 'admin') {
+        // 관리자 표 수정
+        mainHtml += `
+            <div class="mt-4 pt-4 border-t-[3px] border-dashed border-[#5D4037]">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
+                    <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 데이터 설정</h3>
+                    <div class="flex gap-2 shrink-0">
+                        <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
+                        <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#5D4037] text-white font-bold font-paperozi rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto lg:overflow-visible border-2 border-[#5D4037] rounded-xl bg-white mb-4 shadow-sm scrollbar-hide">
+                    <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable">
+                        </table>
+                </div>
+                <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
+            </div>
+        `;
+    }
+
+    mainHtml += `</div>`;
+    content.innerHTML = mainHtml;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6';
+
+    if (isAdmin && upboViewMode === 'admin') renderUpboAdminTable();
+}
+
+function renderUpboAdminTable() {
+    const table = document.getElementById('upboAdminTable');
+    if(!table) return;
+    const data = upboData[upboCurrentMember] || { products: [], records: [] };
+    const products = data.products || [];
+    const records = data.records || [];
+
+    let thead = `<thead class="bg-[#FFFDF5] border-b-2 border-[#5D4037]"><tr>
+        <th class="p-3 border-r border-gray-200 min-w-[60px] text-[#5D4037] font-bold">닉네임</th>
+        <th class="p-3 border-r border-gray-200 min-w-[60px] text-[#5D4037] font-bold">아이디</th>`;
+
+    products.forEach((p, idx) => {
+        thead += `<th class="px-1 py-2 border-r border-gray-200 w-[80px] max-w-[80px] relative group bg-[#f3f4f6]">
+            <input type="text" class="w-full bg-transparent font-bold text-[#5D4037] outline-none upbo-product-header text-center text-[14px]" value="${p}" data-idx="${idx}" placeholder="상품명">
+            <button onclick="removeUpboProduct(${idx})" class="absolute top-1/2 -translate-y-1/2 right-0.5 text-red-500 opacity-0 group-hover:opacity-100 bg-white rounded-full shadow-sm p-0.5"><i class="fi fi-br-cross-small"></i></button>
+        </th>`;
+    });
+
+    thead += `<th class="p-3 border-r border-gray-200 w-[80px] text-[#5D4037] font-bold text-center">상태</th>
+              <th class="p-3 border-r border-gray-200 w-[70px] text-[#5D4037] font-bold text-center">방송국</th>
+              <th class="p-3 w-[40px] text-center text-[#5D4037] font-bold">삭제</th>
+              </tr></thead>`;
+
+    let tbody = `<tbody id="upboTbody">`;
+    records.forEach((r, rIdx) => {
+        tbody += createUpboRowHtml(r, products);
+    });
+    tbody += `</tbody>`;
+
+    table.innerHTML = thead + tbody;
+}
+
+function createUpboRowHtml(record, products) {
+    let html = `<tr class="border-b border-gray-200 hover:bg-gray-50 transition upbo-data-row">
+        <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-nick font-bold text-[#5D4037]" style="min-width: 60px; width: ${(record.nickname || '닉네임').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.nickname || ''}" placeholder="닉네임"></td>
+        <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-uid font-bold text-gray-500" style="min-width: 60px; width: ${(record.uid || '아이디').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.uid || ''}" placeholder="아이디"></td>`;
+
+    products.forEach((p, pIdx) => {
+        const qty = record.items && record.items[p] ? record.items[p] : '';
+        html += `<td class="px-1 py-2 border-r bg-[#f9fafb] w-[80px] max-w-[80px]"><input type="number" class="w-full outline-none bg-transparent text-center font-bold text-[#5D4037] upbo-qty" data-product-idx="${pIdx}" value="${qty}" placeholder="-"></td>`;
+    });
+
+    // 상태는 배송완료가 아니면 무조건 배송중으로 처리
+    const currentStatus = (record.status === '배송완료') ? '배송완료' : '배송중';
+    const sColor = currentStatus === '배송완료' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700';
+    
+    // 클릭할 때마다 배송중 <-> 배송완료 토글되는 버튼 (값 저장 호환을 위해 input type="button" 사용)
+    let sel = `<input type="button" class="w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status ${sColor}" value="${currentStatus}" onclick="this.value = this.value === '배송중' ? '배송완료' : '배송중'; this.className = this.value === '배송완료' ? 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-green-100 text-green-700' : 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-purple-100 text-purple-700';">`;
+
+    const linkBtn = `<button type="button" class="bg-blue-50 border border-blue-200 text-blue-600 font-bold w-full py-1 rounded text-[12px] hover:bg-blue-100 transition whitespace-nowrap shadow-sm" onclick="const uid = this.closest('tr').querySelector('.upbo-uid').value.trim(); if(uid) { window.open('https://www.sooplive.com/station/' + uid, '_blank'); } else { alert('아이디를 먼저 입력해주세요.'); }">바로가기</button>`;
+
+    html += `<td class="p-2 border-r align-middle">${sel}</td>
+             <td class="p-2 border-r text-center align-middle">${linkBtn}</td>
+             <td class="p-2 text-center align-middle"><button onclick="this.closest('tr').remove()" class="text-gray-400 hover:text-red-500 transition text-lg"><i class="fi fi-br-cross-small"></i></button></td>
+             </tr>`;
+    return html;
+}
+
+function syncUpboDomToState() {
+    const table = document.getElementById('upboAdminTable');
+    if(!table) return;
+
+    const productInputs = table.querySelectorAll('.upbo-product-header');
+    let newProducts = [];
+    productInputs.forEach(inp => newProducts.push(inp.value.trim()));
+
+    let newRecords = [];
+    const rows = table.querySelectorAll('.upbo-data-row');
+    rows.forEach(tr => {
+        const nick = tr.querySelector('.upbo-nick').value.trim();
+        const uid = tr.querySelector('.upbo-uid').value.trim();
+        const status = tr.querySelector('.upbo-status').value;
+        let items = {};
+        tr.querySelectorAll('.upbo-qty').forEach((inp) => {
+            const pIdx = inp.getAttribute('data-product-idx');
+            const pName = newProducts[pIdx];
+            const val = parseInt(inp.value, 10);
+            if(pName && !isNaN(val) && val > 0) items[pName] = val;
+        });
+        if (nick || uid) {
+            newRecords.push({ nickname: nick, uid: uid, items: items, status: status });
+        }
+    });
+
+    if(!upboData[upboCurrentMember]) upboData[upboCurrentMember] = {products:[], records:[]};
+    upboData[upboCurrentMember].products = newProducts;
+    upboData[upboCurrentMember].records = newRecords;
+}
+
+function addUpboProduct() {
+    syncUpboDomToState();
+    upboData[upboCurrentMember].products.push('새 상품');
+    renderUpboAdminTable();
+}
+
+function removeUpboProduct(idx) {
+    if(!confirm("이 상품 열을 삭제하시겠습니까? 데이터도 함께 지워집니다.")) return;
+    syncUpboDomToState();
+    const pName = upboData[upboCurrentMember].products[idx];
+    upboData[upboCurrentMember].products.splice(idx, 1);
+    upboData[upboCurrentMember].records.forEach(r => {
+        if(r.items && r.items[pName] !== undefined) delete r.items[pName];
+    });
+    renderUpboAdminTable();
+}
+
+function addUpboRow() {
+    syncUpboDomToState();
+    upboData[upboCurrentMember].records.push({ nickname:'', uid:'', items:{}, status:'배송중' });
+    renderUpboAdminTable();
+}
+
+async function saveUpboData() {
+    syncUpboDomToState();
+    const dataToSave = upboData[upboCurrentMember];
+
+    try {
+        const memberToEng = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
+        const docId = memberToEng[upboCurrentMember];
+        await setDoc(doc(db, 'upboData', docId), dataToSave);
+        alert("데이터가 성공적으로 저장되었습니다!");
+    } catch(e) {
+        console.error(e);
+        alert("저장 실패: " + e.message);
+    }
+}
+
+function searchUpbo() {
+    const query = document.getElementById('upboSearchInput').value.trim().toLowerCase();
+    const resultContainer = document.getElementById('upboSearchResult');
+    
+    if(!query) {
+        resultContainer.innerHTML = `<div class="text-center text-red-500 font-bold bg-red-50 p-4 rounded-xl border-2 border-red-200">닉네임 또는 아이디를 입력해주세요!</div>`;
+        return;
+    }
+
+    const data = upboData[upboCurrentMember] || { records: [] };
+    const records = data.records || [];
+
+    const matches = records.filter(r =>
+        (r.nickname && r.nickname.toLowerCase() === query) ||
+        (r.uid && r.uid.toLowerCase() === query)
+    );
+
+    if(matches.length === 0) {
+        resultContainer.innerHTML = `
+            <div class="bg-[#FFFDF5] border-[2.5px] border-[#5D4037] rounded-2xl p-10 text-center shadow-sm mt-4">
+                <div class="text-[50px] mb-4 drop-shadow-md">🧐</div>
+                <div class="text-[20px] font-bold text-[#5D4037] font-paperozi">검색된 구매 내역이 없습니다.</div>
+                <div class="text-[15px] font-bold text-gray-400 mt-2">닉네임이나 아이디를 정확히 입력했는지 확인해주세요.</div>
+            </div>`;
+        return;
+    }
+
+    let html = `<div class="space-y-6">`;
+    matches.forEach(r => {
+        let itemsHtml = '';
+        const pKeys = Object.keys(r.items || {});
+        let totalItems = 0;
+        
+        if(pKeys.length > 0) {
+            pKeys.forEach(p => {
+                if(r.items[p] > 0) {
+                    totalItems += r.items[p];
+                    itemsHtml += `
+                        <div class="flex justify-between items-center bg-white border-[2px] border-gray-100 p-4 rounded-xl shadow-sm hover:border-[#5D4037] transition">
+                            <span class="font-bold text-gray-700 text-[16px]">${p}</span>
+                            <span class="font-black text-[18px] text-[#5D4037] bg-orange-50 px-3 py-1 rounded-lg border border-orange-200">${r.items[p]} 개</span>
+                        </div>`;
+                }
+            });
+        }
+        
+        if (totalItems === 0) {
+            itemsHtml = `<div class="text-gray-400 font-bold text-center py-6 bg-gray-50 rounded-xl border border-dashed">주문된 상품이 없습니다.</div>`;
+        }
+
+        const statusColorMap = {
+            '결제대기': 'bg-gray-100 text-gray-600 border-gray-300',
+            '결제완료': 'bg-blue-50 text-blue-600 border-blue-300',
+            '배송준비': 'bg-yellow-50 text-yellow-600 border-yellow-300',
+            '배송중': 'bg-purple-50 text-purple-600 border-purple-300',
+            '배송완료': 'bg-green-50 text-green-600 border-green-300'
+        };
+        const sColor = statusColorMap[r.status] || 'bg-gray-100 text-gray-600 border-gray-300';
+
+        html += `
+            <div class="bg-white border-[3px] border-[#5D4037] rounded-2xl p-6 shadow-[4px_4px_0px_0px_rgba(93,64,55,1)] relative overflow-hidden">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-5 border-b-[2.5px] border-dashed border-gray-200 pb-4 gap-3">
+                    <div class="flex items-center gap-3">
+                        <span class="text-[24px] font-bold text-[#5D4037] font-paperozi">${r.nickname}</span>
+                        <span class="text-[15px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">ID: ${r.uid || '미기입'}</span>
+                    </div>
+                    <span class="px-4 py-1.5 rounded-full font-bold text-[15px] border-[2px] w-max ${sColor} shadow-sm">${r.status}</span>
+                </div>
+                <div class="flex flex-col gap-3">
+                    ${itemsHtml}
+                </div>
+            </div>
+        `;
+    });
+    html += `</div>`;
+    resultContainer.innerHTML = html;
+}
+
+// =========================================================================
+// 롤링페이퍼 렌더링 함수
+// =========================================================================
 function renderRollingPaper() {
     const content = document.getElementById('mainContent');
     const bgClass = isMobile ? 'p-4' : 'p-10';
@@ -1761,7 +2044,6 @@ async function saveRollingEntry() {
     const nickname = document.getElementById('reNickname').value.trim();
     if(!content) return alert("내용을 입력해주세요.");
     
-    // 저장 버튼 비활성화 (중복 클릭 방지)
     const saveBtn = document.querySelector('#rollingEntryModal button[onclick="saveRollingEntry()"]');
     if (saveBtn) {
         saveBtn.disabled = true;
@@ -1774,26 +2056,20 @@ async function saveRollingEntry() {
     
     let toast = null;
 
-    // 이미지가 첨부되어 업로드가 필요한 경우
     if (fileInput && fileInput.files.length > 0) {
-        // 1. 토스트 알림 엘리먼트 생성 및 화면에 추가
         toast = document.createElement('div');
         toast.innerText = '이미지를 업로드 중 입니다..⏳';
-        // Tailwind CSS를 활용한 디자인 (하단 중앙, 둥근 모서리, 부드러운 페이드인 효과)
         toast.className = 'fixed bottom-12 left-1/2 transform -translate-x-1/2 bg-[#5D4037] text-white px-6 py-3 rounded-xl shadow-2xl z-[9999] font-bold font-paperozi transition-opacity duration-300 opacity-0';
         document.body.appendChild(toast);
         
-        // 약간의 딜레이 후 투명도(opacity)를 조절하여 부드럽게 나타나게 함
         requestAnimationFrame(() => toast.classList.remove('opacity-0'));
 
-        // 2. 이미지 업로드 진행
         const url = await window.uploadImageToCloudinary(fileInput.files[0]);
         if (url) imageUrl = url;
         
-        // 3. 업로드가 끝나면 토스트 알림 제거
         if (toast) {
             toast.classList.add('opacity-0');
-            setTimeout(() => toast.remove(), 300); // 페이드아웃 애니메이션 대기 후 삭제
+            setTimeout(() => toast.remove(), 300); 
         }
     }
     
@@ -1817,7 +2093,6 @@ async function saveRollingEntry() {
         console.error(e); 
         alert('저장 중 오류가 발생했습니다.');
     } finally {
-        // 처리가 끝나면 다시 버튼 활성화
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.innerText = '저장';
@@ -1882,18 +2157,16 @@ window.updateCurrentEntryIndex = updateCurrentEntryIndex;
 
 function closeRollingDetailModal() { document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden'); }
 
+// =========================================================================
+// 모바일 & PC 캘린더 렌더링 함수들
+// =========================================================================
 function renderMobileHome(grouped) {
     const content = document.getElementById('mainContent');
     const d = homeTargetDate;
     const dateStr = `${d.getMonth()+1}.${d.getDate()}`;
     const dayStr = ['일','월','화','수','목','금','토'][d.getDay()];
 
-    const cardBgColors = { 
-        '달타': '#FFFDE7', 
-        '다룽': '#E3F2FD', 
-        '최또': '#FFF0F5', 
-        '카나시': '#FFF3E0' 
-    };
+    const cardBgColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FFF0F5', '카나시': '#FFF3E0' };
 
     let html = `
         <div class="w-full flex justify-between items-center mb-5 px-4 mt-2">
@@ -2078,7 +2351,6 @@ function renderDesktopIndividual(grouped) {
             const schedulesHtml = daySchedules.map(sch => buildScheduleCardHtml(sch, false)).join('');
             const isToday = currentYear === realToday.getFullYear() && currentMonth === realToday.getMonth() + 1 && day === realToday.getDate();
             
-            // [수정] 음력 날짜 호출
             const lunarDate = getLunarDate(currentYear, currentMonth, day);
             
             let dayGlobalTime = '';
@@ -2089,7 +2361,7 @@ function renderDesktopIndividual(grouped) {
             const timeDisplayHtml = dayGlobalTime ? `<span class="text-[13px] font-bold text-[#5D4037]">${dayGlobalTime}</span>` : '';
             const dateClass = isToday ? "today-highlight text-white w-7 h-7 inline-flex items-center justify-center rounded-md" : "";
             const displayDay = `<span class="${dateClass}">${day}</span>`;            
-            // [수정] lunar-text 클래스 추가
+
             return `<div class="big-cell" onclick="handleDayClick(${currentYear}, ${currentMonth}, ${day}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${currentYear}, ${currentMonth}, ${day}, '${currentPage}')">
                 <div class="w-full flex justify-between items-center mb-1 px-1">
                     <div class="flex items-center gap-1">
@@ -2125,8 +2397,6 @@ async function deleteScheduleAction() {
 
 async function saveSchedule() {
     const blocks = document.querySelectorAll('#scheduleInputsContainer .schedule-input-block');
-    
-    // ✨ 수정된 부분: 라디오 버튼 값과 입력된 뱅온 시간을 가져옵니다.
     const globalTypeEl = document.querySelector('input[name="globalSchType"]:checked');
     const globalType = globalTypeEl ? globalTypeEl.value : '뱅온'; 
 
@@ -2158,7 +2428,6 @@ async function saveSchedule() {
         const sDate = block.querySelector('.sch-start').value;
         const eDate = block.querySelector('.sch-end').value;
         
-        // 다시 복구된 시간, 유형, 멤버 데이터 읽기
         const ampm = block.querySelector('.sch-ampm') ? block.querySelector('.sch-ampm').innerText : '오후';
         const hh = block.querySelector('.sch-hh') ? block.querySelector('.sch-hh').value : '';
         const mm = block.querySelector('.sch-mm') ? block.querySelector('.sch-mm').value : '';
@@ -2278,8 +2547,6 @@ function handleAdminClick() {
 
 function logoutAdmin() {
     isAdmin = false; loggedInUser = null;
-    
-    // 로그아웃 시 활성 세션만 삭제 (저장된 프로필 목록은 유지)
     sessionStorage.removeItem('activeAdminSession'); 
     localStorage.removeItem('activeAdminSession');
     
@@ -2293,7 +2560,7 @@ function logoutAdmin() {
 }
 
 function openPasswordModal() { 
-    renderSavedProfiles(); // 모달 오픈 시 저장된 프로필 렌더링
+    renderSavedProfiles();
     document.getElementById('passwordModal').classList.replace('hidden', 'flex'); 
 }
 
@@ -2316,12 +2583,11 @@ function getScheduleFormHTML(data, isDeletable = true) {
     const title = data.title || ''; 
     const sDate = data.startDate || ''; 
     const eDate = data.endDate || '';
-    const broad = data.broadType || '개인방송'; // 유형
-    const mem = data.memberTag || ''; // 멤버
+    const broad = data.broadType || '개인방송'; 
+    const mem = data.memberTag || '';
     const desc = data.detail || '';
     const imageUrl = data.imageUrl || ''; 
     
-    // 시간 파싱 로직
     let hh = '', mm = '', ampm = '오후';
     if (data.time) { 
         let [h, m] = data.time.split(':'); 
@@ -2415,7 +2681,6 @@ function openScheduleModal(year, month, day, member) {
     const globalMm = document.getElementById('globalMm');
     const globalAmpm = document.getElementById('globalAmpmBtn');
 
-    // 👇 여기에 뱅온/휴방 라디오 버튼을 일정에 맞게 자동 설정하는 코드를 추가합니다.
     const typeBangon = document.getElementById('typeBangon');
     const typeHubang = document.getElementById('typeHubang');
     
@@ -2434,12 +2699,10 @@ function openScheduleModal(year, month, day, member) {
     }
 
     if (globalHh && globalMm && globalAmpm) {
-        // 1. 새 일정을 위해 일단 빈칸으로 초기화 (7시 기억 삭제!)
         globalHh.value = '';
         globalMm.value = '';
         globalAmpm.innerText = '오후';
 
-        // 2. 만약 이미 저장된 뱅온 시간이 있다면 해당 시간을 불러옴
         const sWithGlobal = targets.find(s => s.globalStartTime && s.globalType === '뱅온');
         if (sWithGlobal && sWithGlobal.globalStartTime) {
             let [h, m] = sWithGlobal.globalStartTime.split(':');
@@ -2452,12 +2715,10 @@ function openScheduleModal(year, month, day, member) {
             globalMm.value = m; 
         }
     }
-    // 여기까지 ✨
 
     const container = document.getElementById('scheduleInputsContainer'); 
     container.innerHTML = '';
 
-    // ... (아래는 기존 코드 그대로 유지)
     if (targets.length > 0) {
         const listHtml = targets.map((sch, index) => {
             const contentId = `sch-content-${index}`;
@@ -2506,7 +2767,7 @@ function addScheduleInputBlock() {
     const targetDateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const container = document.getElementById('scheduleInputsContainer');
     
-    closeAllSchedules(); // 기존 일정 모두 접기
+    closeAllSchedules(); 
     
     const newIndex = document.querySelectorAll('.schedule-accordion-wrapper').length;
     const contentId = `sch-content-${newIndex}`;
@@ -2537,7 +2798,6 @@ function editFromMenu() {
     const sch = scheduleList.find(s => s.id === contextTargetId); 
     if(!sch) return;
     
-    // 👇 뱅온/휴방 라디오 버튼 상태 기억 및 토글 버그 방지
     const radios = document.querySelectorAll('input[name="editGlobalSchType"]');
     radios.forEach(radio => radio.dataset.wasChecked = 'false');
     
@@ -2546,7 +2806,6 @@ function editFromMenu() {
         activeRadio.checked = true;
         activeRadio.dataset.wasChecked = 'true';
     }
-    // 👆 수정 완료
 
     document.getElementById('editContainer').innerHTML = getScheduleFormHTML(sch, false);
     document.getElementById('editScheduleModal').classList.replace('hidden', 'flex'); 
@@ -2578,7 +2837,6 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
 
     const cardBgColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FFF0F5', '카나시': '#FFF3E0' };
 
-    // 제목을 헤더 행에 세팅
     const titleEl = document.getElementById('detailModalTitle');
     if (titleEl) {
         if (schedules.length === 1) {
@@ -2610,7 +2868,6 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                 broadStyle = `background-color: ${bgC}; color: ${themeColor}; border-color: ${themeColor};`;
             }
 
-            // 여러 일정일 때만 각 항목 내부에 제목 표시
             const titleInner = schedules.length > 1
                 ? `<div class="text-[17px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi mb-1">${sch.title}</div>`
                 : '';
@@ -2718,19 +2975,15 @@ document.addEventListener('click', function(e) {
 
 async function initApp() {
     adjustDesktopScale(); 
-
     await seedAdmins();
 
-    // 토큰 기반 세션 확인 (우선순위 1: 자동 로그인)
     const sessionActive = sessionStorage.getItem('activeAdminSession') || localStorage.getItem('activeAdminSession');
-
     if (sessionActive) {
         const { docId, token } = JSON.parse(sessionActive);
         try {
             const docRef = doc(db, "admins", docId);
             const docSnap = await getDoc(docRef);
             
-            // 🔄 [수정] 파이어베이스 대신 로컬 스토리지의 토큰과 일치하는지 확인합니다.
             const savedProfiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
             const matchedProfile = savedProfiles.find(p => p.docId === docId);
             
@@ -2744,9 +2997,10 @@ async function initApp() {
             }
         } catch(e) { console.error("자동 로그인 검증 실패:", e); }
     }
+    
     await loadLinksFromFirebase();
     await loadPopupImagesFromFirebase();
-    await loadSchedulesFromFirebase();
+    await loadSchedulesFromFirebase(); // 여기서 업보데이터도 함께 호출됩니다.
     
     if (!isMobile) {
         openSidePanel('UP'); 
@@ -2755,18 +3009,26 @@ async function initApp() {
     const today = getTodayYYYYMMDD();
     checkAndShowPopup(today);
 
+    // 라우팅 처리
     const currentHash = window.location.hash;
     if (currentHash && hashToTab[currentHash]) {
-        currentPage = hashToTab[currentHash];
+        let mapped = hashToTab[currentHash];
+        if (mapped.startsWith('업보정리')) {
+            currentPage = '업보정리';
+            if(mapped.includes('_')) {
+                upboCurrentMember = mapped.split('_')[1];
+            }
+        } else {
+            currentPage = mapped;
+        }
     } else {
         currentPage = '홈';
     }
     
-    changeTab(currentPage);
+    changeTab(currentPage === '업보정리' ? `업보정리_${upboCurrentMember}` : currentPage);
 }
 
 window.openEditUpLink = async function(id, source) {
-    console.log("우클릭 감지됨, ID:", id); // F12 개발자 도구 콘솔에 이 메시지가 뜨는지 확인하세요.
     const upItem = upLinksList.find(u => u.id === id);
     if (!upItem) {
         alert("데이터를 찾을 수 없습니다.");
@@ -2786,7 +3048,6 @@ window.openEditUpLink = async function(id, source) {
             deadline: newDeadline 
         });
 
-        // 로컬 데이터 업데이트 및 패널 재렌더링
         upItem.title = newTitle;
         upItem.deadline = newDeadline;
         renderUpLinksPanel();
@@ -2797,7 +3058,6 @@ window.openEditUpLink = async function(id, source) {
     }
 };
 
-// 멤버 관리 모달 열기/닫기
 window.openMemberManageModal = function() {
     if(!isAdmin) return;
     renderCustomMembersList();
@@ -2813,7 +3073,6 @@ window.closeMemberManageModal = function() {
     document.getElementById('memberManageModal').classList.replace('flex', 'hidden');
 };
 
-// 기존 멤버 추가 로직에 크루 여부 구분 추가
 window.addCustomMember = async function() {
     const nickname = document.getElementById('newMemberNickname').value.trim();
     const soopId = document.getElementById('newMemberSoopId').value.trim();
@@ -2822,7 +3081,6 @@ window.addCustomMember = async function() {
     
     if(!nickname) return alert("이름을 입력해주세요.");
     
-    // 이미지 우선순위: 직접 입력한 링크 > SOOP ID 자동생성 > 기본 이미지
     let imageUrl = imageUrlInput;
     if(!imageUrl && soopId) {
         const prefix = soopId.substring(0, 2);
@@ -2836,7 +3094,6 @@ window.addCustomMember = async function() {
         const docRef = await addDoc(collection(db, 'scheduleMembers'), newMem);
         customMembers.push({ id: docRef.id, ...newMem });
         
-        // 입력창 초기화
         document.getElementById('newMemberNickname').value = '';
         document.getElementById('newMemberSoopId').value = '';
         document.getElementById('newMemberImageUrl').value = '';
@@ -2851,17 +3108,15 @@ window.parseMembers = function(tagString) {
         const found = customMembers.find(m => m.nickname === name);
         if (found) {
             return { 
-                ...found, // 모든 정보를 포함하여 반환 (isCrew 속성 포함)
+                ...found, 
                 nickname: found.isCrew ? '' : found.nickname 
             };
         }
         const def = members.find(m => m.name === name);
-        // 기본 멤버나 매칭되지 않는 경우 isCrew: false 설정
         return def ? { nickname: def.name, imageUrl: def.img, isCrew: false } : { nickname: name, imageUrl: 'https://via.placeholder.com/60', isCrew: false };
     });
 };
 
-// 멤버 삭제
 window.deleteCustomMember = async function(id) {
     if(!confirm("이 멤버를 삭제하시겠습니까?")) return;
     try {
@@ -2872,11 +3127,8 @@ window.deleteCustomMember = async function(id) {
     } catch(e) { console.error(e); }
 };
 
-// 멤버 리스트 렌더링
 window.renderCustomMembersList = function() {
     const container = document.getElementById('customMembersList');
-    
-    // grid-cols-5를 유지하되, 컨테이너 너비를 강제로 100%로 고정
     container.innerHTML = `
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 w-full">
             ${customMembers.map(m => `
@@ -2884,9 +3136,7 @@ window.renderCustomMembersList = function() {
                     <button onclick="deleteCustomMember('${m.id}')" class="absolute top-1 right-1 text-red-400 hover:text-red-600 transition p-1">
                         <i class="fi fi-br-cross-small text-[10px]"></i>
                     </button>
-                    
                     <img src="${m.imageUrl}" class="w-12 h-12 rounded-full object-cover border border-[#5D4037] mb-1.5" onerror="this.src='https://via.placeholder.com/40'">
-                    
                     <div class="text-center w-full overflow-hidden">
                         <div class="font-bold text-[11px] text-[#5D4037] truncate px-1">${m.nickname}</div>
                     </div>
@@ -2896,25 +3146,9 @@ window.renderCustomMembersList = function() {
     `;
 };
 
-// 콤마 또는 띄어쓰기로 여러명 파싱 후 DB와 매칭
-window.parseMembers = function(tagString) {
-    if (!tagString) return [];
-    const names = tagString.split(/[, ]+/).filter(n => n.trim() !== '');
-    return names.map(name => {
-        const found = customMembers.find(m => m.nickname === name);
-        if (found) return found;
-        const def = members.find(m => m.name === name); // 기본 멤버 배열 체크
-        if (def) return { nickname: def.name, imageUrl: def.img };
-        return { nickname: name, imageUrl: 'https://via.placeholder.com/40' }; // 매칭 실패시 기본 프사
-    });
-};
-
-// 기존 함수를 아래와 같이 변경합니다.
 window.toggleScheduleItem = function(targetContentId, targetBtnId) {
-    // 1. 모든 일정을 접는 함수 실행
     closeAllSchedules();
 
-    // 2. 선택한 일정만 펼치기
     const content = document.getElementById(targetContentId);
     const btn = document.getElementById(targetBtnId);
     if (content && content.classList.contains('hidden')) {
@@ -2923,7 +3157,6 @@ window.toggleScheduleItem = function(targetContentId, targetBtnId) {
     }
 };
 
-// 모든 일정을 닫는 헬퍼 함수
 function closeAllSchedules() {
     const contents = document.querySelectorAll('[id^="sch-content-"]');
     const btns = document.querySelectorAll('[id^="btn-"]');
@@ -2933,23 +3166,17 @@ function closeAllSchedules() {
 }
 
 window.closeAllSchedules = function() {
-    // 기존 일정(openScheduleModal에서 만든 것)과 새 일정(addScheduleInputBlock에서 만든 것)을 모두 선택
     const contents = document.querySelectorAll('.schedule-accordion-content');
     const btns = document.querySelectorAll('.accordion-toggle-btn');
     
-    contents.forEach(el => {
-        el.classList.add('hidden');
-    });
-    btns.forEach(el => {
-        el.innerText = '펼치기';
-    });
+    contents.forEach(el => el.classList.add('hidden'));
+    btns.forEach(el => el.innerText = '펼치기');
 };
 
 function getLunarDate(y, m, d) {
     try {
         const solar = Solar.fromYmd(y, m, d);
         const lunar = solar.getLunar();
-        // lunar.getMonth()는 월, lunar.getDay()는 일을 반환합니다.
         return `${lunar.getMonth()}.${lunar.getDay()}`;
     } catch (e) {
         return "";
