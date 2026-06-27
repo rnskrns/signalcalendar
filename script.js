@@ -60,6 +60,13 @@ window.removeScheduleImage = function(btn) {
 window.handleRollingImageSelect = function(input) {
     const removeBtn = document.getElementById('reImageRemoveBtn');
     if (input.files && input.files.length > 0) {
+        const file = input.files[0];
+        if (file.size > 10 * 1024 * 1024) {
+            alert("이미지 용량이 너무 커요 🥲\n10MB 이하의 이미지만 업로드할 수 있어요!");
+            input.value = '';
+            removeBtn.classList.add('hidden');
+            return;
+        }
         removeBtn.classList.remove('hidden');
     }
 };
