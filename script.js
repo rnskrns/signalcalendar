@@ -1754,12 +1754,40 @@ async function saveRollingEntry() {
     const nickname = document.getElementById('reNickname').value.trim();
     if(!content) return alert("내용을 입력해주세요.");
     
-    let imageUrl = document.getElementById('reImageUrl') ? document.getElementById('reImageUrl').value : '';
+    // 저장 버튼 비활성화 (중복 클릭 방지)
+    const saveBtn = document.querySelector('#rollingEntryModal button[onclick="saveRollingEntry()"]');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = '저장 중⏳';
+        saveBtn.classList.add('cursor-not-allowed', 'opacity-50'); 
+    }
 
+    let imageUrl = document.getElementById('reImageUrl') ? document.getElementById('reImageUrl').value : '';
     const fileInput = document.getElementById('reImage');
+    
+    let toast = null;
+
+    // 이미지가 첨부되어 업로드가 필요한 경우
     if (fileInput && fileInput.files.length > 0) {
+        // 1. 토스트 알림 엘리먼트 생성 및 화면에 추가
+        toast = document.createElement('div');
+        toast.innerText = '이미지를 업로드 중 입니다..⏳';
+        // Tailwind CSS를 활용한 디자인 (하단 중앙, 둥근 모서리, 부드러운 페이드인 효과)
+        toast.className = 'fixed bottom-12 left-1/2 transform -translate-x-1/2 bg-[#5D4037] text-white px-6 py-3 rounded-xl shadow-2xl z-[9999] font-bold font-paperozi transition-opacity duration-300 opacity-0';
+        document.body.appendChild(toast);
+        
+        // 약간의 딜레이 후 투명도(opacity)를 조절하여 부드럽게 나타나게 함
+        requestAnimationFrame(() => toast.classList.remove('opacity-0'));
+
+        // 2. 이미지 업로드 진행
         const url = await window.uploadImageToCloudinary(fileInput.files[0]);
         if (url) imageUrl = url;
+        
+        // 3. 업로드가 끝나면 토스트 알림 제거
+        if (toast) {
+            toast.classList.add('opacity-0');
+            setTimeout(() => toast.remove(), 300); // 페이드아웃 애니메이션 대기 후 삭제
+        }
     }
     
     try {
@@ -1778,7 +1806,17 @@ async function saveRollingEntry() {
         }
         closeRollingEntryModal();
         render();
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error(e); 
+        alert('저장 중 오류가 발생했습니다.');
+    } finally {
+        // 처리가 끝나면 다시 버튼 활성화
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = '저장';
+            saveBtn.classList.remove('cursor-not-allowed', 'opacity-50');
+        }
+    }
 }
 
 async function deleteRollingEntry(id) {
