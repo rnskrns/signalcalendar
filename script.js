@@ -1669,7 +1669,13 @@ function renderUpboPage() {
                     <input type="text" id="upboSearchInput" class="flex-1 border-[2.5px] border-[#5D4037] rounded-xl p-4 text-[17px] font-bold outline-none focus:border-[var(--theme-color)]" placeholder="닉네임 또는 아이디를 입력하세요" onkeypress="if(event.key==='Enter') searchUpbo()">
                     <button onclick="searchUpbo()" class="px-6 py-4 text-white font-bold rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap text-[17px] font-paperozi" style="background-color:${themeColor};"><i class="fi fi-rr-search"></i> 검색</button>
                 </div>
-                <div id="upboSearchResult" class="mt-8"></div>
+                <div id="upboSearchResult" class="mt-8">
+                    <div class="flex flex-col items-center justify-center text-center py-14 gap-3">
+                        <div class="text-[48px]">🔍</div>
+                        <div class="text-[20px] font-bold text-[#5D4037] font-paperozi">검색어를 입력해 주세요</div>
+                        <div class="text-[14px] font-bold text-gray-400 leading-relaxed">검색창에 아이디나 닉네임을 입력하면<br>구매내역이 표시됩니다.</div>
+                    </div>
+                </div>
             </div>
         `;
     } else if (isAdmin && upboViewMode === 'admin') {
@@ -1832,7 +1838,12 @@ function searchUpbo() {
     const resultContainer = document.getElementById('upboSearchResult');
     
     if(!query) {
-        resultContainer.innerHTML = `<div class="text-center text-red-500 font-bold bg-red-50 p-4 rounded-xl border-2 border-red-200">닉네임 또는 아이디를 입력해주세요!</div>`;
+        resultContainer.innerHTML = `
+            <div class="flex flex-col items-center justify-center text-center py-14 gap-3">
+                <div class="text-[48px]">🔍</div>
+                <div class="text-[20px] font-bold text-[#5D4037] font-paperozi">검색어를 입력해 주세요</div>
+                <div class="text-[14px] font-bold text-gray-400 leading-relaxed">검색창에 아이디나 닉네임을 입력하면<br>구매내역이 표시됩니다.</div>
+            </div>`;
         return;
     }
 

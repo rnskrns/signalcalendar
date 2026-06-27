@@ -295,3 +295,13 @@ body {
 .detail-notebook-line:last-child {
     border-bottom: none;
 }
+/* embed 모드: 스크롤 제거 */
+body.embed-mode {
+    overflow: hidden !important;
+}
+body.embed-mode .big-white-box {
+    overflow-y: auto;
+    max-height: 100vh;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
