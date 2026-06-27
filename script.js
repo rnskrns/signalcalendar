@@ -1641,13 +1641,16 @@ function renderUpboPage() {
         `;
     }
 
-    let tabsHtml = `<div class="flex justify-center gap-2 mb-8 mt-2 overflow-x-auto whitespace-nowrap px-2">`;
+    const _isEmbed = new URLSearchParams(window.location.search).get('mode') === 'embed';
+    let tabsHtml = _isEmbed ? '' : `<div class="flex justify-center gap-2 mb-8 mt-2 overflow-x-auto whitespace-nowrap px-2">`;
+    if (!_isEmbed) {
     ['달타', '다룽', '최또', '카나시'].forEach(m => {
         const active = m === upboCurrentMember;
         const mColor = themeColors[m];
         tabsHtml += `<button onclick="changeTab('업보정리_${m}')" class="px-6 py-2.5 font-bold font-paperozi text-[17px] rounded-full border-2 transition-all shadow-sm" style="border-color:${mColor}; ${active ? `background-color:${mColor}; color:white;` : `background-color:white; color:${mColor};`}">${m}</button>`;
     });
     tabsHtml += `</div>`;
+    }
 
     let mainHtml = `<div class="big-white-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">`;
     mainHtml += toggleBtnHtml; // 토글 버튼 삽입
@@ -1664,7 +1667,7 @@ function renderUpboPage() {
             <div class="max-w-2xl mx-auto mb-10">
                 <div class="flex gap-2">
                     <input type="text" id="upboSearchInput" class="flex-1 border-[2.5px] border-[#5D4037] rounded-xl p-4 text-[17px] font-bold outline-none focus:border-[var(--theme-color)]" placeholder="닉네임 또는 아이디를 입력하세요" onkeypress="if(event.key==='Enter') searchUpbo()">
-                    <button onclick="searchUpbo()" class="px-6 py-4 bg-[#5D4037] text-white font-bold rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap text-[17px] font-paperozi"><i class="fi fi-rr-search"></i> 검색</button>
+                    <button onclick="searchUpbo()" class="px-6 py-4 text-white font-bold rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap text-[17px] font-paperozi" style="background-color:${themeColor};"><i class="fi fi-rr-search"></i> 검색</button>
                 </div>
                 <div id="upboSearchResult" class="mt-8"></div>
             </div>
