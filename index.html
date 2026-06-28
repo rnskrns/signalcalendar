@@ -355,24 +355,58 @@
         </div>
     </div>
     <div id="memberManageModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
-        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[500px] shadow-xl border-4 border-[#5D4037] relative flex flex-col max-h-[80vh]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[560px] shadow-xl border-4 border-[#5D4037] relative flex flex-col max-h-[90vh]">
             <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="closeMemberManageModal()"><i class="fi fi-br-cross"></i></button>
-            <h2 class="text-2xl font-bold text-[#5D4037] mb-6 text-center font-paperozi">멤버 관리</h2>
-            
-        <div class="flex gap-2 mb-4 bg-white p-3 rounded-xl border-2 border-gray-200 flex-col">
-            <div class="flex gap-2">
-                <input type="text" id="newMemberNickname" placeholder="이름/크루명" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
-                <input type="text" id="newMemberSoopId" placeholder="SOOP ID" class="flex-[1.5] border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+            <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi">멤버 관리</h2>
+
+            <!-- 탭 -->
+            <div class="flex gap-2 mb-4 border-b-2 border-gray-200 pb-3">
+                <button id="memberTabBtn" onclick="switchMemberManageTab('member')" class="flex-1 py-2 rounded-lg font-bold text-[14px] border-2 transition-all bg-[#5D4037] text-white border-[#5D4037]">멤버</button>
+                <button id="groupTabBtn" onclick="switchMemberManageTab('group')" class="flex-1 py-2 rounded-lg font-bold text-[14px] border-2 transition-all bg-white text-[#5D4037] border-[#5D4037]">그룹</button>
             </div>
-            <input type="text" id="newMemberImageUrl" placeholder="이미지 링크 (크루일 경우 필수)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
-            
-            <label class="flex items-center gap-2 text-[13px] font-bold text-[#5D4037]">
-                <input type="checkbox" id="isCrewCheckbox"> 크루로 등록 (이름 숨김)
-            </label>
-            <button onclick="addCustomMember()" class="bg-[#5D4037] text-white py-2 rounded-lg font-bold hover:brightness-110 w-full">추가</button>
-        </div>
-            <div class="overflow-y-auto modal-scroll flex-1 pr-2 min-h-[200px] w-full">
-                <div id="customMembersList" class="w-full block"></div>
+
+            <!-- 멤버 탭 -->
+            <div id="memberTabContent" class="flex flex-col flex-1 min-h-0">
+                <div class="flex gap-2 mb-4 bg-white p-3 rounded-xl border-2 border-gray-200 flex-col">
+                    <div class="flex gap-2">
+                        <input type="text" id="newMemberNickname" placeholder="이름/크루명" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+                        <input type="text" id="newMemberSoopId" placeholder="SOOP ID" class="flex-[1.5] border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+                    </div>
+                    <input type="text" id="newMemberImageUrl" placeholder="이미지 링크 (크루일 경우 필수)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+                    <label class="flex items-center gap-2 text-[13px] font-bold text-[#5D4037]">
+                        <input type="checkbox" id="isCrewCheckbox"> 크루로 등록 (이름 숨김)
+                    </label>
+                    <button onclick="addCustomMember()" class="bg-[#5D4037] text-white py-2 rounded-lg font-bold hover:brightness-110 w-full">추가</button>
+                </div>
+                <!-- 멤버 검색 -->
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="relative flex-1">
+                        <i class="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[13px]"></i>
+                        <input type="text" id="memberSearchInput" placeholder="이름 또는 SOOP ID 검색" class="w-full pl-8 pr-3 py-2 border-2 border-gray-200 rounded-lg text-[13px] outline-none focus:border-[#5D4037] font-bold" oninput="filterMembersList()">
+                    </div>
+                    <span id="memberCountBadge" class="text-[12px] font-bold text-gray-400 shrink-0"></span>
+                </div>
+                <div class="overflow-y-auto modal-scroll flex-1 pr-2 min-h-[150px] w-full">
+                    <div id="customMembersList" class="w-full block"></div>
+                </div>
+            </div>
+
+            <!-- 그룹 탭 -->
+            <div id="groupTabContent" class="flex-col flex-1 min-h-0 hidden">
+                <!-- 그룹 추가/수정 입력 -->
+                <div class="bg-white p-3 rounded-xl border-2 border-gray-200 mb-4 flex flex-col gap-2">
+                    <input type="text" id="newGroupName" placeholder="그룹 이름 (예: 합방멤버)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+                    <div class="text-[12px] text-gray-500 font-bold mb-1">그룹에 포함할 멤버 선택:</div>
+                    <div id="groupMemberCheckboxes" class="flex flex-wrap gap-2 max-h-[130px] overflow-y-auto modal-scroll p-1"></div>
+                    <div class="flex gap-2 mt-1">
+                        <button id="groupAddBtn" onclick="addMemberGroup()" class="flex-1 bg-[#5D4037] text-white py-2 rounded-lg font-bold hover:brightness-110">그룹 추가</button>
+                        <button id="groupEditCancelBtn" onclick="cancelEditGroup()" class="hidden px-4 py-2 bg-gray-200 text-[#5D4037] rounded-lg font-bold hover:bg-gray-300 transition">취소</button>
+                    </div>
+                </div>
+                <!-- 그룹 목록 -->
+                <div class="overflow-y-auto modal-scroll flex-1 pr-2 min-h-[150px] w-full">
+                    <div id="memberGroupsList" class="w-full flex flex-col gap-3"></div>
+                </div>
             </div>
         </div>
     </div>

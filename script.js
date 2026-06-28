@@ -162,6 +162,8 @@ window.previewPopupImgFile = previewPopupImgFile;
 // 업보정리 바인딩
 window.addUpboProduct = addUpboProduct; window.removeUpboProduct = removeUpboProduct; window.addUpboRow = addUpboRow; window.searchUpbo = searchUpbo; window.saveUpboData = saveUpboData; window.toggleUpboViewMode = toggleUpboViewMode;
 
+// 그룹 관리 함수는 window.xxx = function(){} 형태로 직접 할당되어 있음
+
 // =========================================================================
 // 일정 순서 변경 함수
 // =========================================================================
@@ -219,6 +221,7 @@ let currentEntryIndex = 0;
 let editRollingEntryId = null;
 
 let customMembers = []; 
+let memberGroups = []; // { id, name, memberIds: [] }
 let popupImagesList = [];
 
 // 업보정리 데이터 상태
@@ -1357,6 +1360,10 @@ async function loadSchedulesFromFirebase() {
         const smSnap = await getDocs(collection(db, 'scheduleMembers'));
         customMembers = [];
         smSnap.forEach(doc => customMembers.push({ id: doc.id, ...doc.data() }));
+
+        const grpSnap = await getDocs(collection(db, 'memberGroups'));
+        memberGroups = [];
+        grpSnap.forEach(doc => memberGroups.push({ id: doc.id, ...doc.data() }));
 
         const topicSnap = await getDocs(collection(db, 'rollingTopics'));
         rollingTopics = [];
@@ -3136,6 +3143,7 @@ window.openEditUpLink = async function(id, source) {
 window.openMemberManageModal = function() {
     if(!isAdmin) return;
     renderCustomMembersList();
+    renderMemberGroupsList();
     document.getElementById('memberManageModal').classList.replace('hidden', 'flex');
     
     ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
@@ -3179,17 +3187,29 @@ window.addCustomMember = async function() {
 window.parseMembers = function(tagString) {
     if (!tagString) return [];
     const names = tagString.split(/[, ]+/).filter(n => n.trim() !== '');
-    return names.map(name => {
+    const result = [];
+    names.forEach(name => {
+        // 그룹명인지 먼저 확인
+        const group = memberGroups.find(g => g.name === name);
+        if (group && group.memberIds && group.memberIds.length > 0) {
+            group.memberIds.forEach(mid => {
+                const found = customMembers.find(m => m.id === mid);
+                if (found) {
+                    result.push({ ...found, nickname: found.isCrew ? '' : found.nickname });
+                }
+            });
+            return;
+        }
+        // 일반 멤버 처리
         const found = customMembers.find(m => m.nickname === name);
         if (found) {
-            return { 
-                ...found, 
-                nickname: found.isCrew ? '' : found.nickname 
-            };
+            result.push({ ...found, nickname: found.isCrew ? '' : found.nickname });
+            return;
         }
         const def = members.find(m => m.name === name);
-        return def ? { nickname: def.name, imageUrl: def.img, isCrew: false } : { nickname: name, imageUrl: 'https://via.placeholder.com/60', isCrew: false };
+        result.push(def ? { nickname: def.name, imageUrl: def.img, isCrew: false } : { nickname: name, imageUrl: 'https://via.placeholder.com/60', isCrew: false });
     });
+    return result;
 };
 
 window.deleteCustomMember = async function(id) {
@@ -3202,11 +3222,27 @@ window.deleteCustomMember = async function(id) {
     } catch(e) { console.error(e); }
 };
 
-window.renderCustomMembersList = function() {
+// 현재 편집 중인 그룹 ID (null = 추가 모드)
+let editingGroupId = null;
+
+window.renderCustomMembersList = function(filterText = '') {
     const container = document.getElementById('customMembersList');
+    const badge = document.getElementById('memberCountBadge');
+    const query = filterText.toLowerCase();
+    const filtered = query
+        ? customMembers.filter(m => m.nickname.toLowerCase().includes(query) || (m.soopId || '').toLowerCase().includes(query))
+        : customMembers;
+
+    if (badge) badge.textContent = query ? `${filtered.length} / ${customMembers.length}명` : `총 ${customMembers.length}명`;
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center text-gray-400 font-bold text-[14px] py-6">${query ? '검색 결과가 없습니다.' : '등록된 멤버가 없습니다.'}</div>`;
+        return;
+    }
+
     container.innerHTML = `
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 w-full">
-            ${customMembers.map(m => `
+            ${filtered.map(m => `
                 <div class="flex flex-col items-center bg-white border-2 border-gray-200 p-2 rounded-xl shadow-sm relative w-full box-border">
                     <button onclick="deleteCustomMember('${m.id}')" class="absolute top-1 right-1 text-red-400 hover:text-red-600 transition p-1">
                         <i class="fi fi-br-cross-small text-[10px]"></i>
@@ -3214,11 +3250,185 @@ window.renderCustomMembersList = function() {
                     <img src="${m.imageUrl}" class="w-12 h-12 rounded-full object-cover border border-[#5D4037] mb-1.5" onerror="this.src='https://via.placeholder.com/40'">
                     <div class="text-center w-full overflow-hidden">
                         <div class="font-bold text-[11px] text-[#5D4037] truncate px-1">${m.nickname}</div>
+                        ${m.soopId ? `<div class="text-[10px] text-gray-400 truncate px-1">${m.soopId}</div>` : ''}
                     </div>
                 </div>
             `).join('')}
         </div>
     `;
+};
+
+window.filterMembersList = function() {
+    const q = document.getElementById('memberSearchInput') ? document.getElementById('memberSearchInput').value : '';
+    renderCustomMembersList(q);
+};
+
+// =========================================================================
+// 탭 전환
+// =========================================================================
+window.switchMemberManageTab = function(tab) {
+    const memberContent = document.getElementById('memberTabContent');
+    const groupContent = document.getElementById('groupTabContent');
+    const memberBtn = document.getElementById('memberTabBtn');
+    const groupBtn = document.getElementById('groupTabBtn');
+
+    if (tab === 'member') {
+        memberContent.classList.remove('hidden'); memberContent.classList.add('flex');
+        groupContent.classList.remove('flex'); groupContent.classList.add('hidden');
+        memberBtn.classList.add('bg-[#5D4037]', 'text-white'); memberBtn.classList.remove('bg-white', 'text-[#5D4037]');
+        groupBtn.classList.remove('bg-[#5D4037]', 'text-white'); groupBtn.classList.add('bg-white', 'text-[#5D4037]');
+    } else {
+        groupContent.classList.remove('hidden'); groupContent.classList.add('flex');
+        memberContent.classList.remove('flex'); memberContent.classList.add('hidden');
+        groupBtn.classList.add('bg-[#5D4037]', 'text-white'); groupBtn.classList.remove('bg-white', 'text-[#5D4037]');
+        memberBtn.classList.remove('bg-[#5D4037]', 'text-white'); memberBtn.classList.add('bg-white', 'text-[#5D4037]');
+        editingGroupId = null;
+        renderGroupMemberCheckboxes();
+        renderMemberGroupsList();
+    }
+};
+
+// =========================================================================
+// 그룹 관리
+// =========================================================================
+function getGroupAllMembers() {
+    return [
+        ...members.map(m => ({ id: '__builtin__' + m.name, nickname: m.name, imageUrl: m.img })),
+        ...customMembers.filter(m => !m.isCrew)
+    ];
+}
+
+function resolveGroupMembers(memberIds) {
+    return (memberIds || []).map(mid => {
+        if (mid.startsWith('__builtin__')) {
+            const bname = mid.replace('__builtin__', '');
+            const bm = members.find(m => m.name === bname);
+            return bm ? { nickname: bm.name, imageUrl: bm.img } : null;
+        }
+        return customMembers.find(m => m.id === mid) || null;
+    }).filter(Boolean);
+}
+
+window.renderGroupMemberCheckboxes = function(preCheckedIds = []) {
+    const container = document.getElementById('groupMemberCheckboxes');
+    if (!container) return;
+    container.innerHTML = getGroupAllMembers().map(m => `
+        <label class="flex items-center gap-1.5 bg-white border-2 border-gray-200 rounded-xl px-2 py-1.5 cursor-pointer hover:border-[#5D4037] transition text-[12px] font-bold text-[#5D4037]">
+            <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${m.nickname}" ${preCheckedIds.includes(m.id) ? 'checked' : ''}>
+            <img src="${m.imageUrl}" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
+            ${m.nickname}
+        </label>
+    `).join('');
+};
+
+window.renderMemberGroupsList = function() {
+    const container = document.getElementById('memberGroupsList');
+    if (!container) return;
+    if (memberGroups.length === 0) {
+        container.innerHTML = `<div class="text-center text-gray-400 font-bold text-[14px] py-6">등록된 그룹이 없습니다.</div>`;
+        return;
+    }
+    container.innerHTML = memberGroups.map(g => {
+        const groupMems = resolveGroupMembers(g.memberIds);
+        return `
+        <div class="bg-white border-2 border-[#5D4037] rounded-xl p-3 relative">
+            <div class="flex items-center justify-between mb-2 pr-1">
+                <div class="font-bold text-[#5D4037] text-[15px] font-paperozi flex items-center gap-1.5">
+                    <i class="fi fi-rr-users-alt text-[13px]"></i> ${g.name}
+                    <span class="text-[11px] text-gray-400 font-bold ml-1">(${groupMems.length}명)</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button onclick="startEditGroup('${g.id}')" class="text-[#5D4037] hover:text-blue-500 transition p-1" title="수정"><i class="fi fi-rr-edit text-[13px]"></i></button>
+                    <button onclick="deleteMemberGroup('${g.id}')" class="text-red-400 hover:text-red-600 transition p-1" title="삭제"><i class="fi fi-br-cross-small text-[11px]"></i></button>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-2">
+                ${groupMems.map(m => `
+                    <div class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2 py-1">
+                        <img src="${m.imageUrl}" class="w-5 h-5 rounded-full object-cover" onerror="this.src='https://via.placeholder.com/20'">
+                        <span class="text-[11px] font-bold text-[#5D4037]">${m.nickname || '크루'}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="text-[11px] text-gray-400 font-bold">멤버 태그에 <span class="text-[#5D4037] font-bold">"${g.name}"</span> 입력하면 적용됩니다</div>
+        </div>`;
+    }).join('');
+};
+
+// 그룹 수정 모드 시작
+window.startEditGroup = function(id) {
+    const group = memberGroups.find(g => g.id === id);
+    if (!group) return;
+    editingGroupId = id;
+
+    // 입력창에 기존 값 세팅
+    document.getElementById('newGroupName').value = group.name;
+
+    // 체크박스 기존 선택 표시
+    renderGroupMemberCheckboxes(group.memberIds || []);
+
+    // 버튼 텍스트 변경
+    const addBtn = document.getElementById('groupAddBtn');
+    if (addBtn) {
+        addBtn.textContent = '수정 저장';
+        addBtn.classList.replace('bg-[#5D4037]', 'bg-blue-600');
+    }
+    const cancelBtn = document.getElementById('groupEditCancelBtn');
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+
+    // 입력창으로 스크롤
+    document.getElementById('newGroupName').focus();
+    document.getElementById('newGroupName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+// 수정 취소
+window.cancelEditGroup = function() {
+    editingGroupId = null;
+    document.getElementById('newGroupName').value = '';
+    renderGroupMemberCheckboxes();
+    const addBtn = document.getElementById('groupAddBtn');
+    if (addBtn) {
+        addBtn.textContent = '그룹 추가';
+        addBtn.classList.replace('bg-blue-600', 'bg-[#5D4037]');
+    }
+    const cancelBtn = document.getElementById('groupEditCancelBtn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+};
+
+window.addMemberGroup = async function() {
+    const name = document.getElementById('newGroupName').value.trim();
+    if (!name) return alert('그룹 이름을 입력해주세요.');
+    const checked = document.querySelectorAll('.group-member-cb:checked');
+    if (checked.length === 0) return alert('멤버를 1명 이상 선택해주세요.');
+    const memberIds = Array.from(checked).map(cb => cb.value);
+
+    try {
+        if (editingGroupId) {
+            // 수정
+            await updateDoc(doc(db, 'memberGroups', editingGroupId), { name, memberIds });
+            const idx = memberGroups.findIndex(g => g.id === editingGroupId);
+            if (idx !== -1) { memberGroups[idx].name = name; memberGroups[idx].memberIds = memberIds; }
+            cancelEditGroup();
+        } else {
+            // 추가
+            const newGroup = { name, memberIds, timestamp: Date.now() };
+            const docRef = await addDoc(collection(db, 'memberGroups'), newGroup);
+            memberGroups.push({ id: docRef.id, ...newGroup });
+            document.getElementById('newGroupName').value = '';
+            renderGroupMemberCheckboxes();
+        }
+        renderMemberGroupsList();
+    } catch(e) { console.error(e); alert(editingGroupId ? '수정 실패' : '그룹 추가 실패'); }
+};
+
+window.deleteMemberGroup = async function(id) {
+    if (!confirm('이 그룹을 삭제하시겠습니까?')) return;
+    try {
+        await deleteDoc(doc(db, 'memberGroups', id));
+        memberGroups = memberGroups.filter(g => g.id !== id);
+        if (editingGroupId === id) cancelEditGroup();
+        renderMemberGroupsList();
+    } catch(e) { console.error(e); }
 };
 
 window.toggleScheduleItem = function(targetContentId, targetBtnId) {
