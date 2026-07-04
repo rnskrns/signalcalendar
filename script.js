@@ -1678,7 +1678,7 @@ function renderUpboPage() {
     let mainHtml = `<div class="big-white-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">`;
     mainHtml += toggleBtnHtml; 
     
-    const titleText = (isAdmin && upboViewMode === 'admin') ? '업보 데이터 관리' : '업보정리 조회';
+    const titleText = (isAdmin && upboViewMode === 'admin') ? '업보 관리' : '업보 조회';
     mainHtml += `<h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi text-center mb-6 pt-12 md:pt-0"><i class="fi fi-rr-box-open"></i> ${titleText}</h2>`;
     mainHtml += tabsHtml;
 
@@ -1702,7 +1702,7 @@ function renderUpboPage() {
         mainHtml += `
             <div class="mt-4 pt-4 border-t-[3px] border-dashed border-[#5D4037]">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
-                    <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 데이터 설정</h3>
+                    <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
                     <div class="flex gap-2 shrink-0">
                         <button onclick="openUpboTextUploadModal()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 텍스트 업로드</button>
                         <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
@@ -3098,7 +3098,7 @@ async function initApp() {
     
     const today = getTodayYYYYMMDD();
 
-    // embed 모드: 팝업 차단, 업보정리 조회창 고정
+    // embed 모드: 팝업 차단, 업보 조회창 고정
     const embedParams = new URLSearchParams(window.location.search);
     const isEmbedMode = embedParams.get('mode') === 'embed';
 
