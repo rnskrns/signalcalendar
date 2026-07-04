@@ -684,7 +684,9 @@ function checkAndShowPopup(today) {
         (!img.deadline || img.deadline >= today)
     );
     
-    if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || (dynamicLinks['공지'] && dynamicLinks['공지'].length > 0) || hasValidImage)) {
+    // 수정된 부분: (dynamicLinks['공지']...) 조건을 제외하여 
+    // UP링크, 롤링페이퍼, 팝업 이미지 중 하나라도 존재할 때만 팝업이 열리도록 변경했습니다.
+    if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || hasValidImage)) {
         showUpPopup(today);
     }
 }
@@ -1651,7 +1653,6 @@ function renderUpboPage() {
     const content = document.getElementById('mainContent');
     const themeColor = themeColors[upboCurrentMember] || '#8B5CF6';
 
-    // 토글 버튼 HTML (관리자에게만 보임)
     let toggleBtnHtml = '';
     if (isAdmin) {
         const isSearch = upboViewMode === 'search';
@@ -1675,16 +1676,13 @@ function renderUpboPage() {
     }
 
     let mainHtml = `<div class="big-white-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">`;
-    mainHtml += toggleBtnHtml; // 토글 버튼 삽입
+    mainHtml += toggleBtnHtml; 
     
-    // 모드에 따라 타이틀 변경
     const titleText = (isAdmin && upboViewMode === 'admin') ? '업보 데이터 관리' : '업보정리 조회';
     mainHtml += `<h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi text-center mb-6 pt-12 md:pt-0"><i class="fi fi-rr-box-open"></i> ${titleText}</h2>`;
-    
     mainHtml += tabsHtml;
 
     if (upboViewMode === 'search' || !isAdmin) {
-        // 검색창 뷰어
         mainHtml += `
             <div class="max-w-2xl mx-auto mb-10">
                 <div class="flex gap-2">
@@ -1701,18 +1699,31 @@ function renderUpboPage() {
             </div>
         `;
     } else if (isAdmin && upboViewMode === 'admin') {
-        // 관리자 표 수정
         mainHtml += `
             <div class="mt-4 pt-4 border-t-[3px] border-dashed border-[#5D4037]">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 데이터 설정</h3>
                     <div class="flex gap-2 shrink-0">
+                        <button onclick="openUpboTextUploadModal()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 텍스트 업로드</button>
                         <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#5D4037] text-white font-bold font-paperozi rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
                         <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
                         <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
                     </div>
                 </div>
+
+                <!-- 일괄 처리 컨트롤 바 -->
+                <div class="flex items-center gap-2 mb-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                    <span class="text-[14px] font-bold text-[#5D4037] ml-1">선택 항목:</span>
+                    <select id="batchStatusSelect" class="border-[2px] border-[#5D4037] rounded-lg p-1.5 text-[13px] outline-none font-bold text-[#5D4037] cursor-pointer">
+                        <option value="배송중">배송중</option>
+                        <option value="배송완료">배송완료</option>
+                    </select>
+                    <button onclick="changeStatusSelectedUpboRows()" class="px-3 py-1.5 bg-purple-50 text-purple-700 font-bold rounded-lg border-[1.5px] border-purple-200 shadow-sm text-[13px] hover:bg-purple-100 transition">일괄 상태 변경</button>
+                    <span class="text-gray-300 mx-1">|</span>
+                    <button onclick="deleteSelectedUpboRows()" class="px-3 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border-[1.5px] border-red-200 shadow-sm text-[13px] hover:bg-red-100 transition">선택 삭제</button>
+                </div>
+
                 <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border-2 border-[#5D4037] rounded-2xl p-6 shadow-sm">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div>
@@ -1735,7 +1746,7 @@ function renderUpboPage() {
                 </div>
                 <div class="overflow-x-auto lg:overflow-visible border-2 border-[#5D4037] rounded-xl bg-white mb-4 shadow-sm scrollbar-hide">
                     <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable">
-                        </table>
+                    </table>
                 </div>
                 <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
             </div>
@@ -1757,6 +1768,7 @@ function renderUpboAdminTable() {
     const records = data.records || [];
 
     let thead = `<thead class="bg-[#FFFDF5] border-b-2 border-[#5D4037]"><tr>
+        <th class="p-3 border-r border-gray-200 w-[40px] text-center"><input type="checkbox" id="upboCheckAll" class="accent-[#5D4037] w-4 h-4 cursor-pointer" onclick="toggleAllUpboCheckboxes(this.checked)"></th>
         <th class="p-3 border-r border-gray-200 min-w-[60px] text-[#5D4037] font-bold">닉네임</th>
         <th class="p-3 border-r border-gray-200 min-w-[60px] text-[#5D4037] font-bold">아이디</th>`;
 
@@ -1783,6 +1795,7 @@ function renderUpboAdminTable() {
 
 function createUpboRowHtml(record, products) {
     let html = `<tr class="border-b border-gray-200 hover:bg-gray-50 transition upbo-data-row">
+        <td class="p-2 border-r text-center"><input type="checkbox" class="upbo-row-checkbox accent-[#5D4037] w-4 h-4 cursor-pointer"></td>
         <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-nick font-bold text-[#5D4037]" style="min-width: 60px; width: ${(record.nickname || '닉네임').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.nickname || ''}" placeholder="닉네임"></td>
         <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-uid font-bold text-gray-500" style="min-width: 60px; width: ${(record.uid || '아이디').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.uid || ''}" placeholder="아이디"></td>`;
 
@@ -1791,11 +1804,9 @@ function createUpboRowHtml(record, products) {
         html += `<td class="px-1 py-2 border-r bg-[#f9fafb] w-[80px] max-w-[80px]"><input type="number" class="w-full outline-none bg-transparent text-center font-bold text-[#5D4037] upbo-qty" data-product-idx="${pIdx}" value="${qty}" placeholder="-"></td>`;
     });
 
-    // 상태는 배송완료가 아니면 무조건 배송중으로 처리
     const currentStatus = (record.status === '배송완료') ? '배송완료' : '배송중';
     const sColor = currentStatus === '배송완료' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700';
     
-    // 클릭할 때마다 배송중 <-> 배송완료 토글되는 버튼 (값 저장 호환을 위해 input type="button" 사용)
     let sel = `<input type="button" class="w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status ${sColor}" value="${currentStatus}" onclick="this.value = this.value === '배송중' ? '배송완료' : '배송중'; this.className = this.value === '배송완료' ? 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-green-100 text-green-700' : 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-purple-100 text-purple-700';">`;
 
     const linkBtn = `<button type="button" class="bg-blue-50 border border-blue-200 text-blue-600 font-bold w-full py-1 rounded text-[12px] hover:bg-blue-100 transition whitespace-nowrap shadow-sm" onclick="const uid = this.closest('tr').querySelector('.upbo-uid').value.trim(); if(uid) { window.open('https://www.sooplive.com/station/' + uid, '_blank'); } else { alert('아이디를 먼저 입력해주세요.'); }">바로가기</button>`;
@@ -3547,6 +3558,181 @@ window.copyUpboEmbedCode = function() {
         // 클립보드 API 실패 시 프롬프트로 fallback
         prompt('아래 코드를 복사하세요:', iframeCode);
     });
+};
+
+// =========================================================================
+// 업보정리 텍스트 파일 일괄 업로드 기능
+// =========================================================================
+window.openUpboTextUploadModal = function() {
+    if(!isAdmin) return;
+    syncUpboDomToState(); // 현재 표 상태 임시 저장
+    
+    const products = upboData[upboCurrentMember]?.products || [];
+    if(products.length === 0) {
+        alert("상품 목록이 없습니다.\n먼저 '+ 상품(열) 추가' 버튼을 눌러 상품을 생성해주세요.");
+        return;
+    }
+
+    document.getElementById('upboTextFile').value = '';
+    const rulesContainer = document.getElementById('upboMappingRules');
+    rulesContainer.innerHTML = '';
+    
+    // 모달 열 때 기본 규칙 1개 추가
+    addUpboMappingRule();
+
+    document.getElementById('upboTextUploadModal').classList.replace('hidden', 'flex');
+};
+
+window.closeUpboTextUploadModal = function() {
+    document.getElementById('upboTextUploadModal').classList.replace('flex', 'hidden');
+};
+
+window.addUpboMappingRule = function() {
+    const products = upboData[upboCurrentMember]?.products || [];
+    const rulesContainer = document.getElementById('upboMappingRules');
+    
+    const row = document.createElement('div');
+    row.className = "flex gap-2 items-center mapping-rule-row mb-1";
+    
+    // 현재 존재하는 상품 목록으로 드롭다운 생성
+    let selectHtml = `<select class="flex-1 border-2 border-[#5D4037] rounded p-1.5 text-sm outline-none font-bold mapping-product">`;
+    products.forEach(p => {
+        selectHtml += `<option value="${p}">${p}</option>`;
+    });
+    selectHtml += `</select>`;
+
+    row.innerHTML = `
+        <input type="number" class="w-1/3 border-2 border-[#5D4037] rounded p-1.5 text-sm outline-none font-bold mapping-amount" placeholder="수량(예:562)">
+        <span class="font-bold text-gray-500 shrink-0">→</span>
+        ${selectHtml}
+        <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 p-1 font-bold shrink-0"><i class="fi fi-br-cross-small"></i></button>
+    `;
+    rulesContainer.appendChild(row);
+};
+
+window.processUpboTextFile = async function() {
+    const fileInput = document.getElementById('upboTextFile');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert("텍스트 파일을 선택해주세요.");
+        return;
+    }
+
+    // 작성한 매핑 규칙 수집
+    const ruleRows = document.querySelectorAll('.mapping-rule-row');
+    const rules = {};
+    let hasValidRule = false;
+    ruleRows.forEach(row => {
+        const amount = row.querySelector('.mapping-amount').value.trim();
+        const product = row.querySelector('.mapping-product').value;
+        if (amount && product) {
+            rules[amount] = product;
+            hasValidRule = true;
+        }
+    });
+
+    if (!hasValidRule) {
+        alert("최소 하나 이상의 매핑 규칙을 완성해주세요.");
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        let addedCount = 0;
+
+        // 아프리카 정규식 추출: [시간] 닉네임(아이디): 수량
+        const regex = /\[.*?\]\s+(.*?)\(([a-zA-Z0-9_-]+)\):\s+([\d,]+)/;
+
+        lines.forEach(line => {
+            const match = line.match(regex);
+            if (match) {
+                const nickname = match[1].trim();
+                const uid = match[2].trim();
+                const amountStr = match[3].replace(/,/g, '').trim(); // 쉼표 제거
+
+                // 규칙에 해당하는 수량일 경우
+                if (rules[amountStr]) {
+                    const mappedProduct = rules[amountStr];
+                    
+                    // 기존 기록에 유저(uid 기준)가 있는지 확인
+                    let record = upboData[upboCurrentMember].records.find(r => r.uid === uid);
+                    if (!record) {
+                        // 없으면 새 기록 생성
+                        record = { nickname, uid, items: {}, status: '배송중' };
+                        upboData[upboCurrentMember].records.push(record);
+                    }
+                    
+                    // 해당 상품 1개 누적
+                    if (!record.items[mappedProduct]) {
+                        record.items[mappedProduct] = 0;
+                    }
+                    record.items[mappedProduct] += 1;
+                    addedCount++;
+                }
+            }
+        });
+
+        if (addedCount > 0) {
+            alert(`총 ${addedCount}건의 항목이 매핑되어 추가/반영되었습니다.`);
+            renderUpboAdminTable(); // 표 다시 그리기
+            closeUpboTextUploadModal(); // 모달 닫기
+        } else {
+            alert("입력하신 규칙에 맞는 데이터가 파일에 없거나 형식이 다릅니다.");
+        }
+    };
+    reader.readAsText(file);
+};
+
+// =========================================================================
+// 업보정리 일괄 삭제 및 상태 변경 기능
+// =========================================================================
+
+// 헤더의 전체 선택 체크박스 클릭 시 전체 체크/해제 제어
+window.toggleAllUpboCheckboxes = function(isChecked) {
+    const checkboxes = document.querySelectorAll('.upbo-row-checkbox');
+    checkboxes.forEach(cb => cb.checked = isChecked);
+};
+
+// 일괄 삭제 기능
+window.deleteSelectedUpboRows = function() {
+    const checkboxes = document.querySelectorAll('.upbo-row-checkbox:checked');
+    if(checkboxes.length === 0) return alert('삭제할 항목을 먼저 선택해주세요.');
+    if(!confirm(`선택한 ${checkboxes.length}개 항목을 삭제하시겠습니까?`)) return;
+    
+    // 선택된 행 제거
+    checkboxes.forEach(cb => {
+        cb.closest('tr').remove();
+    });
+    
+    // 테이블 상태를 변수에 동기화 후 다시 렌더링
+    syncUpboDomToState();
+    renderUpboAdminTable();
+};
+
+// 일괄 상태 변경 기능
+window.changeStatusSelectedUpboRows = function() {
+    const checkboxes = document.querySelectorAll('.upbo-row-checkbox:checked');
+    if(checkboxes.length === 0) return alert('상태를 변경할 항목을 먼저 선택해주세요.');
+    
+    const newStatus = document.getElementById('batchStatusSelect').value;
+    if(!confirm(`선택한 ${checkboxes.length}개 항목을 '${newStatus}' 상태로 일괄 변경하시겠습니까?`)) return;
+    
+    // 선택된 행의 상태 버튼 값과 색상 클래스 변경
+    checkboxes.forEach(cb => {
+        const tr = cb.closest('tr');
+        const statusBtn = tr.querySelector('.upbo-status');
+        if(statusBtn) {
+            statusBtn.value = newStatus;
+            statusBtn.className = newStatus === '배송완료' 
+                ? 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-green-100 text-green-700' 
+                : 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-purple-100 text-purple-700';
+        }
+    });
+    
+    // 테이블 상태 변수에 동기화
+    syncUpboDomToState();
 };
 
 // 앱 실행

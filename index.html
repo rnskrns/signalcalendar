@@ -410,6 +410,29 @@
             </div>
         </div>
     </div>
+    <div id="upboTextUploadModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[500px] shadow-xl border-4 border-[#5D4037] flex flex-col max-h-[90vh]">
+            <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi">텍스트 파일로 일괄 추가</h2>
+            
+            <div class="mb-4">
+                <label class="block text-[14px] font-bold text-gray-700 mb-2">1. 수량(개수) ↔ 상품 매핑 규칙</label>
+                <div class="text-[12px] text-gray-500 mb-2 font-bold">예: '562' 입력 시 '단컷방셀' 상품 1개 추가</div>
+                <div id="upboMappingRules" class="flex flex-col gap-2 max-h-[200px] overflow-y-auto modal-scroll p-2 border-2 border-gray-200 rounded-lg bg-white">
+                    </div>
+                <button onclick="addUpboMappingRule()" class="w-full mt-2 py-2 border-2 border-dashed border-[#5D4037] text-[#5D4037] font-bold rounded-lg hover:bg-gray-50 transition text-sm">+ 규칙 추가</button>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-[14px] font-bold text-gray-700 mb-2">2. 텍스트 파일 업로드</label>
+                <input type="file" id="upboTextFile" accept=".txt" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm bg-white cursor-pointer font-bold">
+            </div>
+
+            <div class="flex gap-2 mt-auto shrink-0">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold text-lg hover:bg-gray-300 transition" onclick="closeUpboTextUploadModal()">취소</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-3 rounded-xl font-bold text-lg hover:brightness-110 transition" onclick="processUpboTextFile()">적용하기</button>
+            </div>
+        </div>
+    </div>
     <script type="module" src="script.js"></script>
 </body>
 </html>
