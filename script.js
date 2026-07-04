@@ -2685,36 +2685,38 @@ function getScheduleFormHTML(data, isDeletable = true) {
     const removeBtnClass = imageUrl ? '' : 'hidden'; 
 
     return `
-        <div class="schedule-input-block border-2 border-[#5D4037] p-5 rounded-xl bg-white relative shadow-sm pretendard mt-1">
+        <div class="schedule-input-block border-2 border-[#5D4037] p-6 rounded-xl bg-white relative shadow-sm pretendard mt-1">
             ${moveBtnsHtml} <input type="hidden" class="sch-id" value="${id}">
             
             <div class="mb-4 pr-20"> 
                 <label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목</label>
-                <input type="text" class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="일정 제목 입력" value="${title}">
+                <input type="text" class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[16px] font-medium" placeholder="일정 제목 입력" value="${title}">
             </div>
             
-            <div class="mb-4">
-                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">날짜</label>
-                <div class="flex items-center gap-2">
-                    <input type="date" class="sch-start flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${sDate}">
-                    <span class="font-bold text-[#5D4037]">~</span>
-                    <input type="date" class="sch-end flex-1 border-2 border-[#5D4037] rounded-lg p-2 outline-none text-[14px] font-medium" value="${eDate}">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">시작일</label>
+                    <input type="date" class="sch-start w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] font-medium" value="${sDate}">
+                </div>
+                <div>
+                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">종료일</label>
+                    <input type="date" class="sch-end w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] font-medium" value="${eDate}">
                 </div>
             </div>
 
-            <div class="flex gap-4 mb-4">
-                <div class="flex-1">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
                     <label class="block text-[13px] text-gray-500 font-bold mb-1.5">시간 (선택)</label>
-                    <div class="flex items-center justify-between border-2 border-[#5D4037] rounded-lg p-1.5 bg-white">
-                        <button type="button" class="sch-ampm ampm-btn px-2.5 py-1 font-bold text-[#5D4037] rounded-md text-[13px]" onclick="toggleAmpm(this)">${ampm}</button>
-                        <input type="number" min="1" max="12" class="sch-hh w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none text-[15px]" placeholder="시" value="${hh}">
+                    <div class="flex items-center justify-between border-2 border-[#5D4037] rounded-lg p-2 bg-white">
+                        <button type="button" class="sch-ampm ampm-btn px-3 py-1.5 font-bold text-[#5D4037] rounded-md text-[14px]" onclick="toggleAmpm(this)">${ampm}</button>
+                        <input type="number" min="1" max="12" class="sch-hh w-[42px] p-1 text-center font-bold text-[#5D4037] outline-none text-[16px]" placeholder="시" value="${hh}">
                         <span class="font-bold text-[#5D4037]">:</span>
-                        <input type="number" min="0" max="59" class="sch-mm w-[38px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[15px]" placeholder="분" value="${mm}">
+                        <input type="number" min="0" max="59" class="sch-mm w-[42px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[16px]" placeholder="분" value="${mm}">
                     </div>
                 </div>
-                <div class="flex-1">
+                <div>
                     <label class="block text-[13px] text-gray-500 font-bold mb-1.5">유형</label>
-                    <select class="sch-broad w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] bg-white font-bold text-[#5D4037] cursor-pointer">
+                    <select class="sch-broad w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none text-[15px] bg-white font-bold text-[#5D4037] cursor-pointer">
                         <option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option>
                         <option value="합방" ${broad==='합방'?'selected':''}>합방</option>
                         <option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option>
@@ -2725,22 +2727,23 @@ function getScheduleFormHTML(data, isDeletable = true) {
 
             <div class="mb-4">
                 <label class="block text-[13px] text-gray-500 font-bold mb-1.5">함께하는 멤버 / 크루 (선택)</label>
-                <input type="text" class="sch-mem w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="멤버 혹은 크루 이름 띄어쓰기로 입력" value="${mem}">
+                <input type="text" class="sch-mem w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="멤버 혹은 크루 이름 띄어쓰기로 입력" value="${mem}">
             </div>
 
-            <div class="mb-4">
-                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">이미지 첨부 (선택)</label>
-                <div class="flex items-center gap-2">
-                    <input type="file" accept="image/*" class="flex-1 text-[13px] cursor-pointer" onchange="window.handleScheduleImageUpload(this)">
-                    <button type="button" class="sch-img-remove-btn ${removeBtnClass} px-3 py-1.5 bg-red-500 text-white rounded text-sm font-bold shadow-sm hover:bg-red-600 transition shrink-0" onclick="window.removeScheduleImage(this)">이미지 삭제</button>
+            <div class="grid grid-cols-2 gap-4 mb-4 items-start">
+                <div>
+                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">이미지 첨부 (선택)</label>
+                    <div class="flex items-center gap-2">
+                        <input type="file" accept="image/*" class="flex-1 min-w-0 text-[13px] cursor-pointer" onchange="window.handleScheduleImageUpload(this)">
+                        <button type="button" class="sch-img-remove-btn ${removeBtnClass} px-3 py-1.5 bg-red-500 text-white rounded text-sm font-bold shadow-sm hover:bg-red-600 transition shrink-0" onclick="window.removeScheduleImage(this)">삭제</button>
+                    </div>
+                    <input type="hidden" class="sch-image-url" value="${imageUrl}">
+                    <div class="sch-img-preview">${imageUrl ? `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">` : ''}</div>
                 </div>
-                <input type="hidden" class="sch-image-url" value="${imageUrl}">
-                <div class="sch-img-preview">${imageUrl ? `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">` : ''}</div>
-            </div>
-            
-            <div>
-                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">상세</label>
-                <textarea class="sch-desc w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[15px] resize-none h-[75px] font-medium" placeholder="상세 내용을 입력하세요">${desc}</textarea>
+                <div>
+                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">상세</label>
+                    <textarea class="sch-desc w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[15px] resize-none h-[75px] font-medium" placeholder="상세 내용을 입력하세요">${desc}</textarea>
+                </div>
             </div>
         </div>
     `;
