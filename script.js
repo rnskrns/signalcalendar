@@ -1704,7 +1704,7 @@ function renderUpboPage() {
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
                     <div class="flex gap-2 shrink-0">
-                        <button onclick="openUpboTextUploadModal()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 텍스트 업로드</button>
+                        <button onclick="openUpboTextUploadModal()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드</button>
                         <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#5D4037] text-white font-bold font-paperozi rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
                         <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
@@ -3602,7 +3602,11 @@ window.addUpboMappingRule = function() {
     selectHtml += `</select>`;
 
     row.innerHTML = `
-        <input type="number" class="w-1/3 border-2 border-[#5D4037] rounded p-1.5 text-sm outline-none font-bold mapping-amount" placeholder="수량(예:562)">
+        <select class="w-[76px] shrink-0 border-2 border-[#5D4037] rounded p-1.5 text-xs outline-none font-bold mapping-type" onchange="window.handleUpboMappingTypeChange(this)">
+            <option value="amount">수량</option>
+            <option value="word">단어</option>
+        </select>
+        <input type="text" class="w-1/3 border-2 border-[#5D4037] rounded p-1.5 text-sm outline-none font-bold mapping-value" placeholder="수량(예:562)">
         <span class="font-bold text-gray-500 shrink-0">→</span>
         ${selectHtml}
         <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 p-1 font-bold shrink-0"><i class="fi fi-br-cross-small"></i></button>
@@ -3610,22 +3614,166 @@ window.addUpboMappingRule = function() {
     rulesContainer.appendChild(row);
 };
 
+// 규칙 종류(수량/단어)를 바꾸면 입력칸의 placeholder와 입력 타입을 맞춰줌
+window.handleUpboMappingTypeChange = function(selectEl) {
+    const row = selectEl.closest('.mapping-rule-row');
+    const valueInput = row.querySelector('.mapping-value');
+    if (selectEl.value === 'word') {
+        valueInput.type = 'text';
+        valueInput.placeholder = '단어(예:셀카)';
+    } else {
+        valueInput.type = 'text'; // 콤마 포함 숫자(예: 1,000) 입력도 허용하기 위해 text 유지
+        valueInput.placeholder = '수량(예:562)';
+    }
+};
+
+// 규칙 매칭 핵심 로직: {nickname, uid, content} 형태의 레코드 배열을 받아서 upboData에 반영
+function applyUpboMappingToRecords(records, rules) {
+    let addedCount = 0;
+
+    records.forEach(rec => {
+        const content = String(rec.content ?? '').trim();
+        if (!content) return;
+
+        const contentNoComma = content.replace(/,/g, '').trim(); // 쉼표 제거(수량 비교용)
+        const contentLower = content.toLowerCase();
+
+        // 규칙을 순서대로 확인해서 먼저 매칭되는 규칙 하나만 적용
+        const matchedRule = rules.find(rule => {
+            if (rule.type === 'word') {
+                return contentLower.includes(rule.value.toLowerCase());
+            }
+            // 기본값: 수량(정확히 일치)
+            return contentNoComma === rule.value.replace(/,/g, '').trim();
+        });
+
+        if (matchedRule) {
+            const mappedProduct = matchedRule.product;
+            const nickname = String(rec.nickname ?? '').trim() || String(rec.uid ?? '').trim();
+            const uid = String(rec.uid ?? '').trim() || nickname;
+
+            // 기존 기록에 유저(uid 기준)가 있는지 확인
+            let record = upboData[upboCurrentMember].records.find(r => r.uid === uid);
+            if (!record) {
+                // 없으면 새 기록 생성
+                record = { nickname, uid, items: {}, status: '배송중' };
+                upboData[upboCurrentMember].records.push(record);
+            }
+
+            // 해당 상품 1개 누적
+            if (!record.items[mappedProduct]) {
+                record.items[mappedProduct] = 0;
+            }
+            record.items[mappedProduct] += 1;
+            addedCount++;
+        }
+    });
+
+    return addedCount;
+}
+
+// 텍스트(채팅로그) 라인 배열 -> [{nickname, uid, content}] 로 파싱
+function parseLinesToRecords(lines) {
+    // 아프리카 정규식 추출: [시간] 닉네임(아이디): 내용(수량 또는 단어)
+    const regex = /\[.*?\]\s+(.*?)\(([a-zA-Z0-9_-]+)\):\s*(.+)/;
+    const records = [];
+
+    lines.forEach(rawLine => {
+        const line = rawLine.replace(/\r$/, ''); // 캐리지리턴 제거
+        const match = line.match(regex);
+        if (!match) return;
+        records.push({ nickname: match[1].trim(), uid: match[2].trim(), content: match[3].trim() });
+    });
+
+    return records;
+}
+
+// 공통 처리 로직: 텍스트 라인 배열 + 매핑 규칙 배열([{type, value, product}, ...])을 받아서 upboData에 반영
+function applyUpboMappingToLines(lines, rules) {
+    return applyUpboMappingToRecords(parseLinesToRecords(lines), rules);
+}
+
+// 처리 완료 후 공통 마무리 처리 (알림 + 표 갱신)
+function finishUpboFileProcessing(addedCount) {
+    if (addedCount > 0) {
+        alert(`총 ${addedCount}건의 항목이 매핑되어 추가/반영되었습니다.`);
+        renderUpboAdminTable(); // 표 다시 그리기
+        closeUpboTextUploadModal(); // 모달 닫기
+    } else {
+        alert("입력하신 규칙에 맞는 데이터가 파일에 없거나 형식이 다릅니다.");
+    }
+}
+
+// 헤더명 후보 목록 중 하나라도 포함하는 열의 인덱스를 찾음 (공백 무시, 대소문자 무시)
+function findUpboColumnIndex(headerRow, candidates) {
+    for (let i = 0; i < headerRow.length; i++) {
+        const h = String(headerRow[i] ?? '').toLowerCase().replace(/\s/g, '');
+        if (!h) continue;
+        if (candidates.some(c => h.includes(c.toLowerCase().replace(/\s/g, '')))) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// 엑셀 파일(xlsx/xls)의 모든 시트에서 닉네임/아이디/댓글내용 열을 찾아 [{nickname, uid, content}] 로 변환
+function excelWorkbookToRecords(workbook) {
+    const nicknameCandidates = ['닉네임', '별명', '이름', '작성자', '유저명', '회원명', 'nickname', 'name'];
+    const uidCandidates = ['아이디', '유저아이디', '회원아이디', 'userid', 'uid', 'id'];
+    const contentCandidates = ['댓글내용', '댓글', '내용', '메시지', '메세지', '텍스트', 'content', 'comment', 'message'];
+
+    let records = [];
+
+    workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        // header:1 -> 행마다 셀 값을 배열로 반환 (첫 행을 헤더로 사용)
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+        if (!rows || rows.length < 2) return;
+
+        const headerRow = rows[0];
+        const nicknameIdx = findUpboColumnIndex(headerRow, nicknameCandidates);
+        const uidIdx = findUpboColumnIndex(headerRow, uidCandidates);
+        const contentIdx = findUpboColumnIndex(headerRow, contentCandidates);
+
+        // 댓글내용 열을 못 찾으면 이 시트는 처리할 수 없으므로 건너뜀
+        if (contentIdx === -1) return;
+
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const content = String(row[contentIdx] ?? '').trim();
+            if (!content) continue;
+
+            const nickname = nicknameIdx !== -1 ? String(row[nicknameIdx] ?? '').trim() : '';
+            const uid = uidIdx !== -1 ? String(row[uidIdx] ?? '').trim() : '';
+
+            records.push({
+                nickname: nickname || uid || `${i}번째 줄`,
+                uid: uid || nickname || `row_${sheetName}_${i}`,
+                content
+            });
+        }
+    });
+
+    return records;
+}
+
 window.processUpboTextFile = async function() {
     const fileInput = document.getElementById('upboTextFile');
     if (!fileInput.files || fileInput.files.length === 0) {
-        alert("텍스트 파일을 선택해주세요.");
+        alert("파일을 선택해주세요.");
         return;
     }
 
     // 작성한 매핑 규칙 수집
     const ruleRows = document.querySelectorAll('.mapping-rule-row');
-    const rules = {};
+    const rules = [];
     let hasValidRule = false;
     ruleRows.forEach(row => {
-        const amount = row.querySelector('.mapping-amount').value.trim();
+        const type = row.querySelector('.mapping-type')?.value || 'amount';
+        const value = row.querySelector('.mapping-value').value.trim();
         const product = row.querySelector('.mapping-product').value;
-        if (amount && product) {
-            rules[amount] = product;
+        if (value && product) {
+            rules.push({ type, value, product });
             hasValidRule = true;
         }
     });
@@ -3636,53 +3784,42 @@ window.processUpboTextFile = async function() {
     }
 
     const file = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
-        const lines = text.split('\n');
-        let addedCount = 0;
+    const fileName = file.name.toLowerCase();
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
 
-        // 아프리카 정규식 추출: [시간] 닉네임(아이디): 수량
-        const regex = /\[.*?\]\s+(.*?)\(([a-zA-Z0-9_-]+)\):\s+([\d,]+)/;
-
-        lines.forEach(line => {
-            const match = line.match(regex);
-            if (match) {
-                const nickname = match[1].trim();
-                const uid = match[2].trim();
-                const amountStr = match[3].replace(/,/g, '').trim(); // 쉼표 제거
-
-                // 규칙에 해당하는 수량일 경우
-                if (rules[amountStr]) {
-                    const mappedProduct = rules[amountStr];
-                    
-                    // 기존 기록에 유저(uid 기준)가 있는지 확인
-                    let record = upboData[upboCurrentMember].records.find(r => r.uid === uid);
-                    if (!record) {
-                        // 없으면 새 기록 생성
-                        record = { nickname, uid, items: {}, status: '배송중' };
-                        upboData[upboCurrentMember].records.push(record);
-                    }
-                    
-                    // 해당 상품 1개 누적
-                    if (!record.items[mappedProduct]) {
-                        record.items[mappedProduct] = 0;
-                    }
-                    record.items[mappedProduct] += 1;
-                    addedCount++;
-                }
-            }
-        });
-
-        if (addedCount > 0) {
-            alert(`총 ${addedCount}건의 항목이 매핑되어 추가/반영되었습니다.`);
-            renderUpboAdminTable(); // 표 다시 그리기
-            closeUpboTextUploadModal(); // 모달 닫기
-        } else {
-            alert("입력하신 규칙에 맞는 데이터가 파일에 없거나 형식이 다릅니다.");
+    if (isExcel) {
+        if (typeof XLSX === 'undefined') {
+            alert("엑셀 파일을 처리할 라이브러리를 불러오지 못했습니다.\n인터넷 연결을 확인 후 다시 시도해주세요.");
+            return;
         }
-    };
-    reader.readAsText(file);
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const records = excelWorkbookToRecords(workbook);
+                if (records.length === 0) {
+                    alert("엑셀 파일에서 '닉네임/아이디/댓글내용'에 해당하는 열을 찾지 못했습니다.\n첫 번째 행에 열 제목(예: 닉네임, 아이디, 댓글내용)이 있는지 확인해주세요.");
+                    return;
+                }
+                const addedCount = applyUpboMappingToRecords(records, rules);
+                finishUpboFileProcessing(addedCount);
+            } catch (err) {
+                console.error(err);
+                alert("엑셀 파일을 읽는 중 오류가 발생했습니다.\n파일 형식을 확인해주세요.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const lines = text.split('\n');
+            const addedCount = applyUpboMappingToLines(lines, rules);
+            finishUpboFileProcessing(addedCount);
+        };
+        reader.readAsText(file);
+    }
 };
 
 // =========================================================================
