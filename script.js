@@ -1705,6 +1705,12 @@ function renderUpboPage() {
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
                     <div class="flex gap-2 shrink-0">
                         <button onclick="openUpboTextUploadModal()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드</button>
+                        
+                        <!-- 👇 룰렛 업로드 버튼 추가 👇 -->
+                        <button onclick="document.getElementById('rouletteFileInput').click()" class="px-4 py-2.5 bg-yellow-50 text-yellow-700 font-bold font-paperozi rounded-xl hover:bg-yellow-100 border-[2px] border-yellow-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-dice"></i> 룰렛 업로드</button>
+                        <input type="file" id="rouletteFileInput" accept=".xlsx,.xls" class="hidden" onchange="processRouletteFile(this)">
+                        <!-- 👆 룰렛 업로드 버튼 추가 👆 -->
+                        
                         <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#5D4037] text-white font-bold font-paperozi rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
                         <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
@@ -1774,12 +1780,15 @@ function renderUpboAdminTable() {
 
     products.forEach((p, idx) => {
         thead += `<th class="px-1 py-2 border-r border-gray-200 w-[80px] max-w-[80px] relative group bg-[#f3f4f6]">
-            <input type="text" class="w-full bg-transparent font-bold text-[#5D4037] outline-none upbo-product-header text-center text-[14px]" value="${p}" data-idx="${idx}" placeholder="상품명">
+            <input type="text" class="w-full bg-transparent font-bold text-[#5D4037] outline-none upbo-product-header text-center text-[14px]" value="${p}" data-idx="${idx}" placeholder="상품명" onfocus="if(this.value==='새 상품') this.value='';">
             <button onclick="removeUpboProduct(${idx})" class="absolute top-1/2 -translate-y-1/2 right-0.5 text-red-500 opacity-0 group-hover:opacity-100 bg-white rounded-full shadow-sm p-0.5"><i class="fi fi-br-cross-small"></i></button>
         </th>`;
     });
 
-    thead += `<th class="p-3 border-r border-gray-200 w-[80px] text-[#5D4037] font-bold text-center">상태</th>
+    // 👇 룰렛 열 추가된 부분 👇
+    thead += `<th class="p-3 border-r border-gray-200 w-[120px] text-[#5D4037] font-bold text-center">룰렛</th>
+              <th class="p-3 border-r border-gray-200 w-[110px] text-[#5D4037] font-bold text-center">비고</th>
+              <th class="p-3 border-r border-gray-200 w-[80px] text-[#5D4037] font-bold text-center">상태</th>
               <th class="p-3 border-r border-gray-200 w-[70px] text-[#5D4037] font-bold text-center">방송국</th>
               <th class="p-3 w-[40px] text-center text-[#5D4037] font-bold">삭제</th>
               </tr></thead>`;
@@ -1801,7 +1810,9 @@ function createUpboRowHtml(record, products) {
 
     products.forEach((p, pIdx) => {
         const qty = record.items && record.items[p] ? record.items[p] : '';
-        html += `<td class="px-1 py-2 border-r bg-[#f9fafb] w-[80px] max-w-[80px]"><input type="number" class="w-full outline-none bg-transparent text-center font-bold text-[#5D4037] upbo-qty" data-product-idx="${pIdx}" value="${qty}" placeholder="-"></td>`;
+        html += `<td class="px-1 py-2 border-r bg-[#f9fafb] w-[80px] max-w-[80px] align-middle">
+            <textarea class="w-full outline-none bg-transparent text-center font-bold text-[#5D4037] upbo-qty resize-none overflow-hidden block" style="min-height:24px; field-sizing: content;" rows="1" data-product-idx="${pIdx}" placeholder="-">${qty}</textarea>
+        </td>`;
     });
 
     const currentStatus = (record.status === '배송완료') ? '배송완료' : '배송중';
@@ -1811,7 +1822,12 @@ function createUpboRowHtml(record, products) {
 
     const linkBtn = `<button type="button" class="bg-blue-50 border border-blue-200 text-blue-600 font-bold w-full py-1 rounded text-[12px] hover:bg-blue-100 transition whitespace-nowrap shadow-sm" onclick="const uid = this.closest('tr').querySelector('.upbo-uid').value.trim(); if(uid) { window.open('https://www.sooplive.com/station/' + uid, '_blank'); } else { alert('아이디를 먼저 입력해주세요.'); }">바로가기</button>`;
 
-    html += `<td class="p-2 border-r align-middle">${sel}</td>
+    // 👇 룰렛 열이 textarea 로 포함된 부분 👇
+    html += `<td class="p-2 border-r align-middle">
+                <textarea class="w-full outline-none bg-transparent text-center text-[13px] text-purple-600 font-bold upbo-roulette resize-none overflow-hidden block" style="min-height:24px; field-sizing: content;" rows="1" placeholder="-">${record.roulette || ''}</textarea>
+             </td>
+             <td class="p-2 border-r"><input type="text" class="w-full outline-none bg-transparent upbo-memo text-[13px] text-gray-600" value="${record.memo || ''}" placeholder="비고"></td>
+             <td class="p-2 border-r align-middle">${sel}</td>
              <td class="p-2 border-r text-center align-middle">${linkBtn}</td>
              <td class="p-2 text-center align-middle"><button onclick="this.closest('tr').remove()" class="text-gray-400 hover:text-red-500 transition text-lg"><i class="fi fi-br-cross-small"></i></button></td>
              </tr>`;
@@ -1832,21 +1848,41 @@ function syncUpboDomToState() {
         const nick = tr.querySelector('.upbo-nick').value.trim();
         const uid = tr.querySelector('.upbo-uid').value.trim();
         const status = tr.querySelector('.upbo-status').value;
+        const memoEl = tr.querySelector('.upbo-memo');
+        const memo = memoEl ? memoEl.value.trim() : '';
+        
+        // 👇 누락되었던 룰렛 저장 로직 추가 👇
+        const rouletteEl = tr.querySelector('.upbo-roulette');
+        const roulette = rouletteEl ? rouletteEl.value.trim() : '';
+
         let items = {};
         tr.querySelectorAll('.upbo-qty').forEach((inp) => {
             const pIdx = inp.getAttribute('data-product-idx');
             const pName = newProducts[pIdx];
-            const val = parseInt(inp.value, 10);
-            if(pName && !isNaN(val) && val > 0) items[pName] = val;
+            const raw = inp.value.trim();
+            if(!pName || !raw) return;
+            const val = parseInt(raw, 10);
+            if(!isNaN(val) && String(val) === raw && val > 0) {
+                items[pName] = val;
+            } else {
+                items[pName] = raw;
+            }
         });
         if (nick || uid) {
-            newRecords.push({ nickname: nick, uid: uid, items: items, status: status });
+            newRecords.push({ nickname: nick, uid: uid, items: items, status: status, memo: memo, roulette: roulette });
         }
     });
 
     if(!upboData[upboCurrentMember]) upboData[upboCurrentMember] = {products:[], records:[]};
     upboData[upboCurrentMember].products = newProducts;
     upboData[upboCurrentMember].records = newRecords;
+}
+
+// 수동으로 행 추가 시 roulette 초기화
+function addUpboRow() {
+    syncUpboDomToState();
+    upboData[upboCurrentMember].records.push({ nickname:'', uid:'', items:{}, roulette:'', status:'배송중', memo:'' });
+    renderUpboAdminTable();
 }
 
 function addUpboProduct() {
@@ -1866,11 +1902,6 @@ function removeUpboProduct(idx) {
     renderUpboAdminTable();
 }
 
-function addUpboRow() {
-    syncUpboDomToState();
-    upboData[upboCurrentMember].records.push({ nickname:'', uid:'', items:{}, status:'배송중' });
-    renderUpboAdminTable();
-}
 
 async function saveUpboData() {
     syncUpboDomToState();
@@ -1927,19 +1958,32 @@ function searchUpbo() {
         
         if(pKeys.length > 0) {
             pKeys.forEach(p => {
-                if(r.items[p] > 0) {
-                    totalItems += r.items[p];
+                const v = r.items[p];
+                const isNum = typeof v === 'number';
+                const hasValue = isNum ? v > 0 : String(v ?? '').trim() !== '';
+                if(hasValue) {
+                    totalItems++;
+                    const displayVal = isNum ? `${v} 개` : `${v}`;
                     itemsHtml += `
                         <div class="flex justify-between items-center bg-white border-[2px] border-gray-100 p-4 rounded-xl shadow-sm hover:border-[#5D4037] transition">
-                            <span class="font-bold text-gray-700 text-[16px]">${p}</span>
-                            <span class="font-black text-[18px] text-[#5D4037] bg-orange-50 px-3 py-1 rounded-lg border border-orange-200">${r.items[p]} 개</span>
+                            <span class="font-bold text-gray-700 text-[16px] shrink-0">${p}</span>
+                            <span class="font-black text-[16px] text-[#5D4037] bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 whitespace-pre-line text-right leading-snug break-words ml-2">${displayVal}</span>
                         </div>`;
                 }
             });
         }
         
-        if (totalItems === 0) {
+        if (totalItems === 0 && !r.roulette) {
             itemsHtml = `<div class="text-gray-400 font-bold text-center py-6 bg-gray-50 rounded-xl border border-dashed">주문된 상품이 없습니다.</div>`;
+        }
+
+        // 👇 룰렛 출력 부분: span 태그를 div 태그로 바꾸고 whitespace-pre-line 클래스를 줘서 줄바꿈 완벽 적용 👇
+        if(r.roulette) {
+            itemsHtml += `
+                <div class="flex justify-between items-center bg-purple-50 border-[2px] border-purple-200 p-4 rounded-xl shadow-sm">
+                    <span class="font-bold text-purple-700 text-[16px] shrink-0">🎲 룰렛 당첨</span>
+                    <div class="font-black text-[16px] text-purple-800 bg-white px-3 py-1.5 rounded-lg border border-purple-200 text-right leading-snug break-words ml-2 whitespace-pre-line">${r.roulette}</div>
+                </div>`;
         }
 
         const statusColorMap = {
@@ -3627,45 +3671,84 @@ window.handleUpboMappingTypeChange = function(selectEl) {
     }
 };
 
-// 규칙 매칭 핵심 로직: {nickname, uid, content} 형태의 레코드 배열을 받아서 upboData에 반영
+// 규칙 매칭 핵심 로직: 금액(수량) 또는 지정된 단어가 일치하면 텍스트를 스마트하게 추출하여 삽입
 function applyUpboMappingToRecords(records, rules) {
     let addedCount = 0;
 
     records.forEach(rec => {
-        const content = String(rec.content ?? '').trim();
-        if (!content) return;
+        const donationVal = rec.donation; // 이미 쉼표 제거됨
+        const chatContent = rec.chat;
+        const contentLower = chatContent.toLowerCase();
 
-        const contentNoComma = content.replace(/,/g, '').trim(); // 쉼표 제거(수량 비교용)
-        const contentLower = content.toLowerCase();
-
-        // 규칙을 순서대로 확인해서 먼저 매칭되는 규칙 하나만 적용
-        const matchedRule = rules.find(rule => {
+        // 1. find 대신 filter를 사용하여 한 댓글(chatContent)에 여러 규칙(예: 1475, 555)이 모두 매칭될 수 있도록 변경
+        const matchedRules = rules.filter(rule => {
             if (rule.type === 'word') {
-                return contentLower.includes(rule.value.toLowerCase());
+                return chatContent && contentLower.includes(rule.value.toLowerCase());
             }
-            // 기본값: 수량(정확히 일치)
-            return contentNoComma === rule.value.replace(/,/g, '').trim();
+            return donationVal === rule.value.replace(/,/g, '').trim();
         });
 
-        if (matchedRule) {
-            const mappedProduct = matchedRule.product;
+        // 2. 규칙이 하나라도 매칭되었을 때 데이터 삽입
+        if (matchedRules.length > 0) {
             const nickname = String(rec.nickname ?? '').trim() || String(rec.uid ?? '').trim();
             const uid = String(rec.uid ?? '').trim() || nickname;
 
-            // 기존 기록에 유저(uid 기준)가 있는지 확인
             let record = upboData[upboCurrentMember].records.find(r => r.uid === uid);
             if (!record) {
-                // 없으면 새 기록 생성
-                record = { nickname, uid, items: {}, status: '배송중' };
+                record = { nickname, uid, items: {}, status: '배송중', memo: '' };
                 upboData[upboCurrentMember].records.push(record);
             }
 
-            // 해당 상품 1개 누적
-            if (!record.items[mappedProduct]) {
-                record.items[mappedProduct] = 0;
-            }
-            record.items[mappedProduct] += 1;
-            addedCount++;
+            // 매칭된 모든 규칙을 순회하며 추출 및 삽입
+            matchedRules.forEach(matchedRule => {
+                const mappedProduct = matchedRule.product;
+                
+                // 단어(word) 규칙으로 매칭된 경우 스마트 추출 로직 실행
+                if (matchedRule.type === 'word') {
+                    // 예: "1475 - 치파오" 에서 "1475" 뒤에 오는 '-', ':', '=' 기호나 공백을 무시하고, 쉼표나 줄바꿈 전까지의 텍스트(치파오)만 캡처
+                    const safeValue = matchedRule.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(safeValue + '\\s*[-:=]?\\s*([^,\\n]+)', 'i');
+                    const match = chatContent.match(regex);
+                    
+                    let extractedText = match && match[1] ? match[1].trim() : chatContent;
+                    
+                    // 만약 텍스트 추출이 빈 칸이거나 수량만 달랑 있다면, 통째로 넣기
+                    if (!extractedText) extractedText = chatContent;
+
+                    // 해당 상품 열에 이미 숫자가 아닌 텍스트가 있다면 줄바꿈으로 추가, 아니면 덮어쓰기
+                    if (!record.items[mappedProduct] || isNaN(record.items[mappedProduct])) {
+                        if (record.items[mappedProduct] && !String(record.items[mappedProduct]).includes(extractedText)) {
+                            record.items[mappedProduct] += `\n${extractedText}`;
+                        } else {
+                            record.items[mappedProduct] = extractedText;
+                        }
+                    } else {
+                        record.items[mappedProduct] = extractedText;
+                    }
+                    addedCount++;
+                } 
+                // 금액(amount) 규칙으로 매칭되었고 채팅 내용이 있는 경우
+                else if (matchedRule.type === 'amount' && chatContent) {
+                    if (!record.items[mappedProduct] || isNaN(record.items[mappedProduct])) {
+                        if (record.items[mappedProduct] && !String(record.items[mappedProduct]).includes(chatContent)) {
+                            record.items[mappedProduct] += `\n${chatContent}`;
+                        } else {
+                            record.items[mappedProduct] = chatContent;
+                        }
+                    } else {
+                        record.items[mappedProduct] = chatContent;
+                    }
+                    addedCount++;
+                } 
+                // 그 외의 경우 기존처럼 단순 수량 +1
+                else {
+                    if (!record.items[mappedProduct] || isNaN(record.items[mappedProduct])) {
+                        record.items[mappedProduct] = 0;
+                    }
+                    record.items[mappedProduct] += 1;
+                    addedCount++;
+                }
+            });
         }
     });
 
@@ -3716,32 +3799,53 @@ function findUpboColumnIndex(headerRow, candidates) {
     return -1;
 }
 
-// 엑셀 파일(xlsx/xls)의 모든 시트에서 닉네임/아이디/댓글내용 열을 찾아 [{nickname, uid, content}] 로 변환
+// 엑셀 파일(xlsx/xls)의 모든 시트에서 닉네임/아이디/금액/내용 열을 찾아 [{nickname, uid, donation, chat}] 로 변환
 function excelWorkbookToRecords(workbook) {
     const nicknameCandidates = ['닉네임', '별명', '이름', '작성자', '유저명', '회원명', 'nickname', 'name'];
     const uidCandidates = ['아이디', '유저아이디', '회원아이디', 'userid', 'uid', 'id'];
-    const contentCandidates = ['댓글내용', '댓글', '내용', '메시지', '메세지', '텍스트', 'content', 'comment', 'message'];
+    
+    // 후원(금액) 열 후보 추가
+    const donationCandidates = ['후원', '구독', '후원,구독', '금액'];
+    
+    // 🌟 수정된 부분: '룰렛'을 제외하고 오직 채팅 관련 열만 인식하도록 변경
+    const contentCandidates = ['채팅', '댓글내용', '댓글', '내용', '메시지'];
 
     let records = [];
 
     workbook.SheetNames.forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
-        // header:1 -> 행마다 셀 값을 배열로 반환 (첫 행을 헤더로 사용)
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
         if (!rows || rows.length < 2) return;
 
         const headerRow = rows[0];
         const nicknameIdx = findUpboColumnIndex(headerRow, nicknameCandidates);
         const uidIdx = findUpboColumnIndex(headerRow, uidCandidates);
-        const contentIdx = findUpboColumnIndex(headerRow, contentCandidates);
+        const donationIdx = findUpboColumnIndex(headerRow, donationCandidates);
 
-        // 댓글내용 열을 못 찾으면 이 시트는 처리할 수 없으므로 건너뜀
-        if (contentIdx === -1) return;
+        // 채팅 등 '내용'이 들어갈 수 있는 열의 인덱스를 모두 찾음
+        const contentIndices = [];
+        for (let i = 0; i < headerRow.length; i++) {
+            const h = String(headerRow[i] ?? '').toLowerCase().replace(/\s/g, '');
+            if (contentCandidates.some(c => h.includes(c.toLowerCase()))) {
+                contentIndices.push(i);
+            }
+        }
+
+        // 금액이나 내용 열을 하나도 찾지 못하면 해당 시트 패스
+        if (donationIdx === -1 && contentIndices.length === 0) return;
 
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
-            const content = String(row[contentIdx] ?? '').trim();
-            if (!content) continue;
+            
+            // 금액에서 쉼표(,) 제거 후 추출
+            const donation = donationIdx !== -1 ? String(row[donationIdx] ?? '').trim().replace(/,/g, '') : '';
+            
+            // 지정된 열(채팅)에 있는 텍스트만 가져오기 (줄바꿈으로 연결)
+            const contents = contentIndices.map(idx => String(row[idx] ?? '').trim()).filter(val => val !== '');
+            const chat = contents.join('\n');
+
+            // 금액과 내용이 둘 다 비어있으면 저장할 게 없으므로 패스
+            if (!donation && !chat) continue;
 
             const nickname = nicknameIdx !== -1 ? String(row[nicknameIdx] ?? '').trim() : '';
             const uid = uidIdx !== -1 ? String(row[uidIdx] ?? '').trim() : '';
@@ -3749,7 +3853,9 @@ function excelWorkbookToRecords(workbook) {
             records.push({
                 nickname: nickname || uid || `${i}번째 줄`,
                 uid: uid || nickname || `row_${sheetName}_${i}`,
-                content
+                donation: donation,
+                chat: chat,
+                content: chat // 하위 호환성 유지
             });
         }
     });
@@ -3870,6 +3976,136 @@ window.changeStatusSelectedUpboRows = function() {
     
     // 테이블 상태 변수에 동기화
     syncUpboDomToState();
+};
+
+// =========================================================================
+// 룰렛 엑셀 파일 처리 로직
+// =========================================================================
+window.processRouletteFile = function(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]]; // 첫 번째 시트 기준
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+            
+            if (rows.length < 2) {
+                alert("데이터가 없습니다.");
+                return;
+            }
+
+            const headerRow = rows[0];
+            let addedCount = 0;
+            
+            syncUpboDomToState(); // 기존 테이블 상태 저장
+            
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const nameCell = String(row[0] || '').trim();
+                if (!nameCell) continue;
+                
+                let nickname = nameCell;
+                let uid = '';
+                
+                // 이름 셀 안에 줄바꿈(엔터)이 있는 경우: 김철수\n(cjftn12)
+                if (nameCell.includes('\n')) {
+                    const parts = nameCell.split('\n');
+                    nickname = parts[0].trim();
+                    uid = parts[1].replace(/[()]/g, '').trim(); 
+                } 
+                // 괄호로만 구분된 경우: 김철수(cjftn12)
+                else if (nameCell.includes('(') && nameCell.includes(')')) {
+                    const match = nameCell.match(/^(.*?)\((.*?)\)$/);
+                    if (match) {
+                        nickname = match[1].trim();
+                        uid = match[2].trim();
+                    }
+                }
+                if(!uid) uid = nickname;
+                
+                let wonItems = [];
+                // 1번째 열부터 끝까지 확인해서 값이 있으면 [항목 헤더]와 [입력된 셀 값(수량)]을 함께 추출
+                for (let col = 1; col < headerRow.length; col++) {
+                    const val = String(row[col] || '').trim();
+                    if (val && val !== '0') {
+                        wonItems.push({
+                            name: String(headerRow[col] || '').trim(),
+                            val: val
+                        });
+                    }
+                }
+                
+                if (wonItems.length > 0) {
+                    let record = upboData[upboCurrentMember].records.find(r => r.uid === uid || r.nickname === nickname);
+                    if (!record) {
+                        record = { nickname, uid, items: {}, roulette: '', status: '배송중', memo: '' };
+                        upboData[upboCurrentMember].records.push(record);
+                    }
+                    
+                    // 🌟 기존 룰렛 텍스트를 분석하여 항목별 수량(Tally) 계산 🌟
+                    let tally = {};
+                    if (record.roulette) {
+                        // <br> 태그가 혹시 있다면 \n으로 임시 변환 후 분리
+                        const lines = record.roulette.replace(/<br>/g, '\n').split('\n');
+                        lines.forEach(line => {
+                            line = line.trim();
+                            if (!line) return;
+                            // "항목이름*숫자" 또는 "항목이름" 형태를 분리
+                            const match = line.match(/^(.*?)(?:\*(\d+))?$/);
+                            if (match) {
+                                const itemName = match[1].trim();
+                                const count = match[2] ? parseInt(match[2], 10) : 1;
+                                tally[itemName] = (tally[itemName] || 0) + count;
+                            }
+                        });
+                    }
+
+                    // 🌟 새로 엑셀에서 읽어온 값(수량)을 누적 🌟
+                    wonItems.forEach(item => {
+                        const itemName = item.name;
+                        const cellValue = parseInt(item.val, 10);
+                        // 셀에 적힌 값이 정상적인 숫자라면 그 숫자만큼, 문자가 적혀있다면 1개로 취급
+                        const addCount = (!isNaN(cellValue) && cellValue > 0) ? cellValue : 1; 
+                        
+                        tally[itemName] = (tally[itemName] || 0) + addCount;
+                    });
+
+                    // 🌟 수량 정보를 바탕으로 텍스트 다시 조립 (*2, *3 적용) 🌟
+                    let newRouletteArr = [];
+                    for (const [itemName, count] of Object.entries(tally)) {
+                        if (count > 1) {
+                            newRouletteArr.push(`${itemName}*${count}`);
+                        } else {
+                            newRouletteArr.push(itemName);
+                        }
+                    }
+                    
+                    record.roulette = newRouletteArr.join('\n');
+                    addedCount++;
+                }
+            }
+            
+            if (addedCount > 0) {
+                alert(`총 ${addedCount}명의 룰렛 결과가 추가되었습니다.`);
+                renderUpboAdminTable();
+            } else {
+                alert("반영할 룰렛 데이터가 없거나 형식이 맞지 않습니다.");
+            }
+            
+        } catch (err) {
+            console.error(err);
+            alert("파일을 읽는 중 오류가 발생했습니다. (엑셀 파일인지 확인해 주세요)");
+        }
+        
+        // 같은 파일을 다시 업로드할 수 있도록 초기화
+        input.value = '';
+    };
+    
+    reader.readAsArrayBuffer(file);
 };
 
 // 앱 실행
