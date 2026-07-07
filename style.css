@@ -305,3 +305,15 @@ body.embed-mode .big-white-box {
     border-radius: 0 !important;
     box-shadow: none !important;
 }
+
+/* 노래책 카드 그리드 */
+.song-card .song-art { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.song-card:hover .song-art { transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0,0,0,0.12); border-color: #FBC02D; }
+
+/* 노래책 좋아요 버튼 */
+@keyframes likePop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+}
+.fi-sr-heart { animation: likePop 0.25s ease; display: inline-block; }

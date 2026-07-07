@@ -1,5 +1,5 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 // =========================================================================
 // Cloudinary 설정 (Unsigned Upload)
@@ -236,12 +236,25 @@ let upboViewMode = 'search'; // 'search' or 'admin'
 
 const tabToHash = { 
     '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
-    '롤링페이퍼': 'rolling', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi' 
+    '롤링페이퍼': 'rolling', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
+    '노래책': 'daltasong'
 };
 const hashToTab = { 
     '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
-    '#rolling': '롤링페이퍼', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시' 
+    '#rolling': '롤링페이퍼', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시',
+    '#daltasong': '노래책'
 };
+
+// =========================================================================
+// 노래책 (달타탭 전용) 상태
+// =========================================================================
+let songs = [];
+let songArtistFilter = null;
+let songArtistsCache = [];
+let songGenreFilter = null;
+let songGenresCache = [];
+let songLikedOnlyFilter = false;
+let likeInProgress = new Set();
 
 window.addEventListener('resize', () => {
     adjustDesktopScale(); 
@@ -265,7 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -837,7 +850,10 @@ function renderHeaderTabs() {
             } else {
                 const links = dynamicLinks[tab] || [];
                 mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors border-b border-gray-100 text-center">일정표</a>`;
-                dropdownHtml = links.map(link => `
+                const songbookHtml = tab === '달타' 
+                    ? `<a href="#" onclick="executeDesktopTabChange('노래책'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">노래책</a>`
+                    : '';
+                dropdownHtml = songbookHtml + links.map(link => `
                     <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">${link.title}</a>
                 `).join('');
             }
@@ -860,7 +876,7 @@ function renderHeaderTabs() {
     if (mobileNav) {
         let mHtml = '';
         ['홈', ...tabs].forEach(tab => {
-            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기');
+            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '노래책' && tab === '달타');
             const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
             let contentHtml = '';
             
@@ -898,6 +914,9 @@ function openMobileTabMenu(tab) {
         html += `<button onclick="executeMobileTabChange('업보정리_달타')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">업보정리</button>`;
     } else {
         html += `<button onclick="executeMobileTabChange('${tab}')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">일정표 보기</button>`;
+        if (tab === '달타') {
+            html += `<button onclick="executeMobileTabChange('노래책')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">노래책</button>`;
+        }
         const links = dynamicLinks[tab] || [];
         links.forEach(l => {
             html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95 mb-2" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
@@ -1124,6 +1143,16 @@ function toggleMemoPanel() {
     if (sidePanelMode === 'MEMO') closeSidePanel();
     else openSidePanel('MEMO');
 }
+function toggleArtistPanel() {
+    if (sidePanelMode === 'ARTIST') closeSidePanel();
+    else openSidePanel('ARTIST');
+}
+window.toggleArtistPanel = toggleArtistPanel;
+function closeSidePanelUser() {
+    if (sidePanelMode === 'ARTIST') return; // 노래책의 가수 패널은 사용자가 끌 수 없음 (다른 탭으로 이동할 때만 닫힘)
+    closeSidePanel();
+}
+window.closeSidePanelUser = closeSidePanelUser;
 
 function closeSidePanel(instant = false) {
     sidePanelMode = null;
@@ -1155,6 +1184,9 @@ function openSidePanel(mode) {
     
     panel.classList.remove('hidden'); panel.classList.add('flex');
     if(isMobile && mobileOverlay) { mobileOverlay.classList.remove('hidden'); mobileOverlay.classList.add('block'); }
+
+    // 노래책의 가수 패널은 토글 버튼 없이 바로 뜨므로, 흰 박스(메인 컨텐츠) 상단과 위치를 맞춤
+    if (!isMobile) panel.style.top = (mode === 'ARTIST') ? '-10px' : '';
     
     if (mode === 'MEMO') {
         const memos = memoList[currentPage] || [];
@@ -1183,6 +1215,8 @@ function openSidePanel(mode) {
         `;
     } else if (mode === 'UP') {
         renderUpLinksPanel();
+    } else if (mode === 'ARTIST') {
+        renderArtistSidePanel();
     }
 
     requestAnimationFrame(() => {
@@ -1430,7 +1464,13 @@ function changeTab(tabName) {
         if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
     }
     
-    if (!isMobile) {
+    if (currentPage === '노래책') {
+        if (!isMobile) {
+            sidePanelMode = 'ARTIST'; openSidePanel('ARTIST');
+        } else {
+            sidePanelMode = null; closeSidePanel(true);
+        }
+    } else if (!isMobile) {
         if(currentPage === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
         else { closeSidePanel(true); }
     } else {
@@ -1581,11 +1621,11 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '노래책': '#FFFDE7' };
     document.body.style.backgroundColor = tabBackgrounds[currentPage] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', themeColors[currentPage === '업보정리' ? upboCurrentMember : currentPage] || '#8B5CF6');
     document.body.className = document.body.className.replace(/theme-\S+/g, '');
-    document.body.classList.add('theme-' + (currentPage === '업보정리' ? 'rolling' : currentPage));
+    document.body.classList.add('theme-' + (currentPage === '업보정리' ? 'rolling' : currentPage === '노래책' ? 'dalta' : currentPage));
     
     const mBtnContainer = document.getElementById('mobileHeaderRightBtn');
     const dBtnContainer = document.getElementById('dynamicSideBtn');
@@ -1601,12 +1641,14 @@ function render() {
         if (currentPage === '홈') mBtnContainer.innerHTML = mobileUpBtnHtml;
         else if (currentPage === '롤링페이퍼') mBtnContainer.innerHTML = mobileRollingBtnHtml; 
         else if (currentPage === '업보정리') mBtnContainer.innerHTML = ''; // 업보정리 탭에서는 버튼 숨김
+        else if (currentPage === '노래책') mBtnContainer.innerHTML = ''; // 노래책 탭에서는 버튼 없이 가수 패널만 표시
         else mBtnContainer.innerHTML = mobileMemoBtnHtml;
     }
     if (dBtnContainer) {
         if (currentPage === '홈') dBtnContainer.innerHTML = desktopUpBtnHtml;
         else if (currentPage === '롤링페이퍼') dBtnContainer.innerHTML = desktopRollingBtnHtml; 
         else if (currentPage === '업보정리') dBtnContainer.innerHTML = ''; // 업보정리 탭에서는 버튼 숨김
+        else if (currentPage === '노래책') dBtnContainer.innerHTML = ''; // 노래책 탭에서는 버튼 없이 가수 패널만 표시
         else dBtnContainer.innerHTML = desktopMemoBtnHtml;
     }
     
@@ -1626,6 +1668,8 @@ function render() {
         renderRollingPaper();
     } else if (currentPage === '업보정리') {
         renderUpboPage();
+    } else if (currentPage === '노래책') {
+        renderSongbook();
     } else {
         if (isMobile) {
             if (currentPage === '홈') renderMobileHome(grouped);
@@ -1638,8 +1682,460 @@ function render() {
 }
 
 // =========================================================================
-// 업보정리 (토글 함수)
+// 노래책 (달타탭 전용)
 // =========================================================================
+function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 좋아요 누른 노래 id 목록은 브라우저(기기)별로 로컬에 저장 (뷰어도 누구나 좋아요 가능)
+function getLikedSongIds() {
+    try {
+        return new Set(JSON.parse(localStorage.getItem('likedSongIds') || '[]'));
+    } catch (e) {
+        return new Set();
+    }
+}
+
+function saveLikedSongIds(set) {
+    localStorage.setItem('likedSongIds', JSON.stringify(Array.from(set)));
+}
+
+function isSongLiked(id) {
+    return getLikedSongIds().has(id);
+}
+
+function getFilteredSongs() {
+    let list = songs.slice();
+    if (songArtistFilter) list = list.filter(s => s.artist === songArtistFilter);
+    if (songGenreFilter) list = list.filter(s => (s.genre || '미분류') === songGenreFilter);
+    if (songLikedOnlyFilter) {
+        const liked = getLikedSongIds();
+        list = list.filter(s => liked.has(s.id));
+    }
+    const q = (document.getElementById('songSearchInput')?.value || '').trim().toLowerCase();
+    if (q) list = list.filter(s => (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q));
+    return list.sort((a, b) => {
+        const diff = (b.likes || 0) - (a.likes || 0);
+        if (diff !== 0) return diff;
+        return (a.title || '').localeCompare(b.title || '', 'ko');
+    });
+}
+
+function getArtistCounts() {
+    const map = {};
+    songs.forEach(s => {
+        const a = s.artist || '미분류';
+        map[a] = (map[a] || 0) + 1;
+    });
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0], 'ko'));
+}
+
+function getGenreCounts() {
+    const map = {};
+    songs.forEach(s => {
+        const g = s.genre || '미분류';
+        map[g] = (map[g] || 0) + 1;
+    });
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0], 'ko'));
+}
+
+function renderSongbook() {
+    const content = document.getElementById('mainContent');
+    if (!content) return;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+
+    let html = `<div class="big-white-box relative theme-dalta" style="min-height:900px; padding:${isMobile ? '20px' : '40px'}; width:100%; box-sizing:border-box; align-items:stretch; display:block;">
+        <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+            <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" style="display:inline-block;">
+                    <path d="M9 18.5V5.5L21 3.5V16.5" stroke="#5D4037" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="6" cy="18.5" r="3" fill="#FBC02D" stroke="#5D4037" stroke-width="1.8"/>
+                    <circle cx="18" cy="16.5" r="3" fill="#FBC02D" stroke="#5D4037" stroke-width="1.8"/>
+                </svg>
+                노래책
+            </h2>
+            ${isAdmin ? `<button onclick="openSongAddModal()" class="px-5 py-2.5 bg-[#FBC02D] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-105 hover:-translate-y-0.5 transition font-paperozi text-[15px] flex items-center gap-2 cursor-pointer"><i class="fi fi-br-plus"></i> 노래 추가</button>` : ''}
+        </div>
+        <div class="w-full mb-4 relative">
+            <i class="fi fi-rr-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input type="text" id="songSearchInput" oninput="filterSongList()" placeholder="노래 제목 또는 가수 검색" class="w-full pl-11 pr-4 py-3 border-2 border-[#5D4037] rounded-xl outline-none text-[15px] font-bold focus:border-[#FBC02D] transition">
+        </div>
+        <div class="w-full flex flex-wrap gap-2 mb-6" id="genreFilterContainer"></div>
+        <div class="w-full grid gap-x-4 gap-y-7" style="grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));" id="songListContainer"></div>
+    </div>`;
+
+    content.innerHTML = html;
+    renderSongList();
+    renderGenreFilters();
+    renderArtistSidePanel();
+}
+
+function renderSongList() {
+    const container = document.getElementById('songListContainer');
+    if (!container) return;
+    const list = getFilteredSongs();
+    let html = '';
+
+    if (songArtistFilter) {
+        html += `
+            <div class="col-span-full flex items-center gap-2 mb-1 bg-[#FFF9C4] border-2 border-[#FBC02D] rounded-lg px-3 py-2">
+                <span class="font-bold text-[#5D4037] text-[14px]">🎤 ${escapeHtml(songArtistFilter)}</span>
+                <button onclick="clearArtistFilter()" class="ml-auto text-[12px] font-bold text-gray-500 hover:text-red-500 transition cursor-pointer">전체보기 ✕</button>
+            </div>
+        `;
+    }
+
+    if (list.length === 0) {
+        html += `<div class="col-span-full text-center text-gray-400 font-bold py-16">등록된 노래가 없습니다.</div>`;
+    } else {
+        const liked = getLikedSongIds();
+        list.forEach(song => {
+            const artHtml = song.albumArt
+                ? `<img src="${escapeHtml(song.albumArt)}" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-full flex items-center justify-center text-4xl',innerHTML:'🎵'}));">`
+                : `<div class="w-full h-full bg-[#FFF9C4] flex items-center justify-center text-4xl">🎵</div>`;
+            const isLiked = liked.has(song.id);
+            const likeCount = song.likes || 0;
+            // 장르가 콤마/슬래시/가운뎃점 등으로 여러개 적혀 있으면 태그를 나눠서 표시
+            const genreTags = song.genre
+                ? song.genre.split(/[,\/·]/).map(g => g.trim()).filter(Boolean)
+                : [];
+
+            html += `
+                <div class="song-card group relative flex flex-col cursor-pointer" onclick="copySongToClipboard('${song.id}', event)" title="클릭하면 가수 - 노래 제목이 복사됩니다">
+                    <div class="song-art relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-gray-200 bg-gray-50 shrink-0">
+                        ${artHtml}
+                        <button onclick="event.stopPropagation(); toggleLikeSong('${song.id}')" class="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur grid place-items-center shadow-md transition cursor-pointer ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}">
+                            <i class="fi ${isLiked ? 'fi-sr-heart' : 'fi-rr-heart'} text-[15px] leading-none flex items-center justify-center"></i>
+                        </button>
+                        ${isAdmin ? `<button onclick="event.stopPropagation(); deleteSong('${song.id}')" class="absolute top-2 left-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-md text-gray-400 hover:text-red-500 transition opacity-0 group-hover:opacity-100 cursor-pointer text-[13px]"><i class="fi fi-br-cross-small"></i></button>` : ''}
+                    </div>
+                    <div class="mt-2.5 px-0.5">
+                        <div class="font-bold text-[#5D4037] text-[15px] truncate leading-snug">${escapeHtml(song.title)}</div>
+                        <div class="text-gray-500 text-[13px] font-bold truncate mt-0.5">${escapeHtml(song.artist)}</div>
+                        ${genreTags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${genreTags.map(g => `<span class="text-[10.5px] font-bold text-[#B8860B] bg-[#FFF9C4] px-2 py-0.5 rounded-full">${escapeHtml(g)}</span>`).join('')}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+    }
+    container.innerHTML = html;
+}
+
+// 장르 필터 칩 (검색창 아래)
+function renderGenreFilters() {
+    const container = document.getElementById('genreFilterContainer');
+    if (!container) return;
+    const genres = getGenreCounts();
+    songGenresCache = genres.map(g => g[0]);
+
+    const likedCount = getLikedSongIds().size;
+
+    let html = `<button onclick="clearGenreFilter()" class="px-4 py-2 rounded-full font-bold text-[13px] transition cursor-pointer border-2 ${!songGenreFilter ? 'bg-[#5D4037] text-white border-[#5D4037]' : 'bg-white text-[#5D4037] hover:bg-gray-50 border-gray-200'}">전체</button>`;
+    genres.forEach(([genre, count], idx) => {
+        const active = songGenreFilter === genre;
+        html += `<button onclick="selectGenreFilterIdx(${idx})" class="px-4 py-2 rounded-full font-bold text-[13px] transition cursor-pointer border-2 ${active ? 'bg-[#FBC02D] text-white border-[#FBC02D]' : 'bg-white text-[#5D4037] hover:bg-gray-50 border-gray-200'}">${escapeHtml(genre)} (${count})</button>`;
+    });
+    html += `<button onclick="toggleLikedOnlyFilter()" class="px-4 py-2 rounded-full font-bold text-[13px] transition cursor-pointer border-2 flex items-center gap-1 ${songLikedOnlyFilter ? 'bg-red-500 text-white border-red-500' : 'bg-white text-[#5D4037] hover:bg-gray-50 border-gray-200'}"><i class="fi ${songLikedOnlyFilter ? 'fi-sr-heart' : 'fi-rr-heart'}"></i>(${likedCount})</button>`;
+    container.innerHTML = html;
+}
+
+window.selectGenreFilterIdx = function(idx) {
+    const genre = songGenresCache[idx];
+    if (genre === undefined) return;
+    songGenreFilter = (songGenreFilter === genre) ? null : genre;
+    renderSongList();
+    renderGenreFilters();
+};
+
+window.clearGenreFilter = function() {
+    songGenreFilter = null;
+    renderSongList();
+    renderGenreFilters();
+};
+
+window.toggleLikedOnlyFilter = function() {
+    songLikedOnlyFilter = !songLikedOnlyFilter;
+    renderSongList();
+    renderGenreFilters();
+};
+
+// 좋아요 토글: 누구나(뷰어 포함) 누를 수 있음. 좋아요 여부는 이 브라우저 기기 기준으로 기억됨.
+window.toggleLikeSong = async function(id) {
+    if (likeInProgress.has(id)) return;
+    likeInProgress.add(id);
+
+    const song = songs.find(s => s.id === id);
+    if (!song) { likeInProgress.delete(id); return; }
+
+    const liked = getLikedSongIds();
+    const alreadyLiked = liked.has(id);
+    const delta = alreadyLiked ? -1 : 1;
+
+    // 낙관적 업데이트 (즉시 화면 반영)
+    song.likes = Math.max(0, (song.likes || 0) + delta);
+    if (alreadyLiked) liked.delete(id); else liked.add(id);
+    saveLikedSongIds(liked);
+    renderSongList();
+    renderGenreFilters();
+
+    try {
+        await updateDoc(doc(db, 'songs', id), { likes: increment(delta) });
+    } catch (e) {
+        console.error('좋아요 처리 실패:', e);
+        // 실패 시 롤백
+        song.likes = Math.max(0, (song.likes || 0) - delta);
+        if (alreadyLiked) liked.add(id); else liked.delete(id);
+        saveLikedSongIds(liked);
+        renderSongList();
+        renderGenreFilters();
+    } finally {
+        likeInProgress.delete(id);
+    }
+};
+
+// 가수 목록: 메모보드와 동일한 사이드 패널 자리에 표시 (사용자가 끌 수 없음)
+function renderArtistSidePanel() {
+    const panel = document.getElementById('sideExpansionPanel');
+    if (!panel || sidePanelMode !== 'ARTIST') return;
+
+    const artists = getArtistCounts();
+    songArtistsCache = artists.map(a => a[0]);
+
+    let listHtml = `<button onclick="clearArtistFilter()" class="w-full text-left px-4 py-3 rounded-xl font-bold text-[15px] transition cursor-pointer border-2 mb-2 ${!songArtistFilter ? 'bg-[#5D4037] text-white border-[#5D4037]' : 'bg-white text-[#5D4037] hover:bg-gray-50 border-gray-200'}">전체 (${songs.length})</button>`;
+    artists.forEach(([artist, count], idx) => {
+        const active = songArtistFilter === artist;
+        listHtml += `
+            <button onclick="selectArtistFilterIdx(${idx})" class="w-full text-left px-4 py-3 rounded-xl font-bold text-[15px] transition cursor-pointer border-2 flex justify-between items-center gap-2 mb-2 ${active ? 'bg-[#FBC02D] text-white border-[#FBC02D]' : 'bg-white text-[#5D4037] hover:bg-gray-50 border-gray-200'}">
+                <span class="truncate">${escapeHtml(artist)}</span><span class="text-[13px] opacity-80 shrink-0">${count}</span>
+            </button>
+        `;
+    });
+    if (artists.length === 0) listHtml += `<div class="text-center text-gray-400 font-bold py-16 text-[14px]">등록된 가수가 없습니다.</div>`;
+
+    panel.innerHTML = `
+        <div class="p-6 border-b-[4px] border-[#5D4037] bg-white flex items-center shadow-sm z-10 shrink-0">
+            <div class="text-[22px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
+                <i class="fi fi-rr-microphone"></i> 가수 목록
+            </div>
+        </div>
+        <div class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll w-full">
+            ${listHtml}
+        </div>
+    `;
+}
+
+window.filterSongList = function() { renderSongList(); };
+
+window.selectArtistFilterIdx = function(idx) {
+    const artist = songArtistsCache[idx];
+    if (artist === undefined) return;
+    songArtistFilter = (songArtistFilter === artist) ? null : artist;
+    renderSongList();
+    renderArtistSidePanel();
+};
+
+window.clearArtistFilter = function() {
+    songArtistFilter = null;
+    renderSongList();
+    renderArtistSidePanel();
+};
+
+function populateSongGenreDatalist() {
+    const list = document.getElementById('songGenreDatalist');
+    if (!list) return;
+    const genres = Array.from(new Set(songs.map(s => (s.genre || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
+    list.innerHTML = genres.map(g => `<option value="${escapeHtml(g)}"></option>`).join('');
+}
+
+let songAlbumArtManuallyEdited = false;
+let songAlbumArtFetchToken = 0;
+
+window.openSongAddModal = function() {
+    if (!isAdmin) return;
+    document.getElementById('songTitleInput').value = '';
+    document.getElementById('songArtistInput').value = '';
+    document.getElementById('songGenreInput').value = '';
+    document.getElementById('songAlbumArtInput').value = '';
+    songAlbumArtManuallyEdited = false;
+    setSongAlbumArtStatus('');
+    window.previewSongAlbumArt('');
+    populateSongGenreDatalist();
+    document.getElementById('songAddModal').classList.replace('hidden', 'flex');
+};
+
+window.closeSongAddModal = function() {
+    document.getElementById('songAddModal').classList.replace('flex', 'hidden');
+};
+
+window.previewSongAlbumArt = function(url) {
+    // Manual edits to the URL field should stop future auto-search results from overwriting it.
+    songAlbumArtManuallyEdited = true;
+    const wrap = document.getElementById('songAlbumArtPreview');
+    const img = document.getElementById('songAlbumArtPreviewImg');
+    if (!wrap || !img) return;
+    const trimmed = (url || '').trim();
+    if (trimmed) { img.src = trimmed; wrap.classList.remove('hidden'); }
+    else { wrap.classList.add('hidden'); img.src = ''; }
+};
+
+function setSongAlbumArtStatus(text, isError) {
+    const el = document.getElementById('songAlbumArtStatus');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = `text-[12px] font-bold mt-1 h-4 ${isError ? 'text-red-400' : 'text-gray-400'}`;
+}
+
+// Looks up album art via the iTunes Search API (no key required) based on title + artist.
+async function fetchAlbumArtFromItunes(title, artist) {
+    const term = encodeURIComponent(`${artist} ${title}`.trim());
+    if (!term) return null;
+    const tryFetch = async (url) => {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return (data.results && data.results[0]) || null;
+    };
+    // Prefer Korean store results first (better hit rate for K-pop/local artists), then fall back to the default store.
+    let result = await tryFetch(`https://itunes.apple.com/search?term=${term}&media=music&entity=song&limit=1&country=KR`);
+    if (!result) {
+        result = await tryFetch(`https://itunes.apple.com/search?term=${term}&media=music&entity=song&limit=1`);
+    }
+    if (!result || !result.artworkUrl100) return null;
+    // The API returns a small 100x100 thumbnail URL; bump it up to a higher resolution.
+    return result.artworkUrl100.replace('100x100bb', '600x600bb');
+}
+
+window.autoFetchAlbumArt = async function() {
+    const title = document.getElementById('songTitleInput').value.trim();
+    const artist = document.getElementById('songArtistInput').value.trim();
+    if (!title && !artist) return;
+    const currentUrl = document.getElementById('songAlbumArtInput').value.trim();
+    if (currentUrl && songAlbumArtManuallyEdited) return; // respect a URL the user typed in themselves
+
+    const myToken = ++songAlbumArtFetchToken;
+    setSongAlbumArtStatus('앨범아트 검색 중...');
+    const btn = document.getElementById('songAlbumArtAutoBtn');
+    if (btn) btn.disabled = true;
+
+    try {
+        const artUrl = await fetchAlbumArtFromItunes(title, artist);
+        if (myToken !== songAlbumArtFetchToken) return; // a newer search superseded this one
+        if (artUrl) {
+            document.getElementById('songAlbumArtInput').value = artUrl;
+            window.previewSongAlbumArt(artUrl);
+            songAlbumArtManuallyEdited = false; // this value came from auto-search, not manual typing
+            setSongAlbumArtStatus('앨범아트를 찾았습니다 ✓');
+        } else {
+            setSongAlbumArtStatus('일치하는 앨범아트를 찾지 못했습니다. 직접 입력해주세요.', true);
+        }
+    } catch (e) {
+        console.error('앨범아트 자동 검색 실패:', e);
+        if (myToken === songAlbumArtFetchToken) {
+            setSongAlbumArtStatus('검색에 실패했습니다. 직접 입력해주세요.', true);
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+};
+
+window.saveSong = async function() {
+    if (!isAdmin) return;
+    const title = document.getElementById('songTitleInput').value.trim();
+    const artist = document.getElementById('songArtistInput').value.trim();
+    const genre = document.getElementById('songGenreInput').value.trim();
+    let albumArt = document.getElementById('songAlbumArtInput').value.trim();
+    if (!title || !artist) { alert('노래 제목과 가수를 입력해주세요.'); return; }
+
+    // Safety net: if no album art was found/entered yet, try one last automatic lookup before saving.
+    if (!albumArt) {
+        try {
+            const found = await fetchAlbumArtFromItunes(title, artist);
+            if (found) albumArt = found;
+        } catch (e) {
+            console.error('저장 전 앨범아트 검색 실패:', e);
+        }
+    }
+
+    try {
+        const newSong = { title, artist, genre, albumArt, likes: 0, timestamp: Date.now() };
+        const docRef = await addDoc(collection(db, 'songs'), newSong);
+        songs.push({ id: docRef.id, ...newSong });
+        closeSongAddModal();
+        renderSongList();
+        renderGenreFilters();
+        renderArtistSidePanel();
+        populateSongGenreDatalist();
+    } catch (e) {
+        console.error('노래 저장 실패:', e);
+        alert('저장에 실패했습니다.');
+    }
+};
+
+// 화면 하단에 잠깐 표시되는 공용 토스트 알림
+function showToast(msg) {
+    let toast = document.getElementById('globalToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'globalToast';
+        toast.className = 'fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#5D4037] text-white font-bold text-[14px] px-5 py-3 rounded-full shadow-lg z-[9999] transition-opacity duration-300 opacity-0 pointer-events-none';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.remove('opacity-0');
+    toast.classList.add('opacity-100');
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+    }, 1800);
+}
+
+// 노래 카드를 클릭하면 "가수 - 제목"을 클립보드에 복사
+window.copySongToClipboard = function(id, event) {
+    if (event) event.stopPropagation();
+    const song = songs.find(s => s.id === id);
+    if (!song) return;
+    const text = `${song.artist} - ${song.title}`;
+    const onCopied = () => showToast(`복사되었습니다: ${text}`);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(onCopied).catch(() => {
+            prompt('아래 텍스트를 복사하세요:', text);
+        });
+    } else {
+        prompt('아래 텍스트를 복사하세요:', text);
+    }
+};
+
+window.deleteSong = async function(id) {
+    if (!isAdmin) return;
+    if (!confirm('이 노래를 삭제하시겠습니까?')) return;
+    try {
+        await deleteDoc(doc(db, 'songs', id));
+        songs = songs.filter(s => s.id !== id);
+        const liked = getLikedSongIds();
+        if (liked.has(id)) { liked.delete(id); saveLikedSongIds(liked); }
+        if (songArtistFilter && !songs.some(s => s.artist === songArtistFilter)) songArtistFilter = null;
+        if (songGenreFilter && !songs.some(s => (s.genre || '미분류') === songGenreFilter)) songGenreFilter = null;
+        if (songLikedOnlyFilter && getFilteredSongs().length === 0) songLikedOnlyFilter = false;
+        renderSongList();
+        renderGenreFilters();
+        renderArtistSidePanel();
+    } catch (e) {
+        console.error('노래 삭제 실패:', e);
+    }
+};
+
+async function loadSongsFromFirebase() {
+    try {
+        const snap = await getDocs(collection(db, 'songs'));
+        songs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+        console.error('노래 목록 로드 실패:', e);
+    }
+}
+
+
 function toggleUpboViewMode(mode) {
     if (!isAdmin) return;
     upboViewMode = mode;
@@ -3135,6 +3631,7 @@ async function initApp() {
     await loadLinksFromFirebase();
     await loadPopupImagesFromFirebase();
     await loadSchedulesFromFirebase(); // 여기서 업보데이터도 함께 호출됩니다.
+    await loadSongsFromFirebase();
     
     if (!isMobile) {
         openSidePanel('UP'); 
