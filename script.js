@@ -748,17 +748,24 @@ function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
 
+    // 1. 텍스트 콘텐츠(UP링크, 진행중인 롤링페이퍼)가 존재하는지 먼저 체크
+    const hasTextContent = (upLinksList.length > 0 || rollingTopics.filter(t => t.date >= today).length > 0);
+
     let popupImgHtml = '';
     const activeImg = popupImagesList.find(img => (!img.startDate || img.startDate <= today) && (!img.deadline || img.deadline >= today));
     const hasImg = !!(activeImg && activeImg.url);
-    const leftWidthClass = hasImg ? 'md:w-1/2' : 'w-full';
+    
+    // 이미지가 있고 텍스트 내용도 있을 때만 반반(md:w-1/2) 레이아웃 적용, 이미지만 있다면 전체 폭(w-full) 적용
+    const leftWidthClass = (hasImg && hasTextContent) ? 'md:w-1/2' : 'w-full';
 
     const box = document.getElementById('upPopupBox');
     if (box) {
-        if (hasImg) {
+        // 이미지와 텍스트 내용이 '둘 다 동시에' 있을 때만 넓은 팝업(1000px) 제공
+        if (hasImg && hasTextContent) {
             box.classList.remove('max-w-[560px]');
             box.classList.add('max-w-[1000px]');
         } else {
+            // 이미지만 있거나 텍스트만 있을 때는 좁은 팝업(560px)으로 압축
             box.classList.remove('max-w-[1000px]');
             box.classList.add('max-w-[560px]');
         }
@@ -766,8 +773,8 @@ function showUpPopup(today) {
 
     if (activeImg && activeImg.url) {
         popupImgHtml = `
-            <div class="w-full md:w-1/2 shrink-0">
-                <img src="${activeImg.url}" alt="공지 이미지" class="w-full h-auto max-h-[40vh] md:max-h-[65vh] object-cover rounded-2xl">
+            <div class="${leftWidthClass} shrink-0 flex items-center justify-center">
+                <img src="${activeImg.url}" alt="공지 이미지" class="w-full h-auto max-h-[55vh] md:max-h-[65vh] object-contain rounded-2xl">
             </div>
         `;
     }
@@ -785,6 +792,17 @@ function showUpPopup(today) {
         `;
     }).join('');
 
+    const upSectionHtml = upLinksList.length > 0 ? `
+        <div class="flex flex-col w-full">
+            <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
+                <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+            </div>
+            <div class="flex flex-col">
+                ${upHtml}
+            </div>
+        </div>
+    ` : '';
+
     const activeTopics = rollingTopics.filter(t => t.date >= today);
     let rollingHtml = activeTopics.map(topic => {
         return `
@@ -798,46 +816,35 @@ function showUpPopup(today) {
         `;
     }).join('');
 
-    if(!upHtml) upHtml = `<div class="text-center text-gray-400 font-bold mt-10 text-[15px]">등록된 UP 링크가 없습니다.</div>`;
-
     const rollingSectionHtml = activeTopics.length > 0 ? `
-                    <div class="flex flex-col w-full">
-                        <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
-                            <i class="fi fi-rr-envelope"></i> 롤링페이퍼
-                        </div>
-                        <div class="flex flex-col">
-                            ${rollingHtml}
-                        </div>
-                    </div>
+        <div class="flex flex-col w-full">
+            <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
+                <i class="fi fi-rr-envelope"></i> 롤링페이퍼
+            </div>
+            <div class="flex flex-col">
+                ${rollingHtml}
+            </div>
+        </div>
     ` : '';
 
-    const noticeLinks = dynamicLinks['공지'] || [];
-    let noticeHtml = '';
-    if (noticeLinks.length > 0) {
-        noticeHtml = `<div class="w-full flex justify-end mt-4 pt-4 border-t-2 border-dashed border-gray-300 shrink-0">`;
-        noticeLinks.forEach(link => {
-            noticeHtml += `<button onclick="openSmartLink('${link.url}')" class="border-[2.5px] border-red-500 text-red-500 bg-white font-bold px-5 py-2.5 rounded-xl hover:bg-red-50 hover:-translate-y-0.5 transition-all ml-2 font-paperozi shadow-sm flex items-center gap-2"><i class="fi fi-rr-bullhorn"></i> ${link.title}</button>`;
-        });
-        noticeHtml += `</div>`;
+    // 2. 텍스트 내용이 있을 때만 우측 글 영역 레이아웃 코드를 생성 (없으면 빈 문자열 처리)
+    let rightColumnHtml = '';
+    if (hasTextContent) {
+        rightColumnHtml = `
+            <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full md:w-1/2 pr-2 modal-scroll">
+                <div class="flex flex-col gap-6 w-full">
+                    ${upSectionHtml}
+                    ${rollingSectionHtml}
+                </div>
+            </div>
+        `;
     }
 
+    // 3. 최종 결합 렌더링
     list.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 w-full">
             ${popupImgHtml}
-            <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full ${leftWidthClass} pr-2 modal-scroll">
-                <div class="flex flex-col gap-6 w-full">
-                    <div class="flex flex-col w-full">
-                        <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
-                            <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
-                        </div>
-                        <div class="flex flex-col">
-                            ${upHtml}
-                        </div>
-                    </div>
-                    ${rollingSectionHtml}
-                </div>
-                ${noticeHtml}
-            </div>
+            ${rightColumnHtml}
         </div>
     `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
