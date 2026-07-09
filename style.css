@@ -308,7 +308,20 @@ body.embed-mode .big-white-box {
 
 /* 노래책 카드 그리드 */
 .song-card .song-art { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.song-card:hover .song-art { transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0,0,0,0.12); border-color: #FBC02D; }
+.song-card:hover .song-art { transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0,0,0,0.12); border-color: var(--songbook-accent, #FBC02D); }
+
+/* 노래 추가 팝업 - 커스텀 장르 드롭다운 */
+.song-genre-dropdown {
+    animation: fadeIn 0.12s ease-out forwards;
+    padding: 6px;
+}
+.song-genre-option { border-radius: 8px; }
+.song-genre-option + .song-genre-option { margin-top: 2px; }
+.song-genre-option:hover,
+.song-genre-option:focus {
+    background: var(--song-modal-soft, #FFF9C4);
+    color: var(--song-modal-accent, #5D4037);
+}
 
 /* 노래책 좋아요 버튼 */
 @keyframes likePop {

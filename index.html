@@ -438,7 +438,7 @@
             </div>
         </div>
     </div>
-    <div id="songAddModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+    <div id="songAddModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]" style="--song-modal-accent:#FBC02D; --song-modal-soft:#FFF9C4;">
         <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[420px] shadow-xl border-4 border-[#5D4037] flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">노래 추가</h2>
@@ -447,25 +447,30 @@
             <div class="overflow-y-auto pr-1 modal-scroll flex-1 flex flex-col gap-3">
                 <div>
                     <label class="block text-[13px] font-bold text-gray-500 mb-1">노래 제목</label>
-                    <input type="text" id="songTitleInput" placeholder="노래 제목을 입력하세요" onblur="autoFetchAlbumArt()" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FBC02D] font-bold">
+                    <input type="text" id="songTitleInput" placeholder="노래 제목을 입력하세요" onblur="autoFetchAlbumArt()" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold">
                 </div>
                 <div>
                     <label class="block text-[13px] font-bold text-gray-500 mb-1">가수</label>
-                    <input type="text" id="songArtistInput" placeholder="가수명을 입력하세요" onblur="autoFetchAlbumArt()" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FBC02D] font-bold">
+                    <input type="text" id="songArtistInput" placeholder="가수명을 입력하세요" onblur="autoFetchAlbumArt()" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold">
                 </div>
-                <div>
+                <div class="relative">
                     <label class="block text-[13px] font-bold text-gray-500 mb-1">장르</label>
-                    <input type="text" id="songGenreInput" list="songGenreDatalist" placeholder="선택 또는 직접 입력 (예: 발라드, 댄스)" autocomplete="off" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FBC02D] font-bold">
-                    <datalist id="songGenreDatalist"></datalist>
+                    <div class="relative">
+                        <input type="text" id="songGenreInput" placeholder="선택 또는 직접 입력 (예: 발라드, 댄스)" autocomplete="off" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 pr-10 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold bg-white">
+                        <button type="button" id="songGenreDropdownToggle" tabindex="-1" class="absolute right-0 top-0 h-full w-10 flex items-center justify-center text-[#5D4037] cursor-pointer">
+                            <i class="fi fi-rr-angle-small-down text-[16px] pointer-events-none transition-transform duration-150"></i>
+                        </button>
+                        <div id="songGenreDropdownList" class="song-genre-dropdown hidden absolute left-0 right-0 top-[calc(100%+6px)] bg-white border-2 border-[#5D4037] rounded-xl shadow-lg max-h-[190px] overflow-y-auto modal-scroll z-50"></div>
+                    </div>
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-1">
                         <label class="block text-[13px] font-bold text-gray-500">앨범아트 (이미지 링크)</label>
-                        <button type="button" onclick="autoFetchAlbumArt()" id="songAlbumArtAutoBtn" class="text-[12px] font-bold text-[#5D4037] bg-[#FFF9C4] border-2 border-[#FBC02D] px-2.5 py-1 rounded-full hover:brightness-105 transition cursor-pointer flex items-center gap-1">
+                        <button type="button" onclick="autoFetchAlbumArt()" id="songAlbumArtAutoBtn" class="text-[12px] font-bold text-[#5D4037] bg-[var(--song-modal-soft)] border-2 border-[var(--song-modal-accent)] px-2.5 py-1 rounded-full hover:brightness-105 transition cursor-pointer flex items-center gap-1">
                             <i class="fi fi-rr-search text-[10px]"></i> 자동 검색
                         </button>
                     </div>
-                    <input type="text" id="songAlbumArtInput" placeholder="자동으로 검색되며, 직접 입력도 가능합니다" oninput="previewSongAlbumArt(this.value)" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FBC02D] font-bold">
+                    <input type="text" id="songAlbumArtInput" placeholder="자동으로 검색되며, 직접 입력도 가능합니다" oninput="previewSongAlbumArt(this.value)" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold">
                     <div id="songAlbumArtStatus" class="text-[12px] font-bold text-gray-400 mt-1 h-4"></div>
                 </div>
                 <div id="songAlbumArtPreview" class="hidden">
@@ -474,7 +479,7 @@
             </div>
             <div class="flex gap-2 mt-4 shrink-0">
                 <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold text-[16px] hover:bg-gray-300 transition cursor-pointer" onclick="closeSongAddModal()">취소</button>
-                <button class="flex-1 bg-[#FBC02D] text-white py-3 rounded-xl font-bold text-[16px] hover:brightness-105 transition cursor-pointer" onclick="saveSong()">저장</button>
+                <button class="flex-1 bg-[var(--song-modal-accent)] text-white py-3 rounded-xl font-bold text-[16px] hover:brightness-105 transition cursor-pointer" onclick="saveSong()">저장</button>
             </div>
         </div>
     </div>
