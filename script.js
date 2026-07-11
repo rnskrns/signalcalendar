@@ -354,25 +354,6 @@ function openSmartLink(url) {
     if (isMobileDevice) { window.location.href = url; } else { window.open(url, '_blank'); }
 }
 
-async function seedAdmins() {
-    try {
-        const snap = await getDocs(collection(db, 'admins'));
-        if (snap.empty) {
-            const defaultAdmins = [
-                { id: 'dalta', pw: '08201007', email: 'dalta0127@naver.com', name: '달타', img: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg' },
-                { id: 'darung', pw: '11281106', email: 'daarung22@naver.com', name: '다룽', img: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg' },
-                { id: 'choiagain', pw: '10300628', email: 'choiagain333@naver.com', name: '최또', img: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg' },
-                { id: 'kanashu', pw: '01230607', email: 'jhh0029@naver.com', name: '카나시', img: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg' },
-                { id: 'admin1', pw: 'admin123!', email: 'rnskrns@naver.com', name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' },
-                { id: 'admin2', pw: 'admin123!', email: 'jkolpc@naver.com', name: '관리자', img: 'https://i.postimg.cc/cHc39MV6/11.jpg' }
-            ];
-            for (const admin of defaultAdmins) {
-                if (admin.id) await addDoc(collection(db, 'admins'), admin);
-            }
-        }
-    } catch(e) { console.error("관리자 시드 생성 실패:", e); }
-}
-
 function generateAuthToken() {
     return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
@@ -3805,7 +3786,7 @@ document.addEventListener('click', function(e) {
 
 async function initApp() {
     adjustDesktopScale(); 
-    await seedAdmins();
+
 
     const sessionActive = sessionStorage.getItem('activeAdminSession') || localStorage.getItem('activeAdminSession');
     if (sessionActive) {
