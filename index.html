@@ -417,19 +417,37 @@
     <div id="upboTextUploadModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
         <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[500px] shadow-xl border-4 border-[#5D4037] flex flex-col max-h-[90vh]">
             <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi">파일로 일괄 추가</h2>
-            
-            <div class="mb-4">
-                <label class="block text-[14px] font-bold text-gray-700 mb-2">1. 수량(개수) ↔ 상품 매핑 규칙</label>
+
+            <div class="mb-4 flex gap-1.5 bg-gray-100 p-1 rounded-xl shrink-0">
+                <button type="button" id="upboModeMappingBtn" onclick="setUpboUploadMode('mapping')" class="flex-1 py-2 rounded-lg font-bold text-[12.5px] transition-all">매핑 규칙 사용</button>
+                <button type="button" id="upboModeFixedBtn" onclick="setUpboUploadMode('fixed')" class="flex-1 py-2 rounded-lg font-bold text-[12.5px] transition-all">고정 양식 (구분/의상/헤어/요청)</button>
+            </div>
+
+            <div class="overflow-y-auto pr-1 modal-scroll flex-1">
+            <div id="upboMappingRuleSection" class="mb-4">
+                <label class="block text-[14px] font-bold text-gray-700 mb-2">수량(개수) ↔ 상품 매핑 규칙</label>
                 <div class="text-[12px] text-gray-500 mb-2 font-bold">예: '562' 입력 시 '단컷방셀' 상품 1개 추가 / '단어' 선택 후 '셀카' 입력 시 해당 단어가 포함된 줄에 상품 1개 추가</div>
                 <div id="upboMappingRules" class="flex flex-col gap-2 max-h-[200px] overflow-y-auto modal-scroll p-2 border-2 border-gray-200 rounded-lg bg-white">
                     </div>
                 <button onclick="addUpboMappingRule()" class="w-full mt-2 py-2 border-2 border-dashed border-[#5D4037] text-[#5D4037] font-bold rounded-lg hover:bg-gray-50 transition text-sm">+ 규칙 추가</button>
             </div>
 
+            <div id="upboFixedFormatSection" class="mb-4 hidden">
+                <label class="block text-[14px] font-bold text-gray-700 mb-2">고정 양식 안내</label>
+                <div class="text-[12.5px] text-gray-600 font-bold leading-relaxed bg-white border-2 border-gray-200 rounded-lg p-3">
+                    <b class="text-[#5D4037]">① 한 줄 형식</b> — 구분 / 의상번호 / 헤어번호 / 요청사항 순서로 <span class="text-[#5D4037]">'/'</span> 로 구분<br>
+                    예) <span class="text-purple-700 font-black">구매갯수or룰렛/3/5/겉옷off머리장식off</span><br><br>
+                    <b class="text-[#5D4037]">② 여러 줄 형식</b> — 첫 줄에 구분만 적고, 다음 줄부터 각각 <span class="text-[#5D4037]">의상번호/헤어번호/요청사항</span> 으로 여러 개 적으면 한 아이디에 모두 합쳐서 반영됩니다<br>
+                    예) <span class="text-purple-700 font-black">구매갯수or룰렛<br>3/5/겉옷off머리장식off<br>7/2/헤어off</span><br><br>
+                    두 형식 모두 '의상' 또는 '헤어' 상품 열이 없다면 자동으로 만들어집니다.
+                </div>
+            </div>
+
             <div class="mb-6">
-                <label class="block text-[14px] font-bold text-gray-700 mb-2">2. 텍스트/엑셀 파일 업로드</label>
-                <div class="text-[12px] text-gray-500 mb-2 font-bold">.txt 채팅 로그 또는 .xlsx/.xls 엑셀 파일을 올려주세요. (엑셀은 첫 행에 '닉네임', '아이디', '댓글내용' 열 제목 필요)</div>
-                <input type="file" id="upboTextFile" accept=".txt,.xlsx,.xls" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm bg-white cursor-pointer font-bold">
+                <label class="block text-[14px] font-bold text-gray-700 mb-2">텍스트/엑셀/CSV 파일 업로드</label>
+                <div class="text-[12px] text-gray-500 mb-2 font-bold">.txt 채팅 로그 또는 .xlsx/.xls/.csv 파일을 올려주세요. (엑셀·CSV는 첫 행에 '닉네임', '아이디', '댓글내용' 열 제목 필요)</div>
+                <input type="file" id="upboTextFile" accept=".txt,.xlsx,.xls,.csv" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm bg-white cursor-pointer font-bold">
+            </div>
             </div>
 
             <div class="flex gap-2 mt-auto shrink-0">

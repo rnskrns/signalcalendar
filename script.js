@@ -2475,12 +2475,16 @@ function renderUpboPage() {
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
                     <div class="flex gap-2 shrink-0">
-                        <button onclick="openUpboTextUploadModal()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드</button>
-                        
-                        <!-- 👇 룰렛 업로드 버튼 추가 👇 -->
-                        <button onclick="document.getElementById('rouletteFileInput').click()" class="px-4 py-2.5 bg-yellow-50 text-yellow-700 font-bold font-paperozi rounded-xl hover:bg-yellow-100 border-[2px] border-yellow-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-dice"></i> 룰렛 업로드</button>
-                        <input type="file" id="rouletteFileInput" accept=".xlsx,.xls" class="hidden" onchange="processRouletteFile(this)">
-                        <!-- 👆 룰렛 업로드 버튼 추가 👆 -->
+                        <!-- 👇 파일 업로드 통합 드롭다운 메뉴 👇 -->
+                        <div class="relative" id="upboFileMenuWrapper">
+                            <button type="button" onclick="event.stopPropagation(); toggleUpboFileMenu();" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드 <i class="fi fi-rr-angle-small-down text-[11px] ml-0.5"></i></button>
+                            <div id="upboFileMenu" class="hidden absolute left-0 top-full mt-2 w-44 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden z-[2000] py-1">
+                                <button type="button" onclick="closeUpboFileMenu(); openUpboTextUploadModal();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-comment-alt"></i> 댓글 업로드</button>
+                                <button type="button" onclick="closeUpboFileMenu(); document.getElementById('rouletteFileInput').click();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors flex items-center gap-2 border-t border-gray-100"><i class="fi fi-rr-dice"></i> 룰렛 업로드</button>
+                            </div>
+                        </div>
+                        <input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
+                        <!-- 👆 파일 업로드 통합 드롭다운 메뉴 👆 -->
                         
                         <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#5D4037] text-white font-bold font-paperozi rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
@@ -2547,7 +2551,8 @@ function renderUpboAdminTable() {
     let thead = `<thead class="bg-[#FFFDF5] border-b-2 border-[#5D4037]"><tr>
         <th class="p-3 border-r border-gray-200 w-[40px] text-center"><input type="checkbox" id="upboCheckAll" class="accent-[#5D4037] w-4 h-4 cursor-pointer" onclick="toggleAllUpboCheckboxes(this.checked)"></th>
         <th class="p-3 border-r border-gray-200 min-w-[60px] text-[#5D4037] font-bold">닉네임</th>
-        <th class="p-3 border-r border-gray-200 min-w-[60px] text-[#5D4037] font-bold">아이디</th>`;
+        <th class="p-3 border-r border-gray-200 min-w-[60px] text-[#5D4037] font-bold">아이디</th>
+        <th class="p-3 border-r border-gray-200 w-[90px] text-[#5D4037] font-bold text-center">구분</th>`;
 
     products.forEach((p, idx) => {
         thead += `<th class="px-1 py-2 border-r border-gray-200 w-[80px] max-w-[80px] relative group bg-[#f3f4f6]">
@@ -2558,7 +2563,7 @@ function renderUpboAdminTable() {
 
     // 👇 룰렛 열 추가된 부분 👇
     thead += `<th class="p-3 border-r border-gray-200 w-[120px] text-[#5D4037] font-bold text-center">룰렛</th>
-              <th class="p-3 border-r border-gray-200 w-[110px] text-[#5D4037] font-bold text-center">비고</th>
+              <th class="p-3 border-r border-gray-200 w-[110px] text-[#5D4037] font-bold text-center">요청사항</th>
               <th class="p-3 border-r border-gray-200 w-[80px] text-[#5D4037] font-bold text-center">상태</th>
               <th class="p-3 border-r border-gray-200 w-[70px] text-[#5D4037] font-bold text-center">방송국</th>
               <th class="p-3 w-[40px] text-center text-[#5D4037] font-bold">삭제</th>
@@ -2577,7 +2582,8 @@ function createUpboRowHtml(record, products) {
     let html = `<tr class="border-b border-gray-200 hover:bg-gray-50 transition upbo-data-row">
         <td class="p-2 border-r text-center"><input type="checkbox" class="upbo-row-checkbox accent-[#5D4037] w-4 h-4 cursor-pointer"></td>
         <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-nick font-bold text-[#5D4037]" style="min-width: 60px; width: ${(record.nickname || '닉네임').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.nickname || ''}" placeholder="닉네임"></td>
-        <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-uid font-bold text-gray-500" style="min-width: 60px; width: ${(record.uid || '아이디').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.uid || ''}" placeholder="아이디"></td>`;
+        <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-uid font-bold text-gray-500" style="min-width: 60px; width: ${(record.uid || '아이디').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.uid || ''}" placeholder="아이디"></td>
+        <td class="p-2 border-r text-center"><input type="text" class="w-full outline-none bg-transparent upbo-category text-[13px] font-bold text-[#5D4037] text-center" style="min-width: 50px; width: ${(record.category || '구분').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.category || ''}" placeholder="-"></td>`;
 
     products.forEach((p, pIdx) => {
         const qty = record.items && record.items[p] ? record.items[p] : '';
@@ -2597,7 +2603,7 @@ function createUpboRowHtml(record, products) {
     html += `<td class="p-2 border-r align-middle">
                 <textarea class="w-full outline-none bg-transparent text-center text-[13px] text-purple-600 font-bold upbo-roulette resize-none overflow-hidden block" style="min-height:24px; field-sizing: content;" rows="1" placeholder="-">${record.roulette || ''}</textarea>
              </td>
-             <td class="p-2 border-r"><input type="text" class="w-full outline-none bg-transparent upbo-memo text-[13px] text-gray-600" value="${record.memo || ''}" placeholder="비고"></td>
+             <td class="p-2 border-r"><input type="text" class="w-full outline-none bg-transparent upbo-memo text-[13px] text-gray-600" value="${record.memo || ''}" placeholder="요청사항"></td>
              <td class="p-2 border-r align-middle">${sel}</td>
              <td class="p-2 border-r text-center align-middle">${linkBtn}</td>
              <td class="p-2 text-center align-middle"><button onclick="this.closest('tr').remove()" class="text-gray-400 hover:text-red-500 transition text-lg"><i class="fi fi-br-cross-small"></i></button></td>
@@ -2619,6 +2625,8 @@ function syncUpboDomToState() {
         const nick = tr.querySelector('.upbo-nick').value.trim();
         const uid = tr.querySelector('.upbo-uid').value.trim();
         const status = tr.querySelector('.upbo-status').value;
+        const categoryEl = tr.querySelector('.upbo-category');
+        const category = categoryEl ? categoryEl.value.trim() : '';
         const memoEl = tr.querySelector('.upbo-memo');
         const memo = memoEl ? memoEl.value.trim() : '';
         
@@ -2640,7 +2648,7 @@ function syncUpboDomToState() {
             }
         });
         if (nick || uid) {
-            newRecords.push({ nickname: nick, uid: uid, items: items, status: status, memo: memo, roulette: roulette });
+            newRecords.push({ nickname: nick, uid: uid, category: category, items: items, status: status, memo: memo, roulette: roulette });
         }
     });
 
@@ -2652,7 +2660,7 @@ function syncUpboDomToState() {
 // 수동으로 행 추가 시 roulette 초기화
 function addUpboRow() {
     syncUpboDomToState();
-    upboData[upboCurrentMember].records.push({ nickname:'', uid:'', items:{}, roulette:'', status:'배송중', memo:'' });
+    upboData[upboCurrentMember].records.push({ nickname:'', uid:'', category:'', items:{}, roulette:'', status:'배송중', memo:'' });
     renderUpboAdminTable();
 }
 
@@ -4380,15 +4388,50 @@ window.copyUpboEmbedCode = function() {
 // =========================================================================
 // 업보정리 텍스트 파일 일괄 업로드 기능
 // =========================================================================
+// 파일 업로드(댓글 업로드/룰렛 업로드) 드롭다운 메뉴
+window.toggleUpboFileMenu = function() {
+    const menu = document.getElementById('upboFileMenu');
+    if(!menu) return;
+    if(menu.classList.contains('hidden')) { menu.classList.remove('hidden'); menu.classList.add('flex'); }
+    else { menu.classList.remove('flex'); menu.classList.add('hidden'); }
+};
+
+window.closeUpboFileMenu = function() {
+    const menu = document.getElementById('upboFileMenu');
+    if(menu) { menu.classList.add('hidden'); menu.classList.remove('flex'); }
+};
+
+window.addEventListener('click', (e) => {
+    const menu = document.getElementById('upboFileMenu');
+    if(menu && !menu.classList.contains('hidden') && !e.target.closest('#upboFileMenuWrapper')) {
+        closeUpboFileMenu();
+    }
+});
+
+// 파일 업로드 모달의 처리 방식(매핑 규칙 / 고정 양식) 전환
+window.upboUploadMode = 'mapping';
+
+window.setUpboUploadMode = function(mode) {
+    window.upboUploadMode = mode;
+    const mappingBtn = document.getElementById('upboModeMappingBtn');
+    const fixedBtn = document.getElementById('upboModeFixedBtn');
+    const mappingSection = document.getElementById('upboMappingRuleSection');
+    const fixedSection = document.getElementById('upboFixedFormatSection');
+    const activeCls = 'flex-1 py-2 rounded-lg font-bold text-[12.5px] transition-all bg-[#5D4037] text-white shadow-sm';
+    const inactiveCls = 'flex-1 py-2 rounded-lg font-bold text-[12.5px] transition-all text-gray-500 hover:text-[#5D4037]';
+
+    if (mappingBtn) mappingBtn.className = mode === 'mapping' ? activeCls : inactiveCls;
+    if (fixedBtn) fixedBtn.className = mode === 'fixed' ? activeCls : inactiveCls;
+    if (mappingSection) mappingSection.classList.toggle('hidden', mode !== 'mapping');
+    if (fixedSection) fixedSection.classList.toggle('hidden', mode !== 'fixed');
+};
+
 window.openUpboTextUploadModal = function() {
     if(!isAdmin) return;
     syncUpboDomToState(); // 현재 표 상태 임시 저장
-    
-    const products = upboData[upboCurrentMember]?.products || [];
-    if(products.length === 0) {
-        alert("상품 목록이 없습니다.\n먼저 '+ 상품(열) 추가' 버튼을 눌러 상품을 생성해주세요.");
-        return;
-    }
+
+    if(!upboData[upboCurrentMember]) upboData[upboCurrentMember] = {products:[], records:[]};
+    const products = upboData[upboCurrentMember].products || [];
 
     document.getElementById('upboTextFile').value = '';
     const rulesContainer = document.getElementById('upboMappingRules');
@@ -4396,6 +4439,9 @@ window.openUpboTextUploadModal = function() {
     
     // 모달 열 때 기본 규칙 1개 추가
     addUpboMappingRule();
+
+    // 상품(열)이 하나도 없다면 자동으로 열을 만들어주는 '고정 양식' 모드를 기본으로 보여줌
+    setUpboUploadMode(products.length === 0 ? 'fixed' : 'mapping');
 
     document.getElementById('upboTextUploadModal').classList.replace('hidden', 'flex');
 };
@@ -4450,7 +4496,7 @@ function applyUpboMappingToRecords(records, rules) {
 
     records.forEach(rec => {
         const donationVal = rec.donation; // 이미 쉼표 제거됨
-        const chatContent = rec.chat;
+        const chatContent = rec.chat ?? rec.content ?? ''; // 엑셀(chat)/txt(content) 두 경우 모두 지원
         const contentLower = chatContent.toLowerCase();
 
         // 1. find 대신 filter를 사용하여 한 댓글(chatContent)에 여러 규칙(예: 1475, 555)이 모두 매칭될 수 있도록 변경
@@ -4523,6 +4569,97 @@ function applyUpboMappingToRecords(records, rules) {
                 }
             });
         }
+    });
+
+    return addedCount;
+}
+
+// 고정 양식(구분/의상번호/헤어번호/요청사항) 파싱 로직
+// 댓글 내용을 파싱해 [구분, 의상번호, 헤어번호, 요청사항] 을 항목에 채워 넣음
+// 지원 형식 1) 한 줄: "구매갯수or룰렛/3/5/겉옷off머리장식off" → 구분:구매갯수or룰렛, 의상:3, 헤어:5, 요청사항:겉옷off머리장식off
+// 지원 형식 2) 여러 줄: 첫 줄은 구분만 단독으로, 이후 줄들은 각각 "의상번호/헤어번호/요청사항" 형태
+//   예)
+//   구매갯수or룰렛
+//   3/5/겉옷off머리장식off
+//   7/2/헤어off
+//   → 구분:구매갯수or룰렛, 의상:3,7(줄바꿈으로 누적), 헤어:5,2(줄바꿈으로 누적), 요청사항:겉옷off머리장식off / 헤어off(줄바꿈으로 누적)
+function applyUpboFixedFormatToRecords(records) {
+    if(!upboData[upboCurrentMember]) upboData[upboCurrentMember] = {products:[], records:[]};
+    const products = upboData[upboCurrentMember].products;
+
+    // '의상' / '헤어' 상품 열이 없으면 자동으로 생성
+    if (!products.includes('의상')) products.push('의상');
+    if (!products.includes('헤어')) products.push('헤어');
+
+    let addedCount = 0;
+
+    records.forEach(rec => {
+        const raw = String(rec.chat ?? rec.content ?? '').trim();
+        if (!raw) return;
+
+        // 줄바꿈(엔터) 기준으로 여러 줄 나누기 (엑셀/CSV 셀 안에 여러 줄로 입력된 경우 지원)
+        const lines = raw.replace(/\r/g, '').split('\n').map(l => l.trim()).filter(l => l !== '');
+        if (lines.length === 0) return;
+
+        let category = '';
+        let itemLines = [];
+
+        if (!lines[0].includes('/')) {
+            // 첫 줄에 '/' 가 없으면 구분만 단독으로 적힌 것으로 보고, 이후 모든 줄을 항목 줄로 처리
+            category = lines[0];
+            itemLines = lines.slice(1);
+        } else {
+            // 첫 줄 자체에 '구분/의상/헤어/요청사항' 이 모두 있는 한 줄짜리 기존 형식
+            const firstParts = lines[0].split('/').map(p => p.trim());
+            category = firstParts[0] || '';
+            if (firstParts.length > 1) itemLines.push(firstParts.slice(1).join('/'));
+            // 추가 줄이 더 있다면 이어서 항목 줄로 처리 (한 줄 형식과 여러 줄 형식이 섞여 있는 경우 대비)
+            itemLines = itemLines.concat(lines.slice(1));
+        }
+
+        if (!category && itemLines.length === 0) return;
+
+        const costumeList = [];
+        const hairList = [];
+        const requestList = [];
+
+        itemLines.forEach(line => {
+            const p = line.split('/').map(v => v.trim());
+            const costumeNo = p[0] || '';
+            const hairNo = p[1] || '';
+            const request = p.slice(2).join('/').trim();
+            if (costumeNo) costumeList.push(costumeNo);
+            if (hairNo) hairList.push(hairNo);
+            if (request) requestList.push(request);
+        });
+
+        const nickname = String(rec.nickname ?? '').trim() || String(rec.uid ?? '').trim();
+        const uid = String(rec.uid ?? '').trim() || nickname;
+        if (!nickname && !uid) return;
+
+        let record = upboData[upboCurrentMember].records.find(r => r.uid === uid);
+        if (!record) {
+            record = { nickname, uid, category: '', items: {}, roulette: '', status: '배송중', memo: '' };
+            upboData[upboCurrentMember].records.push(record);
+        }
+
+        if (category) record.category = category;
+
+        // 여러 줄에서 뽑아낸 값들은 기존 값에 줄바꿈으로 누적
+        if (costumeList.length > 0) {
+            const existing = record.items['의상'] ? String(record.items['의상']).split('\n').filter(Boolean) : [];
+            record.items['의상'] = existing.concat(costumeList).join('\n');
+        }
+        if (hairList.length > 0) {
+            const existing = record.items['헤어'] ? String(record.items['헤어']).split('\n').filter(Boolean) : [];
+            record.items['헤어'] = existing.concat(hairList).join('\n');
+        }
+        if (requestList.length > 0) {
+            const newMemo = requestList.join('\n');
+            record.memo = record.memo ? `${record.memo}\n${newMemo}` : newMemo;
+        }
+
+        addedCount++;
     });
 
     return addedCount;
@@ -4643,58 +4780,74 @@ window.processUpboTextFile = async function() {
         return;
     }
 
-    // 작성한 매핑 규칙 수집
-    const ruleRows = document.querySelectorAll('.mapping-rule-row');
-    const rules = [];
-    let hasValidRule = false;
-    ruleRows.forEach(row => {
-        const type = row.querySelector('.mapping-type')?.value || 'amount';
-        const value = row.querySelector('.mapping-value').value.trim();
-        const product = row.querySelector('.mapping-product').value;
-        if (value && product) {
-            rules.push({ type, value, product });
-            hasValidRule = true;
-        }
-    });
+    const mode = window.upboUploadMode || 'mapping';
+    let rules = [];
 
-    if (!hasValidRule) {
-        alert("최소 하나 이상의 매핑 규칙을 완성해주세요.");
-        return;
+    if (mode === 'mapping') {
+        // 작성한 매핑 규칙 수집
+        const ruleRows = document.querySelectorAll('.mapping-rule-row');
+        let hasValidRule = false;
+        ruleRows.forEach(row => {
+            const type = row.querySelector('.mapping-type')?.value || 'amount';
+            const value = row.querySelector('.mapping-value').value.trim();
+            const product = row.querySelector('.mapping-product').value;
+            if (value && product) {
+                rules.push({ type, value, product });
+                hasValidRule = true;
+            }
+        });
+
+        if (!hasValidRule) {
+            alert("최소 하나 이상의 매핑 규칙을 완성해주세요.");
+            return;
+        }
     }
 
     const file = fileInput.files[0];
     const fileName = file.name.toLowerCase();
     const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    const isCsv = fileName.endsWith('.csv');
 
-    if (isExcel) {
+    // 모드에 따라 최종 처리 로직 분기 (매핑 규칙 / 고정 양식)
+    const applyRecords = (records) => {
+        return mode === 'fixed'
+            ? applyUpboFixedFormatToRecords(records)
+            : applyUpboMappingToRecords(records, rules);
+    };
+
+    if (isExcel || isCsv) {
         if (typeof XLSX === 'undefined') {
-            alert("엑셀 파일을 처리할 라이브러리를 불러오지 못했습니다.\n인터넷 연결을 확인 후 다시 시도해주세요.");
+            alert("엑셀/CSV 파일을 처리할 라이브러리를 불러오지 못했습니다.\n인터넷 연결을 확인 후 다시 시도해주세요.");
             return;
         }
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
+                // 엑셀(.xlsx/.xls)은 바이너리로, CSV는 텍스트(문자열)로 읽어서 워크북 생성
+                const workbook = isCsv
+                    ? XLSX.read(e.target.result, { type: 'string' })
+                    : XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                 const records = excelWorkbookToRecords(workbook);
                 if (records.length === 0) {
-                    alert("엑셀 파일에서 '닉네임/아이디/댓글내용'에 해당하는 열을 찾지 못했습니다.\n첫 번째 행에 열 제목(예: 닉네임, 아이디, 댓글내용)이 있는지 확인해주세요.");
+                    alert("파일에서 '닉네임/아이디/댓글내용'에 해당하는 열을 찾지 못했습니다.\n첫 번째 행에 열 제목(예: 닉네임, 아이디, 댓글내용)이 있는지 확인해주세요.");
                     return;
                 }
-                const addedCount = applyUpboMappingToRecords(records, rules);
+                const addedCount = applyRecords(records);
                 finishUpboFileProcessing(addedCount);
             } catch (err) {
                 console.error(err);
-                alert("엑셀 파일을 읽는 중 오류가 발생했습니다.\n파일 형식을 확인해주세요.");
+                alert("파일을 읽는 중 오류가 발생했습니다.\n파일 형식을 확인해주세요.");
             }
         };
-        reader.readAsArrayBuffer(file);
+        if (isCsv) reader.readAsText(file, 'utf-8');
+        else reader.readAsArrayBuffer(file);
     } else {
         const reader = new FileReader();
         reader.onload = function(e) {
             const text = e.target.result;
             const lines = text.split('\n');
-            const addedCount = applyUpboMappingToLines(lines, rules);
+            const records = parseLinesToRecords(lines);
+            const addedCount = applyRecords(records);
             finishUpboFileProcessing(addedCount);
         };
         reader.readAsText(file);
@@ -4757,12 +4910,16 @@ window.changeStatusSelectedUpboRows = function() {
 window.processRouletteFile = function(input) {
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
+    const fileName = file.name.toLowerCase();
+    const isCsv = fileName.endsWith('.csv');
     const reader = new FileReader();
     
     reader.onload = function(e) {
         try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
+            // 엑셀(.xlsx/.xls)은 바이너리로, CSV는 텍스트(문자열)로 읽어서 워크북 생성
+            const workbook = isCsv
+                ? XLSX.read(e.target.result, { type: 'string' })
+                : XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]]; // 첫 번째 시트 기준
             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
             
@@ -4871,14 +5028,15 @@ window.processRouletteFile = function(input) {
             
         } catch (err) {
             console.error(err);
-            alert("파일을 읽는 중 오류가 발생했습니다. (엑셀 파일인지 확인해 주세요)");
+            alert("파일을 읽는 중 오류가 발생했습니다. (엑셀/CSV 파일인지 확인해 주세요)");
         }
         
         // 같은 파일을 다시 업로드할 수 있도록 초기화
         input.value = '';
     };
     
-    reader.readAsArrayBuffer(file);
+    if (isCsv) reader.readAsText(file, 'utf-8');
+    else reader.readAsArrayBuffer(file);
 };
 
 // 앱 실행
