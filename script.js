@@ -2475,21 +2475,21 @@ function renderUpboPage() {
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
                     <div class="absolute top-[120px] -right-[170px] flex flex-col gap-2 shrink-0 z-50">
-                        <!-- 👇 파일 업로드 통합 드롭다운 메뉴 👇 -->
-                        <div class="relative w-full" id="upboFileMenuWrapper">
-                            <button type="button" onclick="event.stopPropagation(); toggleUpboFileMenu();" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드 <i class="fi fi-rr-angle-small-down text-[11px] ml-0.5"></i></button>
-                            <div id="upboFileMenu" class="hidden absolute left-0 top-full mt-2 w-44 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden z-[2000] py-1">
-                                <button type="button" onclick="closeUpboFileMenu(); openUpboTextUploadModal();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-comment-alt"></i> 댓글 업로드</button>
-                                <button type="button" onclick="closeUpboFileMenu(); document.getElementById('rouletteFileInput').click();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors flex items-center gap-2 border-t border-gray-100"><i class="fi fi-rr-dice"></i> 룰렛 업로드</button>
+                        <!-- 저장하기 버튼을 맨 위로 이동 -->
+                        <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#967978] text-white font-bold font-Diary rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
+                        
+                        <div id="upboFileMenuWrapper" class="relative w-full">
+                            <button type="button" onclick="event.stopPropagation(); toggleUpboFileMenu()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-Diary rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드</button>
+                            <div id="upboFileMenu" class="hidden absolute top-full right-0 mt-2 w-44 bg-white border-2 border-[#967978] rounded-xl shadow-lg z-20 overflow-hidden flex-col">
+                                <button type="button" onclick="event.stopPropagation(); closeUpboFileMenu(); openUpboTextUploadModal();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-comment-alt"></i> 댓글 업로드</button>
+                                <button type="button" onclick="event.stopPropagation(); closeUpboFileMenu(); document.getElementById('rouletteFileInput').click();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-dice"></i> 룰렛 업로드</button>
                             </div>
                         </div>
                         <input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
-                        <!-- 👆 파일 업로드 통합 드롭다운 메뉴 👆 -->
                         
-                        <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-paperozi rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
-                        <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#5D4037] text-white font-bold font-paperozi rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
-                        <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
-                        <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#5D4037] font-bold font-paperozi rounded-xl hover:bg-[#5D4037] hover:text-white border-2 border-[#5D4037] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
+                        <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
+                        <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
+                        <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
                     </div>
                 </div>
 
@@ -4115,6 +4115,89 @@ window.renderCustomMembersList = function(filterText = '') {
 window.filterMembersList = function() {
     const q = document.getElementById('memberSearchInput') ? document.getElementById('memberSearchInput').value : '';
     renderCustomMembersList(q);
+};
+
+// =========================================================================
+// 멤버 목록 내보내기 / 불러오기 (텍스트 파일)
+// =========================================================================
+window.exportMembersList = function() {
+    if (!customMembers.length) {
+        alert('내보낼 멤버가 없습니다.');
+        return;
+    }
+    // 한 줄에 "닉네임,아이디" 형식으로 저장 (아이디 없으면 빈 값)
+    const lines = customMembers.map(m => `${m.nickname},${m.soopId || ''}`);
+    const text = lines.join('\r\n');
+    const blob = new Blob(['\ufeff' + text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const today = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const filename = `멤버목록_${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}.txt`;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+window.importMembersListFile = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const text = e.target.result;
+        const lines = text.split(/\r\n|\n|\r/).map(l => l.trim()).filter(l => l !== '');
+
+        if (!lines.length) {
+            alert('파일에서 읽을 수 있는 멤버가 없습니다.');
+            event.target.value = '';
+            return;
+        }
+
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        for (const line of lines) {
+            // "닉네임,아이디" 또는 "닉네임 아이디" 또는 "닉네임" 형식 모두 지원
+            const parts = line.split(/[,\t]/).map(p => p.trim());
+            const nickname = parts[0];
+            const soopId = parts[1] || '';
+
+            if (!nickname) { skippedCount++; continue; }
+
+            // 이미 동일한 이름+아이디의 멤버가 있으면 건너뛰기
+            const exists = customMembers.some(m => m.nickname === nickname && (m.soopId || '') === soopId);
+            if (exists) { skippedCount++; continue; }
+
+            let imageUrl = '';
+            if (soopId) {
+                const prefix = soopId.substring(0, 2);
+                imageUrl = `https://stimg.sooplive.com/LOGO/${prefix}/${soopId}/${soopId}.jpg`;
+            } else {
+                imageUrl = 'https://via.placeholder.com/60';
+            }
+
+            try {
+                const newMem = { nickname, soopId, imageUrl, isCrew: false, timestamp: Date.now() };
+                const docRef = await addDoc(collection(db, 'scheduleMembers'), newMem);
+                customMembers.push({ id: docRef.id, ...newMem });
+                addedCount++;
+            } catch (err) {
+                console.error('멤버 불러오기 실패:', nickname, err);
+                skippedCount++;
+            }
+        }
+
+        renderCustomMembersList();
+        alert(`${addedCount}명 추가되었습니다.${skippedCount > 0 ? ` (${skippedCount}명은 중복/오류로 제외)` : ''}`);
+        event.target.value = '';
+    };
+    reader.readAsText(file, 'utf-8');
 };
 
 // =========================================================================
