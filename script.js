@@ -2474,9 +2474,9 @@ function renderUpboPage() {
             <div class="mt-4 pt-4 border-t-[3px] border-dashed border-[#5D4037]">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
-                    <div class="flex gap-2 shrink-0">
+                    <div class="absolute top-[120px] -right-[170px] flex flex-col gap-2 shrink-0 z-50">
                         <!-- 👇 파일 업로드 통합 드롭다운 메뉴 👇 -->
-                        <div class="relative" id="upboFileMenuWrapper">
+                        <div class="relative w-full" id="upboFileMenuWrapper">
                             <button type="button" onclick="event.stopPropagation(); toggleUpboFileMenu();" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-paperozi rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드 <i class="fi fi-rr-angle-small-down text-[11px] ml-0.5"></i></button>
                             <div id="upboFileMenu" class="hidden absolute left-0 top-full mt-2 w-44 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden z-[2000] py-1">
                                 <button type="button" onclick="closeUpboFileMenu(); openUpboTextUploadModal();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-comment-alt"></i> 댓글 업로드</button>
