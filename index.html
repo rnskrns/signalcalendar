@@ -411,11 +411,24 @@
                 <div class="bg-white p-3 rounded-xl border-2 border-gray-200 mb-4 flex flex-col gap-2">
                     <input type="text" id="newGroupName" placeholder="그룹 이름 (예: 합방멤버)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
                     <div class="text-[12px] text-gray-500 font-bold mb-1">그룹에 포함할 멤버 선택:</div>
+                    <div class="relative mb-1">
+                        <i class="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[12px]"></i>
+                        <input type="text" id="groupMemberSearchInput" placeholder="멤버 검색" class="w-full pl-8 pr-3 py-1.5 border-2 border-gray-200 rounded-lg text-[12.5px] outline-none focus:border-[#5D4037] font-bold" oninput="filterGroupMemberCheckboxes()">
+                    </div>
+                    <div id="groupSelectedMembersChips" class="flex flex-wrap items-center gap-1.5 min-h-[26px] p-1"></div>
                     <div id="groupMemberCheckboxes" class="flex flex-wrap gap-2 max-h-[130px] overflow-y-auto modal-scroll p-1"></div>
                     <div class="flex gap-2 mt-1">
                         <button id="groupAddBtn" onclick="addMemberGroup()" class="flex-1 bg-[#5D4037] text-white py-2 rounded-lg font-bold hover:brightness-110">그룹 추가</button>
                         <button id="groupEditCancelBtn" onclick="cancelEditGroup()" class="hidden px-4 py-2 bg-gray-200 text-[#5D4037] rounded-lg font-bold hover:bg-gray-300 transition">취소</button>
                     </div>
+                </div>
+                <!-- 그룹 검색 -->
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="relative flex-1">
+                        <i class="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[13px]"></i>
+                        <input type="text" id="groupSearchInput" placeholder="그룹 이름 또는 멤버 검색" class="w-full pl-8 pr-3 py-2 border-2 border-gray-200 rounded-lg text-[13px] outline-none focus:border-[#5D4037] font-bold" oninput="filterGroupsList()">
+                    </div>
+                    <span id="groupCountBadge" class="text-[12px] font-bold text-gray-400 shrink-0"></span>
                 </div>
                 <!-- 그룹 목록 -->
                 <div class="overflow-y-auto modal-scroll flex-1 pr-2 min-h-[150px] w-full">

@@ -1450,9 +1450,19 @@ async function loadSchedulesFromFirebase() {
             memoList[m].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
 
-        const smSnap = await getDocs(collection(memberDb, 'scheduleMembers'));
+        const smSnap = await getDocs(collection(memberDb, 'members'));
         customMembers = [];
-        smSnap.forEach(doc => customMembers.push({ id: doc.id, ...doc.data() }));
+        smSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            customMembers.push({
+                id: docSnap.id,
+                nickname: data.name || '',
+                soopId: data.soopId || '',
+                imageUrl: data.img || 'https://via.placeholder.com/60',
+                isCrew: data.type === 'crew',
+                timestamp: data.timestamp || 0
+            });
+        });
 
         const grpSnap = await getDocs(collection(db, 'memberGroups'));
         memberGroups = [];
@@ -4045,8 +4055,15 @@ window.addCustomMember = async function() {
     
     try {
         const newMem = { nickname, soopId, imageUrl, isCrew, timestamp: Date.now() };
-        const docRef = await addDoc(collection(memberDb, 'scheduleMembers'), newMem);
-        customMembers.push({ id: docRef.id, ...newMem });
+        const docId = `member_${nickname}`;
+        await setDoc(doc(memberDb, 'members', docId), {
+            name: nickname,
+            soopId,
+            img: imageUrl,
+            type: isCrew ? 'crew' : 'member',
+            timestamp: newMem.timestamp
+        });
+        customMembers.push({ id: docId, ...newMem });
         
         document.getElementById('newMemberNickname').value = '';
         document.getElementById('newMemberSoopId').value = '';
@@ -4086,7 +4103,7 @@ window.parseMembers = function(tagString) {
 window.deleteCustomMember = async function(id) {
     if(!confirm("이 멤버를 삭제하시겠습니까?")) return;
     try {
-        await deleteDoc(doc(memberDb, 'scheduleMembers', id));
+        await deleteDoc(doc(memberDb, 'members', id));
         customMembers = customMembers.filter(m => m.id !== id);
         renderCustomMembersList();
         render();
@@ -4132,6 +4149,11 @@ window.renderCustomMembersList = function(filterText = '') {
 window.filterMembersList = function() {
     const q = document.getElementById('memberSearchInput') ? document.getElementById('memberSearchInput').value : '';
     renderCustomMembersList(q);
+};
+
+window.filterGroupsList = function() {
+    const q = document.getElementById('groupSearchInput') ? document.getElementById('groupSearchInput').value : '';
+    renderMemberGroupsList(q);
 };
 
 // =========================================================================
@@ -4201,8 +4223,15 @@ window.importMembersListFile = async function(event) {
 
             try {
                 const newMem = { nickname, soopId, imageUrl, isCrew: false, timestamp: Date.now() };
-                const docRef = await addDoc(collection(memberDb, 'scheduleMembers'), newMem);
-                customMembers.push({ id: docRef.id, ...newMem });
+                const docId = `member_${nickname}`;
+                await setDoc(doc(memberDb, 'members', docId), {
+                    name: nickname,
+                    soopId,
+                    img: imageUrl,
+                    type: 'member',
+                    timestamp: newMem.timestamp
+                });
+                customMembers.push({ id: docId, ...newMem });
                 addedCount++;
             } catch (err) {
                 console.error('멤버 불러오기 실패:', nickname, err);
@@ -4237,7 +4266,7 @@ window.switchMemberManageTab = function(tab) {
         groupBtn.classList.add('bg-[#5D4037]', 'text-white'); groupBtn.classList.remove('bg-white', 'text-[#5D4037]');
         memberBtn.classList.remove('bg-[#5D4037]', 'text-white'); memberBtn.classList.add('bg-white', 'text-[#5D4037]');
         editingGroupId = null;
-        renderGroupMemberCheckboxes();
+        renderGroupMemberCheckboxes([]);
         renderMemberGroupsList();
     }
 };
@@ -4263,26 +4292,110 @@ function resolveGroupMembers(memberIds) {
     }).filter(Boolean);
 }
 
-window.renderGroupMemberCheckboxes = function(preCheckedIds = []) {
+let groupCheckboxSelectedIds = new Set();
+
+// 체크박스 하나가 토글될 때 그 항목만 선택 집합에 추가/제거한다.
+// (검색으로 필터링되어 화면에 없는 다른 선택 항목은 건드리지 않는다)
+window.toggleGroupMemberCheckbox = function(cb) {
+    if (cb.checked) {
+        groupCheckboxSelectedIds.add(cb.value);
+    } else {
+        groupCheckboxSelectedIds.delete(cb.value);
+    }
+    renderSelectedGroupMembersChips();
+};
+
+// 현재 선택된 멤버들을 칩(태그) 형태로 보여준다.
+window.renderSelectedGroupMembersChips = function() {
+    const container = document.getElementById('groupSelectedMembersChips');
+    if (!container) return;
+
+    if (groupCheckboxSelectedIds.size === 0) {
+        container.innerHTML = `<span class="text-[11px] text-gray-400 font-bold">선택된 멤버가 없습니다.</span>`;
+        return;
+    }
+
+    const allMembers = getGroupAllMembers();
+    const selectedMembers = Array.from(groupCheckboxSelectedIds).map(id => {
+        const m = allMembers.find(am => am.id === id);
+        return m ? m : { id, nickname: '(알 수 없음)', imageUrl: '' };
+    });
+
+    container.innerHTML = `<span class="text-[11px] text-gray-500 font-bold mr-0.5">선택됨 (${selectedMembers.length}명)</span>` +
+        selectedMembers.map(m => `
+            <span class="inline-flex items-center gap-1 bg-[#5D4037] text-white rounded-full pl-2 pr-1 py-0.5 text-[11.5px] font-bold">
+                ${m.nickname}
+                <button type="button" onclick="removeGroupSelectedMember('${m.id}')" class="hover:bg-white/20 rounded-full w-4 h-4 flex items-center justify-center shrink-0"><i class="fi fi-br-cross-small text-[8px]"></i></button>
+            </span>
+        `).join('');
+};
+
+// 칩의 X 버튼으로 선택 해제 (검색 필터와 무관하게 동작)
+window.removeGroupSelectedMember = function(id) {
+    groupCheckboxSelectedIds.delete(id);
+    const cb = document.querySelector(`.group-member-cb[value="${CSS.escape(id)}"]`);
+    if (cb) cb.checked = false;
+    renderSelectedGroupMembersChips();
+};
+
+window.renderGroupMemberCheckboxes = function(preCheckedIds = null, filterText = '') {
     const container = document.getElementById('groupMemberCheckboxes');
     if (!container) return;
-    container.innerHTML = getGroupAllMembers().map(m => `
+
+    if (preCheckedIds !== null) {
+        groupCheckboxSelectedIds = new Set(preCheckedIds);
+    }
+
+    const query = filterText.toLowerCase();
+    const allMembers = getGroupAllMembers();
+    const filtered = query ? allMembers.filter(m => m.nickname.toLowerCase().includes(query)) : allMembers;
+
+    renderSelectedGroupMembersChips();
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center text-gray-400 font-bold text-[12px] py-3 w-full">검색 결과가 없습니다.</div>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map(m => `
         <label class="flex items-center gap-1.5 bg-white border-2 border-gray-200 rounded-xl px-2 py-1.5 cursor-pointer hover:border-[#5D4037] transition text-[12px] font-bold text-[#5D4037]">
-            <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${m.nickname}" ${preCheckedIds.includes(m.id) ? 'checked' : ''}>
+            <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${m.nickname}" onchange="toggleGroupMemberCheckbox(this)" ${groupCheckboxSelectedIds.has(m.id) ? 'checked' : ''}>
             <img src="${m.imageUrl}" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
             ${m.nickname}
         </label>
     `).join('');
 };
 
-window.renderMemberGroupsList = function() {
+window.filterGroupMemberCheckboxes = function() {
+    const q = document.getElementById('groupMemberSearchInput') ? document.getElementById('groupMemberSearchInput').value : '';
+    renderGroupMemberCheckboxes(null, q);
+};
+
+window.renderMemberGroupsList = function(filterText = '') {
     const container = document.getElementById('memberGroupsList');
+    const badge = document.getElementById('groupCountBadge');
     if (!container) return;
+
+    const query = filterText.toLowerCase();
+    const filtered = query
+        ? memberGroups.filter(g => {
+            if (g.name.toLowerCase().includes(query)) return true;
+            const groupMems = resolveGroupMembers(g.memberIds);
+            return groupMems.some(m => (m.nickname || '').toLowerCase().includes(query));
+        })
+        : memberGroups;
+
+    if (badge) badge.textContent = query ? `${filtered.length} / ${memberGroups.length}개` : `총 ${memberGroups.length}개`;
+
     if (memberGroups.length === 0) {
         container.innerHTML = `<div class="text-center text-gray-400 font-bold text-[14px] py-6">등록된 그룹이 없습니다.</div>`;
         return;
     }
-    container.innerHTML = memberGroups.map(g => {
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center text-gray-400 font-bold text-[14px] py-6">검색 결과가 없습니다.</div>`;
+        return;
+    }
+    container.innerHTML = filtered.map(g => {
         const groupMems = resolveGroupMembers(g.memberIds);
         return `
         <div class="bg-white border-2 border-[#5D4037] rounded-xl p-3 relative">
@@ -4319,6 +4432,8 @@ window.startEditGroup = function(id) {
     document.getElementById('newGroupName').value = group.name;
 
     // 체크박스 기존 선택 표시
+    const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
+    if (groupMemberSearchInput) groupMemberSearchInput.value = '';
     renderGroupMemberCheckboxes(group.memberIds || []);
 
     // 버튼 텍스트 변경
@@ -4339,7 +4454,9 @@ window.startEditGroup = function(id) {
 window.cancelEditGroup = function() {
     editingGroupId = null;
     document.getElementById('newGroupName').value = '';
-    renderGroupMemberCheckboxes();
+    const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
+    if (groupMemberSearchInput) groupMemberSearchInput.value = '';
+    renderGroupMemberCheckboxes([]);
     const addBtn = document.getElementById('groupAddBtn');
     if (addBtn) {
         addBtn.textContent = '그룹 추가';
@@ -4352,9 +4469,8 @@ window.cancelEditGroup = function() {
 window.addMemberGroup = async function() {
     const name = document.getElementById('newGroupName').value.trim();
     if (!name) return alert('그룹 이름을 입력해주세요.');
-    const checked = document.querySelectorAll('.group-member-cb:checked');
-    if (checked.length === 0) return alert('멤버를 1명 이상 선택해주세요.');
-    const memberIds = Array.from(checked).map(cb => cb.value);
+    if (groupCheckboxSelectedIds.size === 0) return alert('멤버를 1명 이상 선택해주세요.');
+    const memberIds = Array.from(groupCheckboxSelectedIds);
 
     try {
         if (editingGroupId) {
@@ -4369,7 +4485,9 @@ window.addMemberGroup = async function() {
             const docRef = await addDoc(collection(db, 'memberGroups'), newGroup);
             memberGroups.push({ id: docRef.id, ...newGroup });
             document.getElementById('newGroupName').value = '';
-            renderGroupMemberCheckboxes();
+            const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
+            if (groupMemberSearchInput) groupMemberSearchInput.value = '';
+            renderGroupMemberCheckboxes([]);
         }
         renderMemberGroupsList();
     } catch(e) { console.error(e); alert(editingGroupId ? '수정 실패' : '그룹 추가 실패'); }
