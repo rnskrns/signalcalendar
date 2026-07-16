@@ -41,9 +41,12 @@
             var pick = loadingImages[Math.floor(Math.random() * loadingImages.length)];
             var img = document.getElementById('pageLoadingImg');
             if (img) {
+                img.alt = '';
+                img.onload = function() {
+                    img.style.opacity = '1';
+                    img.classList.add('pop-in');
+                };
                 img.src = pick;
-                img.style.opacity = '1';
-                img.classList.add('pop-in');
             }
             window.__pageLoadingStartTime = Date.now();
         })();
