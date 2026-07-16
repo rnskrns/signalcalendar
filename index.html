@@ -27,6 +27,28 @@
 </head>
 <body class="bg-[#ffdddd] lg:pt-24 pt-[70px] lg:pb-0 pb-[80px] overflow-x-hidden lg:overflow-x-auto min-w-[320px] lg:min-w-[max-content]">
 
+    <div id="pageLoadingScreen" class="fixed inset-0 z-[99999] bg-[#ffdddd] flex items-center justify-center">
+        <img id="pageLoadingImg" src="" alt="loading" class="w-[170px] h-[170px] object-contain" style="opacity:0;">
+    </div>
+    <script>
+        (function() {
+            var loadingImages = [
+                'https://res.cloudinary.com/dtlqzklk5/image/upload/v1784212187/oadtzkneiagjxjpe7de1.webp',
+                'https://res.cloudinary.com/dtlqzklk5/image/upload/v1784212186/lsnbtpiymojjtjmd9x5q.webp',
+                'https://res.cloudinary.com/dtlqzklk5/image/upload/v1784212186/rajx9yzwtromkrjhp4ec.webp',
+                'https://res.cloudinary.com/dtlqzklk5/image/upload/v1784212186/i6bjuy6vgecegxzqi2na.webp'
+            ];
+            var pick = loadingImages[Math.floor(Math.random() * loadingImages.length)];
+            var img = document.getElementById('pageLoadingImg');
+            if (img) {
+                img.src = pick;
+                img.style.opacity = '1';
+                img.classList.add('pop-in');
+            }
+            window.__pageLoadingStartTime = Date.now();
+        })();
+    </script>
+
     <header class="fixed top-0 left-0 w-full h-[70px] bg-white shadow-md z-[1000] hidden lg:flex items-center min-w-[1850px]">
         <div class="flex justify-between items-center w-[1795px] mx-auto px-4">
             <div id="headerNavTabs" class="flex gap-2"></div>

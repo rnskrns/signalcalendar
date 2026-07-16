@@ -4037,6 +4037,16 @@ document.addEventListener('click', function(e) {
     }
 });
 
+function hidePageLoadingScreen() {
+    const el = document.getElementById('pageLoadingScreen');
+    if (!el) return;
+    const MIN_DISPLAY_MS = 1500;
+    const startTime = window.__pageLoadingStartTime || Date.now();
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, MIN_DISPLAY_MS - elapsed);
+    setTimeout(() => { el.remove(); }, remaining);
+}
+
 async function initApp() {
     adjustDesktopScale(); 
 
@@ -5382,4 +5392,4 @@ window.processRouletteFile = function(input) {
 };
 
 // 앱 실행
-initApp();
+initApp().finally(hidePageLoadingScreen);
