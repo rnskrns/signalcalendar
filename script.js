@@ -236,10 +236,64 @@ let currentRollingTopic = null;
 let currentTopicEntries = [];
 let currentEntryIndex = 0;
 let editRollingEntryId = null;
+let loadedMemberPages = new Set();
 
 let customMembers = []; 
 let memberGroups = []; // { id, name, memberIds: [] }
 let popupImagesList = [];
+
+const scheduleCacheStorageKey = 'signal_schedule_cache_v1';
+
+function getDefaultMemoState() {
+    return { '달타':[], '다룽':[], '최또':[], '카나시':[] };
+}
+
+function readScheduleCache() {
+    try {
+        const raw = sessionStorage.getItem(scheduleCacheStorageKey);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        console.warn('스케줄 캐시 읽기 실패:', e);
+        return null;
+    }
+}
+
+function saveScheduleCache() {
+    try {
+        const payload = {
+            scheduleList,
+            memoList,
+            customMembers,
+            memberGroups,
+            rollingTopics,
+            rollingEntries,
+            upboData,
+            loadedMemberPages: Array.from(loadedMemberPages),
+            savedAt: Date.now()
+        };
+        sessionStorage.setItem(scheduleCacheStorageKey, JSON.stringify(payload));
+    } catch (e) {
+        console.warn('스케줄 캐시 저장 실패:', e);
+    }
+}
+
+function hydrateScheduleCache(cache) {
+    if (!cache) return false;
+    if (Array.isArray(cache.scheduleList)) scheduleList = cache.scheduleList;
+    memoList = cache.memoList || getDefaultMemoState();
+    customMembers = Array.isArray(cache.customMembers) ? cache.customMembers : [];
+    memberGroups = Array.isArray(cache.memberGroups) ? cache.memberGroups : [];
+    rollingTopics = Array.isArray(cache.rollingTopics) ? cache.rollingTopics : [];
+    rollingEntries = Array.isArray(cache.rollingEntries) ? cache.rollingEntries : [];
+    upboData = cache.upboData || {
+        '달타': { products: [], records: [] },
+        '다룽': { products: [], records: [] },
+        '최또': { products: [], records: [] },
+        '카나시': { products: [], records: [] }
+    };
+    loadedMemberPages = new Set(Array.isArray(cache.loadedMemberPages) ? cache.loadedMemberPages : []);
+    return true;
+}
 
 // 업보정리 데이터 상태
 let upboData = {
@@ -1341,6 +1395,7 @@ async function saveMemoAction() {
             if(!memoList[currentPage]) memoList[currentPage] = [];
             memoList[currentPage].unshift({ id: docRef.id, collectionName: colName, date, content, timestamp: Date.now() });
         }
+        saveScheduleCache();
         closeMemoModal();
         if (sidePanelMode === 'MEMO') openSidePanel('MEMO');
     } catch(e) { console.error('메모 저장 실패:', e); }
@@ -1352,6 +1407,7 @@ async function deleteMemo(memoId) {
     try {
         await deleteDoc(doc(db, colName, memoId));
         memoList[currentPage] = memoList[currentPage].filter(m => m.id !== memoId);
+        saveScheduleCache();
         if (sidePanelMode === 'MEMO') openSidePanel('MEMO');
     } catch(e) { console.error('메모 삭제 실패:', e); }
 }
@@ -1423,83 +1479,143 @@ function sortRollingTopics() {
     });
 }
 
-async function loadSchedulesFromFirebase() {
+async function loadSchedulesFromFirebase({ forceReload = false, member = null, useCacheOnly = false } = {}) {
+    const cached = !forceReload ? readScheduleCache() : null;
+
+    if (!forceReload && member && loadedMemberPages.has(member) && cached) {
+        hydrateScheduleCache(cached);
+        renderHeaderTabs();
+        render();
+        return true;
+    }
+
+    if (!forceReload && !member && cached) {
+        hydrateScheduleCache(cached);
+        renderHeaderTabs();
+        render();
+        return true;
+    }
+
+    if (useCacheOnly) {
+        if (cached) {
+            hydrateScheduleCache(cached);
+        } else {
+            scheduleList = [];
+            memoList = getDefaultMemoState();
+        }
+        renderHeaderTabs();
+        render();
+        return Boolean(cached);
+    }
+
     try {
-        const eventPromises = Object.entries(collectionMap).map(([member, colName]) => getDocs(collection(db, colName)).then(snapshot => ({ type: 'event', member, colName, snapshot })));
-        const memoPromises = Object.entries(memoCollectionMap).map(([member, colName]) => getDocs(collection(db, colName)).then(snapshot => ({ type: 'memo', member, colName, snapshot })));
-        
+        const targetMembers = member ? [member] : Object.keys(collectionMap);
+        const eventPromises = targetMembers.map((targetMember) => {
+            const colName = collectionMap[targetMember];
+            return getDocs(collection(db, colName)).then(snapshot => ({ type: 'event', member: targetMember, colName, snapshot }));
+        });
+        const memoPromises = targetMembers.map((targetMember) => {
+            const colName = memoCollectionMap[targetMember];
+            return getDocs(collection(db, colName)).then(snapshot => ({ type: 'memo', member: targetMember, colName, snapshot }));
+        });
+
         const results = await Promise.all([...eventPromises, ...memoPromises]);
-        scheduleList = [];
-        memoList = { '달타':[], '다룽':[], '최또':[], '카나시':[] };
-        
-        results.forEach(({ type, member, colName, snapshot }) => {
+
+        if (!member) {
+            scheduleList = [];
+            memoList = getDefaultMemoState();
+        }
+        targetMembers.forEach((targetMember) => loadedMemberPages.add(targetMember));
+
+        const upsertSchedule = (list, item) => {
+            const idx = list.findIndex(existing => existing.id === item.id);
+            if (idx === -1) {
+                list.push(item);
+            } else {
+                list[idx] = item;
+            }
+        };
+
+        results.forEach(({ type, member: targetMember, colName, snapshot }) => {
             snapshot.forEach((doc) => {
                 const data = doc.data();
+                const item = { id: doc.id, collectionName: colName, ...data };
                 if (type === 'memo') {
-                    if(!memoList[member]) memoList[member] = [];
-                    memoList[member].push({ id: doc.id, collectionName: colName, ...data });
+                    if(!memoList[targetMember]) memoList[targetMember] = [];
+                    const memoListForMember = memoList[targetMember];
+                    const memoIndex = memoListForMember.findIndex(existing => existing.id === item.id);
+                    if (memoIndex === -1) {
+                        memoListForMember.push(item);
+                    } else {
+                        memoListForMember[memoIndex] = item;
+                    }
                 } else {
-                    scheduleList.push({ id: doc.id, collectionName: colName, ...data });
+                    upsertSchedule(scheduleList, item);
                 }
             });
         });
 
         scheduleList.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-        for(let m in memoList) {
+        for (let m in memoList) {
             memoList[m].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
 
-        const smSnap = await getDocs(collection(memberDb, 'members'));
-        customMembers = [];
-        smSnap.forEach(docSnap => {
-            const data = docSnap.data();
-            customMembers.push({
-                id: docSnap.id,
-                nickname: data.name || '',
-                soopId: data.soopId || '',
-                imageUrl: data.img || 'https://via.placeholder.com/60',
-                isCrew: data.type === 'crew',
-                timestamp: data.timestamp || 0
+        if (!cached) {
+            const smSnap = await getDocs(collection(memberDb, 'members'));
+            customMembers = [];
+            smSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                customMembers.push({
+                    id: docSnap.id,
+                    nickname: data.name || '',
+                    soopId: data.soopId || '',
+                    imageUrl: data.img || 'https://via.placeholder.com/60',
+                    isCrew: data.type === 'crew',
+                    timestamp: data.timestamp || 0
+                });
             });
-        });
 
-        const grpSnap = await getDocs(collection(db, 'memberGroups'));
-        memberGroups = [];
-        grpSnap.forEach(doc => memberGroups.push({ id: doc.id, ...doc.data() }));
+            const grpSnap = await getDocs(collection(db, 'memberGroups'));
+            memberGroups = [];
+            grpSnap.forEach(doc => memberGroups.push({ id: doc.id, ...doc.data() }));
 
-        const topicSnap = await getDocs(collection(db, 'rollingTopics'));
-        rollingTopics = [];
-        topicSnap.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
-        sortRollingTopics();
+            const topicSnap = await getDocs(collection(db, 'rollingTopics'));
+            rollingTopics = [];
+            topicSnap.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
+            sortRollingTopics();
 
-        const entrySnap = await getDocs(collection(db, 'rollingEntries'));
-        rollingEntries = [];
-        entrySnap.forEach(doc => rollingEntries.push({ id: doc.id, ...doc.data() }));
-        rollingEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            const entrySnap = await getDocs(collection(db, 'rollingEntries'));
+            rollingEntries = [];
+            entrySnap.forEach(doc => rollingEntries.push({ id: doc.id, ...doc.data() }));
+            rollingEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-        // 업보데이터 로드
-        try {
-            const upboSnap = await getDocs(collection(db, 'upboData'));
-            upboSnap.forEach(docSnap => {
-                const mapToKor = {'dalta':'달타', 'darung':'다룽', 'choiagain':'최또', 'kanashi':'카나시'};
-                const k = mapToKor[docSnap.id];
-                if(k) {
-                    upboData[k] = docSnap.data();
+            try {
+                const upboSnap = await getDocs(collection(db, 'upboData'));
+                upboSnap.forEach(docSnap => {
+                    const mapToKor = {'dalta':'달타', 'darung':'다룽', 'choiagain':'최또', 'kanashi':'카나시'};
+                    const k = mapToKor[docSnap.id];
+                    if(k) {
+                        upboData[k] = docSnap.data();
+                    }
+                });
+                for(let m in upboData) {
+                    if(!upboData[m].products) upboData[m].products = [];
+                    if(!upboData[m].records) upboData[m].records = [];
                 }
-            });
-            for(let m in upboData) {
-                if(!upboData[m].products) upboData[m].products = [];
-                if(!upboData[m].records) upboData[m].records = [];
-            }
-        } catch(e) { console.error("업보데이터 로드 에러:", e); }
+            } catch(e) { console.error("업보데이터 로드 에러:", e); }
+        }
 
+        saveScheduleCache();
         renderHeaderTabs(); 
         render();
-    } catch (e) { console.error("데이터 불러오기 실패:", e); }
+        return true;
+    } catch (e) {
+        console.error("데이터 불러오기 실패:", e);
+        return false;
+    }
 }
 
-function changeTab(tabName) {
+async function changeTab(tabName) {
     // embed 모드: 탭 전환 차단
     const _embedP = new URLSearchParams(window.location.search);
     if (_embedP.get('mode') === 'embed') return;
@@ -1524,7 +1640,7 @@ function changeTab(tabName) {
         currentPage = tabName; 
         if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
     }
-    
+
     if (currentPage === '노래책') {
         if (!isMobile) {
             sidePanelMode = 'ARTIST'; openSidePanel('ARTIST');
@@ -1542,6 +1658,12 @@ function changeTab(tabName) {
     individualTargetDate = new Date();
     
     currentRollingTopic = null;
+
+    if (['달타', '다룽', '최또', '카나시'].includes(currentPage)) {
+        await loadSchedulesFromFirebase({ member: currentPage });
+    } else {
+        await loadSchedulesFromFirebase({ useCacheOnly: true });
+    }
     
     renderHeaderTabs();
     render(); 
@@ -3326,6 +3448,7 @@ async function deleteScheduleAction() {
         try {
             await deleteDoc(doc(db, sch.collectionName, contextTargetId));
             scheduleList = scheduleList.filter(s => s.id !== contextTargetId); 
+            saveScheduleCache();
             closeEditModal();
             render();
         } catch(e) { console.error("삭제 실패:", e); }
@@ -3399,6 +3522,7 @@ async function saveSchedule() {
         scheduleList.push(newSchedule);
     }
 
+    saveScheduleCache();
     closeScheduleModal(); 
     render();
 }
@@ -3436,7 +3560,7 @@ async function saveEditedSchedule() {
         await updateDoc(doc(db, sch.collectionName, contextTargetId), updatedData);
         const idx = scheduleList.findIndex(s => s.id === contextTargetId);
         if(idx !== -1) scheduleList[idx] = { ...scheduleList[idx], ...updatedData };
-        
+        saveScheduleCache();
         closeEditModal(); 
         render();
     } catch(e) { 
@@ -3940,7 +4064,7 @@ async function initApp() {
     
     await loadLinksFromFirebase();
     await loadPopupImagesFromFirebase();
-    await loadSchedulesFromFirebase(); // 여기서 업보데이터도 함께 호출됩니다.
+    await loadSchedulesFromFirebase();
     await Promise.all(['달타','다룽','최또','카나시'].map(member => loadSongsFromFirebase(member)));
     setActiveSongs(songbookMember);
     
@@ -3987,7 +4111,7 @@ async function initApp() {
         renderHeaderTabs();
         render();
     } else {
-    changeTab(currentPage === '업보정리' ? `업보정리_${upboCurrentMember}` : currentPage);
+        await changeTab(currentPage === '업보정리' ? `업보정리_${upboCurrentMember}` : currentPage);
     }
 }
 
