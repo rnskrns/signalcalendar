@@ -682,12 +682,19 @@ async function loadLinksFromFirebase() {
         const linkSnap = await getDocs(collection(db, 'memberLinks'));
         let dbLinks = { '달타':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
 
-        if (linkSnap.empty) {
+        // 기본 링크는 "최초 1회"만 시딩한다. linkSnap.empty로만 판단하면
+        // 사용자가 링크를 전부 삭제할 때마다 기본 링크가 계속 재생성되므로,
+        // 별도의 meta 플래그 문서로 "이미 시딩했는지"를 기록해 재발동을 막는다.
+        const seedFlagRef = doc(db, 'meta', 'linksSeeded');
+        const seedFlagSnap = await getDoc(seedFlagRef);
+
+        if (linkSnap.empty && !seedFlagSnap.exists()) {
             for (const member of Object.keys(defaultMemberLinks)) {
                 for (const link of defaultMemberLinks[member]) {
                     await addDoc(collection(db, 'memberLinks'), { member, title: link.title, url: link.url, timestamp: Date.now() });
                 }
             }
+            await setDoc(seedFlagRef, { seededAt: Date.now() });
             const reSnap = await getDocs(collection(db, 'memberLinks'));
             reSnap.forEach(doc => { const data = doc.data(); if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data }); });
         } else {
@@ -695,12 +702,6 @@ async function loadLinksFromFirebase() {
                 const data = doc.data();
                 if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data });
             });
-            
-            if (dbLinks['공지'].length === 0) {
-                const defaultNotice = defaultMemberLinks['공지'][0];
-                const docRef = await addDoc(collection(db, 'memberLinks'), { member: '공지', title: defaultNotice.title, url: defaultNotice.url, timestamp: Date.now() });
-                dbLinks['공지'].push({ id: docRef.id, member: '공지', title: defaultNotice.title, url: defaultNotice.url, timestamp: Date.now() });
-            }
 
             for(let m in dbLinks) dbLinks[m].sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
         }
