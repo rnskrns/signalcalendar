@@ -341,3 +341,16 @@ body.embed-mode .big-white-box {
     100% { transform: scale(1); }
 }
 .fi-sr-heart { animation: likePop 0.25s ease; display: inline-block; }
+
+/* =========================================
+   스크롤바 투명 처리 (전체 요소 공통 적용)
+   ========================================= */
+* {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE / Edge */
+}
+*::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+    background: transparent; /* Chrome, Safari, Edge(Chromium) */
+}
