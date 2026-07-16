@@ -194,7 +194,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 멤버(로그인 계정) 전용 데이터베이스 - 별도 Firebase 프로젝트 연결
+// 멤버관리(스케줄 멤버) 전용 데이터베이스 - 별도 Firebase 프로젝트 연결
+// 어드민 계정(admins)과 멤버 그룹(memberGroups)은 기존 데이터베이스(db)를 그대로 사용합니다.
 const memberFirebaseConfig = {
     apiKey: "AIzaSyDVBD4FnLGFcUXqLWJyVOuZELCP-8jFO2E",
     authDomain: "memberlist-2e19f.firebaseapp.com",
@@ -417,7 +418,7 @@ function renderSavedProfiles() {
 
 async function loginWithProfile(docId, token) {
     try {
-        const docRef = doc(memberDb, "admins", docId);
+        const docRef = doc(db, "admins", docId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -461,7 +462,7 @@ async function checkPassword() {
     if(!inputId || !inputPw) return alert("아이디와 비밀번호를 모두 입력해주세요.");
 
     try {
-        const q = query(collection(memberDb, "admins"), where("id", "==", inputId));
+        const q = query(collection(db, "admins"), where("id", "==", inputId));
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
@@ -533,7 +534,7 @@ async function updateUserInfo() {
             localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
         }
         
-        await updateDoc(doc(memberDb, "admins", loggedInUser.docId), updateData);
+        await updateDoc(doc(db, "admins", loggedInUser.docId), updateData);
         alert("정보가 성공적으로 변경되었습니다. 보안을 위해 다시 로그인해주세요.");
         closeInfoModal();
         logoutAdmin(); 
@@ -1449,7 +1450,7 @@ async function loadSchedulesFromFirebase() {
             memoList[m].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
 
-        const smSnap = await getDocs(collection(db, 'scheduleMembers'));
+        const smSnap = await getDocs(collection(memberDb, 'scheduleMembers'));
         customMembers = [];
         smSnap.forEach(doc => customMembers.push({ id: doc.id, ...doc.data() }));
 
@@ -3910,7 +3911,7 @@ async function initApp() {
     if (sessionActive) {
         const { docId, token } = JSON.parse(sessionActive);
         try {
-            const docRef = doc(memberDb, "admins", docId);
+            const docRef = doc(db, "admins", docId);
             const docSnap = await getDoc(docRef);
             
             const savedProfiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
@@ -4044,7 +4045,7 @@ window.addCustomMember = async function() {
     
     try {
         const newMem = { nickname, soopId, imageUrl, isCrew, timestamp: Date.now() };
-        const docRef = await addDoc(collection(db, 'scheduleMembers'), newMem);
+        const docRef = await addDoc(collection(memberDb, 'scheduleMembers'), newMem);
         customMembers.push({ id: docRef.id, ...newMem });
         
         document.getElementById('newMemberNickname').value = '';
@@ -4085,7 +4086,7 @@ window.parseMembers = function(tagString) {
 window.deleteCustomMember = async function(id) {
     if(!confirm("이 멤버를 삭제하시겠습니까?")) return;
     try {
-        await deleteDoc(doc(db, 'scheduleMembers', id));
+        await deleteDoc(doc(memberDb, 'scheduleMembers', id));
         customMembers = customMembers.filter(m => m.id !== id);
         renderCustomMembersList();
         render();
@@ -4200,7 +4201,7 @@ window.importMembersListFile = async function(event) {
 
             try {
                 const newMem = { nickname, soopId, imageUrl, isCrew: false, timestamp: Date.now() };
-                const docRef = await addDoc(collection(db, 'scheduleMembers'), newMem);
+                const docRef = await addDoc(collection(memberDb, 'scheduleMembers'), newMem);
                 customMembers.push({ id: docRef.id, ...newMem });
                 addedCount++;
             } catch (err) {
