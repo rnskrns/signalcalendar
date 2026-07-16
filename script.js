@@ -4075,7 +4075,8 @@ async function initApp() {
     await loadLinksFromFirebase();
     await loadPopupImagesFromFirebase();
     await loadSchedulesFromFirebase();
-    await Promise.all(['달타','다룽','최또','카나시'].map(member => loadSongsFromFirebase(member)));
+    // 노래책 데이터는 여기서 미리 불러오지 않음. '노래책' 탭에 진입할 때(changeTab)
+    // 해당 멤버(예: 달타)의 데이터만 loadSongsFromFirebase()로 불러옴.
     setActiveSongs(songbookMember);
     
     if (!isMobile) {
