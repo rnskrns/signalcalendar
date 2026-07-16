@@ -194,6 +194,21 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// 멤버(로그인 계정) 전용 데이터베이스 - 별도 Firebase 프로젝트 연결
+const memberFirebaseConfig = {
+    apiKey: "AIzaSyDVBD4FnLGFcUXqLWJyVOuZELCP-8jFO2E",
+    authDomain: "memberlist-2e19f.firebaseapp.com",
+    databaseURL: "https://memberlist-2e19f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "memberlist-2e19f",
+    storageBucket: "memberlist-2e19f.firebasestorage.app",
+    messagingSenderId: "1080011445408",
+    appId: "1:1080011445408:web:9f776d3f4091a3f33425c5",
+    measurementId: "G-HRPL7HSNCZ"
+};
+
+const memberApp = initializeApp(memberFirebaseConfig, "memberApp");
+const memberDb = getFirestore(memberApp);
+
 let scheduleList = []; 
 let memoList = { '달타':[], '다룽':[], '최또':[], '카나시':[] };
 let isAdmin = false;
@@ -402,7 +417,7 @@ function renderSavedProfiles() {
 
 async function loginWithProfile(docId, token) {
     try {
-        const docRef = doc(db, "admins", docId);
+        const docRef = doc(memberDb, "admins", docId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -446,7 +461,7 @@ async function checkPassword() {
     if(!inputId || !inputPw) return alert("아이디와 비밀번호를 모두 입력해주세요.");
 
     try {
-        const q = query(collection(db, "admins"), where("id", "==", inputId));
+        const q = query(collection(memberDb, "admins"), where("id", "==", inputId));
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
@@ -518,7 +533,7 @@ async function updateUserInfo() {
             localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
         }
         
-        await updateDoc(doc(db, "admins", loggedInUser.docId), updateData);
+        await updateDoc(doc(memberDb, "admins", loggedInUser.docId), updateData);
         alert("정보가 성공적으로 변경되었습니다. 보안을 위해 다시 로그인해주세요.");
         closeInfoModal();
         logoutAdmin(); 
@@ -3895,7 +3910,7 @@ async function initApp() {
     if (sessionActive) {
         const { docId, token } = JSON.parse(sessionActive);
         try {
-            const docRef = doc(db, "admins", docId);
+            const docRef = doc(memberDb, "admins", docId);
             const docSnap = await getDoc(docRef);
             
             const savedProfiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
