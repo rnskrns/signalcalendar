@@ -1873,92 +1873,6 @@ function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// -------------------------------------------------------------------------
-// 영어 <-> 한글 발음 검색 매칭
-// "more"를 "모어"로 검색해도, "모어"를 "more"로 검색해도 서로 찾아지도록
-// 한글은 로마자 발음으로, 영어는 발음 규칙(묵음 e, 비원순 r, 다이그래프 등)을
-// 적용한 뒤 자음 골격만 남겨 비교한다 (모음/받침에 붙는 여분 모음은 무시).
-// -------------------------------------------------------------------------
-function hangulToRoughRoman(str) {
-    const CHO = ['g','kk','n','d','tt','r','m','b','pp','s','ss','','j','jj','ch','k','t','p','h'];
-    const JUNG = ['a','ae','ya','yae','eo','e','yeo','ye','o','wa','wae','oe','yo','u','wo','we','wi','yu','eu','ui','i'];
-    const JONG = ['','g','kk','gs','n','nj','nh','d','l','lg','lm','lb','ls','lt','lp','lh','m','b','bs','s','ss','ng','j','ch','k','t','p','h'];
-    let result = '';
-    for (const ch of String(str || '')) {
-        const code = ch.charCodeAt(0);
-        if (code >= 0xAC00 && code <= 0xD7A3) {
-            const idx = code - 0xAC00;
-            const cho = Math.floor(idx / (21 * 28));
-            const jung = Math.floor((idx % (21 * 28)) / 28);
-            const jong = idx % 28;
-            result += CHO[cho] + JUNG[jung] + JONG[jong];
-        } else if (/[a-zA-Z]/.test(ch)) {
-            result += ch;
-        } else {
-            result += ' ';
-        }
-    }
-    return result.toLowerCase();
-}
-
-function phoneticSkeleton(input) {
-    let s = hangulToRoughRoman(input);
-    if (!s) return [];
-    s = s.replace(/([aeiouy])gh/g, '$1');          // 묵음 gh (light, night ...)
-    s = s.replace(/([a-z])e\b/g, '$1');             // 어말 묵음 e (more -> mor)
-    s = s.replace(/([aeiouy])r(?![aeiouy])/g, '$1'); // 비원순 r 탈락 (more -> mo)
-    s = s.replace(/tch/g, 'c');
-    s = s.replace(/th/g, 't');
-    s = s.replace(/sh/g, 's');
-    s = s.replace(/ch/g, 'c');
-    s = s.replace(/ph/g, 'p');
-    s = s.replace(/wh/g, 'w');
-    s = s.replace(/qu/g, 'k');
-    s = s.replace(/ck/g, 'k');
-    s = s.replace(/ng/g, 'n');
-    s = s.replace(/[vfb]/g, 'p');   // 유사 발음 자음군을 대표 문자로 통일
-    s = s.replace(/[dt]/g, 't');
-    s = s.replace(/[szc]/g, 's');
-    s = s.replace(/[jg]/g, 'j');
-    s = s.replace(/[kq]/g, 'k');
-    s = s.replace(/[lr]/g, 'l');
-    // 공백(단어 경계)은 남겨둔 채 단어별로 모음 제거 + 연속 자음 축소를 적용한다.
-    // (경계를 없애고 하나로 이어붙이면 서로 다른 두 단어가 우연히 이어지며
-    //  전혀 관련 없는 제목/가수와 겹쳐 매칭되는 문제가 생긴다)
-    return s.split(/\s+/)
-        .map(w => w.replace(/[aeiouy]/g, '').replace(/(.)\1+/g, '$1'))
-        .filter(w => w.length > 0);
-}
-
-// 두 자음 뼈대가 발음상 "충분히" 비슷한지 판단.
-// 완전히 같은 경우 외에, 한쪽이 다른 쪽을 포함하는 경우도 허용하되
-// 길이 차이가 너무 크면(우연히 짧은 조각만 겹치는 경우) 제외해 오탐을 줄인다.
-function isCloseSkeletonMatch(a, b) {
-    if (a.length < 2 || b.length < 2) return false;
-    if (a === b) return true;
-    const shorter = a.length <= b.length ? a : b;
-    const longer = a.length <= b.length ? b : a;
-    if (!longer.includes(shorter)) return false;
-    return shorter.length / longer.length >= 0.6; // 길이 차이가 40% 이내일 때만 인정
-}
-
-// 검색어(query)가 대상 텍스트(target)와 발음상 일치/포함되는지 판단
-function isPhoneticMatch(query, target) {
-    const qWords = phoneticSkeleton(query);
-    const tWords = phoneticSkeleton(target);
-    if (!qWords.length || !tWords.length) return false;
-
-    // 여러 단어로 이루어진 검색어/대상 전체를 이어붙여 비교 (예: "kiss me" <-> "키스 미")
-    if (isCloseSkeletonMatch(qWords.join(''), tWords.join(''))) return true;
-
-    // 검색어가 한 단어라면, 대상의 개별 단어(제목/가수의 일부) 중 하나와만 일치해도 허용
-    // (전체를 이어붙여 비교하지 않으므로 서로 다른 단어끼리 우연히 겹치지 않는다)
-    if (qWords.length === 1) {
-        return tWords.some(w => isCloseSkeletonMatch(qWords[0], w));
-    }
-    return false;
-}
-
 // 좋아요 누른 노래 id 목록은 브라우저(기기)별로 로컬에 저장 (뷰어도 누구나 좋아요 가능)
 function getLikedSongIds(member = songbookMember) {
     try {
@@ -1992,8 +1906,9 @@ function getFilteredSongs() {
             const title = (s.title || '').toLowerCase();
             const artist = (s.artist || '').toLowerCase();
             if (title.includes(q) || artist.includes(q)) return true;
-            // 영어<->한글 발음이 비슷하면 매칭 (예: "more" 검색어로 "모어" 찾기, 그 반대도 가능)
-            return isPhoneticMatch(q, title) || isPhoneticMatch(q, artist);
+            // 검색용 별칭(목록에는 표시되지 않음)에 걸리면 매칭
+            const alias = (s.alias || '').toLowerCase();
+            return alias.includes(q);
         });
     }
     return list.sort((a, b) => {
@@ -2312,6 +2227,7 @@ window.openSongAddModal = function() {
     
     document.getElementById('songTitleInput').value = '';
     document.getElementById('songArtistInput').value = '';
+    document.getElementById('songAliasInput').value = '';
     document.getElementById('songGenreInput').value = '';
     document.getElementById('songAlbumArtInput').value = '';
     songAlbumArtManuallyEdited = false;
@@ -2337,6 +2253,7 @@ window.openSongEditModal = function(id) {
     // 기존 데이터 세팅
     document.getElementById('songTitleInput').value = song.title || '';
     document.getElementById('songArtistInput').value = song.artist || '';
+    document.getElementById('songAliasInput').value = song.alias || '';
     document.getElementById('songGenreInput').value = song.genre || '';
     document.getElementById('songAlbumArtInput').value = song.albumArt || '';
     
@@ -2431,6 +2348,7 @@ window.saveSong = async function() {
     if (!isAdmin) return;
     const title = document.getElementById('songTitleInput').value.trim();
     const artist = document.getElementById('songArtistInput').value.trim();
+    const alias = document.getElementById('songAliasInput').value.trim();
     const genre = document.getElementById('songGenreInput').value.trim();
     let albumArt = document.getElementById('songAlbumArtInput').value.trim();
     if (!title || !artist) { alert('노래 제목과 가수를 입력해주세요.'); return; }
@@ -2450,7 +2368,7 @@ window.saveSong = async function() {
         if (currentEditingSongId) {
             // [수정 로직]
             await updateDoc(doc(db, getSongCollectionName(member), currentEditingSongId), {
-                title, artist, genre, albumArt
+                title, artist, alias, genre, albumArt
             });
             
             // 로컬 데이터 배열 업데이트
@@ -2458,12 +2376,13 @@ window.saveSong = async function() {
             if (songIndex > -1) {
                 songsByMember[member][songIndex].title = title;
                 songsByMember[member][songIndex].artist = artist;
+                songsByMember[member][songIndex].alias = alias;
                 songsByMember[member][songIndex].genre = genre;
                 songsByMember[member][songIndex].albumArt = albumArt;
             }
         } else {
             // [기존 추가 로직]
-            const newSong = { title, artist, genre, albumArt, likes: 0, timestamp: Date.now(), member };
+            const newSong = { title, artist, alias, genre, albumArt, likes: 0, timestamp: Date.now(), member };
             const docRef = await addDoc(collection(db, getSongCollectionName(member)), newSong);
             songsByMember[member] = songsByMember[member] || [];
             songsByMember[member].push({ id: docRef.id, ...newSong });
