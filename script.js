@@ -223,6 +223,7 @@ let contextTargetId = null;
 let currentEditingIds = [];
 let targetModalContext = { year: currentYear, month: currentMonth, day: 1, member: '홈' };
 let currentEditingMemoId = null;
+let memoPinned = localStorage.getItem('memoBoardPinned') === 'true';
 
 let isMobile = window.innerWidth <= 1024;
 let sidePanelMode = null; 
@@ -1287,11 +1288,15 @@ function openSidePanel(mode) {
     if (mode === 'MEMO') {
         const memos = memoList[currentPage] || [];
         const contentHtml = memos.map(memo => `
-            <div class="bg-white p-4 rounded-xl border-[2.5px] border-[#5D4037] relative shadow-sm mb-4 cursor-pointer hover:bg-gray-50 transition" 
+            <div class="bg-white p-4 rounded-xl border-[2.5px] border-[#5D4037] relative shadow-sm mb-4 transition" 
                  oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.openMemoEditModal('${memo.id}'); }">
-                ${isAdmin ? `<button onclick="deleteMemo('${memo.id}')" class="absolute top-2 right-2 text-[#5D4037] hover:text-red-500 font-bold p-1 z-10"><i class="fi fi-br-cross-small"></i></button>` : ''}
-                <div class="text-[13px] font-bold text-gray-500 mb-2 pointer-events-none">${memo.date || ''}</div>
-                <div class="text-[16px] font-medium text-[#5D4037] whitespace-pre-wrap leading-relaxed pointer-events-none">${memo.content}</div>
+                ${isAdmin ? `
+                <div class="absolute top-2 right-2 flex items-center gap-1 z-10">
+                    <button onclick="openMemoEditModal('${memo.id}')" class="text-[#5D4037] hover:text-[#8D6E63] font-bold p-1"><i class="fi fi-rr-edit"></i></button>
+                    <button onclick="deleteMemo('${memo.id}')" class="text-[#5D4037] hover:text-red-500 font-bold p-1"><i class="fi fi-br-cross-small"></i></button>
+                </div>` : ''}
+                <div class="text-[13px] font-bold text-gray-500 mb-2 pointer-events-none pr-14">${memo.date || ''}</div>
+                <div class="text-[16px] font-medium text-[#5D4037] whitespace-pre-wrap leading-relaxed pointer-events-none pr-14">${memo.content}</div>
             </div>
         `).join('');
 
@@ -1301,13 +1306,14 @@ function openSidePanel(mode) {
                     <i class="fi fi-rr-edit"></i> ${currentPage} 메모장
                 </div>
                 <div class="flex items-center gap-3">
-                    ${isAdmin ? `<button onclick="openMemoAddModal()" class="w-9 h-9 flex items-center justify-center bg-[#5D4037] text-white rounded-full font-bold hover:brightness-110 shadow-sm transition"><i class="fi fi-br-plus"></i></button>` : ''}
+                    <button onclick="toggleMemoPin()" title="고정" class="w-9 h-9 flex items-center justify-center text-xl transition ${memoPinned ? 'text-[#5D4037]' : 'text-gray-300 hover:text-gray-400'}"><i class="fi fi-rr-thumbtack"></i></button>
                     <button onclick="closeSidePanel()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
                 </div>
             </div>
-            <div class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll w-full">
+            <div class="flex-1 p-5 pb-24 bg-[#FFFDF5] overflow-y-auto modal-scroll w-full">
                 ${contentHtml || '<div class="text-center text-gray-400 font-bold mt-16 text-lg">저장된 메모가 없습니다.</div>'}
             </div>
+            ${isAdmin ? `<button onclick="openMemoAddModal()" class="absolute bottom-5 right-5 w-14 h-14 flex items-center justify-center bg-[#5D4037] text-white rounded-full font-bold hover:brightness-110 shadow-lg transition z-20 text-xl"><i class="fi fi-br-plus"></i></button>` : ''}
         `;
     } else if (mode === 'UP') {
         renderUpLinksPanel();
@@ -1323,6 +1329,13 @@ function openSidePanel(mode) {
         }
     });
 }
+
+function toggleMemoPin() {
+    memoPinned = !memoPinned;
+    localStorage.setItem('memoBoardPinned', memoPinned ? 'true' : 'false');
+    if (sidePanelMode === 'MEMO') openSidePanel('MEMO');
+}
+window.toggleMemoPin = toggleMemoPin;
 
 function openMemoAddModal() {
     currentEditingMemoId = null;
@@ -1361,12 +1374,12 @@ function setupMemoButtons() {
                          memoModal.querySelector('.modal-content > div:last-child');
     
     if (btnContainer) {
-        btnContainer.className = "flex gap-3 w-full mt-4"; 
+        btnContainer.className = "flex gap-3 w-full mt-6"; 
         btnContainer.innerHTML = `
-            <button type="button" onclick="closeMemoModal()" class="flex-1 bg-gray-400 text-white font-bold text-[18px] py-4 rounded-xl hover:bg-gray-500 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
+            <button type="button" onclick="closeMemoModal()" class="flex-1 bg-gray-400 text-white font-bold text-[24px] py-5 rounded-xl hover:bg-gray-500 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
                 취소
             </button>
-            <button type="button" onclick="saveMemoAction()" class="flex-1 bg-[#5D4037] text-white font-bold text-[18px] py-4 rounded-xl hover:brightness-110 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
+            <button type="button" onclick="saveMemoAction()" class="flex-1 bg-[#5D4037] text-white font-bold text-[24px] py-5 rounded-xl hover:brightness-110 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] font-paperozi cursor-pointer">
                 저장
             </button>
         `;
@@ -1649,9 +1662,11 @@ async function changeTab(tabName) {
         }
     } else if (!isMobile) {
         if(currentPage === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
+        else if (memoPinned && memoCollectionMap[currentPage]) { sidePanelMode = 'MEMO'; openSidePanel('MEMO'); }
         else { closeSidePanel(true); }
     } else {
-        closeSidePanel(true);
+        if (memoPinned && memoCollectionMap[currentPage]) { sidePanelMode = 'MEMO'; openSidePanel('MEMO'); }
+        else { closeSidePanel(true); }
     }
     
     homeTargetDate = new Date();

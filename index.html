@@ -164,10 +164,10 @@
     </div>
 
     <div id="memoModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
-        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[400px] shadow-xl border-4 border-[#5D4037]">
-            <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi" id="memoModalTitle">메모 추가</h2>
-            <input type="date" id="memoDate" class="w-full border-2 border-[#5D4037] rounded-lg p-2 mb-3 text-sm outline-none focus:border-[var(--theme-color)]">
-            <textarea id="memoContent" class="w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none h-[120px] resize-none mb-4 text-[15px] font-medium focus:border-[var(--theme-color)]" placeholder="메모 내용을 입력하세요"></textarea>
+        <div class="modal-content bg-[#FFFDF5] p-9 rounded-2xl w-[90%] max-w-[600px] shadow-xl border-4 border-[#5D4037]">
+            <h2 class="text-4xl font-bold text-[#5D4037] mb-6 text-center font-paperozi" id="memoModalTitle">메모 추가</h2>
+            <input type="date" id="memoDate" class="w-full border-2 border-[#5D4037] rounded-lg p-3 mb-4 text-base outline-none focus:border-[var(--theme-color)]">
+            <textarea id="memoContent" class="w-full border-2 border-[#5D4037] rounded-lg p-4 outline-none h-[180px] resize-none mb-6 text-[22px] font-medium focus:border-[var(--theme-color)]" placeholder="메모 내용을 입력하세요"></textarea>
             <div class="flex gap-3 w-full">
                 <button type="button" class="flex-1 bg-red-500 text-white py-4 rounded-xl font-bold text-xl hover:bg-red-600 transition shadow-md cursor-pointer" onclick="deleteDaySchedules()">삭제</button>
                 <button type="button" class="flex-1 bg-[#5D4037] text-white py-4 rounded-xl font-bold text-xl hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveSchedule()">저장하기</button>
