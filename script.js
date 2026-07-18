@@ -2000,7 +2000,7 @@ function renderSongList() {
                 : [];
 
             html += `
-                <div class="song-card group relative flex flex-col cursor-pointer" onclick="copySongToClipboard('${song.id}', event)" title="클릭하면 가수 - 노래 제목이 복사됩니다">
+                <div class="song-card group relative flex flex-col cursor-pointer" onclick="openSongInfoModal('${song.id}')" title="클릭하면 노래 정보와 가사를 볼 수 있어요">
                     <div class="song-art relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-gray-200 bg-gray-50 shrink-0">
                         ${artHtml}
                         <button onclick="event.stopPropagation(); toggleLikeSong('${song.id}')" class="absolute top-2 right-2 min-h-8 px-2 rounded-full bg-white/90 backdrop-blur flex items-center gap-1 shadow-md transition cursor-pointer ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}">
@@ -2433,6 +2433,49 @@ window.copySongToClipboard = function(id, event) {
     } else {
         prompt('아래 텍스트를 복사하세요:', text);
     }
+};
+
+// ===== 노래 정보 팝업 =====
+window.openSongInfoModal = function(id) {
+    const song = songs.find(s => s.id === id);
+    if (!song) return;
+    const theme = getSongbookTheme(songbookMember);
+    const modal = document.getElementById('songInfoModal');
+    modal.style.setProperty('--song-modal-accent', theme.color);
+    modal.style.setProperty('--song-modal-soft', theme.soft);
+
+    document.getElementById('songInfoTitle').textContent = song.title || '';
+    document.getElementById('songInfoArtist').textContent = song.artist || '';
+
+    const artWrap = document.getElementById('songInfoArt');
+    artWrap.innerHTML = song.albumArt
+        ? `<img src="${escapeHtml(song.albumArt)}" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.remove();">`
+        : `<div class="w-full h-full bg-[#FFF9C4] flex items-center justify-center text-5xl">🎵</div>`;
+
+    const genreTags = song.genre
+        ? song.genre.split(/[,\/·]/).map(g => g.trim()).filter(Boolean)
+        : [];
+    document.getElementById('songInfoGenres').innerHTML = genreTags
+        .map(g => `<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="color:#5D4037; background:${theme.soft};">${escapeHtml(g)}</span>`)
+        .join('');
+
+    const liked = getLikedSongIds();
+    const isLiked = liked.has(song.id);
+    const likeBtn = document.getElementById('songInfoLikeBtn');
+    likeBtn.className = `flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border-2 shadow-sm transition cursor-pointer font-bold text-[13px] ${isLiked ? 'text-red-500 border-red-200' : 'text-gray-400 border-gray-200 hover:text-red-400'}`;
+    likeBtn.innerHTML = `<i class="fi ${isLiked ? 'fi-sr-heart' : 'fi-rr-heart'}"></i><span>${Number(song.likes || 0)}</span>`;
+    likeBtn.onclick = async () => { await toggleLikeSong(song.id); window.openSongInfoModal(song.id); };
+
+    document.getElementById('songInfoCopyBtn').onclick = () => copySongToClipboard(song.id);
+
+    const lyricsQuery = encodeURIComponent(`${song.artist} ${song.title} 가사`);
+    document.getElementById('songInfoLyricsBtn').href = `https://www.google.com/search?q=${lyricsQuery}`;
+
+    modal.classList.replace('hidden', 'flex');
+};
+
+window.closeSongInfoModal = function() {
+    document.getElementById('songInfoModal').classList.replace('flex', 'hidden');
 };
 
 window.deleteSong = async function(id) {
