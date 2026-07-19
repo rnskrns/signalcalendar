@@ -100,7 +100,7 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 .day-cell { flex: 1; height: auto; border-right: 2px solid rgba(0,0,0,0.05); position: relative; display: flex; flex-direction: column; padding: 6px 3px; overflow-y: auto; transition: background-color 0.2s; cursor: pointer; }
 .day-cell:first-child { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
 .day-cell:last-child { border-right: none; border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
-.day-cell:hover { background-color: rgba(255, 255, 255, 0.5); z-index: 10; border-radius: 9px; }
+
 
 .header-days-container { 
     transform: translateY(-28px);    /* 요일 칸을 위로 10px 올림 */
@@ -117,6 +117,8 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 
 .big-box-container { width: 1386px; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(5, 198px); border: 4px solid var(--white-border); border-radius: 13px; }
 .big-cell { height: 198px; border-right: 1px dashed; border-bottom: 1px dashed; padding: 6px 3px; font-weight: bold; font-size: 1.21rem; transition: background-color 0.2s; cursor: pointer; display: flex; flex-direction: column; }
+.big-cell.empty-cell,
+.big-cell.empty-cell:hover { border: none !important; background: transparent !important; box-shadow: none !important; transform: none !important; cursor: default; }
 .big-cell:nth-child(7n) { border-right: none; }
 .big-cell:nth-last-child(-n+7) { border-bottom: none; }
 
