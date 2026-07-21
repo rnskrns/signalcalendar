@@ -253,6 +253,7 @@ let customMembers = [];
 let memberGroups = []; // { id, name, memberIds: [] }
 let popupImagesList = [];
 let homeYoutubeUrl = '';
+let homeBoxShouldShow = false; // 유튜브/이미지 or 공지 중 하나라도 있으면 true
 
 const scheduleCacheStorageKey = 'signal_schedule_cache_v1';
 
@@ -1082,10 +1083,18 @@ async function renderHomeYoutubeBox() {
     const hasNotice = await fetchAndRenderAllNotices();
 
     // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있으면 전체 박스를 보여줌
-    if (hasVideo || hasNotice) {
-        box.style.display = ''; 
+    homeBoxShouldShow = hasVideo || hasNotice;
+    applyHomeYoutubeBoxVisibility();
+}
+
+// 홈탭(+데스크탑)일 때만 유튜브/이미지·공지 박스를 보여줌
+function applyHomeYoutubeBoxVisibility() {
+    const box = document.getElementById('homeYoutubeBox');
+    if (!box) return;
+    if (currentPage === '홈' && !isMobile) {
+        box.style.display = homeBoxShouldShow ? '' : 'none';
     } else {
-        box.style.display = 'none'; 
+        box.style.display = 'none';
     }
 }
 
@@ -2354,6 +2363,9 @@ function render() {
 
     // 주간일정 박스가 새로 그려진 뒤 공지 박스 높이를 밑선에 맞춰 재조정
     requestAnimationFrame(alignNoticeBoxHeight);
+
+    // 홈탭이 아니면(또는 모바일이면) 유튜브/이미지·공지 박스를 숨김
+    applyHomeYoutubeBoxVisibility();
 }
 
 function escapeHtml(str) {
