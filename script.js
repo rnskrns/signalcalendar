@@ -345,7 +345,7 @@ function hexToRgba(hex, alpha) {
     const r = (num >> 16) & 255;
     const g = (num >> 8) & 255;
     const b = num & 255;
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    return `rgba(${r},${g}, ${b},${alpha})`;
 }
 
 function getSongbookTheme(member = songbookMember) {
@@ -560,7 +560,6 @@ async function checkPassword() {
     }
 }
 
-// 링크관리 + 정보관리를 하나의 '관리' 팝업(왼쪽 탭 메뉴)으로 통합
 function openManageModal(tab = 'link') {
     if (!isAdmin || !loggedInUser) return;
     renderLinkManagePanel();
@@ -600,7 +599,6 @@ function renderInfoManagePanel() {
     document.getElementById('infoPw').value = '';
 }
 
-// 하위 호환용 별칭 (기존 코드에서 openInfoModal()/closeInfoModal() 호출)
 function openInfoModal() { openManageModal('info'); }
 function closeInfoModal() { closeManageModal(); }
 
@@ -721,7 +719,7 @@ function renderPopupImgCurrentInfo() {
             <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-200 mb-2 text-xs">
                 <div class="truncate flex-1 mr-2">
                     <a href="${img.url}" target="_blank" class="text-blue-500 underline font-bold">이미지 링크 확인</a>
-                    <span class="text-gray-500 block mt-1 font-semibold">기간: ${img.startDate} ~ ${img.deadline}</span>
+                    <span class="text-gray-500 block mt-1 font-semibold">기간: ${img.startDate} ~${img.deadline}</span>
                 </div>
                 <button onclick="deletePopupImage('${img.id}')" class="text-white bg-red-500 text-[11px] font-bold px-2 py-1 rounded hover:bg-red-600 transition shrink-0">삭제</button>
             </div>
@@ -754,7 +752,7 @@ async function loadPopupImagesFromFirebase() {
 }
 
 // =========================================================================
-// 홈 화면 유튜브 임베드
+// 홈 화면 유튜브 임베드 & 숲 공지사항 연동
 // =========================================================================
 function getYoutubeVideoId(url) {
     if (!url) return null;
@@ -770,7 +768,6 @@ function getYoutubeVideoId(url) {
         if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
             if (u.pathname === '/watch') return u.searchParams.get('v');
             const parts = u.pathname.split('/').filter(Boolean);
-            // /shorts/ID, /live/ID, /embed/ID
             if ((parts[0] === 'shorts' || parts[0] === 'live' || parts[0] === 'embed') && parts[1]) {
                 return parts[1];
             }
@@ -781,18 +778,118 @@ function getYoutubeVideoId(url) {
     return null;
 }
 
-function renderHomeYoutubeBox() {
+// 4명의 스트리머 API 정보 배열
+const soopBoards = [
+    { name: '달타', userId: 'dalta20', color: '#FBC02D', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/dalta20/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=89892972' },
+    { name: '다룽', userId: 'daarung22', color: '#1E88E5', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/daarung22/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=90309005' },
+    { name: '최또', userId: 'choiagain', color: '#f745c1', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/choiagain/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=98737113' },
+    { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=80727213' }
+];
+
+// 모바일/데스크탑 어디서 홈 화면이 다시 그려지더라도(날짜 이동 등) 공지 데이터를
+// 다시 fetch하지 않고 재사용할 수 있도록 캐시해 둔다.
+let cachedNoticeItemsHtml = '';
+let hasCachedNotice = false;
+let noticeFetchAttempted = false;
+
+async function fetchAndRenderAllNotices() {
+    // 데스크탑(사이드 패널)과 모바일(홈탭 본문) 양쪽 컨테이너를 모두 찾는다.
+    const noticeBox = document.getElementById('homeNoticeBox');
+    const noticeList = document.getElementById('homeNoticeList');
+    const mobileNoticeBox = document.getElementById('mobileHomeNoticeBox');
+    const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
+
+    let itemsHtml = '';
+    let hasAnyPost = false;
+
+    for (const board of soopBoards) {
+        try {
+            const res = await fetch(board.apiUrl, {
+                headers: { 
+                    Accept: "application/json", 
+                },
+            });
+            
+            const data = await res.json();
+            const posts = data?.data || data?.posts || [];
+
+            // 대소문자 구분 없이 스트리머 아이디와 일치하는 글만 필터링
+            const streamerPosts = posts.filter(
+                (post) => (post.user_id?.toLowerCase() === board.userId.toLowerCase() || post.userId?.toLowerCase() === board.userId.toLowerCase())
+            );
+
+            // 최신글 2개만 추출
+            const latestPosts = streamerPosts.slice(0, 2);
+
+            if (latestPosts.length > 0) {
+                hasAnyPost = true;
+                
+                latestPosts.forEach(post => {
+                    const postNo = post.title_no || post.titleNo; 
+                    const postTitle = (post.title || '제목 없음').replace(/"/g, '&quot;');
+
+                    itemsHtml += `
+                        <div class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2.5 rounded-lg transition-colors border border-transparent hover:border-gray-200" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
+                            <span class="px-2.5 py-1 text-white text-[11px] font-bold rounded-md shrink-0" style="background-color: ${board.color}; min-width: 48px; text-align: center;">${board.name}</span>
+                            <span class="text-[14px] font-bold text-[#5D4037] truncate flex-1">${postTitle}</span>
+                        </div>
+                    `;
+                });
+            }
+        } catch (error) {
+            console.error(`${board.name} 게시글을 불러오는 데 실패했습니다.`, error);
+        }
+    }
+
+    // 다음 렌더링(탭 전환, 날짜 이동 등)에서도 다시 쓸 수 있도록 캐시에 저장
+    cachedNoticeItemsHtml = itemsHtml;
+    hasCachedNotice = hasAnyPost;
+    noticeFetchAttempted = true;
+
+    if (noticeList) noticeList.innerHTML = itemsHtml;
+    if (noticeBox) noticeBox.classList.toggle('hidden', !hasAnyPost);
+
+    if (mobileNoticeList) mobileNoticeList.innerHTML = itemsHtml;
+    if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasAnyPost);
+    
+    // 데이터 렌더링 성공 여부 반환
+    return hasAnyPost;
+}
+
+// mainContent가 새로 그려질 때(모바일 홈탭 등) 캐시된 공지 데이터를 즉시 반영
+function applyCachedNoticeToMobileHome() {
+    const mobileNoticeBox = document.getElementById('mobileHomeNoticeBox');
+    const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
+    if (mobileNoticeList) mobileNoticeList.innerHTML = cachedNoticeItemsHtml;
+    if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasCachedNotice);
+}
+
+async function renderHomeYoutubeBox() {
     const box = document.getElementById('homeYoutubeBox');
     const embed = document.getElementById('homeYoutubeEmbed');
     if (!box || !embed) return;
 
+    let hasVideo = false;
     const videoId = getYoutubeVideoId(homeYoutubeUrl);
+    
+    // 1. 영상이 있으면 표시, 없으면 영상 영역만 숨김
     if (videoId) {
         embed.innerHTML = `<iframe class="w-full h-full" src="https://www.youtube.com/embed/${videoId}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
-        box.style.display = ''; // 링크가 있을 때만 표시 (반응형 표시 여부는 'hidden lg:flex' 클래스가 담당)
+        embed.style.display = 'block'; 
+        hasVideo = true;
     } else {
         embed.innerHTML = '';
-        box.style.display = 'none'; // 링크 없으면 화면 크기와 상관없이 완전히 숨김
+        embed.style.display = 'none'; 
+    }
+    
+    // 2. 공지사항 데이터를 불러오고, 표시할 글이 있는지 확인
+    const hasNotice = await fetchAndRenderAllNotices();
+
+    // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있으면 전체 박스를 보여줌
+    if (hasVideo || hasNotice) {
+        box.style.display = ''; 
+    } else {
+        box.style.display = 'none'; 
     }
 }
 
@@ -873,9 +970,6 @@ async function loadLinksFromFirebase() {
         const linkSnap = await getDocs(collection(db, 'memberLinks'));
         let dbLinks = { '달타':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
 
-        // 기본 링크는 "최초 1회"만 시딩한다. linkSnap.empty로만 판단하면
-        // 사용자가 링크를 전부 삭제할 때마다 기본 링크가 계속 재생성되므로,
-        // 별도의 meta 플래그 문서로 "이미 시딩했는지"를 기록해 재발동을 막는다.
         const seedFlagRef = doc(db, 'meta', 'linksSeeded');
         const seedFlagSnap = await getDoc(seedFlagRef);
 
@@ -911,8 +1005,6 @@ function checkAndShowPopup(today) {
         (!img.deadline || img.deadline >= today)
     );
     
-    // 수정된 부분: (dynamicLinks['공지']...) 조건을 제외하여 
-    // UP링크, 롤링페이퍼, 팝업 이미지 중 하나라도 존재할 때만 팝업이 열리도록 변경했습니다.
     if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || hasValidImage)) {
         showUpPopup(today);
     }
@@ -922,24 +1014,20 @@ function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
 
-    // 1. 텍스트 콘텐츠(UP링크, 진행중인 롤링페이퍼)가 존재하는지 먼저 체크
     const hasTextContent = (upLinksList.length > 0 || rollingTopics.filter(t => t.date >= today).length > 0);
 
     let popupImgHtml = '';
     const activeImg = popupImagesList.find(img => (!img.startDate || img.startDate <= today) && (!img.deadline || img.deadline >= today));
     const hasImg = !!(activeImg && activeImg.url);
     
-    // 이미지가 있고 텍스트 내용도 있을 때만 반반(md:w-1/2) 레이아웃 적용, 이미지만 있다면 전체 폭(w-full) 적용
     const leftWidthClass = (hasImg && hasTextContent) ? 'md:w-1/2' : 'w-full';
 
     const box = document.getElementById('upPopupBox');
     if (box) {
-        // 이미지와 텍스트 내용이 '둘 다 동시에' 있을 때만 넓은 팝업(1000px) 제공
         if (hasImg && hasTextContent) {
             box.classList.remove('max-w-[560px]');
             box.classList.add('max-w-[1000px]');
         } else {
-            // 이미지만 있거나 텍스트만 있을 때는 좁은 팝업(560px)으로 압축
             box.classList.remove('max-w-[1000px]');
             box.classList.add('max-w-[560px]');
         }
@@ -1001,24 +1089,20 @@ function showUpPopup(today) {
         </div>
     ` : '';
 
-    // 2. 텍스트 내용이 있을 때만 우측 글 영역 레이아웃 코드를 생성 (없으면 빈 문자열 처리)
     let rightColumnHtml = '';
     if (hasTextContent) {
         rightColumnHtml = `
             <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full md:w-1/2 pr-2 modal-scroll">
                 <div class="flex flex-col gap-6 w-full">
-                    ${upSectionHtml}
-                    ${rollingSectionHtml}
+                    ${upSectionHtml}${rollingSectionHtml}
                 </div>
             </div>
         `;
     }
 
-    // 3. 최종 결합 렌더링
     list.innerHTML = `
         <div class="flex flex-col md:flex-row gap-6 w-full">
-            ${popupImgHtml}
-            ${rightColumnHtml}
+            ${popupImgHtml}${rightColumnHtml}
         </div>
     `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
@@ -1039,7 +1123,6 @@ function openRollingTopicFromPopup(id) {
 }
 
 function renderHeaderTabs() {
-    // embed 모드: 탭 렌더 생략
     if (new URLSearchParams(window.location.search).get('mode') === 'embed') return;
     const desktopContainer = document.getElementById('headerNavTabs');
     const mobileNav = document.getElementById('mobileBottomNav');
@@ -1082,8 +1165,7 @@ function renderHeaderTabs() {
                     <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
                     <div class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
                         <div class="bg-white flex flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden py-1">
-                            ${mainLinkHtml}
-                            ${dropdownHtml}
+                            ${mainLinkHtml}${dropdownHtml}
                         </div>
                     </div>
                 </div>
@@ -1249,7 +1331,6 @@ function renderLinkManagePanel() {
     renderPopupImgCurrentInfo();
 }
 
-// 하위 호환용 별칭 (기존 코드에서 openLinkModal()로 목록 새로고침 + 모달 오픈을 함께 호출)
 function openLinkModal() { openManageModal('link'); }
 function closeLinkModal() { closeManageModal(); }
 
@@ -1362,7 +1443,7 @@ function toggleArtistPanel() {
 }
 window.toggleArtistPanel = toggleArtistPanel;
 function closeSidePanelUser() {
-    if (sidePanelMode === 'ARTIST') return; // 노래책의 가수 패널은 사용자가 끌 수 없음 (다른 탭으로 이동할 때만 닫힘)
+    if (sidePanelMode === 'ARTIST') return; 
     closeSidePanel();
 }
 window.closeSidePanelUser = closeSidePanelUser;
@@ -1398,7 +1479,6 @@ function openSidePanel(mode) {
     panel.classList.remove('hidden'); panel.classList.add('flex');
     if(isMobile && mobileOverlay) { mobileOverlay.classList.remove('hidden'); mobileOverlay.classList.add('block'); }
 
-    // 노래책의 가수 패널은 토글 버튼 없이 바로 뜨므로, 흰 박스(메인 컨텐츠) 상단과 위치를 맞춤
     if (!isMobile) panel.style.top = (mode === 'ARTIST') ? '-10px' : '';
     
     if (mode === 'MEMO') {
@@ -1591,7 +1671,6 @@ function renderUpLinksPanel() {
     `;
 }
 
-// 관리자(로그인) 프사 캐시 - 로그인 시 쓰이는 프로필 사진(admins 컬렉션)을 멤버 이름으로 조회
 let memberLoginImgMap = {};
 async function ensureMemberLoginImgMap() {
     if (Object.keys(memberLoginImgMap).length > 0) return memberLoginImgMap;
@@ -1605,7 +1684,6 @@ async function ensureMemberLoginImgMap() {
     return memberLoginImgMap;
 }
 
-// 홈 화면 'UP' 버튼: 팝업창(모달)으로 UP 링크 목록을 보여줌
 function buildUpLinksCardsHtml() {
     const sorted = [...upLinksList].sort((a, b) => {
         if (a.deadline && b.deadline) {
@@ -1828,7 +1906,6 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, u
 }
 
 async function changeTab(tabName) {
-    // embed 모드: 탭 전환 차단
     const _embedP = new URLSearchParams(window.location.search);
     if (_embedP.get('mode') === 'embed') return;
 
@@ -2039,15 +2116,15 @@ function render() {
     if (mBtnContainer) {
         if (currentPage === '홈') mBtnContainer.innerHTML = mobileUpBtnHtml;
         else if (currentPage === '롤링페이퍼') mBtnContainer.innerHTML = mobileRollingBtnHtml; 
-        else if (currentPage === '업보정리') mBtnContainer.innerHTML = ''; // 업보정리 탭에서는 버튼 숨김
-        else if (currentPage === '노래책') mBtnContainer.innerHTML = ''; // 노래책 탭에서는 버튼 없이 가수 패널만 표시
+        else if (currentPage === '업보정리') mBtnContainer.innerHTML = ''; 
+        else if (currentPage === '노래책') mBtnContainer.innerHTML = ''; 
         else mBtnContainer.innerHTML = mobileMemoBtnHtml;
     }
     if (dBtnContainer) {
         if (currentPage === '홈') dBtnContainer.innerHTML = desktopUpBtnHtml;
         else if (currentPage === '롤링페이퍼') dBtnContainer.innerHTML = desktopRollingBtnHtml; 
-        else if (currentPage === '업보정리') dBtnContainer.innerHTML = ''; // 업보정리 탭에서는 버튼 숨김
-        else if (currentPage === '노래책') dBtnContainer.innerHTML = ''; // 노래책 탭에서는 버튼 없이 가수 패널만 표시
+        else if (currentPage === '업보정리') dBtnContainer.innerHTML = ''; 
+        else if (currentPage === '노래책') dBtnContainer.innerHTML = ''; 
         else dBtnContainer.innerHTML = desktopMemoBtnHtml;
     }
     
@@ -2080,14 +2157,10 @@ function render() {
     }
 }
 
-// =========================================================================
-// 노래책 (달타탭 전용)
-// =========================================================================
 function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// 좋아요 누른 노래 id 목록은 브라우저(기기)별로 로컬에 저장 (뷰어도 누구나 좋아요 가능)
 function getLikedSongIds(member = songbookMember) {
     try {
         const key = `likedSongIds_${member || '달타'}`;
@@ -2120,7 +2193,6 @@ function getFilteredSongs() {
             const title = (s.title || '').toLowerCase();
             const artist = (s.artist || '').toLowerCase();
             if (title.includes(q) || artist.includes(q)) return true;
-            // 검색용 별칭(목록에는 표시되지 않음)에 걸리면 매칭
             const alias = (s.alias || '').toLowerCase();
             return alias.includes(q);
         });
@@ -2208,7 +2280,6 @@ function renderSongList() {
                 : `<div class="w-full h-full bg-[#FFF9C4] flex items-center justify-center text-4xl">🎵</div>`;
             const isLiked = liked.has(song.id);
             const likeCount = Number(song.likes || 0);
-            // 장르가 콤마/슬래시/가운뎃점 등으로 여러개 적혀 있으면 태그를 나눠서 표시
             const genreTags = song.genre
                 ? song.genre.split(/[,\/·]/).map(g => g.trim()).filter(Boolean)
                 : [];
@@ -2239,7 +2310,6 @@ function renderSongList() {
     container.innerHTML = html;
 }
 
-// 장르 필터 칩 (검색창 아래)
 function renderGenreFilters() {
     const container = document.getElementById('genreFilterContainer');
     if (!container) return;
@@ -2278,7 +2348,6 @@ window.toggleLikedOnlyFilter = function() {
     renderGenreFilters();
 };
 
-// 좋아요 토글: 누구나(뷰어 포함) 누를 수 있음. 좋아요 여부는 이 브라우저 기기 기준으로 기억됨.
 window.toggleLikeSong = async function(id) {
     if (likeInProgress.has(id)) return;
     likeInProgress.add(id);
@@ -2291,7 +2360,6 @@ window.toggleLikeSong = async function(id) {
     const alreadyLiked = liked.has(id);
     const delta = alreadyLiked ? -1 : 1;
 
-    // 낙관적 업데이트 (즉시 화면 반영)
     const nextLikes = Math.max(0, Number(song.likes || 0) + delta);
     song.likes = nextLikes;
     if (alreadyLiked) liked.delete(id); else liked.add(id);
@@ -2303,7 +2371,6 @@ window.toggleLikeSong = async function(id) {
         await updateDoc(doc(db, getSongCollectionName(member), id), { likes: increment(delta) });
     } catch (e) {
         console.error('좋아요 처리 실패:', e);
-        // 실패 시 롤백
         song.likes = Math.max(0, nextLikes - delta);
         if (alreadyLiked) liked.add(id); else liked.delete(id);
         saveLikedSongIds(liked, member);
@@ -2314,7 +2381,6 @@ window.toggleLikeSong = async function(id) {
     }
 };
 
-// 가수 목록: 메모보드와 동일한 사이드 패널 자리에 표시 (사용자가 끌 수 없음)
 function renderArtistSidePanel() {
     const panel = document.getElementById('sideExpansionPanel');
     if (!panel || sidePanelMode !== 'ARTIST') return;
@@ -2368,7 +2434,6 @@ function populateSongGenreDatalist() {
     songGenreOptionsCache = Array.from(new Set(songs.map(s => (s.genre || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
 }
 
-// 노래 추가 팝업의 커스텀 장르 드롭다운 렌더링
 function renderSongGenreDropdown(filterText) {
     const listEl = document.getElementById('songGenreDropdownList');
     if (!listEl) return;
@@ -2416,7 +2481,6 @@ document.addEventListener('DOMContentLoaded', () => {
         genreInput.focus();
     });
     genreList.addEventListener('mousedown', (e) => {
-        // mousedown(대신 click)을 써야 input의 blur보다 먼저 선택값이 반영됩니다.
         const btn = e.target.closest('.song-genre-option');
         if (!btn) return;
         e.preventDefault();
@@ -2436,8 +2500,8 @@ let songAlbumArtFetchToken = 0;
 
 window.openSongAddModal = function() {
     if (!isAdmin) return;
-    currentEditingSongId = null; // 추가 모드이므로 null로 초기화
-    document.querySelector('#songAddModal h2').innerText = '노래 추가'; // 모달 제목 변경
+    currentEditingSongId = null; 
+    document.querySelector('#songAddModal h2').innerText = '노래 추가'; 
     
     document.getElementById('songTitleInput').value = '';
     document.getElementById('songArtistInput').value = '';
@@ -2461,17 +2525,16 @@ window.openSongEditModal = function(id) {
     const song = songs.find(s => s.id === id);
     if (!song) return;
     
-    currentEditingSongId = id; // 수정할 노래 ID 저장
-    document.querySelector('#songAddModal h2').innerText = '노래 수정'; // 모달 제목 변경
+    currentEditingSongId = id; 
+    document.querySelector('#songAddModal h2').innerText = '노래 수정'; 
     
-    // 기존 데이터 세팅
     document.getElementById('songTitleInput').value = song.title || '';
     document.getElementById('songArtistInput').value = song.artist || '';
     document.getElementById('songAliasInput').value = song.alias || '';
     document.getElementById('songGenreInput').value = song.genre || '';
     document.getElementById('songAlbumArtInput').value = song.albumArt || '';
     
-    songAlbumArtManuallyEdited = true; // 자동 검색으로 덮어씌워지는 것 방지
+    songAlbumArtManuallyEdited = true; 
     setSongAlbumArtStatus('');
     window.previewSongAlbumArt(song.albumArt || '');
     populateSongGenreDatalist();
@@ -2488,7 +2551,6 @@ window.closeSongAddModal = function() {
 };
 
 window.previewSongAlbumArt = function(url) {
-    // Manual edits to the URL field should stop future auto-search results from overwriting it.
     songAlbumArtManuallyEdited = true;
     const wrap = document.getElementById('songAlbumArtPreview');
     const img = document.getElementById('songAlbumArtPreviewImg');
@@ -2505,7 +2567,6 @@ function setSongAlbumArtStatus(text, isError) {
     el.className = `text-[12px] font-bold mt-1 h-4 ${isError ? 'text-red-400' : 'text-gray-400'}`;
 }
 
-// Looks up album art via the iTunes Search API (no key required) based on title + artist.
 async function fetchAlbumArtFromItunes(title, artist) {
     const term = encodeURIComponent(`${artist} ${title}`.trim());
     if (!term) return null;
@@ -2515,13 +2576,11 @@ async function fetchAlbumArtFromItunes(title, artist) {
         const data = await res.json();
         return (data.results && data.results[0]) || null;
     };
-    // Prefer Korean store results first (better hit rate for K-pop/local artists), then fall back to the default store.
     let result = await tryFetch(`https://itunes.apple.com/search?term=${term}&media=music&entity=song&limit=1&country=KR`);
     if (!result) {
         result = await tryFetch(`https://itunes.apple.com/search?term=${term}&media=music&entity=song&limit=1`);
     }
     if (!result || !result.artworkUrl100) return null;
-    // The API returns a small 100x100 thumbnail URL; bump it up to a higher resolution.
     return result.artworkUrl100.replace('100x100bb', '600x600bb');
 }
 
@@ -2530,7 +2589,7 @@ window.autoFetchAlbumArt = async function() {
     const artist = document.getElementById('songArtistInput').value.trim();
     if (!title && !artist) return;
     const currentUrl = document.getElementById('songAlbumArtInput').value.trim();
-    if (currentUrl && songAlbumArtManuallyEdited) return; // respect a URL the user typed in themselves
+    if (currentUrl && songAlbumArtManuallyEdited) return; 
 
     const myToken = ++songAlbumArtFetchToken;
     setSongAlbumArtStatus('앨범아트 검색 중...');
@@ -2539,11 +2598,11 @@ window.autoFetchAlbumArt = async function() {
 
     try {
         const artUrl = await fetchAlbumArtFromItunes(title, artist);
-        if (myToken !== songAlbumArtFetchToken) return; // a newer search superseded this one
+        if (myToken !== songAlbumArtFetchToken) return; 
         if (artUrl) {
             document.getElementById('songAlbumArtInput').value = artUrl;
             window.previewSongAlbumArt(artUrl);
-            songAlbumArtManuallyEdited = false; // this value came from auto-search, not manual typing
+            songAlbumArtManuallyEdited = false; 
             setSongAlbumArtStatus('앨범아트를 찾았습니다 ✓');
         } else {
             setSongAlbumArtStatus('일치하는 앨범아트를 찾지 못했습니다. 직접 입력해주세요.', true);
@@ -2580,12 +2639,10 @@ window.saveSong = async function() {
         const member = songbookMember || '달타';
         
         if (currentEditingSongId) {
-            // [수정 로직]
             await updateDoc(doc(db, getSongCollectionName(member), currentEditingSongId), {
                 title, artist, alias, genre, albumArt
             });
             
-            // 로컬 데이터 배열 업데이트
             const songIndex = songsByMember[member].findIndex(s => s.id === currentEditingSongId);
             if (songIndex > -1) {
                 songsByMember[member][songIndex].title = title;
@@ -2595,7 +2652,6 @@ window.saveSong = async function() {
                 songsByMember[member][songIndex].albumArt = albumArt;
             }
         } else {
-            // [기존 추가 로직]
             const newSong = { title, artist, alias, genre, albumArt, likes: 0, timestamp: Date.now(), member };
             const docRef = await addDoc(collection(db, getSongCollectionName(member)), newSong);
             songsByMember[member] = songsByMember[member] || [];
@@ -2614,7 +2670,6 @@ window.saveSong = async function() {
     }
 };
 
-// 화면 하단에 잠깐 표시되는 공용 토스트 알림
 function showToast(msg) {
     let toast = document.getElementById('globalToast');
     if (!toast) {
@@ -2633,7 +2688,6 @@ function showToast(msg) {
     }, 1800);
 }
 
-// 노래 카드를 클릭하면 "가수 - 제목"을 클립보드에 복사
 window.copySongToClipboard = function(id, event) {
     if (event) event.stopPropagation();
     const song = songs.find(s => s.id === id);
@@ -2649,7 +2703,6 @@ window.copySongToClipboard = function(id, event) {
     }
 };
 
-// ===== 노래 정보 팝업 =====
 window.openSongInfoModal = function(id) {
     const song = songs.find(s => s.id === id);
     if (!song) return;
@@ -2800,7 +2853,6 @@ function renderUpboPage() {
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
                     <div class="absolute top-[120px] -right-[170px] flex flex-col gap-2 shrink-0 z-50">
-                        <!-- 저장하기 버튼을 맨 위로 이동 -->
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#967978] text-white font-bold font-Diary rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
                         
                         <div id="upboFileMenuWrapper" class="relative w-full">
@@ -2810,60 +2862,60 @@ function renderUpboPage() {
                                 <button type="button" onclick="event.stopPropagation(); closeUpboFileMenu(); document.getElementById('rouletteFileInput').click();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-dice"></i> 룰렛 업로드</button>
                             </div>
                         </div>
-                        <input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
-                        
-                        <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
-                        <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
-                        <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
-                    </div>
-                </div>
-
-                <!-- 일괄 처리 컨트롤 바 -->
-                <div class="flex items-center gap-2 mb-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                    <span class="text-[14px] font-bold text-[#5D4037] ml-1">선택 항목:</span>
-                    <select id="batchStatusSelect" class="border-[2px] border-[#5D4037] rounded-lg p-1.5 text-[13px] outline-none font-bold text-[#5D4037] cursor-pointer">
-                        <option value="배송중">배송중</option>
-                        <option value="배송완료">배송완료</option>
-                    </select>
-                    <button onclick="changeStatusSelectedUpboRows()" class="px-3 py-1.5 bg-purple-50 text-purple-700 font-bold rounded-lg border-[1.5px] border-purple-200 shadow-sm text-[13px] hover:bg-purple-100 transition">일괄 상태 변경</button>
-                    <span class="text-gray-300 mx-1">|</span>
-                    <button onclick="deleteSelectedUpboRows()" class="px-3 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border-[1.5px] border-red-200 shadow-sm text-[13px] hover:bg-red-100 transition">선택 삭제</button>
-                </div>
-
-                <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border-2 border-[#5D4037] rounded-2xl p-6 shadow-sm">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div>
-                            <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-box-open"></i> 업보정리 사용법</div>
-                            <ol class="flex flex-col gap-2">
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>데이터를 입력 후 저장하기를 누른다</li>
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>저장하면 상태와 방송국 바로가기 버튼이 생긴다</li>
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>시청자들이 조회창에서 본인이 구매한 것을 조회할 수 있습니다</li>
-                            </ol>
-                        </div>
-                        <div>
-                            <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-share"></i> 퍼가기 사용법</div>
-                            <ol class="flex flex-col gap-2">
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>저장하기 옆 퍼가기 버튼을 눌러 복사합니다</li>
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>SOOP 게시글 쓰기 기본모드를 HTML모드로 바꾸고 붙여넣고 게시합니다</li>
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>게시글에서 조회창이 나와서 바로 조회가 가능합니다</li>
-                            </ol>
+<input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
+                            
+                            <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
+                            <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
+                            <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
                         </div>
                     </div>
-                </div>
-                <div class="overflow-x-auto lg:overflow-visible border-2 border-[#5D4037] rounded-xl bg-white mb-4 shadow-sm scrollbar-hide">
-                    <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable">
-                    </table>
-                </div>
-                <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
-            </div>
-        `;
-    }
 
-    mainHtml += `</div>`;
-    content.innerHTML = mainHtml;
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6';
+                    <!-- 일괄 처리 컨트롤 바 -->
+                    <div class="flex items-center gap-2 mb-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                        <span class="text-[14px] font-bold text-[#5D4037] ml-1">선택 항목:</span>
+                        <select id="batchStatusSelect" class="border-[2px] border-[#5D4037] rounded-lg p-1.5 text-[13px] outline-none font-bold text-[#5D4037] cursor-pointer">
+                            <option value="배송중">배송중</option>
+                            <option value="배송완료">배송완료</option>
+                        </select>
+                        <button onclick="changeStatusSelectedUpboRows()" class="px-3 py-1.5 bg-purple-50 text-purple-700 font-bold rounded-lg border-[1.5px] border-purple-200 shadow-sm text-[13px] hover:bg-purple-100 transition">일괄 상태 변경</button>
+                        <span class="text-gray-300 mx-1">|</span>
+                        <button onclick="deleteSelectedUpboRows()" class="px-3 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border-[1.5px] border-red-200 shadow-sm text-[13px] hover:bg-red-100 transition">선택 삭제</button>
+                    </div>
 
-    if (isAdmin && upboViewMode === 'admin') renderUpboAdminTable();
+                    <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border-2 border-[#5D4037] rounded-2xl p-6 shadow-sm">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                                <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-box-open"></i> 업보정리 사용법</div>
+                                <ol class="flex flex-col gap-2">
+                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>데이터를 입력 후 저장하기를 누른다</li>
+                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>저장하면 상태와 방송국 바로가기 버튼이 생긴다</li>
+                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>시청자들이 조회창에서 본인이 구매한 것을 조회할 수 있습니다</li>
+                                </ol>
+                            </div>
+                            <div>
+                                <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-share"></i> 퍼가기 사용법</div>
+                                <ol class="flex flex-col gap-2">
+                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>저장하기 옆 퍼가기 버튼을 눌러 복사합니다</li>
+                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>SOOP 게시글 쓰기 기본모드를 HTML모드로 바꾸고 붙여넣고 게시합니다</li>
+                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>게시글에서 조회창이 나와서 바로 조회가 가능합니다</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto lg:overflow-visible border-2 border-[#5D4037] rounded-xl bg-white mb-4 shadow-sm scrollbar-hide">
+                        <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable">
+                        </table>
+                    </div>
+                    <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
+                </div>
+            `;
+        }
+
+        mainHtml += `</div>`;
+        content.innerHTML = mainHtml;
+        content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6';
+
+        if (isAdmin && upboViewMode === 'admin') renderUpboAdminTable();
 }
 
 function renderUpboAdminTable() {
@@ -3411,6 +3463,12 @@ function renderMobileHome(grouped) {
             </div>
             <button onclick="changeHomeDate(1)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-right text-3xl"></i></button>
         </div>
+        <div id="mobileHomeNoticeBox" class="hidden mx-4 mb-4 bg-white border-2 border-[#5D4037] rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] p-4">
+            <div class="text-[15px] font-bold text-[#5D4037] mb-2 font-paperozi flex items-center gap-2">
+                <i class="fi fi-rr-megaphone"></i> 최근 게시글
+            </div>
+            <div id="mobileHomeNoticeList" class="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto modal-scroll pr-1"></div>
+        </div>
         <div class="grid grid-cols-1 gap-4 px-4 w-full">
     `;
     
@@ -3454,6 +3512,13 @@ function renderMobileHome(grouped) {
     html += `</div>`;
     content.innerHTML = html;
     content.className = 'shrink-0 transition-all duration-300 w-full max-w-[600px] mx-auto pb-6';
+
+    // 캐시된 공지 데이터를 새로 그려진 홈 화면에 즉시 반영
+    applyCachedNoticeToMobileHome();
+    // 아직 한 번도 불러온 적이 없다면 최초 1회 데이터 요청 (날짜 이동 등 재렌더링 시 중복 fetch 방지)
+    if (!noticeFetchAttempted) {
+        fetchAndRenderAllNotices();
+    }
 }
 
 function renderMobileIndividual(grouped) {
@@ -4252,14 +4317,11 @@ async function initApp() {
     await loadPopupImagesFromFirebase();
     await loadHomeSettingsFromFirebase();
     await loadSchedulesFromFirebase();
-    // 노래책 데이터는 여기서 미리 불러오지 않음. '노래책' 탭에 진입할 때(changeTab)
-    // 해당 멤버(예: 달타)의 데이터만 loadSongsFromFirebase()로 불러옴.
     setActiveSongs(songbookMember);
     
     
     const today = getTodayYYYYMMDD();
 
-    // embed 모드: 팝업 차단, 업보 조회창 고정
     const embedParams = new URLSearchParams(window.location.search);
     const isEmbedMode = embedParams.get('mode') === 'embed';
 
@@ -4267,13 +4329,11 @@ async function initApp() {
         checkAndShowPopup(today);
     }
 
-    // 라우팅 처리
     if (isEmbedMode) {
-        // embed 모드: URL의 upbo 파라미터로 멤버 결정, 없으면 달타 기본
         const upboParam = embedParams.get('upbo');
         upboCurrentMember = upboParam || '달타';
         currentPage = '업보정리';
-        upboViewMode = 'search'; // 관리자여도 조회창 고정
+        upboViewMode = 'search'; 
     } else {
     const currentHash = window.location.hash;
     if (currentHash && hashToTab[currentHash]) {
@@ -4292,7 +4352,6 @@ async function initApp() {
     }
     
     if (isEmbedMode) {
-        // embed 모드: changeTab 우회하여 바로 렌더
         renderHeaderTabs();
         render();
     } else {
@@ -4386,7 +4445,6 @@ window.parseMembers = function(tagString) {
     const names = tagString.split(/[, ]+/).filter(n => n.trim() !== '');
     const result = [];
     names.forEach(name => {
-        // 그룹명인지 먼저 확인
         const group = memberGroups.find(g => g.name === name);
         if (group && group.memberIds && group.memberIds.length > 0) {
             group.memberIds.forEach(mid => {
@@ -4397,7 +4455,6 @@ window.parseMembers = function(tagString) {
             });
             return;
         }
-        // 일반 멤버 처리
         const found = customMembers.find(m => m.nickname === name);
         if (found) {
             result.push({ ...found, nickname: found.isCrew ? '' : found.nickname });
@@ -4419,7 +4476,6 @@ window.deleteCustomMember = async function(id) {
     } catch(e) { console.error(e); }
 };
 
-// 현재 편집 중인 그룹 ID (null = 추가 모드)
 let editingGroupId = null;
 
 window.renderCustomMembersList = function(filterText = '') {
@@ -4465,15 +4521,11 @@ window.filterGroupsList = function() {
     renderMemberGroupsList(q);
 };
 
-// =========================================================================
-// 멤버 목록 내보내기 / 불러오기 (텍스트 파일)
-// =========================================================================
 window.exportMembersList = function() {
     if (!customMembers.length) {
         alert('내보낼 멤버가 없습니다.');
         return;
     }
-    // 한 줄에 "닉네임,아이디" 형식으로 저장 (아이디 없으면 빈 값)
     const lines = customMembers.map(m => `${m.nickname},${m.soopId || ''}`);
     const text = lines.join('\r\n');
     const blob = new Blob(['\ufeff' + text], { type: 'text/plain;charset=utf-8' });
@@ -4511,14 +4563,12 @@ window.importMembersListFile = async function(event) {
         let skippedCount = 0;
 
         for (const line of lines) {
-            // "닉네임,아이디" 또는 "닉네임 아이디" 또는 "닉네임" 형식 모두 지원
             const parts = line.split(/[,\t]/).map(p => p.trim());
             const nickname = parts[0];
             const soopId = parts[1] || '';
 
             if (!nickname) { skippedCount++; continue; }
 
-            // 이미 동일한 이름+아이디의 멤버가 있으면 건너뛰기
             const exists = customMembers.some(m => m.nickname === nickname && (m.soopId || '') === soopId);
             if (exists) { skippedCount++; continue; }
 
@@ -4555,9 +4605,6 @@ window.importMembersListFile = async function(event) {
     reader.readAsText(file, 'utf-8');
 };
 
-// =========================================================================
-// 탭 전환
-// =========================================================================
 window.switchMemberManageTab = function(tab) {
     const memberContent = document.getElementById('memberTabContent');
     const groupContent = document.getElementById('groupTabContent');
@@ -4580,9 +4627,6 @@ window.switchMemberManageTab = function(tab) {
     }
 };
 
-// =========================================================================
-// 그룹 관리
-// =========================================================================
 function getGroupAllMembers() {
     return [
         ...members.map(m => ({ id: '__builtin__' + m.name, nickname: m.name, imageUrl: m.img })),
@@ -4603,8 +4647,6 @@ function resolveGroupMembers(memberIds) {
 
 let groupCheckboxSelectedIds = new Set();
 
-// 체크박스 하나가 토글될 때 그 항목만 선택 집합에 추가/제거한다.
-// (검색으로 필터링되어 화면에 없는 다른 선택 항목은 건드리지 않는다)
 window.toggleGroupMemberCheckbox = function(cb) {
     if (cb.checked) {
         groupCheckboxSelectedIds.add(cb.value);
@@ -4614,7 +4656,6 @@ window.toggleGroupMemberCheckbox = function(cb) {
     renderSelectedGroupMembersChips();
 };
 
-// 현재 선택된 멤버들을 칩(태그) 형태로 보여준다.
 window.renderSelectedGroupMembersChips = function() {
     const container = document.getElementById('groupSelectedMembersChips');
     if (!container) return;
@@ -4639,7 +4680,6 @@ window.renderSelectedGroupMembersChips = function() {
         `).join('');
 };
 
-// 칩의 X 버튼으로 선택 해제 (검색 필터와 무관하게 동작)
 window.removeGroupSelectedMember = function(id) {
     groupCheckboxSelectedIds.delete(id);
     const cb = document.querySelector(`.group-member-cb[value="${CSS.escape(id)}"]`);
@@ -4731,21 +4771,17 @@ window.renderMemberGroupsList = function(filterText = '') {
     }).join('');
 };
 
-// 그룹 수정 모드 시작
 window.startEditGroup = function(id) {
     const group = memberGroups.find(g => g.id === id);
     if (!group) return;
     editingGroupId = id;
 
-    // 입력창에 기존 값 세팅
     document.getElementById('newGroupName').value = group.name;
 
-    // 체크박스 기존 선택 표시
     const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
     if (groupMemberSearchInput) groupMemberSearchInput.value = '';
     renderGroupMemberCheckboxes(group.memberIds || []);
 
-    // 버튼 텍스트 변경
     const addBtn = document.getElementById('groupAddBtn');
     if (addBtn) {
         addBtn.textContent = '수정 저장';
@@ -4754,12 +4790,10 @@ window.startEditGroup = function(id) {
     const cancelBtn = document.getElementById('groupEditCancelBtn');
     if (cancelBtn) cancelBtn.classList.remove('hidden');
 
-    // 입력창으로 스크롤
     document.getElementById('newGroupName').focus();
     document.getElementById('newGroupName').scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
-// 수정 취소
 window.cancelEditGroup = function() {
     editingGroupId = null;
     document.getElementById('newGroupName').value = '';
@@ -4783,13 +4817,11 @@ window.addMemberGroup = async function() {
 
     try {
         if (editingGroupId) {
-            // 수정
             await updateDoc(doc(db, 'memberGroups', editingGroupId), { name, memberIds });
             const idx = memberGroups.findIndex(g => g.id === editingGroupId);
             if (idx !== -1) { memberGroups[idx].name = name; memberGroups[idx].memberIds = memberIds; }
             cancelEditGroup();
         } else {
-            // 추가
             const newGroup = { name, memberIds, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'memberGroups'), newGroup);
             memberGroups.push({ id: docRef.id, ...newGroup });
@@ -4849,16 +4881,12 @@ function getLunarDate(y, m, d) {
     }
 }
 
-// script.js 파일 맨 끝에 추가
 window.copyEmbedCode = function() {
-    // 현재 접속 중인 주소를 기반으로 임베드 주소 생성
     const currentUrl = window.location.origin + window.location.pathname;
     const embedUrl = `${currentUrl}?mode=embed#listdalta`;
     
-    // iframe 코드 생성
     const iframeCode = `<iframe src="${embedUrl}" width="100%" height="700px" style="border: none;" sandbox="allow-scripts allow-same-origin"></iframe>`;
     
-    // 클립보드 복사
     navigator.clipboard.writeText(iframeCode).then(() => {
         alert("게시글용 임베드 코드가 복사되었습니다!");
     }).catch(err => {
@@ -4866,7 +4894,6 @@ window.copyEmbedCode = function() {
     });
 };
 
-// 업보정리 사용법 토글
 window.toggleUpboGuide = function() {
     const box = document.getElementById('upboGuideBox');
     const btn = document.getElementById('upboGuideBtn');
@@ -4882,10 +4909,8 @@ window.toggleUpboGuide = function() {
     }
 };
 
-// 업보데이터 관리표 퍼가기 함수
 window.copyUpboEmbedCode = function() {
     const currentUrl = window.location.origin + window.location.pathname;
-    // 현재 선택된 멤버 탭 정보 포함
     const memberParam = typeof upboCurrentMember !== 'undefined' && upboCurrentMember
         ? `&upbo=${encodeURIComponent(upboCurrentMember)}`
         : '&upbo=달타';
@@ -4893,7 +4918,6 @@ window.copyUpboEmbedCode = function() {
     const iframeCode = `<iframe src="${embedUrl}" width="100%" height="700px" style="border:none; border-radius:16px;" sandbox="allow-scripts allow-same-origin"></iframe>`;
 
     navigator.clipboard.writeText(iframeCode).then(() => {
-        // 버튼 피드백
         const btn = document.querySelector('button[onclick="copyUpboEmbedCode()"]');
         if (btn) {
             const original = btn.innerHTML;
@@ -4907,7 +4931,6 @@ window.copyUpboEmbedCode = function() {
             }, 2000);
         }
     }).catch(() => {
-        // 클립보드 API 실패 시 프롬프트로 fallback
         prompt('아래 코드를 복사하세요:', iframeCode);
     });
 };
@@ -4915,7 +4938,6 @@ window.copyUpboEmbedCode = function() {
 // =========================================================================
 // 업보정리 텍스트 파일 일괄 업로드 기능
 // =========================================================================
-// 파일 업로드(댓글 업로드/룰렛 업로드) 드롭다운 메뉴
 window.toggleUpboFileMenu = function() {
     const menu = document.getElementById('upboFileMenu');
     if(!menu) return;
@@ -4935,7 +4957,6 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// 파일 업로드 모달의 처리 방식(매핑 규칙 / 고정 양식) 전환
 window.upboUploadMode = 'mapping';
 
 window.setUpboUploadMode = function(mode) {
@@ -4955,7 +4976,7 @@ window.setUpboUploadMode = function(mode) {
 
 window.openUpboTextUploadModal = function() {
     if(!isAdmin) return;
-    syncUpboDomToState(); // 현재 표 상태 임시 저장
+    syncUpboDomToState(); 
 
     if(!upboData[upboCurrentMember]) upboData[upboCurrentMember] = {products:[], records:[]};
     const products = upboData[upboCurrentMember].products || [];
@@ -4964,10 +4985,8 @@ window.openUpboTextUploadModal = function() {
     const rulesContainer = document.getElementById('upboMappingRules');
     rulesContainer.innerHTML = '';
     
-    // 모달 열 때 기본 규칙 1개 추가
     addUpboMappingRule();
 
-    // 상품(열)이 하나도 없다면 자동으로 열을 만들어주는 '고정 양식' 모드를 기본으로 보여줌
     setUpboUploadMode(products.length === 0 ? 'fixed' : 'mapping');
 
     document.getElementById('upboTextUploadModal').classList.replace('hidden', 'flex');
@@ -4984,7 +5003,6 @@ window.addUpboMappingRule = function() {
     const row = document.createElement('div');
     row.className = "flex gap-2 items-center mapping-rule-row mb-1";
     
-    // 현재 존재하는 상품 목록으로 드롭다운 생성
     let selectHtml = `<select class="flex-1 border-2 border-[#5D4037] rounded p-1.5 text-sm outline-none font-bold mapping-product">`;
     products.forEach(p => {
         selectHtml += `<option value="${p}">${p}</option>`;
@@ -5004,7 +5022,6 @@ window.addUpboMappingRule = function() {
     rulesContainer.appendChild(row);
 };
 
-// 규칙 종류(수량/단어)를 바꾸면 입력칸의 placeholder와 입력 타입을 맞춰줌
 window.handleUpboMappingTypeChange = function(selectEl) {
     const row = selectEl.closest('.mapping-rule-row');
     const valueInput = row.querySelector('.mapping-value');
@@ -5012,21 +5029,19 @@ window.handleUpboMappingTypeChange = function(selectEl) {
         valueInput.type = 'text';
         valueInput.placeholder = '단어(예:셀카)';
     } else {
-        valueInput.type = 'text'; // 콤마 포함 숫자(예: 1,000) 입력도 허용하기 위해 text 유지
+        valueInput.type = 'text'; 
         valueInput.placeholder = '수량(예:562)';
     }
 };
 
-// 규칙 매칭 핵심 로직: 금액(수량) 또는 지정된 단어가 일치하면 텍스트를 스마트하게 추출하여 삽입
 function applyUpboMappingToRecords(records, rules) {
     let addedCount = 0;
 
     records.forEach(rec => {
-        const donationVal = rec.donation; // 이미 쉼표 제거됨
-        const chatContent = rec.chat ?? rec.content ?? ''; // 엑셀(chat)/txt(content) 두 경우 모두 지원
+        const donationVal = rec.donation; 
+        const chatContent = rec.chat ?? rec.content ?? ''; 
         const contentLower = chatContent.toLowerCase();
 
-        // 1. find 대신 filter를 사용하여 한 댓글(chatContent)에 여러 규칙(예: 1475, 555)이 모두 매칭될 수 있도록 변경
         const matchedRules = rules.filter(rule => {
             if (rule.type === 'word') {
                 return chatContent && contentLower.includes(rule.value.toLowerCase());
@@ -5034,7 +5049,6 @@ function applyUpboMappingToRecords(records, rules) {
             return donationVal === rule.value.replace(/,/g, '').trim();
         });
 
-        // 2. 규칙이 하나라도 매칭되었을 때 데이터 삽입
         if (matchedRules.length > 0) {
             const nickname = String(rec.nickname ?? '').trim() || String(rec.uid ?? '').trim();
             const uid = String(rec.uid ?? '').trim() || nickname;
@@ -5045,23 +5059,18 @@ function applyUpboMappingToRecords(records, rules) {
                 upboData[upboCurrentMember].records.push(record);
             }
 
-            // 매칭된 모든 규칙을 순회하며 추출 및 삽입
             matchedRules.forEach(matchedRule => {
                 const mappedProduct = matchedRule.product;
                 
-                // 단어(word) 규칙으로 매칭된 경우 스마트 추출 로직 실행
                 if (matchedRule.type === 'word') {
-                    // 예: "1475 - 치파오" 에서 "1475" 뒤에 오는 '-', ':', '=' 기호나 공백을 무시하고, 쉼표나 줄바꿈 전까지의 텍스트(치파오)만 캡처
                     const safeValue = matchedRule.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(safeValue + '\\s*[-:=]?\\s*([^,\\n]+)', 'i');
                     const match = chatContent.match(regex);
                     
                     let extractedText = match && match[1] ? match[1].trim() : chatContent;
                     
-                    // 만약 텍스트 추출이 빈 칸이거나 수량만 달랑 있다면, 통째로 넣기
                     if (!extractedText) extractedText = chatContent;
 
-                    // 해당 상품 열에 이미 숫자가 아닌 텍스트가 있다면 줄바꿈으로 추가, 아니면 덮어쓰기
                     if (!record.items[mappedProduct] || isNaN(record.items[mappedProduct])) {
                         if (record.items[mappedProduct] && !String(record.items[mappedProduct]).includes(extractedText)) {
                             record.items[mappedProduct] += `\n${extractedText}`;
@@ -5073,7 +5082,6 @@ function applyUpboMappingToRecords(records, rules) {
                     }
                     addedCount++;
                 } 
-                // 금액(amount) 규칙으로 매칭되었고 채팅 내용이 있는 경우
                 else if (matchedRule.type === 'amount' && chatContent) {
                     if (!record.items[mappedProduct] || isNaN(record.items[mappedProduct])) {
                         if (record.items[mappedProduct] && !String(record.items[mappedProduct]).includes(chatContent)) {
@@ -5086,7 +5094,6 @@ function applyUpboMappingToRecords(records, rules) {
                     }
                     addedCount++;
                 } 
-                // 그 외의 경우 기존처럼 단순 수량 +1
                 else {
                     if (!record.items[mappedProduct] || isNaN(record.items[mappedProduct])) {
                         record.items[mappedProduct] = 0;
@@ -5101,20 +5108,10 @@ function applyUpboMappingToRecords(records, rules) {
     return addedCount;
 }
 
-// 고정 양식(구분/의상번호/헤어번호/요청사항) 파싱 로직
-// 댓글 내용을 파싱해 [구분, 의상번호, 헤어번호, 요청사항] 을 항목에 채워 넣음
-// 지원 형식 1) 한 줄: "구매갯수or룰렛/3/5/겉옷off머리장식off" → 구분:구매갯수or룰렛, 의상:3, 헤어:5, 요청사항:겉옷off머리장식off
-// 지원 형식 2) 여러 줄: 첫 줄은 구분만 단독으로, 이후 줄들은 각각 "의상번호/헤어번호/요청사항" 형태
-//   예)
-//   구매갯수or룰렛
-//   3/5/겉옷off머리장식off
-//   7/2/헤어off
-//   → 구분:구매갯수or룰렛, 의상:3,7(줄바꿈으로 누적), 헤어:5,2(줄바꿈으로 누적), 요청사항:겉옷off머리장식off / 헤어off(줄바꿈으로 누적)
 function applyUpboFixedFormatToRecords(records) {
     if(!upboData[upboCurrentMember]) upboData[upboCurrentMember] = {products:[], records:[]};
     const products = upboData[upboCurrentMember].products;
 
-    // '의상' / '헤어' 상품 열이 없으면 자동으로 생성
     if (!products.includes('의상')) products.push('의상');
     if (!products.includes('헤어')) products.push('헤어');
 
@@ -5124,7 +5121,6 @@ function applyUpboFixedFormatToRecords(records) {
         const raw = String(rec.chat ?? rec.content ?? '').trim();
         if (!raw) return;
 
-        // 줄바꿈(엔터) 기준으로 여러 줄 나누기 (엑셀/CSV 셀 안에 여러 줄로 입력된 경우 지원)
         const lines = raw.replace(/\r/g, '').split('\n').map(l => l.trim()).filter(l => l !== '');
         if (lines.length === 0) return;
 
@@ -5132,15 +5128,12 @@ function applyUpboFixedFormatToRecords(records) {
         let itemLines = [];
 
         if (!lines[0].includes('/')) {
-            // 첫 줄에 '/' 가 없으면 구분만 단독으로 적힌 것으로 보고, 이후 모든 줄을 항목 줄로 처리
             category = lines[0];
             itemLines = lines.slice(1);
         } else {
-            // 첫 줄 자체에 '구분/의상/헤어/요청사항' 이 모두 있는 한 줄짜리 기존 형식
             const firstParts = lines[0].split('/').map(p => p.trim());
             category = firstParts[0] || '';
             if (firstParts.length > 1) itemLines.push(firstParts.slice(1).join('/'));
-            // 추가 줄이 더 있다면 이어서 항목 줄로 처리 (한 줄 형식과 여러 줄 형식이 섞여 있는 경우 대비)
             itemLines = itemLines.concat(lines.slice(1));
         }
 
@@ -5172,7 +5165,6 @@ function applyUpboFixedFormatToRecords(records) {
 
         if (category) record.category = category;
 
-        // 여러 줄에서 뽑아낸 값들은 기존 값에 줄바꿈으로 누적
         if (costumeList.length > 0) {
             const existing = record.items['의상'] ? String(record.items['의상']).split('\n').filter(Boolean) : [];
             record.items['의상'] = existing.concat(costumeList).join('\n');
@@ -5192,14 +5184,12 @@ function applyUpboFixedFormatToRecords(records) {
     return addedCount;
 }
 
-// 텍스트(채팅로그) 라인 배열 -> [{nickname, uid, content}] 로 파싱
 function parseLinesToRecords(lines) {
-    // 아프리카 정규식 추출: [시간] 닉네임(아이디): 내용(수량 또는 단어)
     const regex = /\[.*?\]\s+(.*?)\(([a-zA-Z0-9_-]+)\):\s*(.+)/;
     const records = [];
 
     lines.forEach(rawLine => {
-        const line = rawLine.replace(/\r$/, ''); // 캐리지리턴 제거
+        const line = rawLine.replace(/\r$/, ''); 
         const match = line.match(regex);
         if (!match) return;
         records.push({ nickname: match[1].trim(), uid: match[2].trim(), content: match[3].trim() });
@@ -5208,23 +5198,20 @@ function parseLinesToRecords(lines) {
     return records;
 }
 
-// 공통 처리 로직: 텍스트 라인 배열 + 매핑 규칙 배열([{type, value, product}, ...])을 받아서 upboData에 반영
 function applyUpboMappingToLines(lines, rules) {
     return applyUpboMappingToRecords(parseLinesToRecords(lines), rules);
 }
 
-// 처리 완료 후 공통 마무리 처리 (알림 + 표 갱신)
 function finishUpboFileProcessing(addedCount) {
     if (addedCount > 0) {
         alert(`총 ${addedCount}건의 항목이 매핑되어 추가/반영되었습니다.`);
-        renderUpboAdminTable(); // 표 다시 그리기
-        closeUpboTextUploadModal(); // 모달 닫기
+        renderUpboAdminTable(); 
+        closeUpboTextUploadModal(); 
     } else {
         alert("입력하신 규칙에 맞는 데이터가 파일에 없거나 형식이 다릅니다.");
     }
 }
 
-// 헤더명 후보 목록 중 하나라도 포함하는 열의 인덱스를 찾음 (공백 무시, 대소문자 무시)
 function findUpboColumnIndex(headerRow, candidates) {
     for (let i = 0; i < headerRow.length; i++) {
         const h = String(headerRow[i] ?? '').toLowerCase().replace(/\s/g, '');
@@ -5236,15 +5223,10 @@ function findUpboColumnIndex(headerRow, candidates) {
     return -1;
 }
 
-// 엑셀 파일(xlsx/xls)의 모든 시트에서 닉네임/아이디/금액/내용 열을 찾아 [{nickname, uid, donation, chat}] 로 변환
 function excelWorkbookToRecords(workbook) {
     const nicknameCandidates = ['닉네임', '별명', '이름', '작성자', '유저명', '회원명', 'nickname', 'name'];
     const uidCandidates = ['아이디', '유저아이디', '회원아이디', 'userid', 'uid', 'id'];
-    
-    // 후원(금액) 열 후보 추가
     const donationCandidates = ['후원', '구독', '후원,구독', '금액'];
-    
-    // 🌟 수정된 부분: '룰렛'을 제외하고 오직 채팅 관련 열만 인식하도록 변경
     const contentCandidates = ['채팅', '댓글내용', '댓글', '내용', '메시지'];
 
     let records = [];
@@ -5259,7 +5241,6 @@ function excelWorkbookToRecords(workbook) {
         const uidIdx = findUpboColumnIndex(headerRow, uidCandidates);
         const donationIdx = findUpboColumnIndex(headerRow, donationCandidates);
 
-        // 채팅 등 '내용'이 들어갈 수 있는 열의 인덱스를 모두 찾음
         const contentIndices = [];
         for (let i = 0; i < headerRow.length; i++) {
             const h = String(headerRow[i] ?? '').toLowerCase().replace(/\s/g, '');
@@ -5268,20 +5249,16 @@ function excelWorkbookToRecords(workbook) {
             }
         }
 
-        // 금액이나 내용 열을 하나도 찾지 못하면 해당 시트 패스
         if (donationIdx === -1 && contentIndices.length === 0) return;
 
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
             
-            // 금액에서 쉼표(,) 제거 후 추출
             const donation = donationIdx !== -1 ? String(row[donationIdx] ?? '').trim().replace(/,/g, '') : '';
             
-            // 지정된 열(채팅)에 있는 텍스트만 가져오기 (줄바꿈으로 연결)
             const contents = contentIndices.map(idx => String(row[idx] ?? '').trim()).filter(val => val !== '');
             const chat = contents.join('\n');
 
-            // 금액과 내용이 둘 다 비어있으면 저장할 게 없으므로 패스
             if (!donation && !chat) continue;
 
             const nickname = nicknameIdx !== -1 ? String(row[nicknameIdx] ?? '').trim() : '';
@@ -5292,7 +5269,7 @@ function excelWorkbookToRecords(workbook) {
                 uid: uid || nickname || `row_${sheetName}_${i}`,
                 donation: donation,
                 chat: chat,
-                content: chat // 하위 호환성 유지
+                content: chat 
             });
         }
     });
@@ -5311,7 +5288,6 @@ window.processUpboTextFile = async function() {
     let rules = [];
 
     if (mode === 'mapping') {
-        // 작성한 매핑 규칙 수집
         const ruleRows = document.querySelectorAll('.mapping-rule-row');
         let hasValidRule = false;
         ruleRows.forEach(row => {
@@ -5335,7 +5311,6 @@ window.processUpboTextFile = async function() {
     const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
     const isCsv = fileName.endsWith('.csv');
 
-    // 모드에 따라 최종 처리 로직 분기 (매핑 규칙 / 고정 양식)
     const applyRecords = (records) => {
         return mode === 'fixed'
             ? applyUpboFixedFormatToRecords(records)
@@ -5350,7 +5325,6 @@ window.processUpboTextFile = async function() {
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                // 엑셀(.xlsx/.xls)은 바이너리로, CSV는 텍스트(문자열)로 읽어서 워크북 생성
                 const workbook = isCsv
                     ? XLSX.read(e.target.result, { type: 'string' })
                     : XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
@@ -5381,33 +5355,24 @@ window.processUpboTextFile = async function() {
     }
 };
 
-// =========================================================================
-// 업보정리 일괄 삭제 및 상태 변경 기능
-// =========================================================================
-
-// 헤더의 전체 선택 체크박스 클릭 시 전체 체크/해제 제어
 window.toggleAllUpboCheckboxes = function(isChecked) {
     const checkboxes = document.querySelectorAll('.upbo-row-checkbox');
     checkboxes.forEach(cb => cb.checked = isChecked);
 };
 
-// 일괄 삭제 기능
 window.deleteSelectedUpboRows = function() {
     const checkboxes = document.querySelectorAll('.upbo-row-checkbox:checked');
     if(checkboxes.length === 0) return alert('삭제할 항목을 먼저 선택해주세요.');
     if(!confirm(`선택한 ${checkboxes.length}개 항목을 삭제하시겠습니까?`)) return;
     
-    // 선택된 행 제거
     checkboxes.forEach(cb => {
         cb.closest('tr').remove();
     });
     
-    // 테이블 상태를 변수에 동기화 후 다시 렌더링
     syncUpboDomToState();
     renderUpboAdminTable();
 };
 
-// 일괄 상태 변경 기능
 window.changeStatusSelectedUpboRows = function() {
     const checkboxes = document.querySelectorAll('.upbo-row-checkbox:checked');
     if(checkboxes.length === 0) return alert('상태를 변경할 항목을 먼저 선택해주세요.');
@@ -5415,7 +5380,6 @@ window.changeStatusSelectedUpboRows = function() {
     const newStatus = document.getElementById('batchStatusSelect').value;
     if(!confirm(`선택한 ${checkboxes.length}개 항목을 '${newStatus}' 상태로 일괄 변경하시겠습니까?`)) return;
     
-    // 선택된 행의 상태 버튼 값과 색상 클래스 변경
     checkboxes.forEach(cb => {
         const tr = cb.closest('tr');
         const statusBtn = tr.querySelector('.upbo-status');
@@ -5427,13 +5391,9 @@ window.changeStatusSelectedUpboRows = function() {
         }
     });
     
-    // 테이블 상태 변수에 동기화
     syncUpboDomToState();
 };
 
-// =========================================================================
-// 룰렛 엑셀 파일 처리 로직
-// =========================================================================
 window.processRouletteFile = function(input) {
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
@@ -5443,11 +5403,10 @@ window.processRouletteFile = function(input) {
     
     reader.onload = function(e) {
         try {
-            // 엑셀(.xlsx/.xls)은 바이너리로, CSV는 텍스트(문자열)로 읽어서 워크북 생성
             const workbook = isCsv
                 ? XLSX.read(e.target.result, { type: 'string' })
                 : XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]]; // 첫 번째 시트 기준
+            const sheet = workbook.Sheets[workbook.SheetNames[0]]; 
             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
             
             if (rows.length < 2) {
@@ -5458,7 +5417,7 @@ window.processRouletteFile = function(input) {
             const headerRow = rows[0];
             let addedCount = 0;
             
-            syncUpboDomToState(); // 기존 테이블 상태 저장
+            syncUpboDomToState(); 
             
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
@@ -5468,13 +5427,11 @@ window.processRouletteFile = function(input) {
                 let nickname = nameCell;
                 let uid = '';
                 
-                // 이름 셀 안에 줄바꿈(엔터)이 있는 경우: 김철수\n(cjftn12)
                 if (nameCell.includes('\n')) {
                     const parts = nameCell.split('\n');
                     nickname = parts[0].trim();
                     uid = parts[1].replace(/[()]/g, '').trim(); 
                 } 
-                // 괄호로만 구분된 경우: 김철수(cjftn12)
                 else if (nameCell.includes('(') && nameCell.includes(')')) {
                     const match = nameCell.match(/^(.*?)\((.*?)\)$/);
                     if (match) {
@@ -5485,7 +5442,6 @@ window.processRouletteFile = function(input) {
                 if(!uid) uid = nickname;
                 
                 let wonItems = [];
-                // 1번째 열부터 끝까지 확인해서 값이 있으면 [항목 헤더]와 [입력된 셀 값(수량)]을 함께 추출
                 for (let col = 1; col < headerRow.length; col++) {
                     const val = String(row[col] || '').trim();
                     if (val && val !== '0') {
@@ -5503,15 +5459,12 @@ window.processRouletteFile = function(input) {
                         upboData[upboCurrentMember].records.push(record);
                     }
                     
-                    // 🌟 기존 룰렛 텍스트를 분석하여 항목별 수량(Tally) 계산 🌟
                     let tally = {};
                     if (record.roulette) {
-                        // <br> 태그가 혹시 있다면 \n으로 임시 변환 후 분리
                         const lines = record.roulette.replace(/<br>/g, '\n').split('\n');
                         lines.forEach(line => {
                             line = line.trim();
                             if (!line) return;
-                            // "항목이름*숫자" 또는 "항목이름" 형태를 분리
                             const match = line.match(/^(.*?)(?:\*(\d+))?$/);
                             if (match) {
                                 const itemName = match[1].trim();
@@ -5521,17 +5474,14 @@ window.processRouletteFile = function(input) {
                         });
                     }
 
-                    // 🌟 새로 엑셀에서 읽어온 값(수량)을 누적 🌟
                     wonItems.forEach(item => {
                         const itemName = item.name;
                         const cellValue = parseInt(item.val, 10);
-                        // 셀에 적힌 값이 정상적인 숫자라면 그 숫자만큼, 문자가 적혀있다면 1개로 취급
                         const addCount = (!isNaN(cellValue) && cellValue > 0) ? cellValue : 1; 
                         
                         tally[itemName] = (tally[itemName] || 0) + addCount;
                     });
 
-                    // 🌟 수량 정보를 바탕으로 텍스트 다시 조립 (*2, *3 적용) 🌟
                     let newRouletteArr = [];
                     for (const [itemName, count] of Object.entries(tally)) {
                         if (count > 1) {
@@ -5558,7 +5508,6 @@ window.processRouletteFile = function(input) {
             alert("파일을 읽는 중 오류가 발생했습니다. (엑셀/CSV 파일인지 확인해 주세요)");
         }
         
-        // 같은 파일을 다시 업로드할 수 있도록 초기화
         input.value = '';
     };
     
@@ -5566,5 +5515,4 @@ window.processRouletteFile = function(input) {
     else reader.readAsArrayBuffer(file);
 };
 
-// 앱 실행
 initApp().finally(hidePageLoadingScreen);
