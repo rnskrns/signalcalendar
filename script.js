@@ -84,7 +84,7 @@ window.removeRollingImage = function() {
 function adjustDesktopScale() {
     const currentWidth = window.innerWidth;
     
-    if (currentWidth > 1024) {
+    if (!computeIsMobile()) {
         const designWidth = 2560; 
         let scaleRatio = currentWidth / designWidth;
         scaleRatio = Math.min(scaleRatio, 1);
@@ -227,7 +227,15 @@ let targetModalContext = { year: currentYear, month: currentMonth, day: 1, membe
 let currentEditingMemoId = null;
 let memoPinned = localStorage.getItem('memoBoardPinned') === 'true';
 
-let isMobile = window.innerWidth <= 1024;
+// 모바일 기기라도 화면을 가로로 돌리면(가로가 세로보다 길고, 폭이 충분히 넓으면) PC 레이아웃으로 보이게 함
+function computeIsMobile() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const isLandscapeWide = w > h && w >= 640; // 가로모드 + 최소 폭 확보 시 PC 레이아웃 취급
+    return !(w > 1024 || isLandscapeWide);
+}
+
+let isMobile = computeIsMobile();
 let sidePanelMode = null; 
 let homeTargetDate = new Date(); 
 let individualTargetDate = new Date(); 
@@ -371,15 +379,17 @@ function setActiveSongs(member = songbookMember) {
     songs = songsByMember[member] || [];
 }
 
-window.addEventListener('resize', () => {
+function handleViewportChange() {
     adjustDesktopScale(); 
     
     const wasMobile = isMobile;
-    isMobile = window.innerWidth <= 1024;
+    isMobile = computeIsMobile();
     if (wasMobile !== isMobile) {
         sidePanelMode = null; closeSidePanel(true); renderHeaderTabs(); render();
     }
-});
+}
+window.addEventListener('resize', handleViewportChange);
+window.addEventListener('orientationchange', handleViewportChange);
 
 document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -949,12 +959,17 @@ async function fetchAndRenderAllNotices() {
         hasAnyPost = true;
         const postNo = post.title_no || post.titleNo || post.no || post.id || post.post_id || post.postId;
 
-        // title 필드가 비어있는 공지글(대부분 방송공지)이 많아, 없을 경우 본문(contents) 텍스트로 대체
-        const rawTitle = extractText(post.title);
-        const rawBody = extractText(post.contents || post.content || post.body);
-        let postTitle = rawTitle || rawBody || '제목 없음';
+        // 제목: 실제 API 필드명은 titleName
+        const rawTitle = extractText(post.titleName || post.title);
+        let postTitle = rawTitle || '제목 없음';
         if (postTitle.length > 40) postTitle = postTitle.slice(0, 40) + '…';
         postTitle = postTitle.replace(/"/g, '&quot;');
+
+        // 내용: content.textContent(순수 텍스트) 우선, 없으면 content.summary로 대체
+        const rawBody = extractText(post.content?.textContent || post.content?.summary || post.contents || post.content || post.body);
+        let postBody = rawBody;
+        if (postBody.length > 60) postBody = postBody.slice(0, 60) + '…';
+        postBody = postBody.replace(/"/g, '&quot;');
 
         // 닉네임: user_nick 계열 필드 우선, 없으면 스트리머 이름으로 대체
         const nickname = extractText(post.user_nick || post.userNick || post.nick || post.nickname || post.writer?.nick) || board.name;
@@ -965,7 +980,7 @@ async function fetchAndRenderAllNotices() {
 
         const timeLabel = formatRelativeTime(date);
 
-        console.log(`[공지 디버그] 카드 데이터 → 닉네임:${nickname}, 프사:${profileImg}, 제목:${postTitle}`);
+        console.log(`[공지 디버그] 카드 데이터 → 닉네임:${nickname}, 프사:${profileImg}, 제목:${postTitle}, 내용:${postBody}`);
 
         itemsHtml += `
             <div class="flex flex-col gap-2 p-3 bg-[#FFFDF5] border border-[#5D4037]/15 rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,0.08)] cursor-pointer hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,0.15)] transition-all" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
@@ -974,7 +989,8 @@ async function fetchAndRenderAllNotices() {
                     <span class="text-[12px] font-bold shrink-0" style="color: ${board.color};">${nickname}</span>
                     ${timeLabel ? `<span class="ml-auto text-[11px] text-[#9C8B85] shrink-0">${timeLabel}</span>` : ''}
                 </div>
-                <span class="text-[14px] font-bold text-[#3E2723] leading-snug" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${postTitle}</span>
+                <span class="text-[14px] font-bold text-[#3E2723] leading-snug" style="display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden;">${postTitle}</span>
+                ${postBody ? `<span class="text-[12.5px] font-semibold text-[#8D7B72] leading-snug" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${postBody}</span>` : ''}
             </div>
         `;
     });
@@ -1009,7 +1025,7 @@ function applyCachedNoticeToMobileHome() {
 
 // 데스크탑 홈 화면(주간일정 박스)과 옆의 공지 박스 밑선을 맞춰서 공지 리스트 높이를 자동 조절
 function alignNoticeBoxHeight() {
-    if (window.innerWidth < 1024) return; // 데스크탑(lg) 레이아웃에서만 의미가 있음
+    if (isMobile) return; // 데스크탑(lg) 레이아웃에서만 의미가 있음
     if (currentPage !== '홈') return; // 주간일정 박스는 홈탭에만 존재
 
     const scheduleBox = document.querySelector('.home-white-box');
@@ -3646,12 +3662,6 @@ function renderMobileHome(grouped) {
             </div>
             <button onclick="changeHomeDate(1)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-right text-3xl"></i></button>
         </div>
-        <div id="mobileHomeNoticeBox" class="hidden mx-4 mb-4 bg-white border-2 border-[#5D4037] rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] p-4">
-            <div class="text-[15px] font-bold text-[#5D4037] mb-2 font-paperozi flex items-center gap-2">
-                공지
-            </div>
-            <div id="mobileHomeNoticeList" class="flex flex-col gap-2 max-h-[570px] overflow-y-auto modal-scroll pr-1"></div>
-        </div>
         <div class="grid grid-cols-1 gap-4 px-4 w-full">
     `;
     
@@ -3693,6 +3703,14 @@ function renderMobileHome(grouped) {
         `;
     });
     html += `</div>`;
+    html += `
+        <div id="mobileHomeNoticeBox" class="hidden mx-4 mt-4 bg-white border-2 border-[#5D4037] rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] p-4">
+            <div class="text-[15px] font-bold text-[#5D4037] mb-2 font-paperozi flex items-center gap-2">
+                공지
+            </div>
+            <div id="mobileHomeNoticeList" class="flex flex-col gap-2 max-h-[570px] overflow-y-auto modal-scroll pr-1"></div>
+        </div>
+    `;
     content.innerHTML = html;
     content.className = 'shrink-0 transition-all duration-300 w-full max-w-[600px] mx-auto pb-6';
 

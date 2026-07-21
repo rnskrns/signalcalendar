@@ -16,6 +16,18 @@
 
     <title>시그널 일정</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // 모바일이라도 화면을 가로로 돌리면(가로 폭이 충분하면) lg: 클래스가 PC 레이아웃처럼 적용되게 함
+        tailwind.config = {
+            theme: {
+                extend: {
+                    screens: {
+                        lg: { raw: '(min-width: 1024px), (orientation: landscape) and (min-width: 640px)' }
+                    }
+                }
+            }
+        };
+    </script>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-solid-rounded/css/uicons-solid-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
@@ -620,7 +632,7 @@
             </div>
         </div>
     </div>
-    <script type="module" src="script.js"></script>
+    <script type="module" src="script.js?v=20260721-2"></script>
 
 </body>
 </html>
