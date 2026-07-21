@@ -102,20 +102,20 @@
                 <div id="dynamicSideBtn"></div>
             </div>
 
-            <div id="homeYoutubeBox" class="hidden absolute top-[175px] left-0 z-0 lg:flex flex-col w-full">
+            <div id="homeYoutubeBox" class="hidden absolute top-[175px] left-0 z-0 lg:flex flex-col w-full gap-4">
                 <div class="bg-white border-2 border-[#5D4037] rounded-[26px] shadow-sm overflow-hidden w-full">
                     <div id="homeYoutubeEmbed" class="w-full aspect-video bg-black"></div>
-                   
-        <!-- 멤버별 공지/최신글 표시 영역 -->
-        <div id="homeNoticeBox" class="hidden border-t-2 border-[#5D4037] bg-[#FFFDF5] p-4">
-            <div class="text-[15px] font-bold text-[#5D4037] mb-2 font-paperozi flex items-center gap-2">
-                <i class="fi fi-rr-megaphone"></i> 최근 게시글
-            </div>
-            <!-- 스크롤 가능한 게시글 리스트 영역 -->
-            <div id="homeNoticeList" class="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto modal-scroll pr-1">
-                <!-- 자바스크립트로 데이터가 여기에 들어옵니다 -->
-            </div>
-        </div>
+                </div>
+
+                <!-- 멤버별 공지/최신글 표시 영역 (유튜브 영상 박스 아래, 별도의 흰색 박스) -->
+                <div id="homeNoticeBox" class="hidden bg-white border-2 border-[#5D4037] rounded-[26px] shadow-sm p-4 w-full">
+                    <div class="text-[15px] font-bold text-[#5D4037] mb-3 font-paperozi flex items-center gap-2">
+                        공지
+                    </div>
+                    <!-- 스크롤 가능한 게시글 카드 리스트 영역 -->
+                    <div id="homeNoticeList" class="flex flex-col gap-2 max-h-[650px] overflow-y-auto modal-scroll pr-1">
+                        <!-- 자바스크립트로 카드 데이터가 여기에 들어옵니다 -->
+                    </div>
                 </div>
             </div>
 
@@ -197,10 +197,10 @@
                         </div>
                     </div>
                     <div id="manageTabPanel_home" class="hidden">
-                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">홈 화면 유튜브 영상</h3>
-                        <div class="text-[12.5px] text-gray-500 mb-3 font-bold">큰 박스 오른쪽 영역에 표시될 유튜브 영상 링크를 등록하세요. (일반 영상/쇼츠/라이브 링크 모두 가능)</div>
+                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">홈 화면 유튜브 영상 / 이미지</h3>
+                        <div class="text-[12.5px] text-gray-500 mb-3 font-bold">큰 박스 오른쪽 영역에 표시될 유튜브 영상 링크 또는 이미지 링크를 등록하세요. (유튜브: 일반 영상/쇼츠/라이브 링크 모두 가능 · 이미지: jpg, png, gif, webp 등 이미지 파일 직링크)</div>
                         <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
-                            <input type="text" id="homeYoutubeUrlInput" placeholder="유튜브 링크 입력 (예: https://www.youtube.com/watch?v=...)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                            <input type="text" id="homeYoutubeUrlInput" placeholder="유튜브 링크 또는 이미지 링크 입력 (예: https://www.youtube.com/watch?v=... 또는 https://.../image.png)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                             <div class="flex gap-2">
                                 <button onclick="saveHomeYoutubeLink()" class="flex-1 bg-[#5D4037] text-white py-2.5 rounded-lg font-bold text-sm hover:brightness-110 transition">저장</button>
                                 <button onclick="deleteHomeYoutubeLink()" class="flex-1 bg-red-500 text-white py-2.5 rounded-lg font-bold text-sm hover:brightness-110 transition">삭제</button>

@@ -778,11 +778,93 @@ function getYoutubeVideoId(url) {
     return null;
 }
 
+// 홈 화면 영상/이미지 링크로 등록된 URL이 이미지 파일 링크인지 판별
+// (확장자가 있으면 확장자로 판별하고, 확장자가 없는 CDN 링크 등은 유튜브 링크가 아니면 이미지로 간주)
+function isImageUrl(url) {
+    if (!url) return false;
+    const trimmed = url.trim();
+    if (/\.(jpe?g|png|gif|webp|bmp|svg|avif)(\?.*)?(#.*)?$/i.test(trimmed)) return true;
+    try {
+        const u = new URL(trimmed);
+        // 유튜브가 아니면서 http(s) 프로토콜의 유효한 URL이면 이미지 링크로 취급
+        return (u.protocol === 'http:' || u.protocol === 'https:') && !getYoutubeVideoId(trimmed);
+    } catch (e) {
+        return false;
+    }
+}
+
+// 게시글 제목/본문에 HTML 태그가 섞여 오는 경우를 대비한 태그 제거 유틸
+function stripHtmlTags(str) {
+    if (!str) return '';
+    return String(str).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+}
+
+// title/contents 필드가 문자열이 아니라 { text, rawText, ... } 같은 객체로 오는 API도 있어
+// 객체인 경우 그 안에서 실제 텍스트로 보이는 값을 찾아 꺼낸다. ([object Object] 방지)
+function extractText(field) {
+    if (field == null) return '';
+    if (typeof field === 'string') return stripHtmlTags(field);
+    if (typeof field === 'number') return String(field);
+    if (typeof field === 'object') {
+        const candidateKeys = ['text', 'rawText', 'plainText', 'plain_text', 'value', 'content', 'html', 'raw'];
+        for (const key of candidateKeys) {
+            if (typeof field[key] === 'string' && field[key].trim()) {
+                return stripHtmlTags(field[key]);
+            }
+        }
+        return '';
+    }
+    return '';
+}
+
+// 게시글의 등록 시각을 다양한 필드명/포맷에서 최대한 찾아내 Date로 변환
+function getPostDate(post) {
+    const raw = post.reg_date || post.regDate || post.regdate || post.reg_time || post.regTime ||
+                post.createdAt || post.created_at || post.writeDate || post.write_date ||
+                post.wdate || post.date || post.timestamp || post.regDt;
+    if (!raw) return null;
+
+    // 숫자(초/밀리초 단위 유닉스 타임스탬프)
+    if (typeof raw === 'number') {
+        const ms = raw < 10_000_000_000 ? raw * 1000 : raw; // 10자리면 초 단위로 판단
+        const d = new Date(ms);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    // 문자열: "2024-06-01 12:34:56" 같은 형식은 그대로, 순수 숫자 문자열이면 타임스탬프로 처리
+    if (typeof raw === 'string') {
+        if (/^\d+$/.test(raw)) {
+            const num = Number(raw);
+            const ms = raw.length <= 10 ? num * 1000 : num;
+            const d = new Date(ms);
+            return isNaN(d.getTime()) ? null : d;
+        }
+        const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+        const d = new Date(normalized);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+}
+
+// "35분 전" 같은 상대 시간 텍스트 생성
+function formatRelativeTime(date) {
+    if (!date) return '';
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return '방금 전';
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffDay < 7) return `${diffDay}일 전`;
+    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+}
+
 // 4명의 스트리머 API 정보 배열
 const soopBoards = [
     { name: '달타', userId: 'dalta20', color: '#FBC02D', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/dalta20/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=89892972' },
     { name: '다룽', userId: 'daarung22', color: '#1E88E5', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/daarung22/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=90309005' },
-    { name: '최또', userId: 'choiagain', color: '#f745c1', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/choiagain/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=98737113' },
+    { name: '최또', userId: 'choiagain', color: '#f745c1', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/choiagain/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=98735869' },
     { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=80727213' }
 ];
 
@@ -793,14 +875,15 @@ let hasCachedNotice = false;
 let noticeFetchAttempted = false;
 
 async function fetchAndRenderAllNotices() {
+    console.log('[공지 디버그] fetchAndRenderAllNotices() 실행 시작');
     // 데스크탑(사이드 패널)과 모바일(홈탭 본문) 양쪽 컨테이너를 모두 찾는다.
     const noticeBox = document.getElementById('homeNoticeBox');
     const noticeList = document.getElementById('homeNoticeList');
     const mobileNoticeBox = document.getElementById('mobileHomeNoticeBox');
     const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
 
-    let itemsHtml = '';
     let hasAnyPost = false;
+    const collectedPosts = []; // { board, post, date } — 모든 스트리머 게시글을 모아뒀다가 시간순 정렬
 
     for (const board of soopBoards) {
         try {
@@ -811,46 +894,106 @@ async function fetchAndRenderAllNotices() {
             });
             
             const data = await res.json();
-            const posts = data?.data || data?.posts || [];
+            const posts = data?.data || data?.posts || data?.contents || [];
 
-            // 대소문자 구분 없이 스트리머 아이디와 일치하는 글만 필터링
-            const streamerPosts = posts.filter(
-                (post) => (post.user_id?.toLowerCase() === board.userId.toLowerCase() || post.userId?.toLowerCase() === board.userId.toLowerCase())
-            );
+            // 진단용 로그: 무슨 상황이든 콘솔에서 원인을 바로 확인할 수 있도록 항상 출력
+            console.log(`[공지 디버그] ${board.name} (${board.userId}) → status:${res.status}, posts수신:${Array.isArray(posts) ? posts.length : '배열아님'}`, data);
+            if (Array.isArray(posts) && posts.length > 0) {
+                console.log(`[공지 디버그] ${board.name} 게시글 샘플 (필드명 확인용):`, posts[0]);
+                try {
+                    console.log(`[공지 디버그] ${board.name} 게시글 샘플 (JSON 전체, 복사용):`, JSON.stringify(posts[0], null, 2));
+                } catch (e) { /* 순환참조 등 무시 */ }
+            }
 
-            // 최신글 2개만 추출
+            if (!res.ok) {
+                console.warn(`${board.name} API 응답 오류 (status ${res.status})`, data);
+            }
+
+            // 대소문자 구분 없이 스트리머 아이디와 일치하는 글만 필터링 (필드명이 API마다 다를 수 있어 폭넓게 확인)
+            const getPostUserId = (post) =>
+                post.user_id || post.userId || post.writer_id || post.writerId ||
+                post.writer?.id || post.writer?.user_id || post.author_id || post.authorId;
+
+            const streamerPosts = posts.filter((post) => {
+                const uid = getPostUserId(post);
+                return uid && uid.toLowerCase() === board.userId.toLowerCase();
+            });
+
+            if (posts.length > 0 && streamerPosts.length === 0) {
+                console.warn(`${board.name}: 게시글은 받았지만 user_id가 '${board.userId}'와 일치하지 않아 걸러짐. 실제 데이터:`, posts[0]);
+            }
+
+            // 스트리머별 최신글 2개만 추출 (전체가 한 스트리머로 도배되지 않도록)
             const latestPosts = streamerPosts.slice(0, 2);
 
-            if (latestPosts.length > 0) {
-                hasAnyPost = true;
-                
-                latestPosts.forEach(post => {
-                    const postNo = post.title_no || post.titleNo; 
-                    const postTitle = (post.title || '제목 없음').replace(/"/g, '&quot;');
-
-                    itemsHtml += `
-                        <div class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2.5 rounded-lg transition-colors border border-transparent hover:border-gray-200" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
-                            <span class="px-2.5 py-1 text-white text-[11px] font-bold rounded-md shrink-0" style="background-color: ${board.color}; min-width: 48px; text-align: center;">${board.name}</span>
-                            <span class="text-[14px] font-bold text-[#5D4037] truncate flex-1">${postTitle}</span>
-                        </div>
-                    `;
-                });
-            }
+            latestPosts.forEach(post => {
+                collectedPosts.push({ board, post, date: getPostDate(post) });
+            });
         } catch (error) {
             console.error(`${board.name} 게시글을 불러오는 데 실패했습니다.`, error);
         }
     }
+
+    // 시간순(최신 먼저) 정렬 — 시간 정보가 없는 글은 뒤로 보냄
+    collectedPosts.sort((a, b) => {
+        if (a.date && b.date) return b.date.getTime() - a.date.getTime();
+        if (a.date) return -1;
+        if (b.date) return 1;
+        return 0;
+    });
+
+    console.log(`[공지 디버그] 정렬 결과 (${collectedPosts.length}건):`, collectedPosts.map(c => ({ name: c.board.name, date: c.date, raw: c.post.reg_date || c.post.regDate || c.post.regdate })));
+
+    let itemsHtml = '';
+    collectedPosts.forEach(({ board, post, date }) => {
+        hasAnyPost = true;
+        const postNo = post.title_no || post.titleNo || post.no || post.id || post.post_id || post.postId;
+
+        // title 필드가 비어있는 공지글(대부분 방송공지)이 많아, 없을 경우 본문(contents) 텍스트로 대체
+        const rawTitle = extractText(post.title);
+        const rawBody = extractText(post.contents || post.content || post.body);
+        let postTitle = rawTitle || rawBody || '제목 없음';
+        if (postTitle.length > 40) postTitle = postTitle.slice(0, 40) + '…';
+        postTitle = postTitle.replace(/"/g, '&quot;');
+
+        // 닉네임: user_nick 계열 필드 우선, 없으면 스트리머 이름으로 대체
+        const nickname = extractText(post.user_nick || post.userNick || post.nick || post.nickname || post.writer?.nick) || board.name;
+
+        // 프로필 이미지: API가 직접 내려주면 그 값을 쓰고, 없으면 SOOP CDN 규칙(LOGO/{앞2글자}/{아이디}/m/{아이디}.webp)으로 유추
+        const profileImg = extractText(post.profile_image || post.profileImage || post.thumb || post.thumbnail || post.user_thumb || post.userThumb)
+            || `https://stimg.sooplive.com/LOGO/${board.userId.slice(0, 2)}/${board.userId}/m/${board.userId}.webp`;
+
+        const timeLabel = formatRelativeTime(date);
+
+        console.log(`[공지 디버그] 카드 데이터 → 닉네임:${nickname}, 프사:${profileImg}, 제목:${postTitle}`);
+
+        itemsHtml += `
+            <div class="flex flex-col gap-2 p-3 bg-[#FFFDF5] border border-[#5D4037]/15 rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,0.08)] cursor-pointer hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,0.15)] transition-all" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
+                <div class="flex items-center gap-2">
+                    <img src="${profileImg}" alt="${nickname}" class="w-6 h-6 rounded-full object-cover border border-[#5D4037]/20 shrink-0" style="background-color:${board.color};" onerror="this.style.display='none'">
+                    <span class="text-[12px] font-bold shrink-0" style="color: ${board.color};">${nickname}</span>
+                    ${timeLabel ? `<span class="ml-auto text-[11px] text-[#9C8B85] shrink-0">${timeLabel}</span>` : ''}
+                </div>
+                <span class="text-[14px] font-bold text-[#3E2723] leading-snug" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${postTitle}</span>
+            </div>
+        `;
+    });
 
     // 다음 렌더링(탭 전환, 날짜 이동 등)에서도 다시 쓸 수 있도록 캐시에 저장
     cachedNoticeItemsHtml = itemsHtml;
     hasCachedNotice = hasAnyPost;
     noticeFetchAttempted = true;
 
+    console.log(`[공지 디버그] fetchAndRenderAllNotices() 완료 → hasAnyPost:${hasAnyPost}, noticeBox있음:${!!noticeBox}, mobileNoticeBox있음:${!!mobileNoticeBox}`);
+
     if (noticeList) noticeList.innerHTML = itemsHtml;
     if (noticeBox) noticeBox.classList.toggle('hidden', !hasAnyPost);
 
     if (mobileNoticeList) mobileNoticeList.innerHTML = itemsHtml;
     if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasAnyPost);
+
+    // 공지 박스 내용이 갱신됐으니 주간일정 박스 밑선에 맞춰 높이 재조정
+    requestAnimationFrame(alignNoticeBoxHeight);
     
     // 데이터 렌더링 성공 여부 반환
     return hasAnyPost;
@@ -864,6 +1007,33 @@ function applyCachedNoticeToMobileHome() {
     if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasCachedNotice);
 }
 
+// 데스크탑 홈 화면(주간일정 박스)과 옆의 공지 박스 밑선을 맞춰서 공지 리스트 높이를 자동 조절
+function alignNoticeBoxHeight() {
+    if (window.innerWidth < 1024) return; // 데스크탑(lg) 레이아웃에서만 의미가 있음
+    if (currentPage !== '홈') return; // 주간일정 박스는 홈탭에만 존재
+
+    const scheduleBox = document.querySelector('.home-white-box');
+    const noticeBox = document.getElementById('homeNoticeBox');
+    const noticeList = document.getElementById('homeNoticeList');
+    if (!scheduleBox || !noticeBox || !noticeList) return;
+    if (noticeBox.classList.contains('hidden')) return;
+
+    const scheduleRect = scheduleBox.getBoundingClientRect();
+    const noticeListRect = noticeList.getBoundingClientRect();
+    // 공지 박스 자체의 아래쪽 padding(p-4)만큼은 리스트 밑에 추가로 붙는 여백이라
+    // 밑선을 맞출 때 이 여백을 미리 빼줘야 박스 전체의 밑선이 주간일정 박스와 정확히 일치함
+    const noticeBoxPaddingBottom = parseFloat(getComputedStyle(noticeBox).paddingBottom) || 0;
+
+    // 공지 리스트가 시작되는 위치부터 주간일정 박스 밑선까지 남는 높이를 계산해서 그대로 적용
+    const availableHeight = Math.round(scheduleRect.bottom - noticeListRect.top - noticeBoxPaddingBottom - 4);
+    if (availableHeight > 80) {
+        noticeList.style.maxHeight = `${availableHeight}px`;
+    }
+}
+window.addEventListener('resize', () => {
+    requestAnimationFrame(alignNoticeBoxHeight);
+});
+
 async function renderHomeYoutubeBox() {
     const box = document.getElementById('homeYoutubeBox');
     const embed = document.getElementById('homeYoutubeEmbed');
@@ -871,13 +1041,23 @@ async function renderHomeYoutubeBox() {
 
     let hasVideo = false;
     const videoId = getYoutubeVideoId(homeYoutubeUrl);
-    
-    // 1. 영상이 있으면 표시, 없으면 영상 영역만 숨김
+
+    // 1. 유튜브 링크면 영상 임베드(16:9 고정), 이미지 링크면 이미지 비율 그대로(폭 고정, 높이 자동), 둘 다 아니면 영역 숨김
     if (videoId) {
+        embed.classList.add('aspect-video');
+        embed.classList.remove('h-auto');
         embed.innerHTML = `<iframe class="w-full h-full" src="https://www.youtube.com/embed/${videoId}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
         embed.style.display = 'block'; 
         hasVideo = true;
+    } else if (homeYoutubeUrl && isImageUrl(homeYoutubeUrl)) {
+        // 폭은 고정, 높이는 이미지 원본 비율대로 자동 조절 (잘리지 않음) — 대신 아래 공지 박스가 늘어난 만큼 줄어들도록 로드 후 높이 재계산
+        embed.classList.remove('aspect-video');
+        embed.classList.add('h-auto');
+        embed.innerHTML = `<img src="${homeYoutubeUrl}" alt="홈 이미지" class="w-full h-auto block" onload="requestAnimationFrame(alignNoticeBoxHeight)" onerror="this.parentElement.style.display='none'; this.parentElement.innerHTML=''; requestAnimationFrame(alignNoticeBoxHeight);">`;
+        embed.style.display = 'block';
+        hasVideo = true;
     } else {
+        embed.classList.remove('h-auto');
         embed.innerHTML = '';
         embed.style.display = 'none'; 
     }
@@ -907,20 +1087,20 @@ function renderHomeManagePanel() {
 async function saveHomeYoutubeLink() {
     const input = document.getElementById('homeYoutubeUrlInput');
     const url = input ? input.value.trim() : '';
-    if (!url) return alert('유튜브 링크를 입력하세요.');
-    if (!getYoutubeVideoId(url)) return alert('유효한 유튜브 링크가 아닙니다. 다시 확인해주세요.');
+    if (!url) return alert('유튜브 링크 또는 이미지 링크를 입력하세요.');
+    if (!getYoutubeVideoId(url) && !isImageUrl(url)) return alert('유효한 유튜브 링크 또는 이미지 링크가 아닙니다. 다시 확인해주세요.');
 
     try {
         await setDoc(doc(db, 'meta', 'homeSettings'), { youtubeUrl: url }, { merge: true });
         homeYoutubeUrl = url;
-        alert('유튜브 링크가 저장되었습니다.');
+        alert('링크가 저장되었습니다.');
         renderHomeManagePanel();
         renderHomeYoutubeBox();
     } catch (e) { console.error(e); alert('저장 실패: ' + e.message); }
 }
 
 async function deleteHomeYoutubeLink() {
-    if (!confirm('등록된 유튜브 링크를 삭제하시겠습니까?')) return;
+    if (!confirm('등록된 링크를 삭제하시겠습니까?')) return;
     try {
         await setDoc(doc(db, 'meta', 'homeSettings'), { youtubeUrl: '' }, { merge: true });
         homeYoutubeUrl = '';
@@ -2155,6 +2335,9 @@ function render() {
             else renderDesktopIndividual(grouped);
         }
     }
+
+    // 주간일정 박스가 새로 그려진 뒤 공지 박스 높이를 밑선에 맞춰 재조정
+    requestAnimationFrame(alignNoticeBoxHeight);
 }
 
 function escapeHtml(str) {
@@ -3465,9 +3648,9 @@ function renderMobileHome(grouped) {
         </div>
         <div id="mobileHomeNoticeBox" class="hidden mx-4 mb-4 bg-white border-2 border-[#5D4037] rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] p-4">
             <div class="text-[15px] font-bold text-[#5D4037] mb-2 font-paperozi flex items-center gap-2">
-                <i class="fi fi-rr-megaphone"></i> 최근 게시글
+                공지
             </div>
-            <div id="mobileHomeNoticeList" class="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto modal-scroll pr-1"></div>
+            <div id="mobileHomeNoticeList" class="flex flex-col gap-2 max-h-[570px] overflow-y-auto modal-scroll pr-1"></div>
         </div>
         <div class="grid grid-cols-1 gap-4 px-4 w-full">
     `;
