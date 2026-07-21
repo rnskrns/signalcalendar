@@ -133,6 +133,7 @@ window.openAllSchedulesModal = openAllSchedulesModal; window.changeTab = changeT
 window.closeMonthPicker = closeMonthPicker; window.changePickerYear = changePickerYear; window.selectMonth = selectMonth; window.addScheduleInputBlock = addScheduleInputBlock;
 window.closeScheduleModal = closeScheduleModal; window.saveSchedule = saveSchedule; window.toggleFields = toggleFields; 
 window.toggleProfileDropdown = toggleProfileDropdown; window.openLinkModal = openLinkModal; window.closeLinkModal = closeLinkModal;
+window.openManageModal = openManageModal; window.closeManageModal = closeManageModal; window.switchManageTab = switchManageTab;
 window.addMemberLink = addMemberLink; window.deleteMemberLink = deleteMemberLink; window.addUpLink = addUpLink; window.deleteUpLink = deleteUpLink;
 window.toggleUpPanel = toggleUpPanel; window.toggleMemoPanel = toggleMemoPanel; window.closeSidePanel = closeSidePanel;
 window.openMobileTabMenu = openMobileTabMenu; window.closeMobileTabMenu = closeMobileTabMenu;
@@ -157,6 +158,7 @@ window.openInfoModal = openInfoModal; window.closeInfoModal = closeInfoModal; wi
 window.moveScheduleBlock = moveScheduleBlock;
 window.loginWithProfile = loginWithProfile; window.deleteSavedProfile = deleteSavedProfile;
 window.savePopupImage = savePopupImage; window.deletePopupImage = deletePopupImage; window.switchPopupImgTab = switchPopupImgTab;
+window.saveHomeYoutubeLink = saveHomeYoutubeLink; window.deleteHomeYoutubeLink = deleteHomeYoutubeLink;
 window.previewPopupImgFile = previewPopupImgFile;
 
 // 업보정리 바인딩
@@ -242,6 +244,7 @@ let loadedMemberPages = new Set();
 let customMembers = []; 
 let memberGroups = []; // { id, name, memberIds: [] }
 let popupImagesList = [];
+let homeYoutubeUrl = '';
 
 const scheduleCacheStorageKey = 'signal_schedule_cache_v1';
 
@@ -557,21 +560,49 @@ async function checkPassword() {
     }
 }
 
-function openInfoModal() {
-    if (!loggedInUser) return;
-    document.getElementById('infoEmail').value = loggedInUser.email || '';
-    document.getElementById('infoPw').value = ''; 
-    document.getElementById('infoModal').classList.replace('hidden', 'flex');
-    
+// 링크관리 + 정보관리를 하나의 '관리' 팝업(왼쪽 탭 메뉴)으로 통합
+function openManageModal(tab = 'link') {
+    if (!isAdmin || !loggedInUser) return;
+    renderLinkManagePanel();
+    renderInfoManagePanel();
+    renderHomeManagePanel();
+    document.getElementById('manageModal').classList.replace('hidden', 'flex');
+    switchManageTab(tab);
+
     ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
         const pMenu = document.getElementById(id);
         if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
     });
 }
 
-function closeInfoModal() {
-    document.getElementById('infoModal').classList.replace('flex', 'hidden');
+function closeManageModal() {
+    document.getElementById('manageModal').classList.replace('flex', 'hidden');
 }
+
+function switchManageTab(tab) {
+    const panels = { link: document.getElementById('manageTabPanel_link'), home: document.getElementById('manageTabPanel_home'), info: document.getElementById('manageTabPanel_info') };
+    const btns = { link: document.getElementById('manageTabBtn_link'), home: document.getElementById('manageTabBtn_home'), info: document.getElementById('manageTabBtn_info') };
+
+    Object.keys(panels).forEach(key => {
+        if (!panels[key] || !btns[key]) return;
+        const active = key === tab;
+        panels[key].classList.toggle('hidden', !active);
+        btns[key].classList.toggle('bg-[#5D4037]', active);
+        btns[key].classList.toggle('text-white', active);
+        btns[key].classList.toggle('text-[#5D4037]', !active);
+        btns[key].classList.toggle('hover:bg-gray-100', !active);
+    });
+}
+
+function renderInfoManagePanel() {
+    if (!loggedInUser) return;
+    document.getElementById('infoEmail').value = loggedInUser.email || '';
+    document.getElementById('infoPw').value = '';
+}
+
+// 하위 호환용 별칭 (기존 코드에서 openInfoModal()/closeInfoModal() 호출)
+function openInfoModal() { openManageModal('info'); }
+function closeInfoModal() { closeManageModal(); }
 
 async function updateUserInfo() {
     const newEmail = document.getElementById('infoEmail').value.trim();
@@ -720,6 +751,95 @@ async function loadPopupImagesFromFirebase() {
         });
         popupImagesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     } catch(e) { console.error('팝업 이미지 목록 로드 실패:', e); popupImagesList = []; }
+}
+
+// =========================================================================
+// 홈 화면 유튜브 임베드
+// =========================================================================
+function getYoutubeVideoId(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url.trim());
+        const host = u.hostname.replace('www.', '');
+
+        if (host === 'youtu.be') {
+            const id = u.pathname.split('/').filter(Boolean)[0];
+            return id || null;
+        }
+
+        if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+            if (u.pathname === '/watch') return u.searchParams.get('v');
+            const parts = u.pathname.split('/').filter(Boolean);
+            // /shorts/ID, /live/ID, /embed/ID
+            if ((parts[0] === 'shorts' || parts[0] === 'live' || parts[0] === 'embed') && parts[1]) {
+                return parts[1];
+            }
+        }
+    } catch (e) {
+        return null;
+    }
+    return null;
+}
+
+function renderHomeYoutubeBox() {
+    const box = document.getElementById('homeYoutubeBox');
+    const embed = document.getElementById('homeYoutubeEmbed');
+    if (!box || !embed) return;
+
+    const videoId = getYoutubeVideoId(homeYoutubeUrl);
+    if (videoId) {
+        embed.innerHTML = `<iframe class="w-full h-full" src="https://www.youtube.com/embed/${videoId}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+        box.style.display = ''; // 링크가 있을 때만 표시 (반응형 표시 여부는 'hidden lg:flex' 클래스가 담당)
+    } else {
+        embed.innerHTML = '';
+        box.style.display = 'none'; // 링크 없으면 화면 크기와 상관없이 완전히 숨김
+    }
+}
+
+function renderHomeManagePanel() {
+    const input = document.getElementById('homeYoutubeUrlInput');
+    if (input) input.value = homeYoutubeUrl || '';
+
+    const info = document.getElementById('homeYoutubeCurrentInfo');
+    if (!info) return;
+    info.innerHTML = homeYoutubeUrl
+        ? `현재 등록된 링크: <a href="${homeYoutubeUrl}" target="_blank" class="text-blue-500 underline">${homeYoutubeUrl}</a>`
+        : '현재 등록된 유튜브 링크가 없습니다.';
+}
+
+async function saveHomeYoutubeLink() {
+    const input = document.getElementById('homeYoutubeUrlInput');
+    const url = input ? input.value.trim() : '';
+    if (!url) return alert('유튜브 링크를 입력하세요.');
+    if (!getYoutubeVideoId(url)) return alert('유효한 유튜브 링크가 아닙니다. 다시 확인해주세요.');
+
+    try {
+        await setDoc(doc(db, 'meta', 'homeSettings'), { youtubeUrl: url }, { merge: true });
+        homeYoutubeUrl = url;
+        alert('유튜브 링크가 저장되었습니다.');
+        renderHomeManagePanel();
+        renderHomeYoutubeBox();
+    } catch (e) { console.error(e); alert('저장 실패: ' + e.message); }
+}
+
+async function deleteHomeYoutubeLink() {
+    if (!confirm('등록된 유튜브 링크를 삭제하시겠습니까?')) return;
+    try {
+        await setDoc(doc(db, 'meta', 'homeSettings'), { youtubeUrl: '' }, { merge: true });
+        homeYoutubeUrl = '';
+        const input = document.getElementById('homeYoutubeUrlInput');
+        if (input) input.value = '';
+        renderHomeManagePanel();
+        renderHomeYoutubeBox();
+    } catch (e) { console.error(e); alert('삭제 실패: ' + e.message); }
+}
+
+async function loadHomeSettingsFromFirebase() {
+    try {
+        const snap = await getDoc(doc(db, 'meta', 'homeSettings'));
+        homeYoutubeUrl = snap.exists() ? (snap.data().youtubeUrl || '') : '';
+    } catch (e) { console.error('홈 설정 로드 실패:', e); homeYoutubeUrl = ''; }
+    renderHomeYoutubeBox();
 }
 
 async function loadLinksFromFirebase() {
@@ -1060,8 +1180,7 @@ function updateLoginUI(user) {
                 </div>
                 <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
                     <button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
-                    <button onclick="openLinkModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">링크관리</button>
-                    <button onclick="openInfoModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">정보관리</button>
+                    <button onclick="openManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                     <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
             </div>
@@ -1076,8 +1195,7 @@ function updateLoginUI(user) {
                 </div>
                 <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
                     <button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
-                    <button onclick="openLinkModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">링크관리</button>
-                    <button onclick="openInfoModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">정보관리</button>
+                    <button onclick="openManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                     <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
             </div>
@@ -1102,7 +1220,7 @@ window.addEventListener('click', (e) => {
     });
 });
 
-async function openLinkModal() {
+function renderLinkManagePanel() {
     if(!isAdmin || !loggedInUser) return;
     
     const member = loggedInUser.name === '관리자' ? '공지' : loggedInUser.name;
@@ -1127,15 +1245,13 @@ async function openLinkModal() {
             </div>
         `;
     });
-    
-    document.getElementById('linkModal').classList.replace('hidden', 'flex');
-    ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
-        const pMenu = document.getElementById(id);
-        if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
-    });
+
     renderPopupImgCurrentInfo();
 }
-function closeLinkModal() { document.getElementById('linkModal').classList.replace('flex', 'hidden'); }
+
+// 하위 호환용 별칭 (기존 코드에서 openLinkModal()로 목록 새로고침 + 모달 오픈을 함께 호출)
+function openLinkModal() { openManageModal('link'); }
+function closeLinkModal() { closeManageModal(); }
 
 async function moveLink(member, linkId, direction) {
     const arr = dynamicLinks[member];
@@ -1217,7 +1333,7 @@ async function addUpLink() {
         document.getElementById('upTitle').value = ''; 
         document.getElementById('upUrl').value = ''; 
         document.getElementById('upDeadline').value = '';
-        if(sidePanelMode === 'UP') renderUpLinksPanel(); 
+        if (isUpModeModalOpen()) renderUpModeModalContent();
     } catch(e) { console.error(e); }
 }
 
@@ -1228,13 +1344,13 @@ async function deleteUpLink(upId, source = 'uplinks') {
         await deleteDoc(doc(db, colName, upId));
         
         upLinksList = upLinksList.filter(u => u.id !== upId);
-        if(sidePanelMode === 'UP') renderUpLinksPanel();
+        if (isUpModeModalOpen()) renderUpModeModalContent();
     } catch(e) { console.error(e); }
 }
 
 function toggleUpPanel() {
-    if (sidePanelMode === 'UP') closeSidePanel();
-    else openSidePanel('UP');
+    if (isUpModeModalOpen()) closeUpModeModal();
+    else openUpModeModal();
 }
 function toggleMemoPanel() {
     if (sidePanelMode === 'MEMO') closeSidePanel();
@@ -1475,6 +1591,89 @@ function renderUpLinksPanel() {
     `;
 }
 
+// 관리자(로그인) 프사 캐시 - 로그인 시 쓰이는 프로필 사진(admins 컬렉션)을 멤버 이름으로 조회
+let memberLoginImgMap = {};
+async function ensureMemberLoginImgMap() {
+    if (Object.keys(memberLoginImgMap).length > 0) return memberLoginImgMap;
+    try {
+        const snap = await getDocs(collection(db, 'admins'));
+        snap.forEach(d => {
+            const data = d.data();
+            if (data && data.name) memberLoginImgMap[data.name] = data.img;
+        });
+    } catch(e) { console.error('로그인 프사 로드 실패:', e); }
+    return memberLoginImgMap;
+}
+
+// 홈 화면 'UP' 버튼: 팝업창(모달)으로 UP 링크 목록을 보여줌
+function buildUpLinksCardsHtml() {
+    const sorted = [...upLinksList].sort((a, b) => {
+        if (a.deadline && b.deadline) {
+            if (a.deadline === b.deadline) return (a.timestamp || 0) - (b.timestamp || 0);
+            return a.deadline < b.deadline ? -1 : 1;
+        }
+        if (a.deadline && !b.deadline) return -1;
+        if (!a.deadline && b.deadline) return 1;
+        return (a.timestamp || 0) - (b.timestamp || 0);
+    });
+
+    let html = sorted.map(up => {
+        const theme = themeColors[up.member] || '#5D4037';
+        const memberInfo = members.find(m => m.name === up.member);
+        const profileImg = memberLoginImgMap[up.member] || (memberInfo ? memberInfo.img : '');
+        const deleteBtn = (isAdmin && loggedInUser.name === up.member) ?
+            `<button onclick="event.stopPropagation(); deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-red-500 hover:text-red-700 ml-2 font-bold z-20 absolute top-2 right-2"><i class="fi fi-br-cross-small"></i></button>` : '';
+        const contextAttr = isAdmin ? `oncontextmenu="event.preventDefault(); window.openEditUpLink('${up.id}', '${up.source || 'uplinks'}');"` : '';
+
+        return `
+            <div class="relative w-full border-[3px] rounded-xl p-5 mb-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-[2px] cursor-pointer bg-white shrink-0"
+                 style="border-color: ${theme}; border-left-width: 8px;"
+                 onclick="openSmartLink('${up.url}')"
+                 ${contextAttr}>
+                ${deleteBtn}
+                <div class="flex items-center gap-2 mb-3 pr-6">
+                    ${profileImg ? `<img src="${profileImg}" class="w-8 h-8 rounded-full object-cover border-2 shrink-0" style="border-color: ${theme}">` : ''}
+                    <span class="text-[13px] font-bold shrink-0" style="color: ${theme}">${up.member}</span>
+                </div>
+                <div class="text-[17px] font-bold font-paperozi mb-3 text-gray-800 break-words pr-6 leading-snug">${up.title}</div>
+                <div class="flex justify-end items-end">
+                    ${up.deadline ? `<span class="text-[13px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">마감: ${up.deadline}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (upLinksList.length === 0) { html = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`; }
+    return html;
+}
+
+async function renderUpModeModalContent() {
+    const body = document.getElementById('upModeModalBody');
+    if (!body) return;
+    await ensureMemberLoginImgMap();
+    body.innerHTML = buildUpLinksCardsHtml();
+}
+
+function isUpModeModalOpen() {
+    const overlay = document.getElementById('upModeModalOverlay');
+    return !!overlay && !overlay.classList.contains('hidden');
+}
+
+function openUpModeModal() {
+    const overlay = document.getElementById('upModeModalOverlay');
+    if (!overlay) return;
+    renderUpModeModalContent();
+    overlay.classList.replace('hidden', 'flex');
+}
+
+function closeUpModeModal() {
+    const overlay = document.getElementById('upModeModalOverlay');
+    if (!overlay) return;
+    overlay.classList.replace('flex', 'hidden');
+}
+window.openUpModeModal = openUpModeModal;
+window.closeUpModeModal = closeUpModeModal;
+
 function sortRollingTopics() {
     const todayStr = getTodayYYYYMMDD();
     const todayDate = new Date(todayStr).getTime();
@@ -1661,7 +1860,7 @@ async function changeTab(tabName) {
             sidePanelMode = null; closeSidePanel(true);
         }
     } else if (!isMobile) {
-        if(currentPage === '홈') { sidePanelMode = 'UP'; openSidePanel('UP'); } 
+        if(currentPage === '홈') { closeSidePanel(true); }
         else if (memoPinned && memoCollectionMap[currentPage]) { sidePanelMode = 'MEMO'; openSidePanel('MEMO'); }
         else { closeSidePanel(true); }
     } else {
@@ -4051,14 +4250,12 @@ async function initApp() {
     
     await loadLinksFromFirebase();
     await loadPopupImagesFromFirebase();
+    await loadHomeSettingsFromFirebase();
     await loadSchedulesFromFirebase();
     // 노래책 데이터는 여기서 미리 불러오지 않음. '노래책' 탭에 진입할 때(changeTab)
     // 해당 멤버(예: 달타)의 데이터만 loadSongsFromFirebase()로 불러옴.
     setActiveSongs(songbookMember);
     
-    if (!isMobile) {
-        openSidePanel('UP'); 
-    }
     
     const today = getTodayYYYYMMDD();
 

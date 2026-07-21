@@ -102,62 +102,115 @@
                 <div id="dynamicSideBtn"></div>
             </div>
 
+            <div id="homeYoutubeBox" class="hidden absolute top-[175px] left-0 z-0 lg:flex flex-col w-full">
+                <div class="bg-white border-2 border-[#5D4037] rounded-[26px] shadow-sm overflow-hidden w-full">
+                    <div id="homeYoutubeEmbed" class="w-full aspect-video bg-black"></div>
+                </div>
+            </div>
+
         <div id="sideExpansionPanel" class="border-2 border-[#5D4037] fixed bottom-0 left-0 w-full z-[4000] lg:absolute lg:top-[175px] lg:right-0 lg:bottom-auto lg:w-[420px] lg:z-auto hidden flex-col opacity-0 lg:opacity-100 bg-[#FFFDF5] rounded-t-[26px] lg:rounded-[26px] overflow-hidden transition-all duration-300 transform translate-y-full lg:translate-y-0 h-[85vh] lg:h-[890px] lg:origin-top">        </div>
     </div>
 
     <div id="mobilePanelOverlay" class="fixed inset-0 bg-black/60 z-[3900] hidden lg:hidden" onclick="closeSidePanelUser()"></div>
 
-    <div id="linkModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
-        <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-[600px] shadow-xl border-4 border-[#5D4037] flex flex-col max-h-[90vh]">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">링크 관리</h2>
-                <button onclick="closeLinkModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
+    <div id="upModeModalOverlay" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4" onclick="if(event.target === this) closeUpModeModal()">
+        <div class="modal-content bg-[#FFFDF5] rounded-2xl w-full max-w-[480px] shadow-xl border-4 border-[#5D4037] flex flex-col max-h-[85vh] overflow-hidden">
+            <div class="p-6 border-b-[4px] border-[#5D4037] bg-white flex justify-between items-center shadow-sm shrink-0">
+                <div class="text-[22px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
+                    <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+                </div>
+                <button onclick="closeUpModeModal()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
             </div>
-            <div class="overflow-y-auto pr-2 modal-scroll flex-1">
-                <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">기존 메뉴 링크</h3>
-                <div id="memberLinksContainer" class="flex flex-col gap-2 mb-4"></div>
-                <div class="flex gap-2 mb-6">
-                    <input type="text" id="newLinkTitle" placeholder="이름(예: 인스타)" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                    <input type="text" id="newLinkUrl" placeholder="URL 입력" class="flex-[2] border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                    <button onclick="addMemberLink()" class="bg-[#5D4037] text-white px-4 rounded-lg font-bold hover:brightness-110 shrink-0">추가</button>
+            <div id="upModeModalBody" class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll"></div>
+        </div>
+    </div>
+
+    <div id="manageModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4">
+        <div class="modal-content bg-[#FFFDF5] rounded-2xl w-[720px] max-w-full shadow-xl border-4 border-[#5D4037] flex flex-col h-[650px] max-h-[90vh] overflow-hidden">
+            <div class="flex justify-between items-center p-6 pb-4 border-b-2 border-dashed border-gray-300 shrink-0">
+                <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">관리</h2>
+                <button onclick="closeManageModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+            <div class="flex flex-1 min-h-0">
+                <div id="manageTabNav" class="w-[130px] sm:w-[150px] shrink-0 border-r-2 border-gray-200 p-3 flex flex-col gap-2">
+                    <button id="manageTabBtn_link" onclick="switchManageTab('link')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">링크 관리</button>
+                    <button id="manageTabBtn_home" onclick="switchManageTab('home')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">홈 관리</button>
+                    <button id="manageTabBtn_info" onclick="switchManageTab('info')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">정보 관리</button>
                 </div>
-                <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
-                <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">팝업 이미지 등록</h3>
-                <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
-                    <div class="flex gap-2">
-                        <button id="popupImgTabUrl" onclick="switchPopupImgTab('url')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-[#5D4037] text-white transition">링크 입력</button>
-                        <button id="popupImgTabFile" onclick="switchPopupImgTab('file')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-white text-[#5D4037] transition">파일 업로드</button>
+                <div class="flex-1 min-w-0 overflow-y-auto modal-scroll p-6">
+                    <div id="manageTabPanel_link">
+                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">기존 메뉴 링크</h3>
+                        <div id="memberLinksContainer" class="flex flex-col gap-2 mb-4"></div>
+                        <div class="flex gap-2 mb-6">
+                            <input type="text" id="newLinkTitle" placeholder="이름(예: 인스타)" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                            <input type="text" id="newLinkUrl" placeholder="URL 입력" class="flex-[2] border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                            <button onclick="addMemberLink()" class="bg-[#5D4037] text-white px-4 rounded-lg font-bold hover:brightness-110 shrink-0">추가</button>
+                        </div>
+                        <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
+                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">팝업 이미지 등록</h3>
+                        <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
+                            <div class="flex gap-2">
+                                <button id="popupImgTabUrl" onclick="switchPopupImgTab('url')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-[#5D4037] text-white transition">링크 입력</button>
+                                <button id="popupImgTabFile" onclick="switchPopupImgTab('file')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-white text-[#5D4037] transition">파일 업로드</button>
+                            </div>
+                            <div id="popupImgUrlSection">
+                                <input type="text" id="popupImgUrl" placeholder="이미지 URL 입력" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                            </div>
+                            <div id="popupImgFileSection" class="hidden">
+                                <input type="file" id="popupImgFile" accept="image/*" onchange="previewPopupImgFile(this)" class="w-full text-sm text-gray-600 cursor-pointer font-bold border-2 border-dashed border-[#5D4037] rounded-lg p-2">
+                                <div id="popupImgUploadStatus" class="mt-1 text-sm font-bold text-blue-500 hidden">업로드 중...⏳</div>
+                            </div>
+                            <div id="popupImgPreview" class="hidden">
+                                <img id="popupImgPreviewImg" src="" class="w-full max-h-[200px] object-contain rounded-lg border-2 border-gray-200">
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="date" id="popupImgStartDate" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400" title="시작일자">
+                                <span class="font-bold text-[#5D4037] mt-2">~</span>
+                                <input type="date" id="popupImgDeadline" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400" title="마감일자">
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="savePopupImage()" class="flex-1 bg-[#5D4037] text-white py-2 rounded-lg font-bold text-sm hover:brightness-110 transition">적용</button>
+                                <button onclick="deletePopupImage()" class="flex-1 bg-red-500 text-white py-2 rounded-lg font-bold text-sm hover:brightness-110 transition">삭제</button>
+                            </div>
+                            <div id="popupImgCurrentInfo" class="text-xs text-gray-500 font-bold"></div>
+                        </div>
+                        <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
+                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">UP 링크 등록</h3>
+                        <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
+                            <input type="text" id="upTitle" placeholder="컨텐츠 제목" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                            <input type="text" id="upUrl" placeholder="새탭으로 열릴 URL (https://...)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-bold text-gray-600 shrink-0">마감일자:</span><input type="date" id="upDeadline" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none flex-1">
+                            </div>
+                            <button onclick="addUpLink()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold mt-2 hover:bg-blue-700 transition">업링크 추가</button>
+                        </div>
                     </div>
-                    <div id="popupImgUrlSection">
-                        <input type="text" id="popupImgUrl" placeholder="이미지 URL 입력" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                    <div id="manageTabPanel_home" class="hidden">
+                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">홈 화면 유튜브 영상</h3>
+                        <div class="text-[12.5px] text-gray-500 mb-3 font-bold">큰 박스 오른쪽 영역에 표시될 유튜브 영상 링크를 등록하세요. (일반 영상/쇼츠/라이브 링크 모두 가능)</div>
+                        <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
+                            <input type="text" id="homeYoutubeUrlInput" placeholder="유튜브 링크 입력 (예: https://www.youtube.com/watch?v=...)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                            <div class="flex gap-2">
+                                <button onclick="saveHomeYoutubeLink()" class="flex-1 bg-[#5D4037] text-white py-2.5 rounded-lg font-bold text-sm hover:brightness-110 transition">저장</button>
+                                <button onclick="deleteHomeYoutubeLink()" class="flex-1 bg-red-500 text-white py-2.5 rounded-lg font-bold text-sm hover:brightness-110 transition">삭제</button>
+                            </div>
+                            <div id="homeYoutubeCurrentInfo" class="text-xs text-gray-500 font-bold"></div>
+                        </div>
                     </div>
-                    <div id="popupImgFileSection" class="hidden">
-                        <input type="file" id="popupImgFile" accept="image/*" onchange="previewPopupImgFile(this)" class="w-full text-sm text-gray-600 cursor-pointer font-bold border-2 border-dashed border-[#5D4037] rounded-lg p-2">
-                        <div id="popupImgUploadStatus" class="mt-1 text-sm font-bold text-blue-500 hidden">업로드 중...⏳</div>
+                    <div id="manageTabPanel_info" class="hidden max-w-[400px]">
+                        <div class="mb-4">
+                            <label class="block text-[13px] font-bold text-gray-500 mb-1">연동 이메일</label>
+                            <input type="email" id="infoEmail" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="이메일 입력">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-[13px] font-bold text-gray-500 mb-1">새 비밀번호 (변경 시에만 입력)</label>
+                            <input type="password" id="infoPw" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="변경할 비밀번호">
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-xl font-bold hover:bg-gray-300 transition" onclick="closeManageModal()">취소</button>
+                            <button class="flex-1 bg-[#5D4037] text-white py-2.5 rounded-xl font-bold hover:brightness-110 transition" onclick="updateUserInfo()">저장 및 로그아웃</button>
+                        </div>
                     </div>
-                    <div id="popupImgPreview" class="hidden">
-                        <img id="popupImgPreviewImg" src="" class="w-full max-h-[200px] object-contain rounded-lg border-2 border-gray-200">
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="date" id="popupImgStartDate" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400" title="시작일자">
-                        <span class="font-bold text-[#5D4037] mt-2">~</span>
-                        <input type="date" id="popupImgDeadline" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400" title="마감일자">
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="savePopupImage()" class="flex-1 bg-[#5D4037] text-white py-2 rounded-lg font-bold text-sm hover:brightness-110 transition">적용</button>
-                        <button onclick="deletePopupImage()" class="flex-1 bg-red-500 text-white py-2 rounded-lg font-bold text-sm hover:brightness-110 transition">삭제</button>
-                    </div>
-                    <div id="popupImgCurrentInfo" class="text-xs text-gray-500 font-bold"></div>
-                </div>
-                <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
-                <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">UP 링크 등록</h3>
-                <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
-                    <input type="text" id="upTitle" placeholder="컨텐츠 제목" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                    <input type="text" id="upUrl" placeholder="새탭으로 열릴 URL (https://...)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                <div class="flex items-center gap-3">
-                    <span class="text-sm font-bold text-gray-600 shrink-0">마감일자:</span><input type="date" id="upDeadline" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none flex-1">
-                    </div>
-                    <button onclick="addUpLink()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold mt-2 hover:bg-blue-700 transition">업링크 추가</button>
                 </div>
             </div>
         </div>
@@ -209,24 +262,6 @@
             <div class="flex gap-2 mt-6">
                 <button class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-bold hover:bg-gray-300 transition cursor-pointer" onclick="closeLogoutModal()">취소</button>
                 <button class="flex-1 bg-red-500 text-white py-2 rounded font-bold hover:bg-red-600 transition cursor-pointer" onclick="logoutAdmin()">로그아웃</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="infoModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
-        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[400px] shadow-xl border-4 border-[#5D4037]">
-            <h2 class="text-2xl font-bold text-[#5D4037] mb-6 text-center font-paperozi">정보 관리</h2>
-            <div class="mb-4">
-                <label class="block text-[13px] font-bold text-gray-500 mb-1">연동 이메일</label>
-                <input type="email" id="infoEmail" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="이메일 입력">
-            </div>
-            <div class="mb-6">
-                <label class="block text-[13px] font-bold text-gray-500 mb-1">새 비밀번호 (변경 시에만 입력)</label>
-                <input type="password" id="infoPw" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="변경할 비밀번호">
-            </div>
-            <div class="flex gap-2">
-                <button class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-xl font-bold hover:bg-gray-300 transition" onclick="closeInfoModal()">취소</button>
-                <button class="flex-1 bg-[#5D4037] text-white py-2.5 rounded-xl font-bold hover:brightness-110 transition" onclick="updateUserInfo()">저장 및 로그아웃</button>
             </div>
         </div>
     </div>
