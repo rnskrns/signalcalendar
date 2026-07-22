@@ -3278,6 +3278,7 @@ async function saveUpboData() {
         const memberToEng = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
         const docId = memberToEng[upboCurrentMember];
         await setDoc(doc(db, 'upboData', docId), dataToSave);
+        saveScheduleCache();
         alert("데이터가 성공적으로 저장되었습니다!");
     } catch(e) {
         console.error(e);
