@@ -80,6 +80,47 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
     overflow: hidden; 
     border-right: 1px solid #d3d3d3; /* 우측에만 구분 점선 추가 */
     cursor: pointer; 
+    position: relative;
+}
+
+/* 홈탭 프로필 사진 좌상단 라이브 표시 배지 (항상 노출 - 방송 꺼져있으면 회색, 켜져있으면 빨간색) */
+.live-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: #9E9E9E; /* 기본(오프라인) 상태: 회색 */
+    color: #fff;
+    font-family: 'Paperozi', sans-serif;
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    padding: 3px 7px 3px 6px;
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px #ffffff, 0 2px 4px rgba(0,0,0,0.35);
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.2s ease;
+}
+.live-badge.is-live {
+    background: #FF3B30; /* 방송 중 상태: 빨간색 */
+}
+.live-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ffffff;
+    opacity: 0.7;
+}
+.live-badge.is-live .live-badge-dot {
+    animation: liveBadgePulse 1.4s ease-in-out infinite;
+}
+@keyframes liveBadgePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.75); }
 }
 
 /* 2. 호버 시 공통으로 위로 살짝 떠오르는 효과 */

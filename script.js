@@ -428,6 +428,78 @@ const memberCardImages = {
     '카나시': { bangon: 'https://i.postimg.cc/8z33n1Nt/jemog-eul-iblyeoghaejuseyo-(4).png', hubang: 'https://i.postimg.cc/vTJgNg29/jemog-eul-iblyeoghaejuseyo-(7).png' }
 };
 
+// 멤버별 SOOP(아프리카TV) 아이디 매핑 - 라이브 여부 확인 및 방송 바로가기에 사용
+const memberSoopIdMap = { '달타': 'dalta20', '다룽': 'daarung22', '최또': 'choiagain', '카나시': 'kjhh0029' };
+// 멤버별 최근 확인된 라이브 여부 캐시 { 멤버이름: true/false }
+const liveStatusCache = {};
+let liveStatusIntervalId = null;
+
+// SOOP 라이브 상태 API로 해당 아이디가 현재 생방송 중인지 확인
+// (background.js 확장 프로그램에서 실제로 잘 동작하는 bjapi.afreecatv.com station API를 그대로 사용)
+// (주의: 이 API도 브라우저에서 직접 호출하면 CORS로 막히는 경우가 있어, 실패하면 공용 프록시로 재시도합니다)
+async function checkSoopLiveStatus(soopId) {
+    const apiUrl = `https://bjapi.afreecatv.com/api/${soopId}/station`;
+    try {
+        const res = await fetch(apiUrl);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        return !!(data && data.broad);
+    } catch (e) {
+        // 직접 호출이 CORS 등으로 실패하면 프록시를 통해 재시도
+        try {
+            const proxied = 'https://corsproxy.io/?url=' + encodeURIComponent(apiUrl);
+            const res2 = await fetch(proxied);
+            if (!res2.ok) throw new Error('HTTP ' + res2.status);
+            const data2 = await res2.json();
+            return !!(data2 && data2.broad);
+        } catch (e2) {
+            return false;
+        }
+    }
+}
+
+// 등록된 모든 멤버의 라이브 상태를 동시에 확인하고 화면에 반영
+async function refreshAllLiveStatuses() {
+    const entries = Object.entries(memberSoopIdMap);
+    const results = await Promise.allSettled(entries.map(([, soopId]) => checkSoopLiveStatus(soopId)));
+    entries.forEach(([name], i) => {
+        liveStatusCache[name] = results[i].status === 'fulfilled' ? results[i].value : false;
+    });
+    applyLiveBadges();
+}
+
+// 현재 그려진 홈 화면의 라이브 표시 배지를 캐시된 상태에 맞게 갱신
+// (배지 자체는 항상 보이고, 방송 중이면 빨간색+깜빡임, 꺼져있으면 회색으로 표시)
+function applyLiveBadges() {
+    members.forEach(member => {
+        const badge = document.getElementById(`liveBadge-${member.name}`);
+        if (!badge) return;
+        const isLive = !!liveStatusCache[member.name];
+        badge.classList.toggle('is-live', isLive);
+        badge.title = isLive ? '생방송 중 · 클릭하면 방송으로 이동' : '현재 방송 중이 아니에요';
+    });
+}
+
+// 라이브 배지 클릭 시, 방송 중이면 실제 생방송 화면으로 이동 (꺼져있으면 아무 동작 안 함)
+function goToLiveBroadcast(event, memberName) {
+    if (event) event.stopPropagation();
+    if (!liveStatusCache[memberName]) return;
+    const soopId = memberSoopIdMap[memberName];
+    if (!soopId) return;
+    openSmartLink(`https://play.sooplive.com/${soopId}`);
+}
+
+// 홈탭에 머무는 동안 주기적으로 라이브 상태를 갱신
+function startLiveStatusPolling() {
+    refreshAllLiveStatuses();
+    if (liveStatusIntervalId) clearInterval(liveStatusIntervalId);
+    liveStatusIntervalId = setInterval(refreshAllLiveStatuses, 60000);
+}
+
+function stopLiveStatusPolling() {
+    if (liveStatusIntervalId) { clearInterval(liveStatusIntervalId); liveStatusIntervalId = null; }
+}
+
 const defaultMemberLinks = {
     '달타': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/20?viewType=L' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/dalta20' }, { title: '유튜브', url: 'https://www.youtube.com/@Dalta20' } ],
     '다룽': [ { title: '공지', url: 'https://cafe.naver.com/f-e/cafes/30973382/menus/46' }, { title: 'SOOP', url: 'https://www.sooplive.com/station/daarung22' }, { title: '유튜브', url: 'https://www.youtube.com/@daarung22' } ],
@@ -2702,6 +2774,13 @@ function render() {
         }
     }
 
+    // 홈탭일 때만 라이브 방송 상태를 주기적으로 확인 (다른 탭에서는 불필요한 요청 중지)
+    if (currentPage === '홈') {
+        startLiveStatusPolling();
+    } else {
+        stopLiveStatusPolling();
+    }
+
     // 주간일정 박스가 새로 그려진 뒤 공지 박스 높이를 밑선에 맞춰 재조정
     requestAnimationFrame(alignNoticeBoxHeight);
 
@@ -4049,6 +4128,9 @@ function renderMobileHome(grouped) {
             <div class="flex w-full bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[2.5px] overflow-hidden" style="border-color: ${borderColor}">
                 <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0 shrink-0" style="border-color: ${borderColor}" onclick="openSmartLink('${member.link}')">
                     <img src="${member.img}" class="w-full h-full object-cover">
+                    <div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요">
+                        <span class="live-badge-dot"></span>LIVE
+                    </div>
                 </div>
                 <div class="w-1/2 aspect-square p-2 flex flex-col justify-center gap-2 bg-[#FFFDF5] overflow-y-auto" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')">
                     ${schedulesHtml}
@@ -4185,7 +4267,7 @@ function renderDesktopHome(grouped) {
             daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
         });
 
-        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" ${member.link ? `onclick="openSmartLink('${member.link}')"` : ''}><img src="${member.img}" alt="${member.name}" style="width: 100%; height: 100%; object-fit: cover;"></div><div class="days-container">${daysCellsHtml}</div></div>`;
+        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" ${member.link ? `onclick="openSmartLink('${member.link}')"` : ''}><img src="${member.img}" alt="${member.name}" style="width: 100%; height: 100%; object-fit: cover;"><div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요"><span class="live-badge-dot"></span>LIVE</div></div><div class="days-container">${daysCellsHtml}</div></div>`;
     });
     content.innerHTML = homeHtml + `</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
