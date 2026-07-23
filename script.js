@@ -1566,8 +1566,7 @@ function renderUpLinkManagePanel() {
     const container = document.getElementById('upLinksManageContainer');
     if (!container) return;
 
-    const myUpLinks = upLinksList
-        .filter(up => up.member === loggedInUser.name)
+    const myUpLinks = [...upLinksList]
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
     if (myUpLinks.length === 0) {
@@ -1592,6 +1591,7 @@ function buildUpLinkManageGroupHtml(item) {
 
     const entriesHtml = item.entries.map(({ up }) => `
         <div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg p-2 gap-2">
+            <span class="text-[11px] font-bold shrink-0" style="color:${themeColors[up.member] || '#5D4037'}">${up.member}</span>
             <a href="#" onclick="openSmartLink('${up.url}'); event.preventDefault();" class="text-[12px] text-blue-500 underline truncate flex-1">${up.url}</a>
             <button onclick="deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
         </div>
@@ -1617,10 +1617,14 @@ function buildUpLinkManageGroupHtml(item) {
 
 // 게시글 댓글 링크가 아닌 일반 업링크 - 기존과 동일하게 개별 수정
 function buildUpLinkManageNormalHtml(up) {
+    const theme = themeColors[up.member] || '#5D4037';
     return `
         <div class="flex justify-between items-center bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm gap-2">
             <div class="min-w-0 flex-1">
-                <div class="font-bold text-[14px] text-[#5D4037] truncate">${up.title}</div>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[11px] font-bold shrink-0" style="color:${theme}">${up.member}</span>
+                    <div class="font-bold text-[14px] text-[#5D4037] truncate">${up.title}</div>
+                </div>
                 <a href="#" onclick="openSmartLink('${up.url}'); event.preventDefault();" class="text-[12px] text-blue-500 underline truncate block max-w-full">${up.url}</a>
                 ${up.deadline ? `<div class="text-[11.5px] text-gray-400 font-bold mt-0.5">마감: ${up.deadline}</div>` : ''}
             </div>
@@ -1976,7 +1980,7 @@ async function renderUpLinksPanel() {
             <button onclick="closeSidePanel()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
         </div>
         <div id="upLinksPanelBody" class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll">
-            ${sorted.length === 0 ? `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>` : `<div class="text-center text-gray-400 font-bold mt-16 text-lg">불러오는 중...⏳</div>`}
+            ${sorted.length === 0 ? `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">등록된 UP 링크가 없습니다.</div>` : `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">불러오는 중...⏳</div>`}
         </div>
     `;
 
@@ -2248,7 +2252,7 @@ function buildNormalUpCardHtml(up) {
 
 async function buildUpLinksCardsHtml(preSorted = null) {
     const sorted = preSorted || [...getVisibleUpLinks()].sort(sortUpLinksComparator);
-    if (sorted.length === 0) return `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`;
+    if (sorted.length === 0) return `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">등록된 UP 링크가 없습니다.</div>`;
 
     const items = buildUpLinkRenderItems(sorted);
     const cards = await Promise.all(items.map(async item => {
@@ -2267,7 +2271,7 @@ async function buildUpLinksCardsHtml(preSorted = null) {
 async function renderUpModeModalContent() {
     const body = document.getElementById('upModeModalBody');
     if (!body) return;
-    body.innerHTML = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">불러오는 중...⏳</div>`;
+    body.innerHTML = `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">불러오는 중...⏳</div>`;
     await ensureMemberLoginImgMap();
     const html = await buildUpLinksCardsHtml();
     if (!isUpModeModalOpen()) return; // 렌더링 중 모달이 닫혔으면 반영하지 않음
