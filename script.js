@@ -432,6 +432,11 @@ const defaultMemberLinks = {
 
 let dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
 let upLinksList = [];
+// 마감일이 지난 UP 링크는 사이트에서 보이지 않도록 필터링
+function getVisibleUpLinks() {
+    const today = getTodayYYYYMMDD();
+    return upLinksList.filter(up => !up.deadline || up.deadline >= today);
+}
 
 function openSmartLink(url) {
     if (!url) return;
@@ -986,7 +991,7 @@ async function fetchAndRenderAllNotices() {
         itemsHtml += `
             <div class="flex flex-col gap-2 p-3 bg-[#FFFDF5] border border-[#5D4037]/15 rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,0.08)] cursor-pointer hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,0.15)] transition-all" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
                 <div class="flex items-center gap-2">
-                    <img src="${profileImg}" alt="${nickname}" class="w-6 h-6 rounded-full object-cover border border-[#5D4037]/20 shrink-0" style="background-color:${board.color};" onerror="this.style.display='none'">
+                    <img src="${profileImg}" alt="${nickname}" class="w-6 h-6 rounded-full object-cover shrink-0" style="background-color:${board.color};" onerror="this.style.display='none'">
                     <span class="text-[12px] font-bold shrink-0" style="color: ${board.color};">${nickname}</span>
                     ${timeLabel ? `<span class="ml-auto text-[11px] text-[#9C8B85] shrink-0">${timeLabel}</span>` : ''}
                 </div>
@@ -1201,16 +1206,18 @@ async function loadLinksFromFirebase() {
     } catch(e) { console.error("링크 로드 실패:", e); }
 }
 
-function checkAndShowPopup(today) {
+async function checkAndShowPopup(today) {
     const lastClosed = localStorage.getItem('upPopupClosedDate');
     const activeTopics = rollingTopics.filter(t => t.date >= today);
+    const visibleUpLinks = getVisibleUpLinks();
     
     const hasValidImage = popupImagesList.some(img => 
         (!img.startDate || img.startDate <= today) && 
         (!img.deadline || img.deadline >= today)
     );
     
-    if (lastClosed !== today && (upLinksList.length > 0 || activeTopics.length > 0 || hasValidImage)) {
+    if (lastClosed !== today && (visibleUpLinks.length > 0 || activeTopics.length > 0 || hasValidImage)) {
+        if (visibleUpLinks.length > 0) await ensureMemberLoginImgMap();
         showUpPopup(today);
     }
 }
@@ -1219,7 +1226,8 @@ function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
 
-    const hasTextContent = (upLinksList.length > 0 || rollingTopics.filter(t => t.date >= today).length > 0);
+    const visibleUpLinks = getVisibleUpLinks();
+    const hasTextContent = (visibleUpLinks.length > 0 || rollingTopics.filter(t => t.date >= today).length > 0);
 
     let popupImgHtml = '';
     const activeImg = popupImagesList.find(img => (!img.startDate || img.startDate <= today) && (!img.deadline || img.deadline >= today));
@@ -1246,20 +1254,25 @@ function showUpPopup(today) {
         `;
     }
 
-    let upHtml = upLinksList.map(up => {
+    let upHtml = visibleUpLinks.map(up => {
         const theme = themeColors[up.member] || '#5D4037';
+        const memberInfo = members.find(m => m.name === up.member);
+        const profileImg = memberLoginImgMap[up.member] || (memberInfo ? memberInfo.img : '');
         return `
         <div class="bg-white border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-gray-50 flex flex-col gap-1 shrink-0" style="border-color:${theme}" onclick="openSmartLink('${up.url}')">
+            <div class="flex items-center gap-2 mb-2">
+                ${profileImg ? `<img src="${profileImg}" class="w-8 h-8 rounded-full object-cover shrink-0">` : ''}
+                <span class="text-[13px] font-bold shrink-0" style="color: ${theme}">${up.member}</span>
+            </div>
             <div class="font-bold text-[15px] mb-2 text-gray-800 break-words leading-snug">${up.title}</div>
-            <div class="flex justify-between items-end">
-                <span class="text-[12px] font-bold text-white px-2.5 py-1 rounded-md" style="background-color: ${theme}">${up.member}</span>
+            <div class="flex justify-end items-end">
                 <span class="text-[12px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${up.deadline ? '마감: ' + up.deadline : '마감일 없음'}</span>
             </div>
         </div>
         `;
     }).join('');
 
-    const upSectionHtml = upLinksList.length > 0 ? `
+    const upSectionHtml = visibleUpLinks.length > 0 ? `
         <div class="flex flex-col w-full">
             <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
                 <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
@@ -1828,7 +1841,7 @@ async function deleteMemo(memoId) {
 
 function renderUpLinksPanel() {
     const panel = document.getElementById('sideExpansionPanel');
-    const sorted = [...upLinksList].sort((a, b) => {
+    const sorted = [...getVisibleUpLinks()].sort((a, b) => {
         if (a.deadline && b.deadline) {
             if (a.deadline === b.deadline) return (a.timestamp || 0) - (b.timestamp || 0);
             return a.deadline < b.deadline ? -1 : 1;
@@ -1861,7 +1874,7 @@ function renderUpLinksPanel() {
         `;
     }).join('');
 
-    if(upLinksList.length === 0) { upCardsHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`; }
+    if(sorted.length === 0) { upCardsHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`; }
 
     panel.innerHTML = `
         <div class="p-6 border-b-[4px] border-[#5D4037] bg-white flex justify-between items-center shadow-sm z-10 shrink-0">
@@ -1890,7 +1903,7 @@ async function ensureMemberLoginImgMap() {
 }
 
 function buildUpLinksCardsHtml() {
-    const sorted = [...upLinksList].sort((a, b) => {
+    const sorted = [...getVisibleUpLinks()].sort((a, b) => {
         if (a.deadline && b.deadline) {
             if (a.deadline === b.deadline) return (a.timestamp || 0) - (b.timestamp || 0);
             return a.deadline < b.deadline ? -1 : 1;
@@ -1915,7 +1928,7 @@ function buildUpLinksCardsHtml() {
                  ${contextAttr}>
                 ${deleteBtn}
                 <div class="flex items-center gap-2 mb-3 pr-6">
-                    ${profileImg ? `<img src="${profileImg}" class="w-8 h-8 rounded-full object-cover border-2 shrink-0" style="border-color: ${theme}">` : ''}
+                    ${profileImg ? `<img src="${profileImg}" class="w-8 h-8 rounded-full object-cover shrink-0">` : ''}
                     <span class="text-[13px] font-bold shrink-0" style="color: ${theme}">${up.member}</span>
                 </div>
                 <div class="text-[17px] font-bold font-paperozi mb-3 text-gray-800 break-words pr-6 leading-snug">${up.title}</div>
@@ -1926,7 +1939,7 @@ function buildUpLinksCardsHtml() {
         `;
     }).join('');
 
-    if (upLinksList.length === 0) { html = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`; }
+    if (sorted.length === 0) { html = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`; }
     return html;
 }
 
