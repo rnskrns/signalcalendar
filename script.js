@@ -152,6 +152,7 @@ window.moveLink = moveLink; window.editMemberLink = editMemberLink;
 window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
 window.closeMemoModal = closeMemoModal; window.saveMemoAction = saveMemoAction; window.deleteMemo = deleteMemo;
 window.openSmartLink = openSmartLink;
+window.handleProfileClick = handleProfileClick;
 
 window.openRollingTopicModal = openRollingTopicModal; window.closeRollingTopicModal = closeRollingTopicModal; window.saveRollingTopic = saveRollingTopic;
 window.deleteRollingTopic = deleteRollingTopic; window.openRollingTopic = openRollingTopic; window.closeRollingTopic = closeRollingTopic;
@@ -487,6 +488,17 @@ function goToLiveBroadcast(event, memberName) {
     const soopId = memberSoopIdMap[memberName];
     if (!soopId) return;
     openSmartLink(`https://play.sooplive.com/${soopId}`);
+}
+
+// 프로필 사진 클릭 시, 방송 중이면 바로 생방송으로, 방송 중이 아니면 기존 멤버 링크로 이동
+function handleProfileClick(event, memberName, fallbackLink) {
+    if (event) event.stopPropagation();
+    const soopId = memberSoopIdMap[memberName];
+    if (liveStatusCache[memberName] && soopId) {
+        openSmartLink(`https://play.sooplive.com/${soopId}`);
+        return;
+    }
+    if (fallbackLink) openSmartLink(fallbackLink);
 }
 
 // 홈탭에 머무는 동안 주기적으로 라이브 상태를 갱신
@@ -4126,7 +4138,7 @@ function renderMobileHome(grouped) {
         
         html += `
             <div class="flex w-full bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[2.5px] overflow-hidden" style="border-color: ${borderColor}">
-                <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0 shrink-0" style="border-color: ${borderColor}" onclick="openSmartLink('${member.link}')">
+                <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0 shrink-0" style="border-color: ${borderColor}" onclick="handleProfileClick(event, '${member.name}', '${member.link}')">
                     <img src="${member.img}" class="w-full h-full object-cover">
                     <div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요">
                         <span class="live-badge-dot"></span>LIVE
@@ -4267,7 +4279,7 @@ function renderDesktopHome(grouped) {
             daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
         });
 
-        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" ${member.link ? `onclick="openSmartLink('${member.link}')"` : ''}><img src="${member.img}" alt="${member.name}" style="width: 100%; height: 100%; object-fit: cover;"><div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요"><span class="live-badge-dot"></span>LIVE</div></div><div class="days-container">${daysCellsHtml}</div></div>`;
+        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" onclick="handleProfileClick(event, '${member.name}', '${member.link || ''}')"><img src="${member.img}" alt="${member.name}" style="width: 100%; height: 100%; object-fit: cover;"><div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요"><span class="live-badge-dot"></span>LIVE</div></div><div class="days-container">${daysCellsHtml}</div></div>`;
     });
     content.innerHTML = homeHtml + `</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
