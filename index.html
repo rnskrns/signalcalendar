@@ -157,6 +157,7 @@
             <div class="flex flex-1 min-h-0">
                 <div id="manageTabNav" class="w-[130px] sm:w-[150px] shrink-0 border-r-2 border-gray-200 p-3 flex flex-col gap-2">
                     <button id="manageTabBtn_link" onclick="switchManageTab('link')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">링크 관리</button>
+                    <button id="manageTabBtn_up" onclick="switchManageTab('up')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">업링크 관리</button>
                     <button id="manageTabBtn_home" onclick="switchManageTab('home')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">홈 관리</button>
                     <button id="manageTabBtn_info" onclick="switchManageTab('info')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">정보 관리</button>
                 </div>
@@ -197,7 +198,8 @@
                             </div>
                             <div id="popupImgCurrentInfo" class="text-xs text-gray-500 font-bold"></div>
                         </div>
-                        <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
+                    </div>
+                    <div id="manageTabPanel_up" class="hidden">
                         <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">UP 링크 등록</h3>
                         <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
                             <input type="text" id="upTitle" placeholder="컨텐츠 제목" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
@@ -207,6 +209,9 @@
                             </div>
                             <button onclick="addUpLink()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold mt-2 hover:bg-blue-700 transition">업링크 추가</button>
                         </div>
+                        <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
+                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">등록된 업링크 목록</h3>
+                        <div id="upLinksManageContainer" class="flex flex-col gap-2 mb-4"></div>
                     </div>
                     <div id="manageTabPanel_home" class="hidden">
                         <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">홈 화면 유튜브 영상 / 이미지</h3>
@@ -334,6 +339,36 @@
         </div>
     </div>
 
+    <div id="editUpLinkModalOverlay" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[6000] p-4" onclick="if(event.target === this) closeEditUpLinkModal()">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[420px] shadow-xl relative border-4 border-[#5D4037]">
+            <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="closeEditUpLinkModal()"><i class="fi fi-br-cross"></i></button>
+            <div class="text-xl font-bold text-center text-[#5D4037] mb-5">UP 링크 수정</div>
+            <div class="flex flex-col gap-3">
+                <div>
+                    <label class="text-sm font-bold text-gray-600 mb-1 block">멤버</label>
+                    <input type="text" id="editUpMember" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                </div>
+                <div>
+                    <label class="text-sm font-bold text-gray-600 mb-1 block">컨텐츠 제목</label>
+                    <input type="text" id="editUpTitle" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                </div>
+                <div>
+                    <label class="text-sm font-bold text-gray-600 mb-1 block">URL</label>
+                    <input type="text" id="editUpUrl" placeholder="https://..." class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                </div>
+                <div>
+                    <label class="text-sm font-bold text-gray-600 mb-1 block">마감일자</label>
+                    <input type="date" id="editUpDeadline" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-5">
+                <button class="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 transition shadow-md cursor-pointer" onclick="deleteUpLinkFromEditModal()">삭제</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-3 rounded-xl font-bold hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveEditUpLink()">저장</button>
+            </div>
+        </div>
+    </div>
+
+
     <div id="scheduleDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]" onclick="closeDetailModal()">
         <div class="modal-content bg-[#FFFDF5] p-5 rounded-3xl w-[95%] max-w-[680px] shadow-2xl relative border-4 border-[#5D4037] flex flex-col items-center" onclick="event.stopPropagation()">
             <div class="w-full flex justify-between items-center mb-2">
@@ -376,10 +411,11 @@
     <div id="upPopupOverlay" class="hidden fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
         <div id="upPopupBox" class="bg-[#FFFDF5] w-full max-w-[1000px] rounded-2xl shadow-2xl border-4 border-[#5D4037] overflow-hidden flex flex-col transition-all" style="max-height: 90svh; max-height: 90vh;">
             <div id="upPopupList" class="p-6 overflow-y-auto" style="flex: 1 1 auto; min-height: 0;"></div>
-            <div class="flex justify-between items-center p-3 sm:p-4 border-t-[3px] border-[#5D4037] bg-white flex-shrink-0">
-                <label class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-sm font-bold text-[#5D4037] cursor-pointer select-none">
-                    <input type="checkbox" id="noMorePopup" class="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-[#5D4037]"> 오늘 하루 보지 않기
-                </label>
+            <div class="flex justify-between items-center flex-wrap gap-2 p-3 sm:p-4 border-t-[3px] border-[#5D4037] bg-white flex-shrink-0">
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <button onclick="closeUpPopup('today')" class="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-gray-100 border-2 border-gray-200 text-[#5D4037] font-bold rounded-lg hover:bg-gray-200 transition text-[11px] sm:text-[13px] shrink-0">오늘만 안보기</button>
+                    <button onclick="closeUpPopup('week')" class="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-gray-100 border-2 border-gray-200 text-[#5D4037] font-bold rounded-lg hover:bg-gray-200 transition text-[11px] sm:text-[13px] shrink-0">일주일동안 안보기</button>
+                </div>
                 <div class="flex items-center gap-2">
                     <button onclick="window.open('https://naver.me/xJc5cCoe', '_blank')" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-100 border-2 border-gray-200 text-[#5D4037] font-bold rounded-lg hover:bg-gray-200 transition text-[11px] sm:text-[13px] shrink-0">추가기능 및 문의</button>
                     <button onclick="closeUpPopup()" class="px-3 py-1.5 sm:px-6 sm:py-2 bg-[#5D4037] text-white font-bold rounded-lg hover:brightness-110 transition text-[12px] sm:text-[15px] shrink-0">닫기</button>
@@ -632,7 +668,7 @@
             </div>
         </div>
     </div>
-    <script type="module" src="script.js?v=20260723-1"></script>
+    <script type="module" src="script.js?v=20260723-5"></script>
 
 </body>
 </html>

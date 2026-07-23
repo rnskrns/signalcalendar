@@ -103,6 +103,12 @@ function getTodayYYYYMMDD() {
     return kstTime.toISOString().split('T')[0];
 }
 
+function getDateAfterDaysYYYYMMDD(days) {
+    const now = new Date();
+    const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000) + (days * 24 * 60 * 60 * 1000));
+    return kstTime.toISOString().split('T')[0];
+}
+
 function setAppIcon() {
     const iconUrl = "https://i.postimg.cc/wjrJrQ0c/A1EAA0.png";
     let linkIcon = document.querySelector("link[rel~='icon']");
@@ -579,6 +585,7 @@ async function checkPassword() {
 function openManageModal(tab = 'link') {
     if (!isAdmin || !loggedInUser) return;
     renderLinkManagePanel();
+    renderUpLinkManagePanel();
     renderInfoManagePanel();
     renderHomeManagePanel();
     document.getElementById('manageModal').classList.replace('hidden', 'flex');
@@ -595,8 +602,8 @@ function closeManageModal() {
 }
 
 function switchManageTab(tab) {
-    const panels = { link: document.getElementById('manageTabPanel_link'), home: document.getElementById('manageTabPanel_home'), info: document.getElementById('manageTabPanel_info') };
-    const btns = { link: document.getElementById('manageTabBtn_link'), home: document.getElementById('manageTabBtn_home'), info: document.getElementById('manageTabBtn_info') };
+    const panels = { link: document.getElementById('manageTabPanel_link'), up: document.getElementById('manageTabPanel_up'), home: document.getElementById('manageTabPanel_home'), info: document.getElementById('manageTabPanel_info') };
+    const btns = { link: document.getElementById('manageTabBtn_link'), up: document.getElementById('manageTabBtn_up'), home: document.getElementById('manageTabBtn_home'), info: document.getElementById('manageTabBtn_info') };
 
     Object.keys(panels).forEach(key => {
         if (!panels[key] || !btns[key]) return;
@@ -1157,7 +1164,10 @@ async function loadLinksFromFirebase() {
         const soopSnap = await getDocs(collection(db, 'soop_posts'));
         for (const d of soopSnap.docs) {
             const data = d.data();
-            if (data.deadline && data.deadline < todayYYYYMMDD) continue;
+            if (data.deadline && data.deadline < todayYYYYMMDD) {
+                deleteDoc(doc(db, 'soop_posts', d.id)).catch(e => console.error('마감된 UP 링크 삭제 실패(soop_posts):', e));
+                continue;
+            }
             
             upLinksList.push({ 
                 id: d.id, 
@@ -1173,7 +1183,10 @@ async function loadLinksFromFirebase() {
         const upSnap = await getDocs(collection(db, 'uplinks'));
         for (const d of upSnap.docs) {
             const data = d.data();
-            if (data.deadline && data.deadline < todayYYYYMMDD) continue;
+            if (data.deadline && data.deadline < todayYYYYMMDD) {
+                deleteDoc(doc(db, 'uplinks', d.id)).catch(e => console.error('마감된 UP 링크 삭제 실패(uplinks):', e));
+                continue;
+            }
             upLinksList.push({ id: d.id, source: 'uplinks', ...data });
         }
 
@@ -1207,7 +1220,7 @@ async function loadLinksFromFirebase() {
 }
 
 async function checkAndShowPopup(today) {
-    const lastClosed = localStorage.getItem('upPopupClosedDate');
+    const closedUntil = localStorage.getItem('upPopupClosedUntil');
     const activeTopics = rollingTopics.filter(t => t.date >= today);
     const visibleUpLinks = getVisibleUpLinks();
     
@@ -1216,13 +1229,13 @@ async function checkAndShowPopup(today) {
         (!img.deadline || img.deadline >= today)
     );
     
-    if (lastClosed !== today && (visibleUpLinks.length > 0 || activeTopics.length > 0 || hasValidImage)) {
+    if ((!closedUntil || closedUntil < today) && (visibleUpLinks.length > 0 || activeTopics.length > 0 || hasValidImage)) {
         if (visibleUpLinks.length > 0) await ensureMemberLoginImgMap();
-        showUpPopup(today);
+        await showUpPopup(today);
     }
 }
 
-function showUpPopup(today) {
+async function showUpPopup(today) {
     const list = document.getElementById('upPopupList');
     if(!list) return;
 
@@ -1254,31 +1267,16 @@ function showUpPopup(today) {
         `;
     }
 
-    let upHtml = visibleUpLinks.map(up => {
-        const theme = themeColors[up.member] || '#5D4037';
-        const memberInfo = members.find(m => m.name === up.member);
-        const profileImg = memberLoginImgMap[up.member] || (memberInfo ? memberInfo.img : '');
-        return `
-        <div class="bg-white border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-gray-50 flex flex-col gap-1 shrink-0" style="border-color:${theme}" onclick="openSmartLink('${up.url}')">
-            <div class="flex items-center gap-2 mb-2">
-                ${profileImg ? `<img src="${profileImg}" class="w-8 h-8 rounded-full object-cover shrink-0">` : ''}
-                <span class="text-[13px] font-bold shrink-0" style="color: ${theme}">${up.member}</span>
-            </div>
-            <div class="font-bold text-[15px] mb-2 text-gray-800 break-words leading-snug">${up.title}</div>
-            <div class="flex justify-end items-end">
-                <span class="text-[12px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${up.deadline ? '마감: ' + up.deadline : '마감일 없음'}</span>
-            </div>
-        </div>
-        `;
-    }).join('');
+    const sortedUpLinks = [...visibleUpLinks].sort(sortUpLinksComparator);
 
+    // UP 해줘! 팝업/패널과 동일한 카드(SOOP 게시글 댓글 순위 등)를 그대로 재사용
     const upSectionHtml = visibleUpLinks.length > 0 ? `
         <div class="flex flex-col w-full">
             <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
                 <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
             </div>
-            <div class="flex flex-col">
-                ${upHtml}
+            <div id="upPopupUpCards" class="flex flex-col">
+                <div class="text-center text-gray-400 font-bold py-6 text-[13px]">불러오는 중...⏳</div>
             </div>
         </div>
     ` : '';
@@ -1324,11 +1322,23 @@ function showUpPopup(today) {
         </div>
     `;
     document.getElementById('upPopupOverlay').classList.remove('hidden');
+
+    if (visibleUpLinks.length > 0) {
+        const upCardsHtml = await buildUpLinksCardsHtml(sortedUpLinks);
+        const cardsContainer = document.getElementById('upPopupUpCards');
+        const overlay = document.getElementById('upPopupOverlay');
+        // 카드를 불러오는 사이 팝업이 닫혔으면 반영하지 않음
+        if (cardsContainer && overlay && !overlay.classList.contains('hidden')) {
+            cardsContainer.innerHTML = upCardsHtml;
+        }
+    }
 }
 
-function closeUpPopup(forceClose = false) {
-    if (!forceClose && document.getElementById('noMorePopup').checked) {
-        localStorage.setItem('upPopupClosedDate', getTodayYYYYMMDD());
+function closeUpPopup(dismissMode = null) {
+    if (dismissMode === 'today') {
+        localStorage.setItem('upPopupClosedUntil', getTodayYYYYMMDD());
+    } else if (dismissMode === 'week') {
+        localStorage.setItem('upPopupClosedUntil', getDateAfterDaysYYYYMMDD(7));
     }
     document.getElementById('upPopupOverlay').classList.add('hidden');
 }
@@ -1549,6 +1559,118 @@ function renderLinkManagePanel() {
     renderPopupImgCurrentInfo();
 }
 
+// 업링크 관리 탭 - 내가(현재 로그인한 관리자가) 등록해둔 업링크 목록을 보여준다.
+// 같은 게시글(링크)에 달린 댓글들은 하나로 묶어서 컨텐츠 제목/마감일자를 한 번에 수정할 수 있도록 한다.
+function renderUpLinkManagePanel() {
+    if (!isAdmin || !loggedInUser) return;
+    const container = document.getElementById('upLinksManageContainer');
+    if (!container) return;
+
+    const myUpLinks = upLinksList
+        .filter(up => up.member === loggedInUser.name)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    if (myUpLinks.length === 0) {
+        container.innerHTML = `<div class="text-center text-gray-400 font-bold py-6 text-[13px]">등록된 업링크가 없습니다.</div>`;
+        return;
+    }
+
+    const items = buildUpLinkRenderItems(myUpLinks);
+    container.innerHTML = items.map(item => item.type === 'soopGroup'
+        ? buildUpLinkManageGroupHtml(item)
+        : buildUpLinkManageNormalHtml(item.up)
+    ).join('');
+}
+
+// 게시글 하나에 여러 댓글 링크가 묶인 경우 - 제목/마감일자/커트라인을 함께 수정하는 카드
+function buildUpLinkManageGroupHtml(item) {
+    const key = `${item.stationId}_${item.postId}`;
+    const firstUp = item.entries[0].up;
+    const title = firstUp.title || '';
+    const deadline = firstUp.deadline || '';
+    const cutLine = (firstUp.cutLine !== undefined && firstUp.cutLine !== null) ? firstUp.cutLine : '';
+
+    const entriesHtml = item.entries.map(({ up }) => `
+        <div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg p-2 gap-2">
+            <a href="#" onclick="openSmartLink('${up.url}'); event.preventDefault();" class="text-[12px] text-blue-500 underline truncate flex-1">${up.url}</a>
+            <button onclick="deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
+        </div>
+    `).join('');
+
+    return `
+        <div class="bg-white border-2 border-gray-200 rounded-lg p-3 mb-2 flex flex-col gap-2">
+            <div class="text-[11px] text-gray-400 font-bold">같은 게시글에 달린 댓글 ${item.entries.length}개 · 제목/마감일자/커트라인 공유</div>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <input type="text" id="upGroupTitle_${key}" value="${title}" placeholder="컨텐츠 제목" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                <input type="date" id="upGroupDeadline_${key}" value="${deadline}" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none">
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-gray-600 shrink-0">커트라인:</span>
+                <input type="number" id="upGroupCutline_${key}" min="1" step="1" value="${cutLine}" placeholder="선택사항 (예: 10)" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                <button onclick="saveUpLinkGroupInfo('${item.stationId}', '${item.postId}')" class="bg-blue-600 text-white px-3 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition shrink-0">저장</button>
+            </div>
+            <div class="text-[11px] text-gray-400 font-bold -mt-1">커트라인을 등록하면, 순위표에서 커트라인 밖(순위가 커트라인보다 낮음)인 댓글에 "위기"가 빨간색으로 표시됩니다. 등록하지 않아도 됩니다.</div>
+            <div class="flex flex-col gap-1 mt-1">${entriesHtml}</div>
+        </div>
+    `;
+}
+
+// 게시글 댓글 링크가 아닌 일반 업링크 - 기존과 동일하게 개별 수정
+function buildUpLinkManageNormalHtml(up) {
+    return `
+        <div class="flex justify-between items-center bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm gap-2">
+            <div class="min-w-0 flex-1">
+                <div class="font-bold text-[14px] text-[#5D4037] truncate">${up.title}</div>
+                <a href="#" onclick="openSmartLink('${up.url}'); event.preventDefault();" class="text-[12px] text-blue-500 underline truncate block max-w-full">${up.url}</a>
+                ${up.deadline ? `<div class="text-[11.5px] text-gray-400 font-bold mt-0.5">마감: ${up.deadline}</div>` : ''}
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+                <button onclick="window.openEditUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-[#5D4037] font-bold text-[13px] border-2 border-[#5D4037] px-2 py-0.5 rounded hover:bg-[#5D4037] hover:text-white transition">수정</button>
+                <button onclick="deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+        </div>
+    `;
+}
+
+// 같은 게시글을 가리키는 모든 업링크(댓글)들의 컨텐츠 제목/마감일자/커트라인을 한 번에 저장한다.
+window.saveUpLinkGroupInfo = async function(stationId, postId) {
+    const key = `${stationId}_${postId}`;
+    const titleInput = document.getElementById(`upGroupTitle_${key}`);
+    const deadlineInput = document.getElementById(`upGroupDeadline_${key}`);
+    const cutLineInput = document.getElementById(`upGroupCutline_${key}`);
+    if (!titleInput) return;
+
+    const title = titleInput.value.trim();
+    const deadline = deadlineInput ? deadlineInput.value : '';
+    const cutLineRaw = cutLineInput ? cutLineInput.value.trim() : '';
+    // 커트라인은 선택사항: 입력하지 않으면 null로 저장(위기 표시 안함)
+    const cutLine = cutLineRaw === '' ? null : Number(cutLineRaw);
+    if (!title) return alert('컨텐츠 제목을 입력하세요.');
+    if (cutLineRaw !== '' && (isNaN(cutLine) || cutLine < 1)) return alert('커트라인은 1 이상의 숫자로 입력하세요.');
+
+    const targets = upLinksList.filter(up => {
+        const parsed = parseSoopPostUrl(up.url);
+        return parsed && parsed.stationId === stationId && parsed.postId === postId;
+    });
+    if (targets.length === 0) return;
+
+    try {
+        await Promise.all(targets.map(up => {
+            const colName = up.source === 'soop' ? 'soop_posts' : 'uplinks';
+            return updateDoc(doc(db, colName, up.id), { title, deadline, cutLine });
+        }));
+        targets.forEach(up => { up.title = title; up.deadline = deadline; up.cutLine = cutLine; });
+
+        renderUpLinksPanel();
+        if (isUpModeModalOpen()) renderUpModeModalContent();
+        renderUpLinkManagePanel();
+        alert('저장되었습니다.');
+    } catch (e) {
+        console.error('업링크 그룹 정보 저장 실패:', e);
+        alert('저장에 실패했습니다.');
+    }
+};
+
 function openLinkModal() { openManageModal('link'); }
 function closeLinkModal() { closeManageModal(); }
 
@@ -1622,7 +1744,7 @@ async function addUpLink() {
     const memberSelect = document.getElementById('upMember');
     const member = memberSelect ? memberSelect.value : loggedInUser.name;
 
-    if(!title || !url) return alert('제목과 링크를 입력하세요.');
+    if(!url) return alert('링크를 입력하세요.');
     
     const newUp = { member, title, url, deadline, timestamp: Date.now() };
     try {
@@ -1633,6 +1755,7 @@ async function addUpLink() {
         document.getElementById('upUrl').value = ''; 
         document.getElementById('upDeadline').value = '';
         if (isUpModeModalOpen()) renderUpModeModalContent();
+        renderUpLinkManagePanel();
     } catch(e) { console.error(e); }
 }
 
@@ -1643,7 +1766,9 @@ async function deleteUpLink(upId, source = 'uplinks') {
         await deleteDoc(doc(db, colName, upId));
         
         upLinksList = upLinksList.filter(u => u.id !== upId);
+        renderUpLinksPanel();
         if (isUpModeModalOpen()) renderUpModeModalContent();
+        renderUpLinkManagePanel();
     } catch(e) { console.error(e); }
 }
 
@@ -1839,42 +1964,9 @@ async function deleteMemo(memoId) {
     } catch(e) { console.error('메모 삭제 실패:', e); }
 }
 
-function renderUpLinksPanel() {
+async function renderUpLinksPanel() {
     const panel = document.getElementById('sideExpansionPanel');
-    const sorted = [...getVisibleUpLinks()].sort((a, b) => {
-        if (a.deadline && b.deadline) {
-            if (a.deadline === b.deadline) return (a.timestamp || 0) - (b.timestamp || 0);
-            return a.deadline < b.deadline ? -1 : 1;
-        }
-        if (a.deadline && !b.deadline) return -1;
-        if (!a.deadline && b.deadline) return 1;
-        return (a.timestamp || 0) - (b.timestamp || 0);
-    });
-
-    let upCardsHtml = sorted.map(up => {
-        const theme = themeColors[up.member] || '#5D4037';
-        
-        const deleteBtn = (isAdmin && loggedInUser.name === up.member) ? 
-            `<button onclick="event.stopPropagation(); deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-red-500 hover:text-red-700 ml-2 font-bold z-20 absolute top-2 right-2"><i class="fi fi-br-cross-small"></i></button>` : '';
-            
-        const contextAttr = isAdmin ? `oncontextmenu="event.preventDefault(); window.openEditUpLink('${up.id}', '${up.source || 'uplinks'}');"` : '';
-            
-        return `
-            <div class="relative w-full border-[3px] rounded-xl p-5 mb-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-[2px] cursor-pointer bg-white shrink-0" 
-                 style="border-color: ${theme}; border-left-width: 8px;"
-                 onclick="openSmartLink('${up.url}')"
-                 ${contextAttr}>
-                ${deleteBtn}
-                <div class="text-[17px] font-bold font-paperozi mb-4 text-gray-800 break-words pr-6 leading-snug">${up.title}</div>
-                <div class="flex justify-between items-end">
-                    <span class="text-[12px] font-bold text-white px-2.5 py-1 rounded-md" style="background-color: ${theme}">${up.member}</span>
-                    ${up.deadline ? `<span class="text-[13px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">마감: ${up.deadline}</span>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    if(sorted.length === 0) { upCardsHtml = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`; }
+    const sorted = [...getVisibleUpLinks()].sort(sortUpLinksComparator);
 
     panel.innerHTML = `
         <div class="p-6 border-b-[4px] border-[#5D4037] bg-white flex justify-between items-center shadow-sm z-10 shrink-0">
@@ -1883,10 +1975,29 @@ function renderUpLinksPanel() {
             </div>
             <button onclick="closeSidePanel()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
         </div>
-        <div class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll">
-            ${upCardsHtml}
+        <div id="upLinksPanelBody" class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll">
+            ${sorted.length === 0 ? `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>` : `<div class="text-center text-gray-400 font-bold mt-16 text-lg">불러오는 중...⏳</div>`}
         </div>
     `;
+
+    if (sorted.length === 0) return;
+
+    const upCardsHtml = await buildUpLinksCardsHtml(sorted);
+
+    // 렌더링 중 패널이 닫혔거나 다른 모드로 바뀌었으면 반영하지 않음
+    if (sidePanelMode !== 'UP') return;
+    const bodyEl = document.getElementById('upLinksPanelBody');
+    if (bodyEl) bodyEl.innerHTML = upCardsHtml;
+}
+
+function sortUpLinksComparator(a, b) {
+    if (a.deadline && b.deadline) {
+        if (a.deadline === b.deadline) return (a.timestamp || 0) - (b.timestamp || 0);
+        return a.deadline < b.deadline ? -1 : 1;
+    }
+    if (a.deadline && !b.deadline) return -1;
+    if (!a.deadline && b.deadline) return 1;
+    return (a.timestamp || 0) - (b.timestamp || 0);
 }
 
 let memberLoginImgMap = {};
@@ -1902,52 +2013,265 @@ async function ensureMemberLoginImgMap() {
     return memberLoginImgMap;
 }
 
-function buildUpLinksCardsHtml() {
-    const sorted = [...getVisibleUpLinks()].sort((a, b) => {
-        if (a.deadline && b.deadline) {
-            if (a.deadline === b.deadline) return (a.timestamp || 0) - (b.timestamp || 0);
-            return a.deadline < b.deadline ? -1 : 1;
+// =========================================================================
+// UP 카드 - SOOP 게시글 댓글 순위
+// DB에 저장된 URL(.../post/{postId}#comment_noti{commentNo})에서
+// 베이스 게시글 주소와 특정 댓글 ID를 분리 -> 같은 게시글을 가리키는 UP 링크들은 하나로 묶어
+// 상단에 게시글 제목 1개, 하단에 등록된 댓글들을 좋아요 수 기준으로 순위 매겨 보여준다.
+// =========================================================================
+
+// https://www.sooplive.com/station/{stationId}/post/{postId}#comment_noti{commentNo} 형태의 링크를 파싱
+function parseSoopPostUrl(url) {
+    if (!url) return null;
+    const m = url.match(/station\/([^\/?#]+)\/post\/(\d+)/);
+    if (!m) return null;
+    const hashMatch = url.match(/comment_noti(\d+)/);
+    return {
+        stationId: m[1],
+        postId: m[2],
+        commentNo: hashMatch ? hashMatch[1] : null
+    };
+}
+
+function isSoopPostUrl(url) {
+    return !!parseSoopPostUrl(url);
+}
+
+async function fetchTextWithCorsFallback(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.text();
+    } catch (e) {
+        const proxied = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+        const res2 = await fetch(proxied);
+        if (!res2.ok) throw new Error('HTTP ' + res2.status);
+        return await res2.text();
+    }
+}
+
+async function fetchJsonWithCorsFallback(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+    } catch (e) {
+        // 브라우저 CORS 차단 시 공용 프록시로 재시도
+        const proxied = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+        const res2 = await fetch(proxied);
+        if (!res2.ok) throw new Error('HTTP ' + res2.status);
+        return await res2.json();
+    }
+}
+
+// 게시글의 모든 댓글 페이지를 순회하며 수집
+async function fetchAllSoopComments(stationId, postId) {
+    let allComments = [];
+    let page = 1;
+    let lastPage = 1;
+    do {
+        const url = `https://api-channel.sooplive.com/v1.1/channel/${stationId}/post/${postId}/comment?page=${page}&orderBy=like_cnt&cCommentNo=0&pHighlightNo=0`;
+        const json = await fetchJsonWithCorsFallback(url);
+        if (json && Array.isArray(json.data)) allComments = allComments.concat(json.data);
+        lastPage = (json && json.meta && json.meta.lastPage) || 1;
+        page++;
+    } while (page <= lastPage);
+    return allComments;
+}
+
+// 게시글 페이지의 og:title(또는 <title>)을 스크래핑해 게시글 제목을 가져온다.
+let soopPostTitleCache = {};
+async function fetchSoopPostTitle(stationId, postId) {
+    const key = `${stationId}_${postId}`;
+    if (soopPostTitleCache[key]) return soopPostTitleCache[key];
+    try {
+        const html = await fetchTextWithCorsFallback(`https://www.sooplive.com/station/${stationId}/post/${postId}`);
+        const ogMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:title["']/i);
+        const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
+        const title = (ogMatch ? ogMatch[1] : (titleMatch ? titleMatch[1] : '')).trim();
+        soopPostTitleCache[key] = title;
+        return title;
+    } catch(e) {
+        console.error('게시글 제목 로드 실패:', e);
+        return '';
+    }
+}
+
+// 같은 게시글(스테이션+게시글번호)을 가리키는 UP 링크들을 하나의 그룹으로 묶는다.
+// 정렬 순서상 그 게시글이 처음 등장한 위치를 그룹의 위치로 유지한다.
+function buildUpLinkRenderItems(sortedUpLinks) {
+    const items = [];
+    const groupIndexByKey = new Map();
+    sortedUpLinks.forEach(up => {
+        const parsed = parseSoopPostUrl(up.url);
+        if (!parsed) { items.push({ type: 'normal', up }); return; }
+        const key = `${parsed.stationId}_${parsed.postId}`;
+        if (groupIndexByKey.has(key)) {
+            items[groupIndexByKey.get(key)].entries.push({ up, commentNo: parsed.commentNo });
+        } else {
+            groupIndexByKey.set(key, items.length);
+            items.push({ type: 'soopGroup', stationId: parsed.stationId, postId: parsed.postId, entries: [{ up, commentNo: parsed.commentNo }] });
         }
-        if (a.deadline && !b.deadline) return -1;
-        if (!a.deadline && b.deadline) return 1;
-        return (a.timestamp || 0) - (b.timestamp || 0);
+    });
+    return items;
+}
+
+function rankBadgeColor(rank) {
+    return rank === 1 ? '#FFD700' : rank === 2 ? '#B0BEC5' : rank === 3 ? '#CD7F32' : '#5D4037';
+}
+
+// 그룹(게시글 하나)에 대한 제목 + 등록된 내 댓글들의 좋아요 순위 데이터를 만든다.
+// 게시글 전체 댓글을 기준으로 순위를 계산한 뒤, 그 중 DB에 등록해둔 내 댓글들만 골라서 보여준다.
+async function buildSoopGroupData(group) {
+    const [title, comments] = await Promise.all([
+        fetchSoopPostTitle(group.stationId, group.postId),
+        fetchAllSoopComments(group.stationId, group.postId)
+    ]);
+
+    // 좋아요 수(like_cnt) 기준 내림차순 정렬 -> 게시글 전체 댓글 순위
+    const sortedComments = [...comments].sort((a, b) => (b.likeCnt || 0) - (a.likeCnt || 0));
+    const commentMap = new Map();
+    const rankMap = new Map();
+    sortedComments.forEach((c, idx) => {
+        commentMap.set(String(c.pCommentNo), c);
+        rankMap.set(String(c.pCommentNo), idx + 1);
     });
 
-    let html = sorted.map(up => {
-        const theme = themeColors[up.member] || '#5D4037';
-        const memberInfo = members.find(m => m.name === up.member);
-        const profileImg = memberLoginImgMap[up.member] || (memberInfo ? memberInfo.img : '');
-        const deleteBtn = (isAdmin && loggedInUser.name === up.member) ?
-            `<button onclick="event.stopPropagation(); deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-red-500 hover:text-red-700 ml-2 font-bold z-20 absolute top-2 right-2"><i class="fi fi-br-cross-small"></i></button>` : '';
-        const contextAttr = isAdmin ? `oncontextmenu="event.preventDefault(); window.openEditUpLink('${up.id}', '${up.source || 'uplinks'}');"` : '';
+    // 등록된(DB에 저장된) 댓글들만 추려서, 전체 순위 중 몇 등인지를 붙인다.
+    const matched = group.entries.map(({ up, commentNo }) => {
+        const c = commentNo ? commentMap.get(String(commentNo)) : null;
+        return {
+            up,
+            userNick: c ? c.userNick : (up.member || ''),
+            userId: c ? c.userId : '',
+            profileImage: c ? c.profileImage : '',
+            likeCnt: c ? (c.likeCnt || 0) : 0,
+            found: !!c,
+            rank: c ? rankMap.get(String(commentNo)) : null
+        };
+    });
 
-        return `
-            <div class="relative w-full border-[3px] rounded-xl p-5 mb-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-[2px] cursor-pointer bg-white shrink-0"
-                 style="border-color: ${theme}; border-left-width: 8px;"
-                 onclick="openSmartLink('${up.url}')"
-                 ${contextAttr}>
-                ${deleteBtn}
-                <div class="flex items-center gap-2 mb-3 pr-6">
-                    ${profileImg ? `<img src="${profileImg}" class="w-8 h-8 rounded-full object-cover shrink-0">` : ''}
-                    <span class="text-[13px] font-bold shrink-0" style="color: ${theme}">${up.member}</span>
+    // 전체 순위 기준으로 정렬 (댓글을 찾지 못한 경우는 맨 뒤로)
+    matched.sort((a, b) => {
+        if (a.rank == null && b.rank == null) return 0;
+        if (a.rank == null) return 1;
+        if (b.rank == null) return -1;
+        return a.rank - b.rank;
+    });
+
+    return { title, matched };
+}
+
+function buildSoopGroupCardHtml(group, data) {
+    const firstUp = group.entries[0].up;
+    const titleText = data.title || firstUp.title || '(게시글 제목을 불러올 수 없습니다)';
+    const postUrl = `https://www.sooplive.com/station/${group.stationId}/post/${group.postId}`;
+    const cutLine = firstUp.cutLine !== undefined && firstUp.cutLine !== null && firstUp.cutLine !== '' ? Number(firstUp.cutLine) : null;
+
+    const listHtml = data.matched.length === 0
+        ? `<div class="text-center text-gray-400 font-bold py-6 text-[13px]">등록된 댓글 데이터가 없습니다.</div>`
+        : data.matched.map(m => {
+            const deleteBtn = (m.up && isAdmin && loggedInUser.name === m.up.member) ?
+                `<button onclick="event.stopPropagation(); deleteUpLink('${m.up.id}', '${m.up.source || 'uplinks'}')" class="text-red-400 hover:text-red-600 font-bold ml-1 shrink-0"><i class="fi fi-br-cross-small"></i></button>` : '';
+            const contextAttr = (m.up && isAdmin) ? `oncontextmenu="event.preventDefault(); event.stopPropagation(); window.openEditUpLink('${m.up.id}', '${m.up.source || 'uplinks'}');"` : '';
+            const notFoundBadge = !m.found ? `<span class="text-[10px] text-red-400 font-bold ml-1">(댓글 확인 불가)</span>` : '';
+            const rankLabel = m.rank ?? '-';
+            const isDanger = cutLine !== null && m.rank != null && m.rank > cutLine;
+            const clickAttr = m.up ? `onclick="openSmartLink('${m.up.url}')"` : '';
+            return `
+                <div class="flex items-center gap-2 bg-white border-2 ${isDanger ? 'border-red-500' : 'border-gray-200'} rounded-lg p-2.5 mb-2 shadow-sm ${m.up ? 'cursor-pointer hover:shadow-md transition' : ''}" ${clickAttr} ${contextAttr}>
+                    <div class="w-9 flex flex-col items-center justify-center shrink-0">
+                        <div class="font-bold text-[15px] leading-none" style="color:${rankBadgeColor(m.rank)}">${rankLabel}</div>
+                        ${isDanger ? `<div class="text-[11px] font-bold text-red-500 leading-none mt-1">위기</div>` : ''}
+                    </div>
+                    <img src="${m.profileImage || ''}" onerror="this.style.visibility='hidden'" class="w-9 h-9 rounded-full object-cover border-2 border-gray-200 shrink-0 bg-gray-100">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-bold text-[#5D4037] text-[14px] truncate">${m.userNick || (m.up ? m.up.member : '') || ''}${notFoundBadge}</div>
+                        <div class="text-[11.5px] text-gray-400 font-bold truncate">@${m.userId || '-'}</div>
+                    </div>
+                    <div class="flex items-center gap-1 text-[#5D4037] font-bold text-[13px] shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                        ${m.likeCnt ?? 0}
+                    </div>
+                    ${deleteBtn}
                 </div>
-                <div class="text-[17px] font-bold font-paperozi mb-3 text-gray-800 break-words pr-6 leading-snug">${up.title}</div>
-                <div class="flex justify-end items-end">
-                    ${up.deadline ? `<span class="text-[13px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">마감: ${up.deadline}</span>` : ''}
-                </div>
+            `;
+        }).join('');
+
+    return `
+        <div class="relative w-full border-2 border-gray-200 rounded-xl p-5 mb-4 shadow-sm bg-white shrink-0">
+            <div class="flex justify-between items-start gap-3 mb-3">
+                <div class="text-[17px] font-bold font-paperozi text-gray-800 break-words leading-snug cursor-pointer hover:underline flex-1" onclick="openSmartLink('${postUrl}')">${titleText}</div>
+                ${firstUp.deadline ? `<span class="text-[13px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded shrink-0">마감: ${firstUp.deadline}</span>` : ''}
             </div>
-        `;
-    }).join('');
+            <div class="max-h-[420px] overflow-y-auto pr-1">${listHtml}</div>
+        </div>
+    `;
+}
 
-    if (sorted.length === 0) { html = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`; }
-    return html;
+function buildSoopGroupErrorCardHtml(group) {
+    const firstUp = group.entries[0].up;
+    return `
+        <div class="relative w-full border-2 border-gray-200 rounded-xl p-5 mb-4 shadow-sm bg-white shrink-0">
+            <div class="text-[17px] font-bold font-paperozi mb-3 text-gray-800 break-words leading-snug">${firstUp.title}</div>
+            <div class="text-center text-red-400 font-bold py-6 text-[13px]">댓글 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</div>
+        </div>
+    `;
+}
+
+// 일반(SOOP 게시글이 아닌) UP 링크는 기존 카드 형태 그대로 렌더링
+function buildNormalUpCardHtml(up) {
+    const theme = themeColors[up.member] || '#5D4037';
+    const memberInfo = members.find(m => m.name === up.member);
+    const profileImg = memberLoginImgMap[up.member] || (memberInfo ? memberInfo.img : '');
+    const deleteBtn = (isAdmin && loggedInUser.name === up.member) ?
+        `<button onclick="event.stopPropagation(); deleteUpLink('${up.id}', '${up.source || 'uplinks'}')" class="text-red-500 hover:text-red-700 ml-2 font-bold z-20 absolute top-2 right-2"><i class="fi fi-br-cross-small"></i></button>` : '';
+    const contextAttr = isAdmin ? `oncontextmenu="event.preventDefault(); window.openEditUpLink('${up.id}', '${up.source || 'uplinks'}');"` : '';
+
+    return `
+        <div class="relative w-full border-2 border-gray-200 rounded-xl p-5 mb-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-[2px] cursor-pointer bg-white shrink-0"
+             onclick="openSmartLink('${up.url}')"
+             ${contextAttr}>
+            ${deleteBtn}
+            <div class="flex items-center gap-2 mb-3 pr-6">
+                ${profileImg ? `<img src="${profileImg}" class="w-8 h-8 rounded-full object-cover shrink-0">` : ''}
+                <span class="text-[13px] font-bold shrink-0" style="color: ${theme}">${up.member}</span>
+            </div>
+            <div class="text-[17px] font-bold font-paperozi mb-3 text-gray-800 break-words pr-6 leading-snug">${up.title}</div>
+            <div class="flex justify-end items-end">
+                ${up.deadline ? `<span class="text-[13px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">마감: ${up.deadline}</span>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+async function buildUpLinksCardsHtml(preSorted = null) {
+    const sorted = preSorted || [...getVisibleUpLinks()].sort(sortUpLinksComparator);
+    if (sorted.length === 0) return `<div class="text-center text-gray-400 font-bold mt-16 text-lg">등록된 UP 링크가 없습니다.</div>`;
+
+    const items = buildUpLinkRenderItems(sorted);
+    const cards = await Promise.all(items.map(async item => {
+        if (item.type === 'normal') return buildNormalUpCardHtml(item.up);
+        try {
+            const data = await buildSoopGroupData(item);
+            return buildSoopGroupCardHtml(item, data);
+        } catch(e) {
+            console.error('게시글 댓글 순위 로드 실패:', e);
+            return buildSoopGroupErrorCardHtml(item);
+        }
+    }));
+    return cards.join('');
 }
 
 async function renderUpModeModalContent() {
     const body = document.getElementById('upModeModalBody');
     if (!body) return;
+    body.innerHTML = `<div class="text-center text-gray-400 font-bold mt-16 text-lg">불러오는 중...⏳</div>`;
     await ensureMemberLoginImgMap();
-    body.innerHTML = buildUpLinksCardsHtml();
+    const html = await buildUpLinksCardsHtml();
+    if (!isUpModeModalOpen()) return; // 렌더링 중 모달이 닫혔으면 반영하지 않음
+    body.innerHTML = html;
 }
 
 function isUpModeModalOpen() {
@@ -4586,34 +4910,76 @@ async function initApp() {
     }
 }
 
-window.openEditUpLink = async function(id, source) {
+let editingUpLinkId = null;
+let editingUpLinkSource = null;
+
+window.openEditUpLink = function(id, source) {
     const upItem = upLinksList.find(u => u.id === id);
     if (!upItem) {
         alert("데이터를 찾을 수 없습니다.");
         return;
     }
-    const newTitle = prompt("제목을 수정하세요:", upItem.title);
-    if (newTitle === null) return;
-    const newDeadline = prompt("마감 날짜를 수정하세요 (YYYY-MM-DD):", upItem.deadline || "");
-    if (newDeadline === null) return;
+    editingUpLinkId = id;
+    editingUpLinkSource = source || upItem.source || 'uplinks';
+
+    document.getElementById('editUpMember').value = upItem.member || '';
+    document.getElementById('editUpTitle').value = upItem.title || '';
+    document.getElementById('editUpUrl').value = upItem.url || '';
+    document.getElementById('editUpDeadline').value = upItem.deadline || '';
+
+    document.getElementById('editUpLinkModalOverlay').classList.replace('hidden', 'flex');
+};
+
+window.closeEditUpLinkModal = function() {
+    document.getElementById('editUpLinkModalOverlay').classList.replace('flex', 'hidden');
+    editingUpLinkId = null;
+    editingUpLinkSource = null;
+};
+
+window.saveEditUpLink = async function() {
+    if (!editingUpLinkId) return;
+
+    const newMember = document.getElementById('editUpMember').value.trim();
+    const newTitle = document.getElementById('editUpTitle').value.trim();
+    const newUrl = document.getElementById('editUpUrl').value.trim();
+    const newDeadline = document.getElementById('editUpDeadline').value;
+
+    if (!newTitle || !newUrl) return alert('제목과 URL을 입력하세요.');
 
     try {
-        const colName = source === 'soop' ? 'soop_posts' : 'uplinks';
-        const docRef = doc(db, colName, id);
-        
-        await updateDoc(docRef, { 
-            title: newTitle, 
-            deadline: newDeadline 
-        });
+        const colName = editingUpLinkSource === 'soop' ? 'soop_posts' : 'uplinks';
+        const docRef = doc(db, colName, editingUpLinkId);
 
-        upItem.title = newTitle;
-        upItem.deadline = newDeadline;
+        const updatePayload = editingUpLinkSource === 'soop'
+            ? { member: newMember, title: newTitle, link: newUrl, deadline: newDeadline }
+            : { member: newMember, title: newTitle, url: newUrl, deadline: newDeadline };
+
+        await updateDoc(docRef, updatePayload);
+
+        const upItem = upLinksList.find(u => u.id === editingUpLinkId);
+        if (upItem) {
+            upItem.member = newMember;
+            upItem.title = newTitle;
+            upItem.url = newUrl;
+            upItem.deadline = newDeadline;
+        }
+
         renderUpLinksPanel();
+        if (isUpModeModalOpen()) renderUpModeModalContent();
+        renderUpLinkManagePanel();
+
+        closeEditUpLinkModal();
         alert("수정되었습니다.");
     } catch (e) {
         console.error("수정 실패:", e);
         alert("수정에 실패했습니다.");
     }
+};
+
+window.deleteUpLinkFromEditModal = async function() {
+    if (!editingUpLinkId) return;
+    await deleteUpLink(editingUpLinkId, editingUpLinkSource);
+    closeEditUpLinkModal();
 };
 
 window.openMemberManageModal = function() {
