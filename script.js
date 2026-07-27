@@ -430,17 +430,17 @@ const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또'
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
 const members = [
-    { name: '달타', img: 'https://i.postimg.cc/y8VYYyZM/dalta-peusa.png', link: '' },
-    { name: '다룽', img: 'https://i.postimg.cc/bNfB7zDm/jemog-eul-iblyeoghaejuseyo-(2).png', link: '' },
-    { name: '최또', img: 'https://i.postimg.cc/fTQrGwtB/jemog-eul-iblyeoghaejuseyo.png', link: '' },
-    { name: '카나시', img: 'https://i.postimg.cc/fTjzMdQv/jemog-eul-iblyeoghaejuseyo.png', link: '' }
+    { name: '달타', img: 'https://i.postimg.cc/PqcVNpvJ/Honeycam-2026-07-27-23-47-27.webp', link: '' },
+    { name: '다룽', img: 'https://i.postimg.cc/MG43XMMh/Honeycam-2026-07-27-23-46-37.webp', link: '' },
+    { name: '최또', img: 'https://i.postimg.cc/fTjP5RpV/jemog-eul-iblyeoghaejuseyo-1.webp', link: '' },
+    { name: '카나시', img: 'https://i.postimg.cc/s28H1QGR/Honeycam-2026-07-27-23-46-46.webp', link: '' }
 ];
 
 const memberCardImages = {
-    '달타': { bangon: 'https://i.postimg.cc/P5N94Lsc/jemog-eul-iblyeoghaejuseyo.png', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1781258057/xdj7vmhrw19fuhg9wec6.png' },
-    '다룽': { bangon: 'https://i.postimg.cc/zG36jLZc/jemog-eul-iblyeoghaejuseyo-(3).png', hubang: 'https://i.postimg.cc/MHCMFM3M/jemog-eul-iblyeoghaejuseyo-(8).png' },
-    '최또': { bangon: 'https://i.postimg.cc/FH18Zf56/jemog-eul-iblyeoghaejuseyo-(1).png', hubang: 'https://i.postimg.cc/SRB2v21z/jemog-eul-iblyeoghaejuseyo-(6).png' },
-    '카나시': { bangon: 'https://i.postimg.cc/8z33n1Nt/jemog-eul-iblyeoghaejuseyo-(4).png', hubang: 'https://i.postimg.cc/vTJgNg29/jemog-eul-iblyeoghaejuseyo-(7).png' }
+    '달타': { bangon: 'https://i.postimg.cc/nL5SMj9C/Honeycam-2026-07-27-23-47-23.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1781258057/xdj7vmhrw19fuhg9wec6.png' },
+    '다룽': { bangon: 'https://i.postimg.cc/jj93Cwnq/Honeycam-2026-07-27-23-47-14.webp', hubang: 'https://i.postimg.cc/s28H1QGz/Honeycam-2026-07-27-23-46-50.webp' },
+    '최또': { bangon: 'https://i.postimg.cc/9fSgzRwf/Honeycam-2026-07-27-23-47-18.webp', hubang: 'https://i.postimg.cc/SK51j2Yq/Honeycam-2026-07-27-23-46-59.webp' },
+    '카나시': { bangon: 'https://i.postimg.cc/CKtrdBnh/Honeycam-2026-07-27-23-47-10.webp', hubang: 'https://i.postimg.cc/Ls7QhYgp/Honeycam-2026-07-27-23-46-54.webp' }
 };
 
 // 멤버별 SOOP(아프리카TV) 아이디 매핑 - 라이브 여부 확인 및 방송 바로가기에 사용
@@ -4143,11 +4143,11 @@ function renderMobileHome(grouped) {
             const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
 
             if (isHubang) {
-                schedulesHtml = `<div class="schedule-card hubang h-full flex items-center justify-center w-full overflow-hidden relative" style="color:#9CA3AF; background-color:#F3F4F6; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="휴방"></div>`;
+                schedulesHtml = `<div class="schedule-card hubang h-full flex items-center justify-center w-full overflow-hidden relative" style="color:#9CA3AF; background-color:#F3F4F6; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="휴방" loading="lazy" decoding="async"></div>`;
             } else {
                 const borderColor = rowBorderColors[i];
                 const bgColor = cardBgColors[member.name] || '#FFF5F5';
-                schedulesHtml = `<div class="schedule-card h-full w-full flex items-center justify-center overflow-hidden relative" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="뱅온">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${rowBorderColors[i]}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
+                schedulesHtml = `<div class="schedule-card h-full w-full flex items-center justify-center overflow-hidden relative" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="뱅온" loading="lazy" decoding="async">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${rowBorderColors[i]}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
             }
         } else {
             schedulesHtml = `<div class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50"><span class="text-gray-400 text-[15px] font-bold">일정 없음</span></div>`;
