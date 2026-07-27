@@ -433,7 +433,7 @@ const members = [
     { name: '달타', img: 'https://i.postimg.cc/PqcVNpvJ/Honeycam-2026-07-27-23-47-27.webp', link: '' },
     { name: '다룽', img: 'https://i.postimg.cc/MG43XMMh/Honeycam-2026-07-27-23-46-37.webp', link: '' },
     { name: '최또', img: 'https://i.postimg.cc/fTjP5RpV/jemog-eul-iblyeoghaejuseyo-1.webp', link: '' },
-    { name: '카나시', img: 'https://i.postimg.cc/s28H1QGR/Honeycam-2026-07-27-23-46-46.webp', link: '' }
+    { name: '카나시', img: 'https://i.postimg.cc/pTfS7VyW/Honeycam-2026-07-27-23-59-57.webp', link: '' }
 ];
 
 const memberCardImages = {
