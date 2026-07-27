@@ -34,8 +34,9 @@
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-brands/css/uicons-brands.css'>
     <link rel="stylesheet" href="style.css">
 
-    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- 외부 리소스 렌더링 사전 연결 -->
+    <link rel="preconnect" href="https://i.postimg.cc">
+    <link rel="preconnect" href="https://res.cloudinary.com">
 </head>
 <body class="bg-[#ffdddd] lg:pt-24 pt-[70px] lg:pb-0 pb-[80px] overflow-x-hidden lg:overflow-x-auto min-w-[320px] lg:min-w-[max-content]">
 
@@ -45,10 +46,10 @@
     <script>
         (function() {
             var loadingImages = [
-                'https://res.cloudinary.com/dtlqzklk5/image/upload/v1784212187/oadtzkneiagjxjpe7de1.webp',
-                'https://res.cloudinary.com/dtlqzklk5/image/upload/v1784212186/lsnbtpiymojjtjmd9x5q.webp',
-                'https://res.cloudinary.com/dtlqzklk5/image/upload/v1784212186/rajx9yzwtromkrjhp4ec.webp',
-                'https://res.cloudinary.com/dtlqzklk5/image/upload/v1784212186/i6bjuy6vgecegxzqi2na.webp'
+                'https://res.cloudinary.com/dtlqzklk5/image/upload/q_auto,f_auto/v1784212187/oadtzkneiagjxjpe7de1.webp',
+                'https://res.cloudinary.com/dtlqzklk5/image/upload/q_auto,f_auto/v1784212186/lsnbtpiymojjtjmd9x5q.webp',
+                'https://res.cloudinary.com/dtlqzklk5/image/upload/q_auto,f_auto/v1784212186/rajx9yzwtromkrjhp4ec.webp',
+                'https://res.cloudinary.com/dtlqzklk5/image/upload/q_auto,f_auto/v1784212186/i6bjuy6vgecegxzqi2na.webp'
             ];
             var pick = loadingImages[Math.floor(Math.random() * loadingImages.length)];
             var img = document.getElementById('pageLoadingImg');

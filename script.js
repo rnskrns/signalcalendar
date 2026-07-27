@@ -37,7 +37,7 @@ window.handleScheduleImageUpload = async function(input) {
     const imageUrl = await window.uploadImageToCloudinary(file);
     if (imageUrl) {
         hiddenInput.value = imageUrl;
-        previewContainer.innerHTML = `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">`;
+        previewContainer.innerHTML = `<img src="${imageUrl}" loading="lazy" decoding="async" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">`;
         const removeBtn = block.querySelector('.sch-img-remove-btn');
         if (removeBtn) removeBtn.classList.remove('hidden'); 
     } else {
@@ -127,6 +127,20 @@ function setAppIcon() {
     appleIcon.href = iconUrl;
 }
 setAppIcon();
+
+// =========================================================================
+// 동적 스크립트 로딩 (Lazy Load)
+// =========================================================================
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
 
 // =========================================================================
 // 전역 함수 바인딩
@@ -569,7 +583,7 @@ function renderSavedProfiles() {
         list.innerHTML = profiles.map(p => `
             <div class="relative flex flex-col items-center gap-1 cursor-pointer group shrink-0" onclick="loginWithProfile('${p.docId}', '${p.token}')">
                 <button onclick="event.stopPropagation(); deleteSavedProfile('${p.docId}')" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition z-10 hover:scale-110 shadow-sm"><i class="fi fi-br-cross-small"></i></button>
-                <img src="${p.img || 'https://via.placeholder.com/40'}" class="w-[48px] h-[48px] rounded-full object-cover border-[2.5px] border-gray-200 group-hover:border-[#5D4037] transition">
+                <img src="${p.img || 'https://via.placeholder.com/40'}" loading="lazy" decoding="async" class="w-[48px] h-[48px] rounded-full object-cover border-[2.5px] border-gray-200 group-hover:border-[#5D4037] transition">
                 <span class="text-[12px] font-bold text-[#5D4037] truncate w-[54px] text-center">${p.name}</span>
             </div>
         `).join('');
@@ -1082,7 +1096,7 @@ async function fetchAndRenderAllNotices() {
         itemsHtml += `
             <div class="flex flex-col gap-2 p-3 bg-[#FFFDF5] border border-[#5D4037]/15 rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,0.08)] cursor-pointer hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,0.15)] transition-all" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
                 <div class="flex items-center gap-2">
-                    <img src="${profileImg}" alt="${nickname}" class="w-6 h-6 rounded-full object-cover shrink-0" style="background-color:${board.color};" onerror="this.style.display='none'">
+                    <img src="${profileImg}" alt="${nickname}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover shrink-0" style="background-color:${board.color};" onerror="this.style.display='none'">
                     <span class="text-[12px] font-bold shrink-0" style="color: ${board.color};">${nickname}</span>
                     ${timeLabel ? `<span class="ml-auto text-[11px] text-[#9C8B85] shrink-0">${timeLabel}</span>` : ''}
                 </div>
@@ -1346,7 +1360,7 @@ async function showUpPopup(today) {
     if (activeImg && activeImg.url) {
         popupImgHtml = `
             <div class="${leftWidthClass} shrink-0 flex items-center justify-center">
-                <img src="${activeImg.url}" alt="공지 이미지" class="w-full h-auto max-h-[55vh] md:max-h-[65vh] object-contain rounded-2xl">
+                <img src="${activeImg.url}" alt="공지 이미지" loading="lazy" decoding="async" class="w-full h-auto max-h-[55vh] md:max-h-[65vh] object-contain rounded-2xl">
             </div>
         `;
     }
@@ -2273,7 +2287,7 @@ function buildSoopGroupCardHtml(group, data) {
                         <div class="font-bold text-[15px] leading-none" style="color:${rankBadgeColor(m.rank)}">${rankLabel}</div>
                         ${isDanger ? `<div class="text-[11px] font-bold text-red-500 leading-none mt-1">위기</div>` : ''}
                     </div>
-                    <img src="${m.profileImage || ''}" onerror="this.style.visibility='hidden'" class="w-9 h-9 rounded-full object-cover border-2 border-gray-200 shrink-0 bg-gray-100">
+                    <img src="${m.profileImage || ''}" onerror="this.style.visibility='hidden'" loading="lazy" decoding="async" class="w-9 h-9 rounded-full object-cover border-2 border-gray-200 shrink-0 bg-gray-100">
                     <div class="flex-1 min-w-0">
                         <div class="font-bold text-[#5D4037] text-[14px] truncate">${m.userNick || (m.up ? m.up.member : '') || ''}${notFoundBadge}</div>
                         <div class="text-[11.5px] text-gray-400 font-bold truncate">@${m.userId || '-'}</div>
@@ -2323,7 +2337,7 @@ function buildNormalUpCardHtml(up) {
              ${contextAttr}>
             ${deleteBtn}
             <div class="flex items-center gap-2 mb-3 pr-6">
-                ${profileImg ? `<img src="${profileImg}" class="w-8 h-8 rounded-full object-cover shrink-0">` : ''}
+                ${profileImg ? `<img src="${profileImg}" loading="lazy" decoding="async" class="w-8 h-8 rounded-full object-cover shrink-0">` : ''}
                 <span class="text-[13px] font-bold shrink-0" style="color: ${theme}">${up.member}</span>
             </div>
             <div class="text-[17px] font-bold font-paperozi mb-3 text-gray-800 break-words pr-6 leading-snug">${up.title}</div>
@@ -2582,6 +2596,11 @@ async function changeTab(tabName) {
 
     if (['달타', '다룽', '최또', '카나시'].includes(currentPage)) {
         await loadSchedulesFromFirebase({ member: currentPage });
+
+        // PC 화면 개인 캘린더에서 음력 날짜를 그릴 때만 스크립트 동적 호출
+        if (!isMobile) {
+            await loadScript('https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js');
+        }
     } else {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
     }
@@ -2919,7 +2938,7 @@ function renderSongList() {
         const liked = getLikedSongIds();
         list.forEach(song => {
             const artHtml = song.albumArt
-                ? `<img src="${escapeHtml(song.albumArt)}" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-full flex items-center justify-center text-4xl',innerHTML:'🎵'}));">`
+                ? `<img src="${escapeHtml(song.albumArt)}" loading="lazy" decoding="async" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-full flex items-center justify-center text-4xl',innerHTML:'🎵'}));">`
                 : `<div class="w-full h-full bg-[#FFF9C4] flex items-center justify-center text-4xl">🎵</div>`;
             const isLiked = liked.has(song.id);
             const likeCount = Number(song.likes || 0);
@@ -3359,7 +3378,7 @@ window.openSongInfoModal = function(id) {
 
     const artWrap = document.getElementById('songInfoArt');
     artWrap.innerHTML = song.albumArt
-        ? `<img src="${escapeHtml(song.albumArt)}" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.remove();">`
+        ? `<img src="${escapeHtml(song.albumArt)}" loading="lazy" decoding="async" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.remove();">`
         : `<div class="w-full h-full bg-[#FFF9C4] flex items-center justify-center text-5xl">🎵</div>`;
 
     const genreTags = song.genre
@@ -4613,7 +4632,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
                         <button type="button" class="sch-img-remove-btn ${removeBtnClass} px-3 py-1.5 bg-red-500 text-white rounded text-sm font-bold shadow-sm hover:bg-red-600 transition shrink-0" onclick="window.removeScheduleImage(this)">삭제</button>
                     </div>
                     <input type="hidden" class="sch-image-url" value="${imageUrl}">
-                    <div class="sch-img-preview">${imageUrl ? `<img src="${imageUrl}" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">` : ''}</div>
+                    <div class="sch-img-preview">${imageUrl ? `<img src="${imageUrl}" loading="lazy" decoding="async" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">` : ''}</div>
                 </div>
                 <div>
                     <label class="block text-[13px] text-gray-500 font-bold mb-1.5">상세</label>
@@ -4832,7 +4851,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                     <span class="px-3 py-1 text-[11px] font-bold rounded-full border-2 shadow-sm" style="${broadStyle}">${broadText}</span>
                 </div>`;
             
-            let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" class="w-full max-h-[260px] object-contain rounded-xl my-3 shadow-sm border border-gray-200">` : '';
+            let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" loading="lazy" decoding="async" class="w-full max-h-[260px] object-contain rounded-xl my-3 shadow-sm border border-gray-200">` : '';
 
             let memGroupHtml = '';
             if (sch.memberTag) {
@@ -4844,7 +4863,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                         return `
                         <div style="${isCrew ? 'width:100%;' : 'width: 74px;'} display: flex; flex-direction: column; align-items: center; gap: 4px;">
                             <div style="${isCrew ? 'width:100%; border-radius:12px; border:1px solid #f3f4f6;' : 'width:72px; height:72px; border-radius:50%; border:3px solid #fcdbc6;'} overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-                                <img src="${m.imageUrl}" style="width:100%; height:100%; object-fit:${isCrew ? 'contain' : 'cover'};" onerror="this.src='https://via.placeholder.com/72'">
+                                <img src="${m.imageUrl}" style="width:100%; height:100%; object-fit:${isCrew ? 'contain' : 'cover'};" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/72'">
                             </div>
                             ${(m.nickname && !isCrew) ? `<span style="font-size:13px; font-weight:700; color:#5D4037; text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing: -0.5px;">${m.nickname}</span>` : ''}
                         </div>`;
@@ -4940,7 +4959,6 @@ function hidePageLoadingScreen() {
 async function initApp() {
     adjustDesktopScale(); 
 
-
     const sessionActive = sessionStorage.getItem('activeAdminSession') || localStorage.getItem('activeAdminSession');
     if (sessionActive) {
         const { docId, token } = JSON.parse(sessionActive);
@@ -4962,50 +4980,66 @@ async function initApp() {
         } catch(e) { console.error("자동 로그인 검증 실패:", e); }
     }
     
-    await loadLinksFromFirebase();
-    await loadPopupImagesFromFirebase();
-    await loadHomeSettingsFromFirebase();
-    await loadSchedulesFromFirebase();
-    setActiveSongs(songbookMember);
-    
-    
+    // === 초기 탭 설정 분리 ===
     const today = getTodayYYYYMMDD();
-
     const embedParams = new URLSearchParams(window.location.search);
     const isEmbedMode = embedParams.get('mode') === 'embed';
-
-    if (!isEmbedMode) {
-        checkAndShowPopup(today);
-    }
+    let initialTab = '홈';
 
     if (isEmbedMode) {
         const upboParam = embedParams.get('upbo');
         upboCurrentMember = upboParam || '달타';
         currentPage = '업보정리';
         upboViewMode = 'search'; 
+        initialTab = '업보정리';
     } else {
-    const currentHash = window.location.hash;
-    if (currentHash && hashToTab[currentHash]) {
-        let mapped = hashToTab[currentHash];
-        if (mapped.startsWith('업보정리')) {
-            currentPage = '업보정리';
-            if(mapped.includes('_')) {
-                upboCurrentMember = mapped.split('_')[1];
+        const currentHash = window.location.hash;
+        if (currentHash && hashToTab[currentHash]) {
+            let mapped = hashToTab[currentHash];
+            if (mapped.startsWith('업보정리')) {
+                currentPage = '업보정리';
+                if(mapped.includes('_')) upboCurrentMember = mapped.split('_')[1];
+                initialTab = mapped;
+            } else {
+                currentPage = mapped;
+                initialTab = mapped;
             }
         } else {
-            currentPage = mapped;
+            currentPage = '홈';
+            initialTab = '홈';
         }
-    } else {
-        currentPage = '홈';
     }
+
+    // === 필수 데이터 우선 로딩 (렌더링 최우선) ===
+    await loadSchedulesFromFirebase();
+    if (currentPage === '홈') {
+        await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
     }
-    
+    setActiveSongs(songbookMember);
+
+    // 필수 데이터로 초기 화면 렌더링
     if (isEmbedMode) {
         renderHeaderTabs();
         render();
     } else {
-        await changeTab(currentPage === '업보정리' ? `업보정리_${upboCurrentMember}` : currentPage);
+        await changeTab(initialTab);
     }
+
+    // === 후순위 데이터 병렬 지연 로딩 ===
+    Promise.all([
+        loadLinksFromFirebase(),
+        loadPopupImagesFromFirebase(),
+        currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve()
+    ]).then(() => {
+        // 백그라운드 로드가 끝나면 UI 실시간 갱신
+        renderHeaderTabs();
+        if (!isEmbedMode) {
+            checkAndShowPopup(today);
+        }
+        if (currentPage === '홈') {
+            renderHomeYoutubeBox();
+        }
+    }).catch(e => console.error("지연 로딩 에러:", e));
 }
 
 let editingUpLinkId = null;
@@ -5191,7 +5225,7 @@ window.renderCustomMembersList = function(filterText = '') {
                     <button onclick="deleteCustomMember('${m.id}')" class="absolute top-1 right-1 text-red-400 hover:text-red-600 transition p-1">
                         <i class="fi fi-br-cross-small text-[10px]"></i>
                     </button>
-                    <img src="${m.imageUrl}" class="w-12 h-12 rounded-full object-cover border border-[#5D4037] mb-1.5" onerror="this.src='https://via.placeholder.com/40'">
+                    <img src="${m.imageUrl}" loading="lazy" decoding="async" class="w-12 h-12 rounded-full object-cover border border-[#5D4037] mb-1.5" onerror="this.src='https://via.placeholder.com/40'">
                     <div class="text-center w-full overflow-hidden">
                         <div class="font-bold text-[11px] text-[#5D4037] truncate px-1">${m.nickname}</div>
                         ${m.soopId ? `<div class="text-[10px] text-gray-400 truncate px-1">${m.soopId}</div>` : ''}
@@ -5400,7 +5434,7 @@ window.renderGroupMemberCheckboxes = function(preCheckedIds = null, filterText =
     container.innerHTML = filtered.map(m => `
         <label class="flex items-center gap-1.5 bg-white border-2 border-gray-200 rounded-xl px-2 py-1.5 cursor-pointer hover:border-[#5D4037] transition text-[12px] font-bold text-[#5D4037]">
             <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${m.nickname}" onchange="toggleGroupMemberCheckbox(this)" ${groupCheckboxSelectedIds.has(m.id) ? 'checked' : ''}>
-            <img src="${m.imageUrl}" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
+            <img src="${m.imageUrl}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
             ${m.nickname}
         </label>
     `).join('');
@@ -5452,7 +5486,7 @@ window.renderMemberGroupsList = function(filterText = '') {
             <div class="flex flex-wrap gap-2 mb-2">
                 ${groupMems.map(m => `
                     <div class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2 py-1">
-                        <img src="${m.imageUrl}" class="w-5 h-5 rounded-full object-cover" onerror="this.src='https://via.placeholder.com/20'">
+                        <img src="${m.imageUrl}" loading="lazy" decoding="async" class="w-5 h-5 rounded-full object-cover" onerror="this.src='https://via.placeholder.com/20'">
                         <span class="text-[11px] font-bold text-[#5D4037]">${m.nickname || '크루'}</span>
                     </div>
                 `).join('')}
@@ -6010,6 +6044,9 @@ window.processUpboTextFile = async function() {
 
     if (isExcel || isCsv) {
         if (typeof XLSX === 'undefined') {
+            await loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+        }
+        if (typeof XLSX === 'undefined') {
             alert("엑셀/CSV 파일을 처리할 라이브러리를 불러오지 못했습니다.\n인터넷 연결을 확인 후 다시 시도해주세요.");
             return;
         }
@@ -6085,11 +6122,16 @@ window.changeStatusSelectedUpboRows = function() {
     syncUpboDomToState();
 };
 
-window.processRouletteFile = function(input) {
+window.processRouletteFile = async function(input) {
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
     const fileName = file.name.toLowerCase();
     const isCsv = fileName.endsWith('.csv');
+
+    // 엑셀 모듈 로드 대기
+    if (typeof XLSX === 'undefined') {
+        await loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+    }
     const reader = new FileReader();
     
     reader.onload = function(e) {
