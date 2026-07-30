@@ -1882,6 +1882,11 @@ function toggleMemoPanel() {
     if (sidePanelMode === 'MEMO') closeSidePanel();
     else openSidePanel('MEMO');
 }
+function toggleCinetiPanel() {
+    if (sidePanelMode === 'CINETI') closeSidePanel();
+    else openSidePanel('CINETI');
+}
+window.toggleCinetiPanel = toggleCinetiPanel;
 function toggleArtistPanel() {
     if (sidePanelMode === 'ARTIST') closeSidePanel();
     else openSidePanel('ARTIST');
@@ -1960,6 +1965,18 @@ function openSidePanel(mode) {
         renderUpLinksPanel();
     } else if (mode === 'ARTIST') {
         renderArtistSidePanel();
+    } else if (mode === 'CINETI') {
+        panel.innerHTML = `
+            <div class="p-4 border-b-[4px] border-[#5D4037] bg-white flex justify-between items-center shadow-sm z-10 shrink-0">
+                <div class="text-[20px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
+                    <i class="fi fi-rr-video-camera-alt"></i> 시네티
+                </div>
+                <button onclick="closeSidePanel()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div class="flex-1 w-full bg-white overflow-hidden">
+                <iframe src="https://cineti-mu.vercel.app/" title="시네티" class="w-full h-full border-0" allow="clipboard-write; fullscreen"></iframe>
+            </div>
+        `;
     }
 
     requestAnimationFrame(() => {
@@ -2756,9 +2773,15 @@ function render() {
     const dBtnContainer = document.getElementById('dynamicSideBtn');
     
     const mobileUpBtnHtml = `<button onclick="toggleUpPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-arrow-up-right"></i> UP</button>`;
-    const mobileMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-edit"></i> 메모</button>`;
+    const mobileMemoBtnHtml = `<div class="flex items-center gap-1.5">
+        <button onclick="toggleMemoPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-edit"></i> 메모</button>
+        <button onclick="toggleCinetiPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-video-camera-alt"></i> 시네티</button>
+    </div>`;
     const desktopUpBtnHtml = `<button onclick="toggleUpPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-arrow-up-right text-xl"></i>UP</button>`;
-    const desktopMemoBtnHtml = `<button onclick="toggleMemoPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-edit text-xl"></i>메모</button>`;    
+    const desktopMemoBtnHtml = `<div class="flex flex-col gap-2">
+        <button onclick="toggleMemoPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-edit text-xl"></i>메모</button>
+        <button onclick="toggleCinetiPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-video-camera-alt text-xl"></i>시네티</button>
+    </div>`;    
     const mobileRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-3 py-[6px] bg-purple-100 text-purple-700 font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-purple-300 hover:bg-purple-200"><i class="fi fi-br-plus"></i> 주제추가</button>` : '';
     const desktopRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-6 py-2.5 bg-purple-50 text-purple-700 font-bold rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-purple-200"><i class="fi fi-br-plus"></i> 주제 추가</button>` : '';
 
