@@ -3625,7 +3625,7 @@ function renderUpboAdminTable() {
 
     // 👇 룰렛 열 추가된 부분 👇
     thead += `<th class="p-3 border-r border-gray-200 w-[120px] text-[#5D4037] font-bold text-center">룰렛</th>
-              <th class="p-3 border-r border-gray-200 w-[110px] text-[#5D4037] font-bold text-center">요청사항</th>
+              <th class="p-3 border-r border-gray-200 min-w-[110px] text-[#5D4037] font-bold text-center">요청사항</th>
               <th class="p-3 border-r border-gray-200 w-[80px] text-[#5D4037] font-bold text-center">상태</th>
               <th class="p-3 border-r border-gray-200 w-[70px] text-[#5D4037] font-bold text-center">방송국</th>
               <th class="p-3 w-[40px] text-center text-[#5D4037] font-bold">삭제</th>
@@ -3665,7 +3665,7 @@ function createUpboRowHtml(record, products) {
     html += `<td class="p-2 border-r align-middle">
                 <textarea class="w-full outline-none bg-transparent text-center text-[13px] text-purple-600 font-bold upbo-roulette resize-none overflow-hidden block" style="min-height:24px; field-sizing: content;" rows="1" placeholder="-">${record.roulette || ''}</textarea>
              </td>
-             <td class="p-2 border-r"><input type="text" class="w-full outline-none bg-transparent upbo-memo text-[13px] text-gray-600" value="${record.memo || ''}" placeholder="요청사항"></td>
+             <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-memo text-[13px] text-gray-600" style="min-width: 90px; width: ${(record.memo || '요청사항').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.memo || ''}" placeholder="요청사항"></td>
              <td class="p-2 border-r align-middle">${sel}</td>
              <td class="p-2 border-r text-center align-middle">${linkBtn}</td>
              <td class="p-2 text-center align-middle"><button onclick="this.closest('tr').remove()" class="text-gray-400 hover:text-red-500 transition text-lg"><i class="fi fi-br-cross-small"></i></button></td>
