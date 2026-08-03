@@ -61,8 +61,11 @@ export default async function handler(req, res) {
     // SOOP 서버가 준 순수 JSON 데이터
     const data = await response.json();
 
-    // 5. 클라이언트로 데이터 전달 및 캐싱 설정 (짧은 캐시로 잦은 재요청에 의한 IP 차단 방지)
-    res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate');
+    // 5. 클라이언트로 데이터 전달 및 캐싱 설정
+    // 좋아요 수는 초 단위로 실시간일 필요가 없으므로, 프론트엔드 메모리 캐시(45초)와 맞춰
+    // Edge 캐시를 30초로 늘려서 SOOP 서버까지 왕복하는 횟수 자체를 줄인다.
+    // (s-maxage 동안은 캐시 즉시 응답, 이후 stale-while-revalidate 동안은 오래된 데이터를 먼저 주고 백그라운드에서 갱신)
+    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
     res.status(200).json(data);
 
   } catch (error) {
