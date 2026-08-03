@@ -2634,13 +2634,21 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const memberColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#fdecf9', '카나시': '#FFF3E0' };
     const memberName = sch.tabOrMember ? sch.tabOrMember.trim() : '';
     const isHabBang = sch.broadType === '합방';
+    const isSignalHabBang = sch.broadType === '시그널합방';
+    const isCheonTaBus = sch.broadType === '천타버스';
 
-    let bgColor = sch.globalType === '휴방' ? '#F9FAFB' : (memberColors[memberName] || '#FFFFFF');
+    let bgColor = sch.globalType === '휴방' ? '#E5E7EB' : (memberColors[memberName] || '#FFFFFF');
     let textColor = ''; 
     
     if (isHabBang) {
+        bgColor = '#f6cefc'; 
+        textColor = 'color: #a21caf !important; border-color: #e29fee !important;'; 
+    } else if (isSignalHabBang) {
         bgColor = '#ffdddd'; 
         textColor = 'color: #ff6767 !important;'; 
+    } else if (isCheonTaBus) {
+        bgColor = '#c8f0f5'; 
+        textColor = 'color: #0891b2 !important;'; 
     }
 
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
@@ -4507,6 +4515,10 @@ function getScheduleFormHTML(data, isDeletable = true) {
     const mem = data.memberTag || '';
     const desc = data.detail || '';
     const imageUrl = data.imageUrl || ''; 
+    const ownerMember = data.tabOrMember || (typeof targetModalContext !== 'undefined' && targetModalContext ? targetModalContext.member : '') || '';
+    const cheonTaBusOptionHtml = ownerMember === '달타' 
+        ? `<option value="천타버스" ${broad==='천타버스'?'selected':''}>천타버스</option>` 
+        : '';
     
     let hh = '', mm = '', ampm = '오후';
     if (data.time) { 
@@ -4563,7 +4575,9 @@ function getScheduleFormHTML(data, isDeletable = true) {
                     <select class="sch-broad w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none text-[15px] bg-white font-bold text-[#5D4037] cursor-pointer">
                         <option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option>
                         <option value="합방" ${broad==='합방'?'selected':''}>합방</option>
+                        <option value="시그널합방" ${broad==='시그널합방'?'selected':''}>시그널합방</option>
                         <option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option>
+                        ${cheonTaBusOptionHtml}
                         <option value="휴방" ${broad==='휴방'?'selected':''}>휴방</option>
                     </select>
                 </div>
@@ -4783,7 +4797,11 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             
             let broadStyle = '';
             if (broadText === '합방') {
+                broadStyle = 'background-color: #f6cefc; color: #c026d3; border-color: #c026d3;'; 
+            } else if (broadText === '시그널합방') {
                 broadStyle = 'background-color: #fee2e2; color: #ef4444; border-color: #ef4444;'; 
+            } else if (broadText === '천타버스') {
+                broadStyle = 'background-color: #c8f0f5; color: #0891b2; border-color: #0891b2;'; 
             } else if (broadText === '시네티') {
                 broadStyle = 'background-color: #f3e8ff; color: #9333ea; border-color: #9333ea;'; 
             } else {

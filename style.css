@@ -171,7 +171,7 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
     border-radius: 15px !important; 
     transition: transform 0.2s ease; /* 애니메이션 효과 */
     cursor: pointer; 
-    border: 1.5px solid currentColor !important;
+    border: none !important;
     box-shadow: none !important; /* 그림자 삭제 */
     font-family: 'Paperozi', sans-serif; 
     font-weight: 600; 
@@ -187,7 +187,7 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 }
 
 .schedule-card.bangon { color: var(--theme-color); }
-.schedule-card.hubang { color: #9CA3AF; }
+.schedule-card.hubang { color: #6B7280; }
 
 .schedule-card.bangon .schedule-text { margin-top: -9px; }
 
