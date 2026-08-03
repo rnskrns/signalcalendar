@@ -2048,19 +2048,6 @@ function isSoopPostUrl(url) {
     return !!parseSoopPostUrl(url);
 }
 
-async function fetchTextWithCorsFallback(url) {
-    try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return await res.text();
-    } catch (e) {
-        const proxied = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-        const res2 = await fetch(proxied);
-        if (!res2.ok) throw new Error('HTTP ' + res2.status);
-        return await res2.text();
-    }
-}
-
 // 게시글의 모든 댓글 페이지를 순회하며 수집
 // (기존에는 브라우저에서 SOOP API를 직접 호출하고, CORS로 막히면 공용 프록시(allorigins)로
 //  재시도하는 방식이었음. 이제는 참고 저장소(upranking)와 동일하게, 우리 서버의 /api/comment
@@ -2095,53 +2082,6 @@ async function fetchAllSoopComments(stationId, postId) {
         if (json && Array.isArray(json.data)) allComments = allComments.concat(json.data);
     });
     return allComments;
-}
-
-// 게시글 페이지의 og:title(또는 <title>)을 스크래핑해 게시글 제목을 가져온다.
-// 제목은 한번 등록되면 거의 안 바뀌므로, localStorage에 1시간 동안 캐시해서
-// 팝업을 다시 열거나 새로고침해도 매번 전체 페이지를 다시 긁어오지 않도록 함.
-let soopPostTitleCache = {};
-const SOOP_TITLE_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
-
-function readSoopTitleCache(key) {
-    try {
-        const raw = localStorage.getItem('soopTitleCache_' + key);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed.title !== 'string' || (Date.now() - parsed.t) > SOOP_TITLE_CACHE_TTL_MS) return null;
-        return parsed.title;
-    } catch(e) { return null; }
-}
-
-function writeSoopTitleCache(key, title) {
-    try {
-        localStorage.setItem('soopTitleCache_' + key, JSON.stringify({ title, t: Date.now() }));
-    } catch(e) { /* 저장 실패(용량 초과 등)는 무시 - 캐시는 있으면 좋고 없어도 그만 */ }
-}
-
-async function fetchSoopPostTitle(stationId, postId) {
-    const key = `${stationId}_${postId}`;
-    if (soopPostTitleCache[key]) return soopPostTitleCache[key];
-
-    const cached = readSoopTitleCache(key);
-    if (cached) {
-        soopPostTitleCache[key] = cached;
-        return cached;
-    }
-
-    try {
-        const html = await fetchTextWithCorsFallback(`https://www.sooplive.com/station/${stationId}/post/${postId}`);
-        const ogMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i)
-            || html.match(/<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:title["']/i);
-        const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
-        const title = (ogMatch ? ogMatch[1] : (titleMatch ? titleMatch[1] : '')).trim();
-        soopPostTitleCache[key] = title;
-        if (title) writeSoopTitleCache(key, title);
-        return title;
-    } catch(e) {
-        console.error('게시글 제목 로드 실패:', e);
-        return '';
-    }
 }
 
 // 같은 게시글(스테이션+게시글번호)을 가리키는 UP 링크들을 하나의 그룹으로 묶는다.
@@ -2179,23 +2119,22 @@ async function fetchSoopTitleAndComments(stationId, postId) {
     const cached = soopRawDataCache.get(key);
     if (cached && (Date.now() - cached.t) < SOOP_RAW_CACHE_TTL_MS) return cached;
 
-    const [title, comments] = await Promise.all([
-        fetchSoopPostTitle(stationId, postId),
-        fetchAllSoopComments(stationId, postId)
-    ]);
+    // 게시글 제목은 더 이상 SOOP에서 긁어오지 않고, DB에 등록된 제목(up.title)을 그대로 사용한다.
+    // (직접 fetch -> CORS 실패 -> 공용 프록시 재시도로 이어지는 부분이 로딩을 크게 느리게 했음)
+    const comments = await fetchAllSoopComments(stationId, postId);
 
     // 좋아요 수(like_cnt) 기준 내림차순 정렬 -> 게시글 전체 댓글 순위
     const sortedComments = [...comments].sort((a, b) => (b.likeCnt || 0) - (a.likeCnt || 0));
 
-    const result = { title, sortedComments, t: Date.now() };
+    const result = { sortedComments, t: Date.now() };
     soopRawDataCache.set(key, result);
     return result;
 }
 
-// 그룹(게시글 하나)에 대한 제목 + 등록된 내 댓글들의 좋아요 순위 데이터를 만든다.
+// 그룹(게시글 하나)에 대한 등록된 내 댓글들의 좋아요 순위 데이터를 만든다.
 // 게시글 전체 댓글을 기준으로 순위를 계산한 뒤, 그 중 DB에 등록해둔 내 댓글들만 골라서 보여준다.
 async function buildSoopGroupData(group) {
-    const { title, sortedComments } = await fetchSoopTitleAndComments(group.stationId, group.postId);
+    const { sortedComments } = await fetchSoopTitleAndComments(group.stationId, group.postId);
 
     const commentMap = new Map();
     const rankMap = new Map();
@@ -2226,12 +2165,12 @@ async function buildSoopGroupData(group) {
         return a.rank - b.rank;
     });
 
-    return { title, matched };
+    return { matched };
 }
 
 function buildSoopGroupCardHtml(group, data) {
     const firstUp = group.entries[0].up;
-    const titleText = data.title || firstUp.title || '(게시글 제목을 불러올 수 없습니다)';
+    const titleText = firstUp.title || '(게시글 제목을 불러올 수 없습니다)';
     const postUrl = `https://www.sooplive.com/station/${group.stationId}/post/${group.postId}`;
     const cutLine = firstUp.cutLine !== undefined && firstUp.cutLine !== null && firstUp.cutLine !== '' ? Number(firstUp.cutLine) : null;
 
