@@ -55,6 +55,16 @@ export default async function handler(req, res) {
       return null;
     };
 
+    // 댓글 하나를 구분할 고유 ID를 뽑아내는 함수(필드명이 응답마다 다를 수 있어 여러 후보를 확인)
+    const COMMENT_ID_KEYS = ['pCommentNo', 'commentNo', 'cCommentNo', 'comment_no', 'commentNo1', 'id', 'no'];
+    const getCommentId = (comment) => {
+      if (!comment) return undefined;
+      for (const key of COMMENT_ID_KEYS) {
+        if (comment[key] !== undefined && comment[key] !== null) return `${key}:${comment[key]}`;
+      }
+      return undefined; // ID를 못 찾으면 중복 체크에서 제외(그냥 추가)
+    };
+
     // 4. SOOP 서버에서 첫 페이지를 먼저 가져옵니다.
     const firstResponse = await fetch(buildApiUrl(1), { method: 'GET', headers: fetchHeaders });
     if (!firstResponse.ok) {
@@ -65,32 +75,48 @@ export default async function handler(req, res) {
     const arrayKey = findCommentArrayKey(aggregated);
 
     // 댓글 배열을 찾은 경우에만 2페이지 이후를 순차적으로 이어서 가져옵니다.
-    if (arrayKey) {
-      const pageSize = aggregated[arrayKey].length;
+    if (arrayKey && aggregated[arrayKey].length > 0) {
+      // 이미 확보한 댓글들의 ID를 기록해둡니다.
+      // (pHighlightNo를 넘기면 하이라이트된 댓글이 실제 페이지와 무관하게 1페이지 응답에
+      //  추가로 끼워들어오기 때문에, "페이지 크기가 줄어들면 마지막 페이지"라는 방식으로는
+      //  1페이지에서 바로 멈춰버리는 문제가 있었습니다. 대신 "새로 받아온 페이지에 못 보던
+      //  댓글이 하나도 없으면 그때 멈춘다"는 방식으로 판별합니다.)
+      const seenIds = new Set();
+      aggregated[arrayKey].forEach((c) => {
+        const id = getCommentId(c);
+        if (id !== undefined) seenIds.add(id);
+      });
 
-      // 첫 페이지가 비어있거나 한 페이지 분량보다 적으면 더 가져올 필요가 없습니다.
-      if (pageSize > 0) {
-        const MAX_PAGES = 200; // 무한 루프/과도한 요청 방지용 안전장치
-        let page = 2;
+      const MAX_PAGES = 200; // 무한 루프/과도한 요청 방지용 안전장치
+      let page = 2;
 
-        while (page <= MAX_PAGES) {
-          const pageResponse = await fetch(buildApiUrl(page), { method: 'GET', headers: fetchHeaders });
-          if (!pageResponse.ok) break; // 실패하면 지금까지 모은 데이터로 응답
+      while (page <= MAX_PAGES) {
+        const pageResponse = await fetch(buildApiUrl(page), { method: 'GET', headers: fetchHeaders });
+        if (!pageResponse.ok) break; // 실패하면 지금까지 모은 데이터로 응답
 
-          const pageData = await pageResponse.json();
-          const pageComments = Array.isArray(pageData[arrayKey]) ? pageData[arrayKey] : [];
+        const pageData = await pageResponse.json();
+        const pageComments = Array.isArray(pageData[arrayKey]) ? pageData[arrayKey] : [];
 
-          if (pageComments.length === 0) break; // 더 이상 댓글이 없으면 종료
+        if (pageComments.length === 0) break; // 더 이상 댓글이 없으면 종료
 
-          aggregated[arrayKey] = aggregated[arrayKey].concat(pageComments);
+        // 이미 본 댓글(하이라이트 댓글이 매 페이지에 끼어드는 경우 등)은 제외하고 새 댓글만 추가
+        const newComments = pageComments.filter((c) => {
+          const id = getCommentId(c);
+          if (id === undefined) return true; // ID를 모르면 일단 포함
+          return !seenIds.has(id);
+        });
 
-          // 마지막 페이지(요청한 페이지 크기보다 적게 옴)면 종료
-          if (pageComments.length < pageSize) break;
+        if (newComments.length === 0) break; // 새 댓글이 하나도 없으면(=같은 페이지를 반복 응답) 종료
 
-          page++;
-          // SOOP 서버에 너무 빠르게 연속 요청하지 않도록 약간의 텀을 둡니다.
-          await new Promise((resolve) => setTimeout(resolve, 150));
-        }
+        newComments.forEach((c) => {
+          const id = getCommentId(c);
+          if (id !== undefined) seenIds.add(id);
+        });
+        aggregated[arrayKey] = aggregated[arrayKey].concat(newComments);
+
+        page++;
+        // SOOP 서버에 너무 빠르게 연속 요청하지 않도록 약간의 텀을 둡니다.
+        await new Promise((resolve) => setTimeout(resolve, 150));
       }
     }
 
