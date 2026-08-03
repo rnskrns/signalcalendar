@@ -154,7 +154,7 @@ window.closeMonthPicker = closeMonthPicker; window.changePickerYear = changePick
 window.closeScheduleModal = closeScheduleModal; window.saveSchedule = saveSchedule; window.toggleFields = toggleFields; 
 window.toggleProfileDropdown = toggleProfileDropdown; window.openLinkModal = openLinkModal; window.closeLinkModal = closeLinkModal;
 window.openManageModal = openManageModal; window.closeManageModal = closeManageModal; window.switchManageTab = switchManageTab;
-window.addMemberLink = addMemberLink; window.deleteMemberLink = deleteMemberLink; window.addUpLink = addUpLink; window.deleteUpLink = deleteUpLink;
+window.addUpLink = addUpLink; window.deleteUpLink = deleteUpLink;
 window.toggleUpPanel = toggleUpPanel; window.toggleMemoPanel = toggleMemoPanel; window.closeSidePanel = closeSidePanel;
 window.openMobileTabMenu = openMobileTabMenu; window.closeMobileTabMenu = closeMobileTabMenu;
 window.executeDesktopTabChange = executeDesktopTabChange; window.executeMobileTabChange = executeMobileTabChange;
@@ -162,7 +162,7 @@ window.changeHomeDate = changeHomeDate; window.changeIndividualWeek = changeIndi
 window.openMobileDatePicker = openMobileDatePicker; window.closeMobileDatePicker = closeMobileDatePicker;
 window.changeDatePickerMonth = changeDatePickerMonth; window.selectMobileDate = selectMobileDate;
 window.closeUpPopup = closeUpPopup; 
-window.moveLink = moveLink; window.editMemberLink = editMemberLink;
+
 window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
 window.closeMemoModal = closeMemoModal; window.saveMemoAction = saveMemoAction; window.deleteMemo = deleteMemo;
 window.openSmartLink = openSmartLink;
@@ -1288,31 +1288,9 @@ async function loadLinksFromFirebase() {
             upLinksList.push({ id: d.id, source: 'uplinks', ...data });
         }
 
-        const linkSnap = await getDocs(collection(db, 'memberLinks'));
-        let dbLinks = { '달타':[], '다룽':[], '최또':[], '카나시':[], '공지':[] };
-
-        const seedFlagRef = doc(db, 'meta', 'linksSeeded');
-        const seedFlagSnap = await getDoc(seedFlagRef);
-
-        if (linkSnap.empty && !seedFlagSnap.exists()) {
-            for (const member of Object.keys(defaultMemberLinks)) {
-                for (const link of defaultMemberLinks[member]) {
-                    await addDoc(collection(db, 'memberLinks'), { member, title: link.title, url: link.url, timestamp: Date.now() });
-                }
-            }
-            await setDoc(seedFlagRef, { seededAt: Date.now() });
-            const reSnap = await getDocs(collection(db, 'memberLinks'));
-            reSnap.forEach(doc => { const data = doc.data(); if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data }); });
-        } else {
-            linkSnap.forEach(doc => {
-                const data = doc.data();
-                if(dbLinks[data.member]) dbLinks[data.member].push({ id: doc.id, ...data });
-            });
-
-            for(let m in dbLinks) dbLinks[m].sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
-        }
-        
-        dynamicLinks = dbLinks;
+        // 메뉴 링크는 더 이상 Firebase에서 불러오거나 관리자 화면에서 추가/수정하지 않고,
+        // 코드에 하드코딩된 defaultMemberLinks 값을 그대로 사용한다.
+        dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
         renderHeaderTabs();
     } catch(e) { console.error("링크 로드 실패:", e); }
 }
@@ -1627,32 +1605,10 @@ window.addEventListener('click', (e) => {
     });
 });
 
+// (기존 메뉴 링크는 하드코딩으로 고정되어 관리자 화면에서 추가/수정하지 않으므로,
+// 이 탭은 팝업 이미지 등록 정보만 갱신해준다.
 function renderLinkManagePanel() {
     if(!isAdmin || !loggedInUser) return;
-    
-    const member = loggedInUser.name === '관리자' ? '공지' : loggedInUser.name;
-
-    const container = document.getElementById('memberLinksContainer');
-    container.innerHTML = '';
-    const links = dynamicLinks[member] || [];
-    
-    links.forEach((link, index) => {
-        const isFirst = index === 0;
-        const isLast = index === links.length - 1;
-        container.innerHTML += `
-            <div class="flex justify-between items-center bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm">
-                <div class="font-bold text-[15px] text-[#5D4037] w-1/4 truncate">${link.title}</div>
-                <div class="flex items-center gap-1 w-3/4 justify-end">
-                    <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="text-[13px] text-blue-500 underline truncate max-w-[130px] mr-2">${link.url}</a>
-                    <button onclick="moveLink('${member}', '${link.id}', -1)" class="p-1 text-gray-500 hover:text-[#5D4037] ${isFirst ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fi fi-rr-angle-up text-lg"></i></button>
-                    <button onclick="moveLink('${member}', '${link.id}', 1)" class="p-1 text-gray-500 hover:text-[#5D4037] ${isLast ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fi fi-rr-angle-down text-lg"></i></button>
-                    <button onclick="editMemberLink('${member}', '${link.id}')" class="text-[#5D4037] font-bold text-[13px] border-2 border-[#5D4037] px-2 py-0.5 rounded ml-1 hover:bg-[#5D4037] hover:text-white transition shrink-0">수정</button>
-                    <button onclick="deleteMemberLink('${member}', '${link.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0 ml-1"><i class="fi fi-br-cross-small"></i></button>
-                </div>
-            </div>
-        `;
-    });
-
     renderPopupImgCurrentInfo();
 }
 
@@ -1774,68 +1730,6 @@ window.saveUpLinkGroupInfo = async function(stationId, postId) {
 
 function openLinkModal() { openManageModal('link'); }
 function closeLinkModal() { closeManageModal(); }
-
-async function moveLink(member, linkId, direction) {
-    const arr = dynamicLinks[member];
-    const idx = arr.findIndex(l => l.id === linkId);
-    if (idx < 0 || idx + direction < 0 || idx + direction >= arr.length) return;
-
-    const tempTime = arr[idx].timestamp;
-    arr[idx].timestamp = arr[idx + direction].timestamp;
-    arr[idx + direction].timestamp = tempTime;
-
-    try {
-        await updateDoc(doc(db, 'memberLinks', arr[idx].id), { timestamp: arr[idx].timestamp });
-        await updateDoc(doc(db, 'memberLinks', arr[idx + direction].id), { timestamp: arr[idx + direction].timestamp });
-        arr.sort((a,b) => a.timestamp - b.timestamp);
-        openLinkModal(); renderHeaderTabs();
-    } catch(e) { console.error(e); }
-}
-
-async function editMemberLink(member, linkId) {
-    const link = dynamicLinks[member].find(l => l.id === linkId);
-    if(!link) return;
-    const newTitle = prompt("수정할 메뉴 이름을 입력하세요.", link.title);
-    if(newTitle === null) return;
-    const newUrl = prompt("수정할 메뉴의 URL을 입력하세요.", link.url);
-    if(newUrl === null) return;
-
-    if(newTitle.trim() !== '' && newUrl.trim() !== '') {
-        try {
-            await updateDoc(doc(db, 'memberLinks', linkId), { title: newTitle.trim(), url: newUrl.trim() });
-            link.title = newTitle.trim();
-            link.url = newUrl.trim();
-            openLinkModal(); renderHeaderTabs();
-        } catch(e) { console.error(e); }
-    }
-}
-
-async function addMemberLink() {
-    const title = document.getElementById('newLinkTitle').value.trim();
-    const url = document.getElementById('newLinkUrl').value.trim();
-    if(!title || !url) return alert('제목과 링크를 입력하세요.');
-    
-    const member = loggedInUser.name === '관리자' ? '공지' : loggedInUser.name;
-    const newLink = { member, title, url, timestamp: Date.now() };
-    
-    try {
-        const docRef = await addDoc(collection(db, 'memberLinks'), newLink);
-        newLink.id = docRef.id;
-        if(!dynamicLinks[member]) dynamicLinks[member] = [];
-        dynamicLinks[member].push(newLink);
-        document.getElementById('newLinkTitle').value = ''; document.getElementById('newLinkUrl').value = '';
-        openLinkModal(); renderHeaderTabs();
-    } catch(e) { console.error(e); alert('추가 실패'); }
-}
-
-async function deleteMemberLink(member, linkId) {
-    if(!confirm('삭제하시겠습니까?')) return;
-    try {
-        await deleteDoc(doc(db, 'memberLinks', linkId));
-        dynamicLinks[member] = dynamicLinks[member].filter(l => l.id !== linkId);
-        openLinkModal(); renderHeaderTabs();
-    } catch(e) { console.error(e); }
-}
 
 async function addUpLink() {
     const title = document.getElementById('upTitle').value.trim();

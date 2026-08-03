@@ -160,21 +160,13 @@
             </div>
             <div class="flex flex-1 min-h-0">
                 <div id="manageTabNav" class="w-[130px] sm:w-[150px] shrink-0 border-r-2 border-gray-200 p-3 flex flex-col gap-2">
-                    <button id="manageTabBtn_link" onclick="switchManageTab('link')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">링크 관리</button>
+                    <button id="manageTabBtn_link" onclick="switchManageTab('link')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">팝업관리</button>
                     <button id="manageTabBtn_up" onclick="switchManageTab('up')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">업링크 관리</button>
                     <button id="manageTabBtn_home" onclick="switchManageTab('home')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">홈 관리</button>
                     <button id="manageTabBtn_info" onclick="switchManageTab('info')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">정보 관리</button>
                 </div>
                 <div class="flex-1 min-w-0 overflow-y-auto modal-scroll p-6">
                     <div id="manageTabPanel_link">
-                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">기존 메뉴 링크</h3>
-                        <div id="memberLinksContainer" class="flex flex-col gap-2 mb-4"></div>
-                        <div class="flex gap-2 mb-6">
-                            <input type="text" id="newLinkTitle" placeholder="이름(예: 인스타)" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                            <input type="text" id="newLinkUrl" placeholder="URL 입력" class="flex-[2] border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                            <button onclick="addMemberLink()" class="bg-[#5D4037] text-white px-4 rounded-lg font-bold hover:brightness-110 shrink-0">추가</button>
-                        </div>
-                        <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
                         <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">팝업 이미지 등록</h3>
                         <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
                             <div class="flex gap-2">
