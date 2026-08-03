@@ -1422,13 +1422,12 @@ async function showUpPopup(today) {
     document.getElementById('upPopupOverlay').classList.remove('hidden');
 
     if (visibleUpLinks.length > 0) {
-        const upCardsHtml = await buildUpLinksCardsHtml(sortedUpLinks);
         const cardsContainer = document.getElementById('upPopupUpCards');
-        const overlay = document.getElementById('upPopupOverlay');
-        // 카드를 불러오는 사이 팝업이 닫혔으면 반영하지 않음
-        if (cardsContainer && overlay && !overlay.classList.contains('hidden')) {
-            cardsContainer.innerHTML = upCardsHtml;
-        }
+        // 카드가 다 준비될 때까지 기다리지 않고, 준비되는 대로 순서대로 바로 표시
+        renderUpLinkCardsProgressive(cardsContainer, sortedUpLinks, () => {
+            const overlay = document.getElementById('upPopupOverlay');
+            return !!overlay && !overlay.classList.contains('hidden');
+        });
     }
 }
 
@@ -2101,12 +2100,11 @@ async function renderUpLinksPanel() {
 
     if (sorted.length === 0) return;
 
-    const upCardsHtml = await buildUpLinksCardsHtml(sorted);
-
-    // 렌더링 중 패널이 닫혔거나 다른 모드로 바뀌었으면 반영하지 않음
-    if (sidePanelMode !== 'UP') return;
     const bodyEl = document.getElementById('upLinksPanelBody');
-    if (bodyEl) bodyEl.innerHTML = upCardsHtml;
+    if (bodyEl) {
+        // 카드가 다 준비될 때까지 기다리지 않고, 준비되는 대로 순서대로 바로 표시
+        renderUpLinkCardsProgressive(bodyEl, sorted, () => sidePanelMode === 'UP');
+    }
 }
 
 function sortUpLinksComparator(a, b) {
@@ -2184,25 +2182,62 @@ async function fetchJsonWithCorsFallback(url) {
 }
 
 // 게시글의 모든 댓글 페이지를 순회하며 수집
+// (기존에는 페이지를 1개씩 순차로 기다려서 받아왔는데, 페이지가 많을수록 그만큼 느려졌음.
+//  1페이지만 먼저 받아 전체 페이지 수를 파악한 뒤, 나머지 페이지는 한번에 병렬로 요청해서 시간을 줄임)
 async function fetchAllSoopComments(stationId, postId) {
-    let allComments = [];
-    let page = 1;
-    let lastPage = 1;
-    do {
-        const url = `https://api-channel.sooplive.com/v1.1/channel/${stationId}/post/${postId}/comment?page=${page}&orderBy=like_cnt&cCommentNo=0&pHighlightNo=0`;
-        const json = await fetchJsonWithCorsFallback(url);
+    const commentUrl = (page) => `https://api-channel.sooplive.com/v1.1/channel/${stationId}/post/${postId}/comment?page=${page}&orderBy=like_cnt&cCommentNo=0&pHighlightNo=0`;
+
+    const firstJson = await fetchJsonWithCorsFallback(commentUrl(1));
+    const firstData = (firstJson && Array.isArray(firstJson.data)) ? firstJson.data : [];
+    const lastPage = (firstJson && firstJson.meta && firstJson.meta.lastPage) || 1;
+
+    if (lastPage <= 1) return firstData;
+
+    const restPages = [];
+    for (let page = 2; page <= lastPage; page++) restPages.push(page);
+    const restResults = await Promise.all(
+        restPages.map(page => fetchJsonWithCorsFallback(commentUrl(page)).catch(() => null))
+    );
+
+    let allComments = firstData.slice();
+    restResults.forEach(json => {
         if (json && Array.isArray(json.data)) allComments = allComments.concat(json.data);
-        lastPage = (json && json.meta && json.meta.lastPage) || 1;
-        page++;
-    } while (page <= lastPage);
+    });
     return allComments;
 }
 
 // 게시글 페이지의 og:title(또는 <title>)을 스크래핑해 게시글 제목을 가져온다.
+// 제목은 한번 등록되면 거의 안 바뀌므로, localStorage에 1시간 동안 캐시해서
+// 팝업을 다시 열거나 새로고침해도 매번 전체 페이지를 다시 긁어오지 않도록 함.
 let soopPostTitleCache = {};
+const SOOP_TITLE_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
+
+function readSoopTitleCache(key) {
+    try {
+        const raw = localStorage.getItem('soopTitleCache_' + key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.title !== 'string' || (Date.now() - parsed.t) > SOOP_TITLE_CACHE_TTL_MS) return null;
+        return parsed.title;
+    } catch(e) { return null; }
+}
+
+function writeSoopTitleCache(key, title) {
+    try {
+        localStorage.setItem('soopTitleCache_' + key, JSON.stringify({ title, t: Date.now() }));
+    } catch(e) { /* 저장 실패(용량 초과 등)는 무시 - 캐시는 있으면 좋고 없어도 그만 */ }
+}
+
 async function fetchSoopPostTitle(stationId, postId) {
     const key = `${stationId}_${postId}`;
     if (soopPostTitleCache[key]) return soopPostTitleCache[key];
+
+    const cached = readSoopTitleCache(key);
+    if (cached) {
+        soopPostTitleCache[key] = cached;
+        return cached;
+    }
+
     try {
         const html = await fetchTextWithCorsFallback(`https://www.sooplive.com/station/${stationId}/post/${postId}`);
         const ogMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i)
@@ -2210,6 +2245,7 @@ async function fetchSoopPostTitle(stationId, postId) {
         const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
         const title = (ogMatch ? ogMatch[1] : (titleMatch ? titleMatch[1] : '')).trim();
         soopPostTitleCache[key] = title;
+        if (title) writeSoopTitleCache(key, title);
         return title;
     } catch(e) {
         console.error('게시글 제목 로드 실패:', e);
@@ -2240,16 +2276,36 @@ function rankBadgeColor(rank) {
     return rank === 1 ? '#FFD700' : rank === 2 ? '#B0BEC5' : rank === 3 ? '#CD7F32' : '#5D4037';
 }
 
-// 그룹(게시글 하나)에 대한 제목 + 등록된 내 댓글들의 좋아요 순위 데이터를 만든다.
-// 게시글 전체 댓글을 기준으로 순위를 계산한 뒤, 그 중 DB에 등록해둔 내 댓글들만 골라서 보여준다.
-async function buildSoopGroupData(group) {
+// 같은 게시글의 댓글/제목을 짧게(45초) 메모리에 캐시해둔다.
+// UP 팝업 -> UP 모달 -> 사이드 패널처럼 짧은 시간 안에 같은 게시글을 여러 번 그릴 때
+// 매번 다시 API를 호출하지 않도록 하기 위함(등록 직후 최신 데이터를 보고 싶을 때는
+// 새로 UP 링크를 등록/수정하면 해당 목록이 즉시 다시 그려지므로 큰 문제 없음).
+const soopRawDataCache = new Map(); // key: `${stationId}_${postId}` -> { title, sortedComments, t }
+const SOOP_RAW_CACHE_TTL_MS = 45 * 1000;
+
+async function fetchSoopTitleAndComments(stationId, postId) {
+    const key = `${stationId}_${postId}`;
+    const cached = soopRawDataCache.get(key);
+    if (cached && (Date.now() - cached.t) < SOOP_RAW_CACHE_TTL_MS) return cached;
+
     const [title, comments] = await Promise.all([
-        fetchSoopPostTitle(group.stationId, group.postId),
-        fetchAllSoopComments(group.stationId, group.postId)
+        fetchSoopPostTitle(stationId, postId),
+        fetchAllSoopComments(stationId, postId)
     ]);
 
     // 좋아요 수(like_cnt) 기준 내림차순 정렬 -> 게시글 전체 댓글 순위
     const sortedComments = [...comments].sort((a, b) => (b.likeCnt || 0) - (a.likeCnt || 0));
+
+    const result = { title, sortedComments, t: Date.now() };
+    soopRawDataCache.set(key, result);
+    return result;
+}
+
+// 그룹(게시글 하나)에 대한 제목 + 등록된 내 댓글들의 좋아요 순위 데이터를 만든다.
+// 게시글 전체 댓글을 기준으로 순위를 계산한 뒤, 그 중 DB에 등록해둔 내 댓글들만 골라서 보여준다.
+async function buildSoopGroupData(group) {
+    const { title, sortedComments } = await fetchSoopTitleAndComments(group.stationId, group.postId);
+
     const commentMap = new Map();
     const rankMap = new Map();
     sortedComments.forEach((c, idx) => {
@@ -2365,6 +2421,7 @@ function buildNormalUpCardHtml(up) {
     `;
 }
 
+// (남겨둠: 혹시 다른 곳에서 "완성된 HTML 문자열 통째로" 필요할 때를 위한 기존 방식)
 async function buildUpLinksCardsHtml(preSorted = null) {
     const sorted = preSorted || [...getVisibleUpLinks()].sort(sortUpLinksComparator);
     if (sorted.length === 0) return `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">등록된 UP 링크가 없습니다.</div>`;
@@ -2383,14 +2440,54 @@ async function buildUpLinksCardsHtml(preSorted = null) {
     return cards.join('');
 }
 
+// 카드를 전부 다 불러올 때까지 기다렸다가 한번에 뿌리는 대신,
+// 준비된 카드부터(=일반 UP 링크는 즉시, SOOP 게시글 댓글 순위는 로드되는 대로) 순서대로 바로 표시한다.
+// 게시글이 여러 개 등록돼 있을 때, 가장 느린 게시글 하나 때문에 전체 목록이 늦게 뜨는 것을 막아 체감 속도를 크게 줄여준다.
+function renderUpLinkCardsProgressive(containerEl, sortedUpLinks, isStillValid) {
+    if (!containerEl) return;
+    if (sortedUpLinks.length === 0) {
+        containerEl.innerHTML = `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">등록된 UP 링크가 없습니다.</div>`;
+        return;
+    }
+
+    const items = buildUpLinkRenderItems(sortedUpLinks);
+    const slotIdFor = (idx) => `${containerEl.id || 'upCards'}_slot_${idx}`;
+
+    // 1) 일반 UP 링크는 데이터가 이미 있으므로 즉시 그리고,
+    //    SOOP 게시글 그룹은 로딩 placeholder를 먼저 그려둔다.
+    containerEl.innerHTML = items.map((item, idx) => {
+        if (item.type === 'normal') return buildNormalUpCardHtml(item.up);
+        return `
+            <div id="${slotIdFor(idx)}" class="relative w-full border-2 border-gray-200 rounded-xl p-5 mb-4 shadow-sm bg-white shrink-0">
+                <div class="text-center text-gray-400 font-bold py-6 text-[13px]">불러오는 중...⏳</div>
+            </div>
+        `;
+    }).join('');
+
+    // 2) SOOP 게시글 그룹들은 각자 준비되는 대로 해당 placeholder만 교체한다.
+    items.forEach((item, idx) => {
+        if (item.type !== 'soopGroup') return;
+        buildSoopGroupData(item).then(data => {
+            if (isStillValid && !isStillValid()) return;
+            const slot = document.getElementById(slotIdFor(idx));
+            if (slot) slot.outerHTML = buildSoopGroupCardHtml(item, data);
+        }).catch(e => {
+            console.error('게시글 댓글 순위 로드 실패:', e);
+            if (isStillValid && !isStillValid()) return;
+            const slot = document.getElementById(slotIdFor(idx));
+            if (slot) slot.outerHTML = buildSoopGroupErrorCardHtml(item);
+        });
+    });
+}
+
 async function renderUpModeModalContent() {
     const body = document.getElementById('upModeModalBody');
     if (!body) return;
     body.innerHTML = `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">불러오는 중...⏳</div>`;
     await ensureMemberLoginImgMap();
-    const html = await buildUpLinksCardsHtml();
-    if (!isUpModeModalOpen()) return; // 렌더링 중 모달이 닫혔으면 반영하지 않음
-    body.innerHTML = html;
+    if (!isUpModeModalOpen()) return; // 로그인 이미지 불러오는 사이 모달이 닫혔으면 그리지 않음
+    const sorted = [...getVisibleUpLinks()].sort(sortUpLinksComparator);
+    renderUpLinkCardsProgressive(body, sorted, isUpModeModalOpen);
 }
 
 function isUpModeModalOpen() {
