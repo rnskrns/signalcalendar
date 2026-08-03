@@ -2061,27 +2061,24 @@ async function fetchTextWithCorsFallback(url) {
     }
 }
 
-async function fetchJsonWithCorsFallback(url) {
-    try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return await res.json();
-    } catch (e) {
-        // 브라우저 CORS 차단 시 공용 프록시로 재시도
-        const proxied = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-        const res2 = await fetch(proxied);
-        if (!res2.ok) throw new Error('HTTP ' + res2.status);
-        return await res2.json();
-    }
-}
-
 // 게시글의 모든 댓글 페이지를 순회하며 수집
-// (기존에는 페이지를 1개씩 순차로 기다려서 받아왔는데, 페이지가 많을수록 그만큼 느려졌음.
+// (기존에는 브라우저에서 SOOP API를 직접 호출하고, CORS로 막히면 공용 프록시(allorigins)로
+//  재시도하는 방식이었음. 이제는 참고 저장소(upranking)와 동일하게, 우리 서버의 /api/comment
+//  엔드포인트가 SOOP 서버에 대신 요청해서 순수 JSON을 돌려주는 방식으로 통일함.
+//  -> 공용 프록시에 의존하지 않아 더 안정적이고, 우리 서버가 브라우저 UA/Referer를 흉내내어
+//     SOOP의 봇 차단도 우회함.
 //  1페이지만 먼저 받아 전체 페이지 수를 파악한 뒤, 나머지 페이지는 한번에 병렬로 요청해서 시간을 줄임)
 async function fetchAllSoopComments(stationId, postId) {
-    const commentUrl = (page) => `https://api-channel.sooplive.com/v1.1/channel/${stationId}/post/${postId}/comment?page=${page}&orderBy=like_cnt&cCommentNo=0&pHighlightNo=0`;
+    const postPageUrl = `https://www.sooplive.com/station/${stationId}/post/${postId}`;
+    const commentUrl = (page) => `/api/comment?url=${encodeURIComponent(postPageUrl)}&page=${page}`;
 
-    const firstJson = await fetchJsonWithCorsFallback(commentUrl(1));
+    const fetchCommentPage = async (page) => {
+        const res = await fetch(commentUrl(page));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+    };
+
+    const firstJson = await fetchCommentPage(1);
     const firstData = (firstJson && Array.isArray(firstJson.data)) ? firstJson.data : [];
     const lastPage = (firstJson && firstJson.meta && firstJson.meta.lastPage) || 1;
 
@@ -2090,7 +2087,7 @@ async function fetchAllSoopComments(stationId, postId) {
     const restPages = [];
     for (let page = 2; page <= lastPage; page++) restPages.push(page);
     const restResults = await Promise.all(
-        restPages.map(page => fetchJsonWithCorsFallback(commentUrl(page)).catch(() => null))
+        restPages.map(page => fetchCommentPage(page).catch(() => null))
     );
 
     let allComments = firstData.slice();
