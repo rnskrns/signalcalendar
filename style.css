@@ -265,6 +265,13 @@ body {
     border-radius: 26px;
 }
 
+/* 시그널 탭 전용 흰색 박스 테마 */
+.theme-signal {
+    background-color: #ffffff !important;
+    border: 2px solid #5D4037 !important;
+    border-radius: 26px !important;
+}
+
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

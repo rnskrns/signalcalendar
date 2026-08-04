@@ -187,6 +187,14 @@ window.previewPopupImgFile = previewPopupImgFile;
 // 업보정리 바인딩
 window.addUpboProduct = addUpboProduct; window.removeUpboProduct = removeUpboProduct; window.addUpboRow = addUpboRow; window.searchUpbo = searchUpbo; window.saveUpboData = saveUpboData; window.toggleUpboViewMode = toggleUpboViewMode;
 
+// 시그널 바인딩
+window.openSignalAddModal = openSignalAddModal; window.openSignalEditModal = openSignalEditModal; window.closeSignalAddModal = closeSignalAddModal;
+window.saveSignalRecord = saveSignalRecord; window.deleteSignalRecord = deleteSignalRecord;
+window.openSignalDetailModal = openSignalDetailModal; window.closeSignalDetailModal = closeSignalDetailModal;
+window.previewSignalImageFile = previewSignalImageFile;
+window.switchSignalImgTab = switchSignalImgTab; window.previewSignalImageUrl = previewSignalImageUrl;
+window.addSignalVodRow = addSignalVodRow; window.removeSignalVodRow = removeSignalVodRow;
+
 // 그룹 관리 함수는 window.xxx = function(){} 형태로 직접 할당되어 있음
 
 // =========================================================================
@@ -527,6 +535,13 @@ let currentEntryIndex = 0;
 let editRollingEntryId = null;
 let loadedMemberPages = new Set();
 
+// =========================================================================
+// 시그널 (지난 방송 아카이브) 상태
+// =========================================================================
+let signalRecords = [];
+let editSignalRecordId = null;
+let currentSignalDetailId = null;
+
 let customMembers = []; 
 let memberGroups = []; // { id, name, memberIds: [] }
 let popupImagesList = [];
@@ -558,6 +573,7 @@ function saveScheduleCache() {
             memberGroups,
             rollingTopics,
             rollingEntries,
+            signalRecords,
             upboData,
             loadedMemberPages: Array.from(loadedMemberPages),
             savedAt: Date.now()
@@ -576,6 +592,7 @@ function hydrateScheduleCache(cache) {
     memberGroups = Array.isArray(cache.memberGroups) ? cache.memberGroups : [];
     rollingTopics = Array.isArray(cache.rollingTopics) ? cache.rollingTopics : [];
     rollingEntries = Array.isArray(cache.rollingEntries) ? cache.rollingEntries : [];
+    signalRecords = Array.isArray(cache.signalRecords) ? cache.signalRecords : [];
     upboData = cache.upboData || {
         '달타': { products: [], records: [] },
         '다룽': { products: [], records: [] },
@@ -599,12 +616,14 @@ let upboViewMode = 'search'; // 'search' or 'admin'
 const tabToHash = { 
     '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
     '롤링페이퍼': 'rolling', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
-    '노래책_달타': 'songbook_dalta', '노래책_다룽': 'songbook_darung', '노래책_최또': 'songbook_choitto', '노래책_카나시': 'songbook_kanashi'
+    '노래책_달타': 'songbook_dalta', '노래책_다룽': 'songbook_darung', '노래책_최또': 'songbook_choitto', '노래책_카나시': 'songbook_kanashi',
+    '시그널': 'signal'
 };
 const hashToTab = { 
     '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
     '#rolling': '롤링페이퍼', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시',
-    '#songbook_dalta': '노래책_달타', '#songbook_darung': '노래책_다룽', '#songbook_choitto': '노래책_최또', '#songbook_kanashi': '노래책_카나시'
+    '#songbook_dalta': '노래책_달타', '#songbook_darung': '노래책_다룽', '#songbook_choitto': '노래책_최또', '#songbook_kanashi': '노래책_카나시',
+    '#signal': '시그널'
 };
 
 // =========================================================================
@@ -621,7 +640,7 @@ let songLikedOnlyFilter = false;
 let likeInProgress = new Set();
 
 function getThemeClassForMember(member) {
-    const map = { '달타': 'dalta', '다룽': 'darung', '최또': 'choitto', '카나시': 'kanasi' };
+    const map = { '달타': 'dalta', '다룽': 'darung', '최또': 'choitto', '카나시': 'kanasi', '시그널': 'rolling' };
     return map[member] || 'dalta';
 }
 
@@ -682,7 +701,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -1687,8 +1706,8 @@ function renderHeaderTabs() {
     const desktopContainer = document.getElementById('headerNavTabs');
     const mobileNav = document.getElementById('mobileBottomNav');
     
-    const tabs = ['달타', '다룽', '최또', '카나시', '더보기'];
-    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '업보정리': '#8B5CF6' };
+    const tabs = ['달타', '다룽', '최또', '카나시', '시그널', '더보기'];
+    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '시그널': '#FF5252', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '업보정리': '#8B5CF6' };
 
     if (desktopContainer) {
         let html = `
@@ -1711,6 +1730,8 @@ function renderHeaderTabs() {
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
                     <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">업보정리</a>
                 `;
+            } else if (tab === '시그널') {
+                clickAction = `onclick="executeDesktopTabChange('시그널')"`;
             } else {
                 const links = dynamicLinks[tab] || [];
                 mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors border-b border-gray-100 text-center">일정표</a>`;
@@ -1720,16 +1741,24 @@ function renderHeaderTabs() {
                 `).join('');
             }
             
-            html += `
-                <div class="relative group flex items-center">
-                    <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
-                    <div class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
-                        <div class="bg-white flex flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden py-1">
-                            ${mainLinkHtml}${dropdownHtml}
+            if (tab === '시그널') {
+                html += `
+                    <div class="relative flex items-center">
+                        <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="relative group flex items-center">
+                        <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
+                        <div class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
+                            <div class="bg-white flex flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden py-1">
+                                ${mainLinkHtml}${dropdownHtml}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         });
         desktopContainer.innerHTML = html;
     }
@@ -1761,6 +1790,7 @@ function renderHeaderTabs() {
 
 function openMobileTabMenu(tab) {
     if (tab === '홈') { executeDesktopTabChange('홈'); return; }
+    if (tab === '시그널') { executeMobileTabChange('시그널'); return; }
     const overlay = document.getElementById('mobileTabMenuOverlay');
     const container = document.getElementById('mobileTabMenuContainer');
     const color = themeColors[tab === '더보기' ? '롤링페이퍼' : tab];
@@ -2725,6 +2755,13 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, u
             rollingEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
             try {
+                const signalSnap = await getDocs(collection(db, 'signal_records'));
+                signalRecords = [];
+                signalSnap.forEach(docSnap => signalRecords.push({ id: docSnap.id, ...docSnap.data() }));
+                sortSignalRecords();
+            } catch (e) { console.error("시그널 데이터 로드 에러:", e); }
+
+            try {
                 const upboSnap = await getDocs(collection(db, 'upboData'));
                 upboSnap.forEach(docSnap => {
                     const mapToKor = {'dalta':'달타', 'darung':'다룽', 'choiagain':'최또', 'kanashi':'카나시'};
@@ -2962,7 +2999,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '시그널': '#ffdddd' };
     const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', themeColors[activeThemeMember] || '#8B5CF6');
@@ -2991,6 +3028,7 @@ function render() {
         else if (currentPage === '롤링페이퍼') mBtnContainer.innerHTML = mobileRollingBtnHtml; 
         else if (currentPage === '업보정리') mBtnContainer.innerHTML = ''; 
         else if (currentPage === '노래책') mBtnContainer.innerHTML = ''; 
+        else if (currentPage === '시그널') mBtnContainer.innerHTML = ''; 
         else mBtnContainer.innerHTML = mobileMemoBtnHtml;
     }
     if (dBtnContainer) {
@@ -2998,6 +3036,7 @@ function render() {
         else if (currentPage === '롤링페이퍼') dBtnContainer.innerHTML = desktopRollingBtnHtml; 
         else if (currentPage === '업보정리') dBtnContainer.innerHTML = ''; 
         else if (currentPage === '노래책') dBtnContainer.innerHTML = ''; 
+        else if (currentPage === '시그널') dBtnContainer.innerHTML = ''; 
         else dBtnContainer.innerHTML = desktopMemoBtnHtml;
     }
     
@@ -3019,6 +3058,8 @@ function render() {
         renderUpboPage();
     } else if (currentPage === '노래책') {
         renderSongbook();
+    } else if (currentPage === '시그널') {
+        renderSignalPage();
     } else {
         if (isMobile) {
             if (currentPage === '홈') renderMobileHome(grouped);
@@ -4335,6 +4376,378 @@ function updateCurrentEntryIndex(container) {
 window.updateCurrentEntryIndex = updateCurrentEntryIndex;
 
 function closeRollingDetailModal() { document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden'); }
+
+// =========================================================================
+// 시그널 (지난 방송 아카이브) 렌더링 & 로직
+// =========================================================================
+function sortSignalRecords() {
+    signalRecords.sort((a, b) => {
+        const dateDiff = (b.date || '').localeCompare(a.date || '');
+        if (dateDiff !== 0) return dateDiff;
+        return (b.timestamp || 0) - (a.timestamp || 0);
+    });
+}
+
+function renderSignalPage() {
+    const content = document.getElementById('mainContent');
+    const bgClass = isMobile ? 'p-4' : 'p-10';
+
+    const addBtnHtml = isAdmin ? `
+        <button onclick="openSignalAddModal()" class="px-4 py-2.5 md:px-6 md:py-3 bg-[#FF5252] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[15px] md:text-lg shrink-0 flex items-center gap-1.5">
+            <i class="fi fi-br-plus"></i> 추가
+        </button>
+    ` : '';
+
+    let html = `<div class="big-white-box relative theme-signal" style="min-height: 1200px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">`;
+    html += `
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi">시그널</h2>
+            ${addBtnHtml}
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+    `;
+
+    signalRecords.forEach(record => {
+        const thumb = record.imageUrl || 'https://via.placeholder.com/400x300/ffdddd/FF5252?text=SIGNAL';
+        
+        // 쉼표나 공백으로 구분된 멤버들을 각각 분리하여 뱃지 생성
+        const memberNames = (record.member || '').split(/[, ]+/).filter(Boolean);
+        const memberBadgesHtml = memberNames.map(m => {
+            const mColor = themeColors[m] || '#FF5252';
+            return `<span class="text-[11px] md:text-[12px] font-bold px-2 py-0.5 rounded-full" style="color:${mColor}; background-color:${hexToRgba(mColor, 0.14)};">${escapeHtml(m)}</span>`;
+        }).join(' ');
+
+        html += `
+            <div class="rounded-2xl overflow-hidden bg-white border-[3px] border-[#5D4037] cursor-pointer hover:-translate-y-1 transition relative group flex flex-col" onclick="openSignalDetailModal('${record.id}')">
+                ${isAdmin ? `
+                <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
+                    <button onclick="event.stopPropagation(); openSignalEditModal('${record.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
+                    <button onclick="event.stopPropagation(); deleteSignalRecord('${record.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
+                </div>
+                ` : ''}
+                <div class="w-full aspect-[4/3] overflow-hidden bg-gray-100">
+                    <img src="${thumb}" class="w-full h-full object-cover" alt="${escapeHtml(record.title || '')}" loading="lazy" decoding="async">
+                </div>
+                <div class="p-3 md:p-4 flex flex-col gap-1.5 flex-1">
+                    <div class="text-[14px] md:text-[16px] font-bold text-[#5D4037] font-paperozi line-clamp-1">${escapeHtml(record.title || '')}</div>
+                    <div class="flex items-center justify-between mt-auto pt-1 gap-1 flex-wrap">
+                        <span class="text-[12px] md:text-[13px] font-bold text-gray-400">${escapeHtml(record.date || '')}</span>
+                        <div class="flex items-center gap-1 flex-wrap">${memberBadgesHtml}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    if (signalRecords.length === 0) {
+        html += `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-lg">등록된 시그널 기록이 없습니다.</div>`;
+    }
+    html += `</div></div>`;
+    content.innerHTML = html;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+}
+
+function previewSignalImageFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('sgImagePreview');
+        if (preview) { preview.src = e.target.result; preview.classList.remove('hidden'); }
+    };
+    reader.readAsDataURL(file);
+}
+
+function previewSignalImageUrl(input) {
+    const url = input.value.trim();
+    const preview = document.getElementById('sgImagePreview');
+    if (!preview) return;
+    if (url) { preview.src = url; preview.classList.remove('hidden'); }
+    else { preview.classList.add('hidden'); }
+}
+
+function switchSignalImgTab(tab) {
+    const urlSection = document.getElementById('sgImageUrlSection');
+    const fileSection = document.getElementById('sgImageFileSection');
+    const tabUrl = document.getElementById('sgImgTabUrl');
+    const tabFile = document.getElementById('sgImgTabFile');
+    if (!urlSection || !fileSection) return;
+    if (tab === 'url') {
+        urlSection.classList.remove('hidden');
+        fileSection.classList.add('hidden');
+        tabUrl.classList.add('bg-[#5D4037]', 'text-white');
+        tabUrl.classList.remove('bg-white', 'text-[#5D4037]');
+        tabFile.classList.add('bg-white', 'text-[#5D4037]');
+        tabFile.classList.remove('bg-[#5D4037]', 'text-white');
+    } else {
+        urlSection.classList.add('hidden');
+        fileSection.classList.remove('hidden');
+        tabFile.classList.add('bg-[#5D4037]', 'text-white');
+        tabFile.classList.remove('bg-white', 'text-[#5D4037]');
+        tabUrl.classList.add('bg-white', 'text-[#5D4037]');
+        tabUrl.classList.remove('bg-[#5D4037]', 'text-white');
+    }
+}
+
+function addSignalVodRow(vodData = '') {
+    const container = document.getElementById('sgVodUrlsContainer');
+    if (!container) return;
+    
+    let url = '';
+    let member = '시그널'; // 기본값
+
+    // 구버전 데이터(단일 문자열)와 신규 데이터(객체) 모두 대응
+    if (typeof vodData === 'string') {
+        url = vodData;
+    } else if (typeof vodData === 'object' && vodData !== null) {
+        url = vodData.url || '';
+        member = vodData.member || '시그널';
+    }
+
+    const row = document.createElement('div');
+    row.className = 'sg-vod-row flex gap-2';
+    
+    const memberSelectHtml = `
+        <select class="sg-vod-member border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none font-bold bg-white text-[#5D4037] w-[95px] shrink-0 cursor-pointer">
+            <option value="시그널" ${member === '시그널' ? 'selected' : ''}>시그널</option>
+            <option value="달타" ${member === '달타' ? 'selected' : ''}>달타</option>
+            <option value="다룽" ${member === '다룽' ? 'selected' : ''}>다룽</option>
+            <option value="최또" ${member === '최또' ? 'selected' : ''}>최또</option>
+            <option value="카나시" ${member === '카나시' ? 'selected' : ''}>카나시</option>
+        </select>
+    `;
+
+    row.innerHTML = `
+        ${memberSelectHtml}
+        <input type="text" class="sg-vod-input flex-1 border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold" placeholder="VOD 링크를 입력하세요" value="${escapeHtml(url)}">
+        <button type="button" onclick="removeSignalVodRow(this)" class="px-3 bg-red-500 text-white rounded-lg font-bold text-sm hover:bg-red-600 transition shrink-0">삭제</button>
+    `;
+    container.appendChild(row);
+}
+
+function removeSignalVodRow(btn) {
+    const container = document.getElementById('sgVodUrlsContainer');
+    const row = btn.closest('.sg-vod-row');
+    if (row) row.remove();
+    if (container && container.children.length === 0) addSignalVodRow();
+}
+
+function getSignalVodUrls(record) {
+    if (Array.isArray(record.vodUrls) && record.vodUrls.length > 0) {
+        return record.vodUrls.map(u => {
+            if (typeof u === 'string' && u.trim()) return { member: '시그널', url: u.trim() };
+            if (typeof u === 'object' && u !== null && u.url && u.url.trim()) return { member: u.member || '시그널', url: u.url.trim() };
+            return null;
+        }).filter(u => u !== null);
+    }
+    // 구버전 호환 필드
+    if (record.vodUrl && record.vodUrl.trim()) return [{ member: '시그널', url: record.vodUrl.trim() }];
+    return [];
+}
+
+function openSignalAddModal() {
+    if (!isAdmin) return;
+    editSignalRecordId = null;
+    document.getElementById('sgModalTitle').innerText = '시그널 추가';
+    document.getElementById('sgTitle').value = '';
+    document.getElementById('sgDate').value = getTodayYYYYMMDD();
+    document.getElementById('sgMember').value = '';
+    if (document.getElementById('sgImage')) document.getElementById('sgImage').value = '';
+    if (document.getElementById('sgImageUrlText')) document.getElementById('sgImageUrlText').value = '';
+    if (document.getElementById('sgImagePreview')) document.getElementById('sgImagePreview').classList.add('hidden');
+    switchSignalImgTab('url');
+    const vodContainer = document.getElementById('sgVodUrlsContainer');
+    if (vodContainer) vodContainer.innerHTML = '';
+    addSignalVodRow();
+    document.getElementById('signalAddModal').classList.replace('hidden', 'flex');
+}
+
+function openSignalEditModal(id) {
+    if (!isAdmin) return;
+    const record = signalRecords.find(r => r.id === id);
+    if (!record) return;
+    editSignalRecordId = id;
+    document.getElementById('sgModalTitle').innerText = '시그널 수정';
+    document.getElementById('sgTitle').value = record.title || '';
+    document.getElementById('sgDate').value = record.date || getTodayYYYYMMDD();
+    document.getElementById('sgMember').value = record.member || '';
+    if (document.getElementById('sgImage')) document.getElementById('sgImage').value = '';
+    if (document.getElementById('sgImageUrlText')) document.getElementById('sgImageUrlText').value = record.imageUrl || '';
+    switchSignalImgTab('url');
+    const preview = document.getElementById('sgImagePreview');
+    if (preview) {
+        if (record.imageUrl) { preview.src = record.imageUrl; preview.classList.remove('hidden'); }
+        else { preview.classList.add('hidden'); }
+    }
+    const vodContainer = document.getElementById('sgVodUrlsContainer');
+    if (vodContainer) vodContainer.innerHTML = '';
+    const vodUrls = getSignalVodUrls(record);
+    if (vodUrls.length > 0) vodUrls.forEach(u => addSignalVodRow(u));
+    else addSignalVodRow();
+    document.getElementById('signalAddModal').classList.replace('hidden', 'flex');
+}
+
+function closeSignalAddModal() {
+    document.getElementById('signalAddModal').classList.replace('flex', 'hidden');
+}
+
+async function saveSignalRecord() {
+    if (!isAdmin) return;
+    const title = document.getElementById('sgTitle').value.trim();
+    const date = document.getElementById('sgDate').value;
+    const member = document.getElementById('sgMember').value.trim();
+    const vodUrls = Array.from(document.querySelectorAll('#sgVodUrlsContainer .sg-vod-row'))
+        .map(row => {
+            const mem = row.querySelector('.sg-vod-member').value;
+            const url = row.querySelector('.sg-vod-input').value.trim();
+            return { member: mem, url };
+        })
+        .filter(v => v.url);
+    if (!title) return alert('제목을 입력해주세요.');
+    if (!date) return alert('날짜를 선택해주세요.');
+    if (!member) return alert('멤버를 입력해주세요.');
+
+    const saveBtn = document.getElementById('sgSaveBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = '저장 중⏳';
+        saveBtn.classList.add('cursor-not-allowed', 'opacity-50');
+    }
+
+    let imageUrl = document.getElementById('sgImageUrlText') ? document.getElementById('sgImageUrlText').value.trim() : '';
+    const fileInput = document.getElementById('sgImage');
+    let toast = null;
+
+    try {
+        if (fileInput && fileInput.files.length > 0) {
+            toast = document.createElement('div');
+            toast.innerText = '이미지를 업로드 중 입니다..⏳';
+            toast.className = 'fixed bottom-12 left-1/2 transform -translate-x-1/2 bg-[#5D4037] text-white px-6 py-3 rounded-xl shadow-2xl z-[9999] font-bold font-paperozi transition-opacity duration-300 opacity-0';
+            document.body.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('opacity-0'));
+
+            const url = await window.uploadImageToCloudinary(fileInput.files[0]);
+            if (url) imageUrl = url;
+
+            if (toast) {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }
+        }
+
+        const vodUrl = vodUrls.length > 0 ? vodUrls[0].url : '';
+
+        if (editSignalRecordId) {
+            await updateDoc(doc(db, 'signal_records', editSignalRecordId), { title, date, member, vodUrl, vodUrls, imageUrl });
+            const idx = signalRecords.findIndex(r => r.id === editSignalRecordId);
+            if (idx > -1) {
+                signalRecords[idx] = { ...signalRecords[idx], title, date, member, vodUrl, vodUrls, imageUrl };
+            }
+        } else {
+            const newRecord = { title, date, member, vodUrl, vodUrls, imageUrl, timestamp: Date.now() };
+            const docRef = await addDoc(collection(db, 'signal_records'), newRecord);
+            signalRecords.push({ id: docRef.id, ...newRecord });
+        }
+        sortSignalRecords();
+        saveScheduleCache();
+        closeSignalAddModal();
+        render();
+    } catch (e) {
+        console.error(e);
+        alert('저장 중 오류가 발생했습니다.');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = '저장';
+            saveBtn.classList.remove('cursor-not-allowed', 'opacity-50');
+        }
+    }
+}
+
+async function deleteSignalRecord(id) {
+    if (!isAdmin) return;
+    if (!confirm('이 시그널 기록을 삭제하시겠습니까?')) return;
+    try {
+        await deleteDoc(doc(db, 'signal_records', id));
+        signalRecords = signalRecords.filter(r => r.id !== id);
+        saveScheduleCache();
+        closeSignalDetailModal();
+        render();
+    } catch (e) { console.error(e); }
+}
+
+function openSignalDetailModal(id) {
+    const record = signalRecords.find(r => r.id === id);
+    if (!record) return;
+    currentSignalDetailId = id;
+
+    let memGroupHtml = '';
+    if (record.member) {
+        const parsed = parseMembers(record.member);
+        memGroupHtml = `
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 12px 8px; margin: 0 auto 16px; width: 100%; max-width: 420px;">
+            ${parsed.map(m => {
+                const isCrew = m.isCrew;
+                return `
+                <div style="${isCrew ? 'width:100%;' : 'width: 74px;'} display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    <div style="${isCrew ? 'width:100%; border-radius:12px; border:1px solid #f3f4f6;' : 'width:72px; height:72px; border-radius:50%; border:3px solid #fcdbc6;'} overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                        <img src="${m.imageUrl}" style="width:100%; height:100%; object-fit:${isCrew ? 'contain' : 'cover'};" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/72'">
+                    </div>
+                    ${(m.nickname && !isCrew) ? `<span style="font-size:13px; font-weight:700; color:#5D4037; text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing: -0.5px;">${m.nickname}</span>` : ''}
+                </div>`;
+            }).join('')}
+        </div>`;
+    }
+
+    const adminBtnsHtml = isAdmin ? `
+        <div class="absolute top-4 left-4 flex gap-2 z-10">
+            <button onclick="closeSignalDetailModal(); openSignalEditModal('${record.id}')" class="w-9 h-9 flex items-center justify-center bg-white/90 text-blue-500 hover:text-blue-700 rounded-full shadow"><i class="fi fi-rr-edit"></i></button>
+            <button onclick="deleteSignalRecord('${record.id}')" class="w-9 h-9 flex items-center justify-center bg-white/90 text-red-500 hover:text-red-700 rounded-full shadow"><i class="fi fi-br-cross-small"></i></button>
+        </div>
+    ` : '';
+
+    const signalVodUrls = getSignalVodUrls(record);
+    const vodBtnHtml = signalVodUrls.length > 0 ? `
+        <div class="flex flex-col gap-2 mt-6">
+            ${signalVodUrls.map((vod, i) => {
+                // 선택된 멤버에 따라 테마 컬러 할당 (없으면 시그널 컬러)
+                const btnColor = themeColors[vod.member] || '#FF5252';
+                const labelText = vod.member === '시그널' ? '다시보기' : `${vod.member} 다시보기`;
+                
+                return `
+                <button onclick="openSmartLink('${vod.url}')" class="w-full py-4 text-white font-bold text-lg rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-0.5 transition font-paperozi flex items-center justify-center gap-2" style="background-color: ${btnColor};">
+                    <i class="fi fi-rr-play"></i> ${labelText}
+                </button>`;
+            }).join('')}
+        </div>
+    ` : `
+        <button disabled class="w-full mt-6 py-4 bg-gray-300 text-white font-bold text-lg rounded-xl cursor-not-allowed font-paperozi flex items-center justify-center gap-2">
+            <i class="fi fi-rr-play"></i> 다시보기 링크 없음
+        </button>
+    `;
+
+    const html = `
+        <div class="modal-content bg-[#FFFDF5] rounded-2xl w-[95%] max-w-[520px] shadow-xl border-4 border-[#5D4037] relative flex flex-col max-h-[90vh] overflow-hidden">
+            ${adminBtnsHtml}
+            <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer z-10 bg-white/90 w-9 h-9 rounded-full flex items-center justify-center shadow" onclick="closeSignalDetailModal()"><i class="fi fi-br-cross"></i></button>
+            <div class="w-full aspect-[4/3] bg-gray-100 shrink-0">
+                <img src="${record.imageUrl || 'https://via.placeholder.com/600x450/ffdddd/FF5252?text=SIGNAL'}" class="w-full h-full object-cover" alt="${escapeHtml(record.title || '')}">
+            </div>
+            <div class="p-6 md:p-8 overflow-y-auto modal-scroll">
+                <div class="text-[22px] md:text-[24px] font-bold text-[#5D4037] text-center font-paperozi mb-4 break-words">${escapeHtml(record.title || '')}</div>
+                ${memGroupHtml}
+                ${vodBtnHtml}
+            </div>
+        </div>
+    `;
+    document.getElementById('signalDetailModal').innerHTML = html;
+    document.getElementById('signalDetailModal').classList.replace('hidden', 'flex');
+}
+
+function closeSignalDetailModal() {
+    const modal = document.getElementById('signalDetailModal');
+    if (modal) modal.classList.replace('flex', 'hidden');
+    currentSignalDetailId = null;
+}
 
 // =========================================================================
 // 모바일 & PC 캘린더 렌더링 함수들
