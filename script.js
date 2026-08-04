@@ -3886,6 +3886,7 @@ async function saveRollingTopic() {
         const docRef = await addDoc(collection(db, 'rollingTopics'), newTopic);
         rollingTopics.push({ id: docRef.id, ...newTopic });
         sortRollingTopics();
+        saveScheduleCache();
         closeRollingTopicModal();
         renderHeaderTabs(); 
         render();
@@ -3897,6 +3898,8 @@ async function deleteRollingTopic(id) {
     try {
         await deleteDoc(doc(db, 'rollingTopics', id));
         rollingTopics = rollingTopics.filter(t => t.id !== id);
+        rollingEntries = rollingEntries.filter(e => e.topicId !== id);
+        saveScheduleCache();
         renderHeaderTabs(); 
         render();
     } catch(e) { console.error(e); }
@@ -3995,6 +3998,7 @@ async function saveRollingEntry() {
             const docRef = await addDoc(collection(db, 'rollingEntries'), newEntry);
             rollingEntries.unshift({ id: docRef.id, ...newEntry });
         }
+        saveScheduleCache();
         closeRollingEntryModal();
         render();
     } catch(e) { 
@@ -4014,6 +4018,7 @@ async function deleteRollingEntry(id) {
     try {
         await deleteDoc(doc(db, 'rollingEntries', id));
         rollingEntries = rollingEntries.filter(e => e.id !== id);
+        saveScheduleCache();
         render();
     } catch(e) { console.error(e); }
 }
