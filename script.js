@@ -4425,7 +4425,7 @@ function renderSignalPage() {
                     <button onclick="event.stopPropagation(); deleteSignalRecord('${record.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
                 </div>
                 ` : ''}
-                <div class="w-full aspect-[4/3] overflow-hidden bg-gray-100">
+                <div class="w-full aspect-video overflow-hidden bg-gray-100">
                     <img src="${thumb}" class="w-full h-full object-cover" alt="${escapeHtml(record.title || '')}" loading="lazy" decoding="async">
                 </div>
                 <div class="p-3 md:p-4 flex flex-col gap-1.5 flex-1">
@@ -4729,7 +4729,7 @@ function openSignalDetailModal(id) {
         <div class="modal-content bg-[#FFFDF5] rounded-2xl w-[95%] max-w-[520px] shadow-xl border-4 border-[#5D4037] relative flex flex-col max-h-[90vh] overflow-hidden">
             ${adminBtnsHtml}
             <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer z-10 bg-white/90 w-9 h-9 rounded-full flex items-center justify-center shadow" onclick="closeSignalDetailModal()"><i class="fi fi-br-cross"></i></button>
-            <div class="w-full aspect-[4/3] bg-gray-100 shrink-0">
+            <div class="w-full aspect-video bg-gray-100 shrink-0">
                 <img src="${record.imageUrl || 'https://via.placeholder.com/600x450/ffdddd/FF5252?text=SIGNAL'}" class="w-full h-full object-cover" alt="${escapeHtml(record.title || '')}">
             </div>
             <div class="p-6 md:p-8 overflow-y-auto modal-scroll">
