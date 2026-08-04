@@ -397,3 +397,51 @@ body.embed-mode .big-white-box {
     height: 0px;
     background: transparent; /* Chrome, Safari, Edge(Chromium) */
 }
+/* =========================================
+   일정 순서 변경 - 드래그 핸들
+   ========================================= */
+.schedule-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    font-size: 18px;
+    line-height: 1;
+    color: #c9beb8;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    flex-shrink: 0;
+    border-radius: 8px;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+.schedule-drag-handle:hover {
+    color: #5D4037;
+    background-color: #f5f1ee;
+}
+.schedule-drag-handle:active {
+    cursor: grabbing;
+}
+
+.schedule-accordion-wrapper.schedule-dragging {
+    opacity: 0.97;
+    border-color: #5D4037;
+    cursor: grabbing;
+}
+.schedule-accordion-wrapper.schedule-dragging .schedule-drag-handle {
+    cursor: grabbing;
+    color: #5D4037;
+}
+
+/* =========================================
+   캘린더 일정카드 직접 드래그앤드롭 (어드민)
+   ========================================= */
+.schedule-card.calendar-card-dragging {
+    opacity: 0.95;
+    outline: 2px dashed #5D4037;
+    outline-offset: 2px;
+}
+.schedule-card.calendar-card-dragging:hover {
+    transform: none !important;
+}

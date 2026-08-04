@@ -177,6 +177,8 @@ window.openRollingTopicFromPopup = openRollingTopicFromPopup;
 
 window.openInfoModal = openInfoModal; window.closeInfoModal = closeInfoModal; window.updateUserInfo = updateUserInfo;
 window.moveScheduleBlock = moveScheduleBlock;
+window.startScheduleDrag = startScheduleDrag;
+window.startCalendarCardDrag = startCalendarCardDrag;
 window.loginWithProfile = loginWithProfile; window.deleteSavedProfile = deleteSavedProfile;
 window.savePopupImage = savePopupImage; window.deletePopupImage = deletePopupImage; window.switchPopupImgTab = switchPopupImgTab;
 window.saveHomeYoutubeLink = saveHomeYoutubeLink; window.deleteHomeYoutubeLink = deleteHomeYoutubeLink;
@@ -188,7 +190,7 @@ window.addUpboProduct = addUpboProduct; window.removeUpboProduct = removeUpboPro
 // 그룹 관리 함수는 window.xxx = function(){} 형태로 직접 할당되어 있음
 
 // =========================================================================
-// 일정 순서 변경 함수
+// 일정 순서 변경 함수 (버튼 이동 + 드래그앤드롭 공용)
 // =========================================================================
 function moveScheduleBlock(btn, direction) {
     const currentBlock = btn.closest('.schedule-accordion-wrapper') || btn.closest('.schedule-input-block');
@@ -198,6 +200,261 @@ function moveScheduleBlock(btn, direction) {
         container.insertBefore(currentBlock, currentBlock.previousElementSibling);
     } else if (direction === 1 && currentBlock.nextElementSibling) {
         container.insertBefore(currentBlock.nextElementSibling, currentBlock);
+    } else {
+        return; // 이동이 실제로 일어나지 않았으면 저장할 필요 없음
+    }
+
+    saveScheduleOrderImmediately();
+}
+
+// 이미 저장된(문서 id가 있는) 일정들의 순서를 화면에 보이는 DOM 순서 그대로
+// Firestore의 timestamp 값에 즉시 반영해서, 모달을 닫거나 다시 열어도(일정관리에서도) 같은 순서로 보이게 함.
+// 아직 저장 전인 새 일정 입력칸(id 없음)은 여기서 건드리지 않고, '저장' 버튼을 눌렀을 때 saveSchedule()이 알아서 순서대로 반영함.
+async function saveScheduleOrderImmediately() {
+    const wrappers = Array.from(document.querySelectorAll('#scheduleInputsContainer .schedule-accordion-wrapper'));
+    if (wrappers.length === 0) return;
+
+    const baseTs = Date.now();
+    const updates = [];
+
+    wrappers.forEach((wrapper, index) => {
+        const idInput = wrapper.querySelector('.sch-id');
+        const id = idInput ? idInput.value : '';
+        if (!id) return;
+
+        const sch = scheduleList.find(s => s.id === id);
+        if (!sch) return;
+
+        const newTimestamp = baseTs + index;
+        if (sch.timestamp === newTimestamp) return;
+
+        updates.push({ id, collectionName: sch.collectionName, newTimestamp, sch });
+    });
+
+    if (updates.length === 0) return;
+
+    try {
+        await Promise.all(updates.map(u => updateDoc(doc(db, u.collectionName, u.id), { timestamp: u.newTimestamp })));
+        updates.forEach(u => { u.sch.timestamp = u.newTimestamp; });
+        scheduleList.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        saveScheduleCache();
+        render();
+    } catch (e) {
+        console.error('일정 순서 저장 실패:', e);
+    }
+}
+
+// ---- 드래그앤드롭으로 일정 순서 변경 ----
+let scheduleDragState = null;
+
+function startScheduleDrag(e, handle) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const wrapper = handle.closest('.schedule-accordion-wrapper');
+    const container = wrapper ? wrapper.parentElement : null;
+    if (!wrapper || !container) return;
+
+    e.preventDefault();
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+
+    scheduleDragState = {
+        pointerId: e.pointerId,
+        wrapper,
+        container,
+        startY: e.clientY,
+        moved: false
+    };
+
+    wrapper.classList.add('schedule-dragging');
+    wrapper.style.position = 'relative';
+    wrapper.style.zIndex = '50';
+    wrapper.style.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
+    wrapper.style.transition = 'none';
+
+    document.addEventListener('pointermove', onScheduleDragMove);
+    document.addEventListener('pointerup', onScheduleDragEnd);
+    document.addEventListener('pointercancel', onScheduleDragEnd);
+}
+
+function onScheduleDragMove(e) {
+    if (!scheduleDragState || e.pointerId !== scheduleDragState.pointerId) return;
+    const state = scheduleDragState;
+    const { wrapper } = state;
+
+    const deltaY = e.clientY - state.startY;
+    if (Math.abs(deltaY) > 2) state.moved = true;
+    wrapper.style.transform = `translateY(${deltaY}px)`;
+
+    const prevPointerEvents = wrapper.style.pointerEvents;
+    wrapper.style.pointerEvents = 'none';
+    const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+    wrapper.style.pointerEvents = prevPointerEvents;
+
+    const overWrapper = elUnder ? elUnder.closest('.schedule-accordion-wrapper') : null;
+    if (overWrapper && overWrapper !== wrapper && overWrapper.parentElement === state.container) {
+        const rect = overWrapper.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        if (e.clientY < midpoint) {
+            state.container.insertBefore(wrapper, overWrapper);
+        } else {
+            state.container.insertBefore(wrapper, overWrapper.nextElementSibling);
+        }
+        state.startY = e.clientY;
+        wrapper.style.transform = 'translateY(0px)';
+    }
+}
+
+async function onScheduleDragEnd(e) {
+    if (!scheduleDragState || e.pointerId !== scheduleDragState.pointerId) return;
+    const { wrapper, moved } = scheduleDragState;
+
+    document.removeEventListener('pointermove', onScheduleDragMove);
+    document.removeEventListener('pointerup', onScheduleDragEnd);
+    document.removeEventListener('pointercancel', onScheduleDragEnd);
+
+    wrapper.style.transform = '';
+    wrapper.style.position = '';
+    wrapper.style.zIndex = '';
+    wrapper.style.boxShadow = '';
+    wrapper.style.transition = '';
+    wrapper.classList.remove('schedule-dragging');
+
+    scheduleDragState = null;
+
+    if (moved) await saveScheduleOrderImmediately();
+}
+
+// ---- 캘린더 화면에서 일정카드를 직접 드래그앤드롭으로 순서 변경 (같은 날짜 내에서만) ----
+let calendarCardDragState = null;
+let suppressCalendarCardClick = false;
+
+// 드래그로 인해 발생한 클릭은 상세보기 모달이 열리지 않도록 캡처링 단계에서 무효화
+document.addEventListener('click', function(e) {
+    if (suppressCalendarCardClick) {
+        suppressCalendarCardClick = false;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    }
+}, true);
+
+function startCalendarCardDrag(e, card) {
+    if (typeof isAdmin === 'undefined' || !isAdmin) return; // 어드민만 캘린더에서 바로 순서 변경 가능
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    const container = card.parentElement;
+    if (!container) return;
+    // 같은 날짜에 일정이 2개 이상일 때만 순서 변경 의미가 있음
+    if (container.querySelectorAll(':scope > .schedule-card').length < 2) return;
+
+    calendarCardDragState = {
+        pointerId: e.pointerId,
+        card,
+        container,
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false
+    };
+
+    document.addEventListener('pointermove', onCalendarCardDragMove);
+    document.addEventListener('pointerup', onCalendarCardDragEnd);
+    document.addEventListener('pointercancel', onCalendarCardDragEnd);
+}
+
+function onCalendarCardDragMove(e) {
+    if (!calendarCardDragState || e.pointerId !== calendarCardDragState.pointerId) return;
+    const state = calendarCardDragState;
+    const { card, container } = state;
+
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+
+    if (!state.moved) {
+        if (Math.hypot(dx, dy) < 6) return; // 살짝 움직인 정도는 클릭으로 취급
+        state.moved = true;
+        suppressCalendarCardClick = true;
+        try { card.setPointerCapture(e.pointerId); } catch (err) {}
+        card.classList.add('calendar-card-dragging');
+        card.style.position = 'relative';
+        card.style.zIndex = '200';
+        card.style.boxShadow = '0 8px 18px rgba(0,0,0,0.3)';
+        card.style.transition = 'none';
+        card.style.pointerEvents = 'none';
+    }
+
+    e.preventDefault();
+    card.style.left = `${dx}px`;
+    card.style.top = `${dy}px`;
+
+    const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+    const overCard = elUnder ? elUnder.closest('.schedule-card') : null;
+
+    if (overCard && overCard !== card && overCard.parentElement === container) {
+        const rect = overCard.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        if (e.clientY < midpoint) {
+            container.insertBefore(card, overCard);
+        } else {
+            container.insertBefore(card, overCard.nextElementSibling);
+        }
+        state.startX = e.clientX;
+        state.startY = e.clientY;
+        card.style.left = '0px';
+        card.style.top = '0px';
+    }
+}
+
+async function onCalendarCardDragEnd(e) {
+    if (!calendarCardDragState || e.pointerId !== calendarCardDragState.pointerId) return;
+    const { card, container, moved } = calendarCardDragState;
+
+    document.removeEventListener('pointermove', onCalendarCardDragMove);
+    document.removeEventListener('pointerup', onCalendarCardDragEnd);
+    document.removeEventListener('pointercancel', onCalendarCardDragEnd);
+
+    card.style.left = '';
+    card.style.top = '';
+    card.style.position = '';
+    card.style.zIndex = '';
+    card.style.boxShadow = '';
+    card.style.transition = '';
+    card.style.pointerEvents = '';
+    card.classList.remove('calendar-card-dragging');
+
+    calendarCardDragState = null;
+
+    if (moved) await saveCalendarCardOrder(container);
+}
+
+// 캘린더에서 드래그로 재배열된 카드 순서를 Firestore의 timestamp에 즉시 반영
+async function saveCalendarCardOrder(container) {
+    const cards = Array.from(container.querySelectorAll(':scope > .schedule-card'));
+    if (cards.length === 0) return;
+
+    const baseTs = Date.now();
+    const updates = [];
+
+    cards.forEach((card, index) => {
+        const id = card.dataset.schId;
+        if (!id) return;
+        const sch = scheduleList.find(s => s.id === id);
+        if (!sch) return;
+
+        const newTimestamp = baseTs + index;
+        if (sch.timestamp === newTimestamp) return;
+        updates.push({ id, collectionName: sch.collectionName, newTimestamp, sch });
+    });
+
+    if (updates.length === 0) return;
+
+    try {
+        await Promise.all(updates.map(u => updateDoc(doc(db, u.collectionName, u.id), { timestamp: u.newTimestamp })));
+        updates.forEach(u => { u.sch.timestamp = u.newTimestamp; });
+        scheduleList.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        saveScheduleCache();
+        render();
+    } catch (e) {
+        console.error('캘린더 일정 순서 저장 실패:', e);
+        render();
     }
 }
 
@@ -2653,17 +2910,25 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
     const displayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
+    // 모바일 카드/한 줄 표시용: 줄바꿈을 공백으로 합쳐서 한 줄로 보여줌
+    const displayTitleOneLine = displayTitle.replace(/\n+/g, ' ').trim();
+    // 데스크탑 카드용: 사용자가 입력한 줄바꿈을 그대로 <br>로 반영
+    const displayTitleHtml = displayTitle.replace(/\n/g, '<br>');
     const formattedTime = (typeof formatTime12 === 'function' && sch.time) ? formatTime12(sch.time) : ''; 
+    const isAdminUser = (typeof isAdmin !== 'undefined' && isAdmin);
+    const dragCursorStyle = isAdminUser ? 'cursor:grab; touch-action:none;' : '';
+    const dragPointerAttr = isAdminUser ? `onpointerdown="startCalendarCardDrag(event, this)"` : '';
 
     if (isMobileCard) {
         return `
-            <div class="schedule-card ${typeClass} w-full"
-                 style="background-color: ${bgColor} !important; ${textColor} display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; padding: 6px 20px !important; min-height: 46px !important;"
+            <div class="schedule-card ${typeClass} w-full" data-sch-id="${sch.id}"
+                 style="background-color: ${bgColor} !important; ${textColor} display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; padding: 6px 20px !important; min-height: 46px !important; ${dragCursorStyle}"
+                 ${dragPointerAttr}
                  onclick="openDetailModal(event, '${sch.id}')" 
                  oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
                      event.preventDefault(); event.stopPropagation(); window.contextTargetId = '${sch.id}'; window.editFromMenu(); 
                  }">
-                <span style="font-family: 'Paperozi', sans-serif; font-size: 15px; font-weight: 600; text-align: left; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3;">${displayTitle}</span>
+                <span style="font-family: 'Paperozi', sans-serif; font-size: 15px; font-weight: 600; text-align: left; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3;">${displayTitleOneLine}</span>
                 ${formattedTime ? `<span style="font-family: 'Paperozi', sans-serif; font-size: 12px; font-weight: 700; color: #5D4037; flex-shrink: 0; margin-left: 6px; white-space: nowrap;">${formattedTime}</span>` : ''}
             </div>
         `;
@@ -2679,16 +2944,17 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const shiftDownClass = (isBangon && !formattedTime) ? 'pt-4' : '';
 
     return `
-        <div class="schedule-card ${typeClass} flex flex-col h-full"
-             style="background-color: ${bgColor} !important; ${textColor}"
+        <div class="schedule-card ${typeClass} flex flex-col h-full" data-sch-id="${sch.id}"
+             style="background-color: ${bgColor} !important; ${textColor} ${dragCursorStyle}"
+             ${dragPointerAttr}
              onclick="openDetailModal(event, '${sch.id}')" 
              oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
                  event.preventDefault(); event.stopPropagation(); window.contextTargetId = '${sch.id}'; window.editFromMenu(); 
              }">
              ${timeHtml}
              <div class="flex-1 flex items-center justify-center w-full min-h-0 px-0.5 py-0 ${shiftDownClass}">
-                 <div class="schedule-text" style="font-size: 17px !important; line-height: 1 !important; white-space: normal;">
-                     ${displayTitle}
+                 <div class="schedule-text" style="font-size: 17px !important; line-height: 1.2 !important; white-space: normal;">
+                     ${displayTitleHtml}
                  </div>
              </div>
         </div>
@@ -4189,11 +4455,18 @@ function renderMobileIndividual(grouped) {
         const isToday = d.getFullYear() === realToday.getFullYear() && d.getMonth() === realToday.getMonth() && d.getDate() === realToday.getDate();
         
         let dayGlobalTime = '';
+        let isDayHubang = false;
         if (daySchedules.length > 0) {
             const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
-            if (sWithGlobal) dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
+            if (sWithGlobal) {
+                dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
+            } else if (daySchedules.some(s => s.globalType === '휴방')) {
+                isDayHubang = true;
+            }
         }
-        const timeDisplayHtml = dayGlobalTime ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white" style="color: ${isToday ? themeColor : '#5D4037'}">${dayGlobalTime}</span>` : '';
+        const timeDisplayHtml = dayGlobalTime
+            ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white" style="color: ${isToday ? themeColor : '#5D4037'}">${dayGlobalTime}</span>`
+            : (isDayHubang ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white text-gray-400">휴방</span>` : '');
 
         if (!schedulesHtml) {
             schedulesHtml = `<div class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50"><span class="text-gray-400 text-[14px] font-bold">일정 없음</span></div>`;
@@ -4285,11 +4558,18 @@ function renderDesktopIndividual(grouped) {
             const lunarDate = getLunarDate(currentYear, currentMonth, day);
             
             let dayGlobalTime = '';
+            let isDayHubang = false;
             if (daySchedules.length > 0) {
                 const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
-                if (sWithGlobal) dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
+                if (sWithGlobal) {
+                    dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
+                } else if (daySchedules.some(s => s.globalType === '휴방')) {
+                    isDayHubang = true;
+                }
             }
-            const timeDisplayHtml = dayGlobalTime ? `<span class="text-[13px] font-bold text-[#5D4037]">${dayGlobalTime}</span>` : '';
+            const timeDisplayHtml = dayGlobalTime
+                ? `<span class="text-[13px] font-bold text-[#5D4037]">${dayGlobalTime}</span>`
+                : (isDayHubang ? `<span class="text-[13px] font-bold text-gray-400">휴방</span>` : '');
             const dateClass = isToday ? "today-highlight text-white w-7 h-7 inline-flex items-center justify-center rounded-md" : "";
             const displayDay = `<span class="${dateClass}">${day}</span>`;            
 
@@ -4551,7 +4831,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
             
             <div class="mb-4 pr-20"> 
                 <label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목</label>
-                <input type="text" class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[16px] font-medium" placeholder="일정 제목 입력" value="${title}">
+                <textarea class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[16px] font-medium resize-none" rows="2" placeholder="일정 제목 입력 (Enter로 줄바꿈)">${title}</textarea>
             </div>
             
             <div class="grid grid-cols-2 gap-4 mb-4">
@@ -4671,8 +4951,11 @@ function openScheduleModal(year, month, day, member) {
             return `
             <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
                 <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
-                    <span class="font-bold text-[#5D4037] text-[16px]">${sch.title || '일정'}</span>
-                    <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold">${btnText}</span>
+                    <div class="flex items-center gap-1 min-w-0">
+                        <span class="schedule-drag-handle" onpointerdown="event.stopPropagation(); startScheduleDrag(event, this)" onclick="event.stopPropagation()" title="드래그하여 순서 변경">⠿</span>
+                        <span class="font-bold text-[#5D4037] text-[16px] truncate">${(sch.title || '일정').split('\n')[0]}</span>
+                    </div>
+                    <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold shrink-0">${btnText}</span>
                 </div>
                 <button type="button" class="absolute top-2 right-2 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="event.stopPropagation(); this.closest('.schedule-accordion-wrapper').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>
                 
@@ -4688,8 +4971,11 @@ function openScheduleModal(year, month, day, member) {
         const wrapperHtml = `
         <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
             <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
-                <span class="font-bold text-[#5D4037] text-[16px]">새 일정</span>
-                <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold">접기</span>
+                <div class="flex items-center gap-1 min-w-0">
+                    <span class="schedule-drag-handle" onpointerdown="event.stopPropagation(); startScheduleDrag(event, this)" onclick="event.stopPropagation()" title="드래그하여 순서 변경">⠿</span>
+                    <span class="font-bold text-[#5D4037] text-[16px] truncate">새 일정</span>
+                </div>
+                <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold shrink-0">접기</span>
             </div>
             <button type="button" class="absolute top-2 right-2 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="event.stopPropagation(); this.closest('.schedule-accordion-wrapper').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>
             
@@ -4718,8 +5004,11 @@ function addScheduleInputBlock() {
     const wrapperHtml = `
     <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
         <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
-            <span class="font-bold text-[#5D4037] text-[16px]">새 일정</span>
-            <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold">접기</span>
+            <div class="flex items-center gap-1 min-w-0">
+                <span class="schedule-drag-handle" onpointerdown="event.stopPropagation(); startScheduleDrag(event, this)" onclick="event.stopPropagation()" title="드래그하여 순서 변경">⠿</span>
+                <span class="font-bold text-[#5D4037] text-[16px] truncate">새 일정</span>
+            </div>
+            <span id="${btnId}" class="accordion-toggle-btn text-[12px] text-gray-400 font-bold shrink-0">접기</span>
         </div>
         <button type="button" class="absolute top-2 right-2 text-[#5D4037] text-[35px] font-bold flex items-center justify-center hover:scale-110 transition-all z-10" onclick="event.stopPropagation(); this.closest('.schedule-accordion-wrapper').remove()" title="일정 삭제"><i class="fi fi-sr-minus-small"></i></button>
         
@@ -4815,7 +5104,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             }
 
             const titleInner = schedules.length > 1
-                ? `<div class="text-[17px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi mb-1">${sch.title}</div>`
+                ? `<div class="text-[17px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi mb-1 whitespace-pre-line">${sch.title}</div>`
                 : '';
             
             let badgeHtml = sch.globalType === '휴방' ? '' : 
