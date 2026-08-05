@@ -706,17 +706,17 @@ const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또'
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
 const members = [
-    { name: '달타', img: 'https://i.postimg.cc/PqcVNpvJ/Honeycam-2026-07-27-23-47-27.webp', link: '' },
-    { name: '다룽', img: 'https://i.postimg.cc/MG43XMMh/Honeycam-2026-07-27-23-46-37.webp', link: '' },
-    { name: '최또', img: 'https://i.postimg.cc/fTjP5RpV/jemog-eul-iblyeoghaejuseyo-1.webp', link: '' },
-    { name: '카나시', img: 'https://i.postimg.cc/pTfS7VyW/Honeycam-2026-07-27-23-59-57.webp', link: '' }
+    { name: '달타', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907566/q2lgk8prti5mw7fh5rmg.webp', link: '' },
+    { name: '다룽', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907565/k9lkfb7qgyxwcn1jmpt4.webp', link: '' },
+    { name: '최또', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907565/qzitgyxsphiu593ppmgx.webp', link: '' },
+    { name: '카나시', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907566/pbr04hecm9okfbd65ezo.webp', link: '' }
 ];
 
 const memberCardImages = {
-    '달타': { bangon: 'https://i.postimg.cc/nL5SMj9C/Honeycam-2026-07-27-23-47-23.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1781258057/xdj7vmhrw19fuhg9wec6.png' },
-    '다룽': { bangon: 'https://i.postimg.cc/jj93Cwnq/Honeycam-2026-07-27-23-47-14.webp', hubang: 'https://i.postimg.cc/s28H1QGz/Honeycam-2026-07-27-23-46-50.webp' },
-    '최또': { bangon: 'https://i.postimg.cc/9fSgzRwf/Honeycam-2026-07-27-23-47-18.webp', hubang: 'https://i.postimg.cc/SK51j2Yq/Honeycam-2026-07-27-23-46-59.webp' },
-    '카나시': { bangon: 'https://i.postimg.cc/CKtrdBnh/Honeycam-2026-07-27-23-47-10.webp', hubang: 'https://i.postimg.cc/Ls7QhYgp/Honeycam-2026-07-27-23-46-54.webp' }
+    '달타': { bangon: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907571/uyoruoejz5n2mdr8jkjv.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1781258057/xdj7vmhrw19fuhg9wec6.png' },
+    '다룽': { bangon: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907639/vhnnhxhvbezj9wlbboom.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907567/hqvmc3qaqivbvhc8kcis.webp' },
+    '최또': { bangon: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907571/xkcrf3zuzanntotmit3h.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907568/yhn3y5kqxbw1r7cq5mkq.webp' },
+    '카나시': { bangon: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907570/bmqod03pxn9pqnivep0t.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907568/yqi8wxpmvjyr8clpkoax.webp' }
 };
 
 // 멤버별 SOOP(아프리카TV) 아이디 매핑 - 라이브 여부 확인 및 방송 바로가기에 사용
