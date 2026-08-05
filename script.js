@@ -706,10 +706,10 @@ const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또'
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
 const members = [
-    { name: '달타', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907566/q2lgk8prti5mw7fh5rmg.webp', link: '' },
-    { name: '다룽', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907565/k9lkfb7qgyxwcn1jmpt4.webp', link: '' },
-    { name: '최또', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907565/qzitgyxsphiu593ppmgx.webp', link: '' },
-    { name: '카나시', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907566/pbr04hecm9okfbd65ezo.webp', link: '' }
+    { name: '달타', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785928620/uodvkwj0qjdjin70rcxo.png', link: '' },
+    { name: '다룽', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785928620/gypbjkhw8w3kp3stzvsc.png', link: '' },
+    { name: '최또', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785928620/j3bepaz6qbaxems1qt6n.png', link: '' },
+    { name: '카나시', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785928620/dn7ay5k3xy7im55zzo8f.png', link: '' }
 ];
 
 const memberCardImages = {
@@ -4906,7 +4906,7 @@ function renderMobileIndividual(grouped) {
 function renderDesktopHome(grouped) {
     const content = document.getElementById('mainContent');
     const realToday = new Date();
-    const logoImgUrl = "https://i.postimg.cc/SsC1x8x9/twd-Kl0kpj-m-F6Pga-E2tp-Xs12Soo-ZQYJg-Uyp-HF1GLpbo-ADh-DGCu-THODWZ-LSQ4m-Pz0pz-Rj-XDTxaf3ife-GCn-GMx.webp";
+    const logoImgUrl = "https://res.cloudinary.com/dtlqzklk5/image/upload/v1785906907/gbcyhj4y00hrunv0encx.webp";
     
     const today = new Date(); const diff = today.getDay() === 0 ? -6 : 1 - today.getDay();
     const monday = new Date(today); monday.setDate(today.getDate() + diff);
