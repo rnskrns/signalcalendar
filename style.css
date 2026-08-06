@@ -70,7 +70,7 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 /* 2. 홈 탭 컨테이너: 기존 가로폭과 줌 비율 유지 */
 .home-white-box { 
     width: 2348px; 
-    zoom: 0.79; 
+    zoom: 0.83; 
 }
 
 /* 3. 개인일정 컨테이너: 가로폭을 줄이고 줌 비율 1 적용 */
