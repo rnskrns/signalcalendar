@@ -1262,7 +1262,7 @@ const soopBoards = [
     { name: '달타', userId: 'dalta20', color: '#FBC02D', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/dalta20/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=89892972' },
     { name: '다룽', userId: 'daarung22', color: '#1E88E5', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/daarung22/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=90309005' },
     { name: '최또', userId: 'choiagain', color: '#f745c1', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/choiagain/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=98735869' },
-    { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=80727213' }
+    { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=80727213', pinnedPostIds: ['203529185'] }
 ];
 
 // 모바일/데스크탑 어디서 홈 화면이 다시 그려지더라도(날짜 이동 등) 공지 데이터를
@@ -1300,6 +1300,16 @@ async function fetchAndRenderAllNotices() {
                 try {
                     console.log(`[공지 디버그] ${board.name} 게시글 샘플 (JSON 전체, 복사용):`, JSON.stringify(posts[0], null, 2));
                 } catch (e) { /* 순환참조 등 무시 */ }
+
+                // 고정/공지 관련 필드를 찾기 위한 진단: 각 글의 키 중 notice/pin/fix/top 이 들어간 키와 값을 모두 출력
+                posts.forEach((post, idx) => {
+                    const suspectKeys = Object.keys(post).filter(k => /notice|pin|fix|top|essential/i.test(k));
+                    if (suspectKeys.length > 0) {
+                        const dump = {};
+                        suspectKeys.forEach(k => { dump[k] = post[k]; });
+                        console.log(`[공지 디버그][고정글 후보] ${board.name} #${idx} (title:${post.titleName || post.title}) →`, dump);
+                    }
+                });
             }
 
             if (!res.ok) {
@@ -1321,7 +1331,49 @@ async function fetchAndRenderAllNotices() {
             }
 
             // 스트리머별 최신글 2개만 추출 (전체가 한 스트리머로 도배되지 않도록)
-            const latestPosts = streamerPosts.slice(0, 2);
+            // 단, 상단 고정된 공지글은 작성일이 오래돼도 최신 2개 안에 못 들 수 있으므로
+            // 별도로 챙겨서 항상 포함시킨다. (API마다 필드명이 다를 수 있어 폭넓게 확인)
+            const isPinnedPost = (post) => {
+                const truthy = (v) => v === true || v === 'Y' || v === 'y' || v === '1' || v === 1;
+                return truthy(post.isNotice) || truthy(post.isPin) || truthy(post.is_notice) || truthy(post.is_pin) ||
+                       truthy(post.notice_yn) || truthy(post.noticeYn) || truthy(post.fix_yn) || truthy(post.fixYn) ||
+                       truthy(post.top_fix_yn) || truthy(post.topFixYn) || truthy(post.pin_yn) || truthy(post.pinYn);
+            };
+            const pinnedPosts = streamerPosts.filter(isPinnedPost);
+            const normalPosts = streamerPosts.filter((post) => !isPinnedPost(post));
+            let latestPosts = [...pinnedPosts, ...normalPosts.slice(0, 2)];
+
+            if (pinnedPosts.length > 0) {
+                console.log(`[공지 디버그] ${board.name} 고정글 ${pinnedPosts.length}건 감지됨:`, pinnedPosts);
+            }
+
+            // 게시판 목록 API에는 고정 공지글이 아예 안 잡히는 경우가 있어(오래된 글이라 페이지 밖으로 밀림 등),
+            // 해당 스트리머에 등록해둔 고정글 ID가 있으면 게시글 단건 조회 API로 직접 가져와 합쳐준다.
+            if (Array.isArray(board.pinnedPostIds) && board.pinnedPostIds.length > 0) {
+                const getPostNo = (post) => post.title_no || post.titleNo || post.no || post.id || post.post_id || post.postId;
+                for (const pinnedId of board.pinnedPostIds) {
+                    const alreadyIncluded = latestPosts.some((p) => String(getPostNo(p)) === String(pinnedId));
+                    if (alreadyIncluded) continue;
+
+                    try {
+                        const pinRes = await fetch(`https://api-channel.sooplive.com/v1.1/channel/${board.userId}/post/${pinnedId}`, {
+                            headers: { Accept: "application/json" },
+                        });
+                        const pinData = await pinRes.json();
+                        const pinnedPost = pinData?.data || pinData;
+
+                        console.log(`[공지 디버그] ${board.name} 고정글 단건 조회(#${pinnedId}) → status:${pinRes.status}`, pinnedPost);
+
+                        if (pinnedPost && typeof pinnedPost === 'object' && !Array.isArray(pinnedPost)) {
+                            latestPosts = [pinnedPost, ...latestPosts];
+                        } else {
+                            console.warn(`${board.name} 고정글(#${pinnedId}) 단건 조회 응답 형식이 예상과 달라 건너뜀`, pinData);
+                        }
+                    } catch (pinError) {
+                        console.error(`${board.name} 고정글(#${pinnedId}) 단건 조회 실패`, pinError);
+                    }
+                }
+            }
 
             latestPosts.forEach(post => {
                 collectedPosts.push({ board, post, date: getPostDate(post) });
@@ -1331,11 +1383,12 @@ async function fetchAndRenderAllNotices() {
         }
     }
 
-    // 시간순(최신 먼저) 정렬 — 시간 정보가 없는 글은 뒤로 보냄
+    // 시간순(오래된 글 → 최신 글) 정렬 — 메신저처럼 최신 글이 가장 아래에 오도록 함
+    // 시간 정보가 없는 글은 가장 오래된 취급으로 위쪽에 배치
     collectedPosts.sort((a, b) => {
-        if (a.date && b.date) return b.date.getTime() - a.date.getTime();
-        if (a.date) return -1;
-        if (b.date) return 1;
+        if (a.date && b.date) return a.date.getTime() - b.date.getTime();
+        if (a.date) return 1;
+        if (b.date) return -1;
         return 0;
     });
 
@@ -1370,14 +1423,18 @@ async function fetchAndRenderAllNotices() {
         console.log(`[공지 디버그] 카드 데이터 → 닉네임:${nickname}, 프사:${profileImg}, 제목:${postTitle}, 내용:${postBody}`);
 
         itemsHtml += `
-            <div class="flex flex-col gap-2 p-3 bg-[#FFFDF5] border border-[#5D4037]/15 rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,0.08)] cursor-pointer hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,0.15)] transition-all" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
-                <div class="flex items-center gap-2">
-                    <img src="${profileImg}" alt="${nickname}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover shrink-0" style="background-color:${board.color};" onerror="this.style.display='none'">
-                    <span class="text-[12px] font-bold shrink-0" style="color: ${board.color};">${nickname}</span>
-                    ${timeLabel ? `<span class="ml-auto text-[11px] text-[#9C8B85] shrink-0">${timeLabel}</span>` : ''}
+            <div class="kakao-msg-row" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
+                <img src="${profileImg}" alt="${nickname}" loading="lazy" decoding="async" class="kakao-avatar" style="background-color:${board.color};" onerror="this.style.display='none'">
+                <div class="kakao-msg-col">
+                    <span class="kakao-nick" style="color:${board.color};">${nickname}</span>
+                    <div class="kakao-bubble-row">
+                        <div class="kakao-bubble">
+                            <div class="kakao-bubble-title">${postTitle}</div>
+                            ${postBody ? `<div class="kakao-bubble-body">${postBody}</div>` : ''}
+                        </div>
+                        ${timeLabel ? `<span class="kakao-time">${timeLabel}</span>` : ''}
+                    </div>
                 </div>
-                <span class="text-[14px] font-bold text-[#3E2723] leading-snug" style="display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden;">${postTitle}</span>
-                ${postBody ? `<span class="text-[12.5px] font-semibold text-[#8D7B72] leading-snug" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${postBody}</span>` : ''}
             </div>
         `;
     });
@@ -1395,11 +1452,23 @@ async function fetchAndRenderAllNotices() {
     if (mobileNoticeList) mobileNoticeList.innerHTML = itemsHtml;
     if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasAnyPost);
 
-    // 공지 박스 내용이 갱신됐으니 주간일정 박스 밑선에 맞춰 높이 재조정
-    requestAnimationFrame(alignNoticeBoxHeight);
+    // 공지 박스 내용이 갱신됐으니 주간일정 박스 밑선에 맞춰 높이 재조정 후,
+    // 메신저처럼 최신 글(맨 아래)이 보이도록 스크롤을 맨 밑으로 이동
+    requestAnimationFrame(() => {
+        alignNoticeBoxHeight();
+        scrollNoticeListsToBottom();
+    });
     
     // 데이터 렌더링 성공 여부 반환
     return hasAnyPost;
+}
+
+// 공지 리스트(데스크탑/모바일)를 메신저처럼 맨 아래(최신 글)로 스크롤
+function scrollNoticeListsToBottom() {
+    const noticeList = document.getElementById('homeNoticeList');
+    const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
+    if (noticeList) noticeList.scrollTop = noticeList.scrollHeight;
+    if (mobileNoticeList) mobileNoticeList.scrollTop = mobileNoticeList.scrollHeight;
 }
 
 // mainContent가 새로 그려질 때(모바일 홈탭 등) 캐시된 공지 데이터를 즉시 반영
@@ -1408,6 +1477,7 @@ function applyCachedNoticeToMobileHome() {
     const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
     if (mobileNoticeList) mobileNoticeList.innerHTML = cachedNoticeItemsHtml;
     if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasCachedNotice);
+    requestAnimationFrame(scrollNoticeListsToBottom);
 }
 
 // 데스크탑 홈 화면(주간일정 박스)과 옆의 공지 박스 밑선을 맞춰서 공지 리스트 높이를 자동 조절
@@ -4817,7 +4887,7 @@ function renderMobileHome(grouped) {
             <div class="text-[15px] font-bold text-[#5D4037] mb-2 font-paperozi flex items-center gap-2">
                 공지
             </div>
-            <div id="mobileHomeNoticeList" class="flex flex-col gap-2 max-h-[570px] overflow-y-auto modal-scroll pr-1"></div>
+            <div id="mobileHomeNoticeList" class="kakao-chat-bg flex flex-col gap-3 p-3 max-h-[570px] overflow-y-auto modal-scroll pr-1"></div>
         </div>
     `;
     content.innerHTML = html;

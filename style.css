@@ -229,6 +229,47 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 .modal-scroll::-webkit-scrollbar-thumb { background: #5D4037; border-radius: 8px; border: 2px solid #FFFDF5;}
 .modal-scroll::-webkit-scrollbar-track { background: transparent; }
 
+/* ===== 카카오톡 메신저 스타일 공지 카드 ===== */
+.kakao-chat-bg {
+    background-color: #B2C7DA;
+    background-image:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.15) 0, transparent 45%),
+        radial-gradient(circle at 80% 70%, rgba(255,255,255,0.12) 0, transparent 45%);
+    border-radius: 18px;
+}
+.kakao-msg-row { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; transition: transform 0.15s ease; }
+.kakao-msg-row:hover { transform: translateY(-1px); }
+.kakao-avatar {
+    width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    background-color: #fff;
+}
+.kakao-msg-col { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.kakao-nick { font-size: 12.5px; font-weight: 700; color: #3E2723; margin-bottom: 3px; }
+.kakao-bubble-row { display: flex; align-items: flex-end; gap: 6px; }
+.kakao-bubble {
+    position: relative;
+    background: #FFFFFF;
+    border-radius: 4px 14px 14px 14px;
+    padding: 9px 12px;
+    max-width: 82%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.kakao-bubble::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -7px;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 8px 10px 0;
+    border-color: transparent #FFFFFF transparent transparent;
+}
+.kakao-bubble-title { font-size: 13.5px; font-weight: 700; color: #3E2723; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.kakao-bubble-body { margin-top: 2px; font-size: 12.5px; font-weight: 500; color: #6B5D57; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.kakao-time { font-size: 10.5px; color: #5D4037; opacity: 0.8; white-space: nowrap; margin-bottom: 2px; }
+.kakao-msg-row:hover .kakao-bubble { box-shadow: 0 2px 5px rgba(0,0,0,0.25); }
+
 .admin-button { position: fixed; bottom: 20px; right: 20px; z-index: 100; background: #5D4037; color: white; border: none; padding: 12px 16px; border-radius: 9999px; font-weight: 700; box-shadow: 0 10px 20px rgba(0,0,0,0.15); cursor: pointer; }
 .admin-button:hover { transform: translateY(-1px); }
 
