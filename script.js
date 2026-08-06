@@ -1498,8 +1498,11 @@ function alignNoticeBoxHeight() {
     const noticeBoxPaddingBottom = parseFloat(getComputedStyle(noticeBox).paddingBottom) || 0;
 
     // 공지 리스트가 시작되는 위치부터 주간일정 박스 밑선까지 남는 높이를 계산해서 그대로 적용
+    // max-height만 쓰면 공지 개수가 적을 때 리스트가 짧아져서 밑선이 안 맞으므로,
+    // height를 직접 고정해 내용이 적어도(빈 공간은 스크롤 영역으로) 항상 밑선이 맞도록 함
     const availableHeight = Math.round(scheduleRect.bottom - noticeListRect.top - noticeBoxPaddingBottom - 4);
     if (availableHeight > 80) {
+        noticeList.style.height = `${availableHeight}px`;
         noticeList.style.maxHeight = `${availableHeight}px`;
     }
 }
@@ -4994,7 +4997,7 @@ function renderDesktopHome(grouped) {
     const rowBgColors = ['#FFFDE7', '#E3F2FD', '#FFF0F5', '#FFF3E0'];
     const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff7fd9', '#F57C00'];
 
-    let homeHtml = `<div class="home-white-box"><div class="mb-8 w-full"><div class="flex gap-[22px] justify-center items-end"><div class="w-[277px] flex items-center justify-center pb-2"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container">${headerHtml}</div></div></div><div class="weekly-grid">`;
+    let homeHtml = `<div class="home-white-box"><div class="mb-3 w-full"><div class="flex gap-[22px] justify-center items-end"><div class="w-[277px] flex items-center justify-center pb-2"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container header-days-container-week">${headerHtml}</div></div></div><div class="weekly-grid">`;
 
     members.forEach((member, i) => {
         let daysCellsHtml = '';
@@ -5017,7 +5020,7 @@ function renderDesktopHome(grouped) {
             daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
         });
 
-        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" onclick="handleProfileClick(event, '${member.name}', '${member.link || ''}')"><img src="${member.img}" alt="${member.name}" style="width: 100%; height: 100%; object-fit: cover;"><div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요"><span class="live-badge-dot"></span>LIVE</div></div><div class="days-container">${daysCellsHtml}</div></div>`;
+        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" onclick="handleProfileClick(event, '${member.name}', '${member.link || ''}')"><img src="${member.img}" alt="${member.name}" class="profile-img"><div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요"><span class="live-badge-dot"></span>LIVE</div></div><div class="days-container">${daysCellsHtml}</div></div>`;
     });
     content.innerHTML = homeHtml + `</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
