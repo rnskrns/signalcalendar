@@ -707,8 +707,8 @@ const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최�
 
 const members = [
     { name: '달타', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785928620/uodvkwj0qjdjin70rcxo.png', link: '' },
-    { name: '다룽', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1786031393/fpjzphlstpdnevy9a1lq.png', link: '' },
-    { name: '최또', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1786031320/dqr8iaeje2zdxiyypx9l.png', link: '' },
+    { name: '다룽', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1786035207/uldzdy1jbmbrf12tmlqu.webp', link: '' },
+    { name: '최또', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1786035206/e9tkogpiublhtgrktkp1.webp', link: '' },
     { name: '카나시', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785928620/dn7ay5k3xy7im55zzo8f.png', link: '' }
 ];
 
