@@ -1262,7 +1262,7 @@ const soopBoards = [
     { name: '달타', userId: 'dalta20', color: '#FBC02D', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/dalta20/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=89892972' },
     { name: '다룽', userId: 'daarung22', color: '#1E88E5', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/daarung22/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=90309005' },
     { name: '최또', userId: 'choiagain', color: '#f745c1', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/choiagain/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=98735869' },
-    { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=80727213', pinnedPostIds: ['203529185'] }
+    { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=80727213', pinnedOnly: true }
 ];
 
 // 모바일/데스크탑 어디서 홈 화면이 다시 그려지더라도(날짜 이동 등) 공지 데이터를
@@ -1334,14 +1334,43 @@ async function fetchAndRenderAllNotices() {
             // 단, 상단 고정된 공지글은 작성일이 오래돼도 최신 2개 안에 못 들 수 있으므로
             // 별도로 챙겨서 항상 포함시킨다. (API마다 필드명이 다를 수 있어 폭넓게 확인)
             const isPinnedPost = (post) => {
-                const truthy = (v) => v === true || v === 'Y' || v === 'y' || v === '1' || v === 1;
+                // 불리언(true/'Y') 형태와, 실제 API처럼 숫자 코드(예: noticeYn:2)로 내려오는 형태를 모두 인정.
+                // 0/'0'/'N'/null/undefined 등만 "고정 아님"으로 취급하고, 그 외 값이 있으면 고정으로 판단한다.
+                const truthy = (v) => {
+                    if (v === undefined || v === null) return false;
+                    if (v === true) return true;
+                    if (v === false) return false;
+                    if (typeof v === 'string') {
+                        const s = v.trim().toUpperCase();
+                        if (s === '' || s === '0' || s === 'N') return false;
+                        if (s === 'Y') return true;
+                        const n = Number(s);
+                        return !isNaN(n) && n > 0;
+                    }
+                    if (typeof v === 'number') return v > 0;
+                    return false;
+                };
                 return truthy(post.isNotice) || truthy(post.isPin) || truthy(post.is_notice) || truthy(post.is_pin) ||
                        truthy(post.notice_yn) || truthy(post.noticeYn) || truthy(post.fix_yn) || truthy(post.fixYn) ||
                        truthy(post.top_fix_yn) || truthy(post.topFixYn) || truthy(post.pin_yn) || truthy(post.pinYn);
             };
             const pinnedPosts = streamerPosts.filter(isPinnedPost);
             const normalPosts = streamerPosts.filter((post) => !isPinnedPost(post));
-            let latestPosts = [...pinnedPosts, ...normalPosts.slice(0, 2)];
+            // 고정글이 여러 개일 때 목록 API가 반환하는 순서를 신뢰하지 않고,
+            // 날짜(regDate 등)를 직접 비교해 최신순으로 정렬한 뒤 앞에서부터 뽑는다.
+            // 날짜를 못 읽는 글은 가장 오래된 것으로 취급해 뒤로 보낸다.
+            const sortedPinnedPosts = [...pinnedPosts].sort((a, b) => {
+                const da = getPostDate(a);
+                const db = getPostDate(b);
+                if (da && db) return db.getTime() - da.getTime();
+                if (da) return -1;
+                if (db) return 1;
+                return 0;
+            });
+            // pinnedOnly로 설정된 보드(예: 카나시)는 최신 일반글은 섞지 않고, 날짜가 가장 최근인 고정글 2개만 노출한다.
+            let latestPosts = board.pinnedOnly
+                ? sortedPinnedPosts.slice(0, 2)
+                : [...sortedPinnedPosts, ...normalPosts.slice(0, 2)];
 
             if (pinnedPosts.length > 0) {
                 console.log(`[공지 디버그] ${board.name} 고정글 ${pinnedPosts.length}건 감지됨:`, pinnedPosts);
