@@ -1259,6 +1259,9 @@ function formatRelativeTime(date) {
 
 // 4명의 스트리머 API 정보 배열
 const soopBoards = [
+    { name: '달타', userId: 'dalta20', color: '#FBC02D', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/dalta20/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=89892972' },
+    { name: '다룽', userId: 'daarung22', color: '#1E88E5', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/daarung22/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=90309005' },
+    { name: '최또', userId: 'choiagain', color: '#f745c1', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/choiagain/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=98735869' },
     { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/post/203536965/relatedposts?page=1&perPage=20&type=all', noticeBoard: true }
 ];
 
@@ -1288,7 +1291,7 @@ async function fetchAndRenderAllNotices() {
             });
             
             const data = await res.json();
-            const posts = data?.data || data?.posts || data?.contents || [];
+            const posts = data?.data?.list || data?.data?.posts || data?.data || data?.posts || data?.contents || data?.list || (Array.isArray(data) ? data : []) || [];
 
             // 진단용 로그: 무슨 상황이든 콘솔에서 원인을 바로 확인할 수 있도록 항상 출력
             console.log(`[공지 디버그] ${board.name} (${board.userId}) → status:${res.status}, posts수신:${Array.isArray(posts) ? posts.length : '배열아님'}`, data);
@@ -1318,7 +1321,10 @@ async function fetchAndRenderAllNotices() {
                 post.user_id || post.userId || post.writer_id || post.writerId ||
                 post.writer?.id || post.writer?.user_id || post.author_id || post.authorId;
 
-            const streamerPosts = posts.filter((post) => {
+            // 공지 전용 게시판(noticeBoard)은 이미 해당 채널/게시글 범위로 응답이 한정되어 오고,
+            // 응답 스키마도 일반 게시판 목록 API와 달라 user_id 필드가 없거나 다른 형태일 수 있으므로
+            // 이 경우엔 user_id로 걸러내지 않고 받은 글을 그대로 사용한다.
+            const streamerPosts = board.noticeBoard ? posts : posts.filter((post) => {
                 const uid = getPostUserId(post);
                 return uid && uid.toLowerCase() === board.userId.toLowerCase();
             });
@@ -1421,6 +1427,37 @@ async function fetchAndRenderAllNotices() {
     });
 
     console.log(`[공지 디버그] 정렬 결과 (${collectedPosts.length}건):`, collectedPosts.map(c => ({ name: c.board.name, date: c.date, raw: c.post.reg_date || c.post.regDate || c.post.regdate })));
+
+    // 게시판 목록 API는 제목만 내려주고 본문 내용은 비어있는 경우가 많아,
+    // 내용이 없는 글은 게시글 단건 조회 API로 본문을 추가로 가져와 채워준다.
+    await Promise.all(collectedPosts.map(async (item) => {
+        const existingBody = extractText(item.post.content?.textContent || item.post.content?.summary || item.post.contents || item.post.content || item.post.body);
+        if (existingBody) return; // 이미 내용이 있으면 그대로 사용
+
+        const postNo = item.post.title_no || item.post.titleNo || item.post.no || item.post.id || item.post.post_id || item.post.postId;
+        if (!postNo) return;
+
+        try {
+            const detailRes = await fetch(`https://api-channel.sooplive.com/v1.1/channel/${item.board.userId}/post/${postNo}`, {
+                headers: { Accept: "application/json" },
+            });
+            const detailData = await detailRes.json();
+            const detailPost = detailData?.data || detailData;
+
+            console.log(`[공지 디버그] ${item.board.name} 본문 단건 조회(#${postNo}) → status:${detailRes.status}`, detailPost);
+
+            if (detailPost && typeof detailPost === 'object' && !Array.isArray(detailPost)) {
+                item.post = {
+                    ...item.post,
+                    content: detailPost.content ?? item.post.content,
+                    contents: detailPost.contents ?? item.post.contents,
+                    body: detailPost.body ?? item.post.body,
+                };
+            }
+        } catch (e) {
+            console.error(`${item.board.name} 게시글(#${postNo}) 본문 단건 조회 실패`, e);
+        }
+    }));
 
     let itemsHtml = '';
     collectedPosts.forEach(({ board, post, date }) => {
