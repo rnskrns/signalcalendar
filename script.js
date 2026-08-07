@@ -3110,16 +3110,13 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     }
 
     const timeHtml = formattedTime ? `
-        <div class="flex justify-end w-full pr-1 pt-0 mt-[-1px] shrink-0">
+        <div class="absolute top-1 right-1.5 z-10">
             <span class="text-[11px] font-bold" style="color: #5D4037;">${formattedTime}</span>
         </div>
     ` : '';
 
-    const isBangon = sch.globalType !== '휴방';
-    const shiftDownClass = (isBangon && !formattedTime) ? 'pt-4' : '';
-
     return `
-        <div class="schedule-card ${typeClass} flex flex-col h-full" data-sch-id="${sch.id}"
+        <div class="schedule-card ${typeClass} relative h-full" data-sch-id="${sch.id}"
              style="background-color: ${bgColor} !important; ${textColor} ${dragCursorStyle}"
              ${dragPointerAttr}
              onclick="openDetailModal(event, '${sch.id}')" 
@@ -3127,7 +3124,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
                  event.preventDefault(); event.stopPropagation(); window.contextTargetId = '${sch.id}'; window.editFromMenu(); 
              }">
              ${timeHtml}
-             <div class="flex-1 flex items-center justify-center w-full min-h-0 px-0.5 py-0 ${shiftDownClass}">
+             <div class="absolute inset-0 flex items-center justify-center w-full px-0.5 py-0">
                  <div class="schedule-text" style="font-size: 17px !important; line-height: 1.2 !important; white-space: normal;">
                      ${displayTitleHtml}
                  </div>
