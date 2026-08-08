@@ -3,6 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script>
+        // 다크모드 초기화 (렌더링 전에 적용하여 화면 깜빡임 방지)
+        (function() {
+            var saved = localStorage.getItem('darkMode');
+            if (saved === '1') {
+                document.documentElement.classList.add('dark-mode');
+            }
+        })();
+        window.toggleDarkMode = function() {
+            var html = document.documentElement;
+            var isDark = html.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDark ? '1' : '0');
+        };
+    </script>
     
     <link rel="icon" href="https://i.postimg.cc/wjrJrQ0c/A1EAA0.png">
     <link rel="apple-touch-icon" href="https://i.postimg.cc/wjrJrQ0c/A1EAA0.png">
@@ -91,6 +106,10 @@
                 <div id="desktopAuthContainer" class="ml-1 relative">
                     <button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="handleAdminClick()">로그인</button>
                 </div>
+                <button class="dark-mode-toggle-btn" onclick="toggleDarkMode()" title="다크모드 전환">
+                    <i class="fi fi-rr-sun fi-sun"></i>
+                    <i class="fi fi-rr-moon fi-moon"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -109,6 +128,10 @@
             <div id="mobileAuthContainer" class="shrink-0 relative">
                 <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="handleAdminClick()">로그인</button>
             </div>
+            <button class="dark-mode-toggle-btn-mobile" onclick="toggleDarkMode()" title="다크모드 전환">
+                <i class="fi fi-rr-sun fi-sun"></i>
+                <i class="fi fi-rr-moon fi-moon"></i>
+            </button>
             <div id="mobileHeaderRightBtn" class="shrink-0"></div>
         </div>
     </header>

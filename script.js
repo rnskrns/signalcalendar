@@ -3071,16 +3071,19 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 
     let bgColor = sch.globalType === '휴방' ? '#E5E7EB' : (memberColors[memberName] || '#FFFFFF');
     let textColor = ''; 
+    // 다크모드에서 배경색/텍스트색을 서로 스왑하기 위해 실제 텍스트 색상을 별도로 계산해둠
+    let finalTextColor = (sch.globalType === '휴방') ? '#6B7280' : 'var(--theme-color)';
     
     if (isHabBang) {
         bgColor = '#f6cefc'; 
-        textColor = 'color: #a21caf !important; border-color: #e29fee !important;'; 
+        finalTextColor = '#a21caf';
+        textColor = 'border-color: #e29fee !important;'; 
     } else if (isSignalHabBang) {
         bgColor = '#ffdddd'; 
-        textColor = 'color: #ff6767 !important;'; 
+        finalTextColor = '#ff6767';
     } else if (isCheonTaBus) {
         bgColor = '#c8f0f5'; 
-        textColor = 'color: #0891b2 !important;'; 
+        finalTextColor = '#0891b2';
     }
 
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
@@ -3097,27 +3100,27 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     if (isMobileCard) {
         return `
             <div class="schedule-card ${typeClass} w-full" data-sch-id="${sch.id}"
-                 style="background-color: ${bgColor} !important; ${textColor} display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; padding: 6px 20px !important; min-height: 46px !important; ${dragCursorStyle}"
+                 style="--sch-bg: ${bgColor}; --sch-text: ${finalTextColor}; ${textColor} display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; padding: 6px 20px !important; min-height: 46px !important; ${dragCursorStyle}"
                  ${dragPointerAttr}
                  onclick="openDetailModal(event, '${sch.id}')" 
                  oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
                      event.preventDefault(); event.stopPropagation(); window.contextTargetId = '${sch.id}'; window.editFromMenu(); 
                  }">
                 <span style="font-family: 'Paperozi', sans-serif; font-size: 15px; font-weight: 600; text-align: left; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3;">${displayTitleOneLine}</span>
-                ${formattedTime ? `<span style="font-family: 'Paperozi', sans-serif; font-size: 12px; font-weight: 700; color: #5D4037; flex-shrink: 0; margin-left: 6px; white-space: nowrap;">${formattedTime}</span>` : ''}
+                ${formattedTime ? `<span class="dm-text-brown" style="font-family: 'Paperozi', sans-serif; font-size: 12px; font-weight: 700; color: #5D4037; flex-shrink: 0; margin-left: 6px; white-space: nowrap;">${formattedTime}</span>` : ''}
             </div>
         `;
     }
 
     const timeHtml = formattedTime ? `
         <div class="absolute top-1 right-1.5 z-10">
-            <span class="text-[11px] font-bold" style="color: #5D4037;">${formattedTime}</span>
+            <span class="text-[11px] font-bold dm-text-brown" style="color: #5D4037;">${formattedTime}</span>
         </div>
     ` : '';
 
     return `
         <div class="schedule-card ${typeClass} relative h-full" data-sch-id="${sch.id}"
-             style="background-color: ${bgColor} !important; ${textColor} ${dragCursorStyle}"
+             style="--sch-bg: ${bgColor}; --sch-text: ${finalTextColor}; ${textColor} ${dragCursorStyle}"
              ${dragPointerAttr}
              onclick="openDetailModal(event, '${sch.id}')" 
              oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { 
@@ -3363,7 +3366,7 @@ function renderSongList() {
                     <div class="mt-2.5 px-0.5">
                         <div class="font-bold text-[#5D4037] text-[15px] truncate leading-snug">${escapeHtml(song.title)}</div>
                         <div class="text-gray-500 text-[13px] font-bold truncate mt-0.5">${escapeHtml(song.artist)}</div>
-                        ${genreTags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${genreTags.map(g => `<span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="color:#5D4037; background:${theme.soft};">${escapeHtml(g)}</span>`).join('')}</div>` : ''}
+                        ${genreTags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${genreTags.map(g => `<span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full dm-text-brown" style="color:#5D4037; background:${theme.soft};">${escapeHtml(g)}</span>`).join('')}</div>` : ''}
                     </div>
                 </div>
             `;
@@ -3785,7 +3788,7 @@ window.openSongInfoModal = function(id) {
         ? song.genre.split(/[,\/·]/).map(g => g.trim()).filter(Boolean)
         : [];
     document.getElementById('songInfoGenres').innerHTML = genreTags
-        .map(g => `<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="color:#5D4037; background:${theme.soft};">${escapeHtml(g)}</span>`)
+        .map(g => `<span class="text-[11px] font-bold px-2.5 py-1 rounded-full dm-text-brown" style="color:#5D4037; background:${theme.soft};">${escapeHtml(g)}</span>`)
         .join('');
 
     const liked = getLikedSongIds();
@@ -4286,7 +4289,7 @@ function renderRollingPaper() {
         currentTopicEntries.forEach((entry, idx) => {
             const bgStyle = entry.imageUrl 
                 ? `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${entry.imageUrl}'); background-size: cover; background-position: center; border: none;` 
-                : `background-color: #FFFDF5; border: 3px solid #5D4037;`;
+                : `background-color: var(--card-bg-cream); border: 3px solid #5D4037;`;
             const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
             const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #d1d5db;`;
 
@@ -4298,7 +4301,7 @@ function renderRollingPaper() {
                         <button onclick="event.stopPropagation(); deleteRollingEntry('${entry.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
                     </div>
                     ` : ''}
-                    <div class="text-[16px] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical; ${textStyle}">${entry.content}</div>
+                    <div class="text-[16px] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words ${entry.imageUrl ? '' : 'dm-text-brown'}" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical; ${textStyle}">${entry.content}</div>
                     <div class="text-right text-[14px] font-bold mt-3 pt-2 border-t-2 border-dashed pointer-events-none shrink-0" style="${nickStyle}">- ${entry.nickname || '익명'}</div>
                 </div>
             `;
@@ -4472,7 +4475,7 @@ function openRollingDetailModal(index) {
     container.innerHTML = currentTopicEntries.map((entry, idx) => {
         const bgStyle = entry.imageUrl 
             ? `background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${entry.imageUrl}'); background-size: cover; background-position: center; border: none;` 
-            : `background-color: #FFFDF5; border: 0px;`; 
+            : `background-color: var(--card-bg-cream); border: 0px;`; 
         const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
         const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #5D4037;`;
         const pcBorder = entry.imageUrl ? '' : 'md:border-4 border-[#5D4037]';
@@ -4480,7 +4483,7 @@ function openRollingDetailModal(index) {
         return `
         <div class="snap-center shrink-0 w-full h-full md:h-[1000px] flex items-center justify-center md:my-auto px-0 md:px-4">
             <div class="modal-content w-full h-full rounded-none md:rounded-3xl shadow-2xl flex flex-col p-6 pt-20 pb-8 md:p-12 relative overflow-hidden ${pcBorder}" style="${bgStyle}">
-                <div class="text-[20px] md:text-[24px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words px-4 md:px-0 drop-shadow-sm" style="${textStyle}">${entry.content}</div>
+                <div class="text-[20px] md:text-[24px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words px-4 md:px-0 drop-shadow-sm ${entry.imageUrl ? '' : 'dm-text-brown'}" style="${textStyle}">${entry.content}</div>
                 <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed px-4 md:px-0 drop-shadow-sm shrink-0" style="${nickStyle}">- ${entry.nickname || '익명'}</div>
             </div>
         </div>`;
@@ -4827,7 +4830,7 @@ function openSignalDetailModal(id) {
                     <div style="${isCrew ? 'width:100%; border-radius:12px; border:1px solid #f3f4f6;' : 'width:72px; height:72px; border-radius:50%; border:3px solid #fcdbc6;'} overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
                         <img src="${m.imageUrl}" style="width:100%; height:100%; object-fit:${isCrew ? 'contain' : 'cover'};" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/72'">
                     </div>
-                    ${(m.nickname && !isCrew) ? `<span style="font-size:13px; font-weight:700; color:#5D4037; text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing: -0.5px;">${m.nickname}</span>` : ''}
+                    ${(m.nickname && !isCrew) ? `<span class="dm-text-brown" style="font-size:13px; font-weight:700; color:#5D4037; text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing: -0.5px;">${m.nickname}</span>` : ''}
                 </div>`;
             }).join('')}
         </div>`;
@@ -4893,8 +4896,7 @@ function renderMobileHome(grouped) {
     const dateStr = `${d.getMonth()+1}.${d.getDate()}`;
     const dayStr = ['일','월','화','수','목','금','토'][d.getDay()];
 
-    const cardBgColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FFF0F5', '카나시': '#FFF3E0' };
-
+    const memberColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#fdecf9', '카나시': '#FFF3E0' };
     let html = `
         <div class="w-full flex justify-between items-center mb-5 px-4 mt-2">
             <button onclick="changeHomeDate(-1)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-left text-3xl"></i></button>
@@ -4906,7 +4908,6 @@ function renderMobileHome(grouped) {
         <div class="grid grid-cols-1 gap-4 px-4 w-full">
     `;
     
-    const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff7fd9', '#F57C00'];
     members.forEach((member, i) => {
         const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}-${member.name}`;
         const daySchedules = grouped[key] || [];
@@ -4915,22 +4916,18 @@ function renderMobileHome(grouped) {
         if (daySchedules.length > 0) {
             const isHubang = daySchedules.some(s => s.globalType === '휴방');
             const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
-            
             const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
             const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
 
-            if (isHubang) {
-                schedulesHtml = `<div class="schedule-card hubang h-full flex items-center justify-center w-full overflow-hidden relative" style="color:#9CA3AF; background-color:#F3F4F6; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="휴방" loading="lazy" decoding="async"></div>`;
-            } else {
-                const borderColor = rowBorderColors[i];
-                const bgColor = cardBgColors[member.name] || '#FFF5F5';
-                schedulesHtml = `<div class="schedule-card h-full w-full flex items-center justify-center overflow-hidden relative" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="뱅온" loading="lazy" decoding="async">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${rowBorderColors[i]}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
-            }
+            const bgColor = isHubang ? '#E5E7EB' : (memberColors[member.name] || '#FFFFFF');
+            const finalTextColor = isHubang ? '#6B7280' : (themeColors[member.name] || '#5D4037');
+
+            schedulesHtml = `<div class="schedule-card ${isHubang ? 'hubang' : ''} h-full w-full flex items-center justify-center overflow-hidden relative" style="--sch-bg: ${bgColor}; --sch-text: ${finalTextColor}; color: ${finalTextColor}; background-color: ${bgColor}; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="${isHubang ? '휴방' : '뱅온'}" loading="lazy" decoding="async">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${finalTextColor}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
         } else {
             schedulesHtml = `<div class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50"><span class="text-gray-400 text-[15px] font-bold">일정 없음</span></div>`;
         }
 
-        const borderColor = rowBorderColors[i];
+        const borderColor = themeColors[member.name] || '#5D4037';
         
         html += `
             <div class="flex w-full bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[2.5px] overflow-hidden" style="border-color: ${borderColor}">
@@ -5021,8 +5018,8 @@ function renderMobileIndividual(grouped) {
         }
 
         html += `
-            <div class="flex w-full bg-[#FFFDF5] rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[1.5px] cursor-pointer transition-transform hover:-translate-y-1 min-h-[90px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; color: ${isToday ? themeColor : '#3E2723'}" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')">
-                <div class="w-[75px] shrink-0 flex flex-col items-center justify-center border-r-[1.5px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; background-color: ${isToday ? themeColor : '#ffffff'}; color: ${isToday ? 'white' : 'inherit'}; border-top-left-radius: 10px; border-bottom-left-radius: 10px;">
+            <div class="flex w-full bg-[#FFFDF5] rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[1.5px] cursor-pointer transition-transform hover:-translate-y-1 min-h-[90px] ${isToday ? '' : 'dm-text-brown'}" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; color: ${isToday ? themeColor : '#3E2723'}" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')">
+                <div class="w-[75px] shrink-0 flex flex-col items-center justify-center border-r-[1.5px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; background-color: ${isToday ? themeColor : 'var(--card-bg-white)'}; color: ${isToday ? 'white' : 'inherit'}; border-top-left-radius: 10px; border-bottom-left-radius: 10px;">
                     <span class="text-[14px] font-bold mb-0.5 opacity-80">${daysLabel[i]}</span>
                     <span class="text-[26px] font-bold leading-none">${d.getDate()}</span>
                     ${timeDisplayHtml}
@@ -5056,8 +5053,7 @@ function renderDesktopHome(grouped) {
         return `<div class="header-days-cell ${c}"><div class="leading-none mb-1">${daysLabel[i]}</div><div class="text-[14px] text-gray-500 font-bold font-paperozi">${displayDate}</div></div>`;
     }).join('');
 
-    const rowBgColors = ['#FFFDE7', '#E3F2FD', '#FFF0F5', '#FFF3E0'];
-    const rowBorderColors = ['#FBC02D', '#1E88E5', '#ff7fd9', '#F57C00'];
+    const memberColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#fdecf9', '카나시': '#FFF3E0' };
 
     let homeHtml = `<div class="home-white-box"><div class="mb-3 w-full"><div class="flex gap-[22px] justify-center items-end"><div class="w-[277px] flex items-center justify-center pb-2"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container header-days-container-week">${headerHtml}</div></div></div><div class="weekly-grid">`;
 
@@ -5070,14 +5066,15 @@ function renderDesktopHome(grouped) {
 
             if (daySchedules.length > 0) {
                 const isHubang = daySchedules.some(s => s.globalType === '휴방');
-                const borderColor = isHubang ? '#9CA3AF' : rowBorderColors[i]; 
-                const bgColor = isHubang ? '#F3F4F6' : rowBgColors[i];
                 const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
-                
+
                 const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
                 const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
-                
-                schedulesHtml = `<div class="schedule-card w-full h-full flex items-center justify-center overflow-hidden relative" style="color: ${borderColor}; background-color: ${bgColor}; padding:0; border-radius: 4px;" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" style="border-radius: inherit;" alt="${isHubang ? '휴방' : '뱅온'}">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${rowBorderColors[i]}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
+
+                const bgColor = isHubang ? '#F3F4F6' : (memberColors[member.name] || '#FFFFFF');
+                const finalTextColor = isHubang ? '#6B7280' : (themeColors[member.name] || '#5D4037');
+
+                schedulesHtml = `<div class="schedule-card w-full h-full flex items-center justify-center overflow-hidden relative" style="--sch-bg: ${bgColor}; --sch-text: ${finalTextColor}; color: ${finalTextColor}; background-color: ${bgColor}; padding:0; border-radius: 4px;" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" style="border-radius: inherit;" alt="${isHubang ? '휴방' : '뱅온'}">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[14px] font-black tracking-tight" style="color: ${finalTextColor}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
             }
             daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
         });
@@ -5611,7 +5608,7 @@ function closeEditModal() { document.getElementById('editScheduleModal').classLi
 function renderSchedulesInModal(schedules, y, m, d, member) {
     const modal = document.getElementById('scheduleDetailModal'); 
     const modalContent = modal.querySelector('.modal-content');
-    modalContent.style.backgroundColor = '#FFFDF5'; 
+    modalContent.style.backgroundColor = 'var(--card-bg-cream)'; 
     modalContent.style.padding = '20px';
 
     const cardBgColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FFF0F5', '카나시': '#FFF3E0' };
@@ -5647,7 +5644,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             } else if (broadText === '시네티') {
                 broadStyle = 'background-color: #f3e8ff; color: #9333ea; border-color: #9333ea;'; 
             } else {
-                let bgC = cardBgColors[sch.tabOrMember] || '#ffffff';
+                let bgC = cardBgColors[sch.tabOrMember] || 'var(--card-bg-white)';
                 broadStyle = `background-color: ${bgC}; color: ${themeColor}; border-color: ${themeColor};`;
             }
 
@@ -5675,7 +5672,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                             <div style="${isCrew ? 'width:100%; border-radius:12px; border:1px solid #f3f4f6;' : 'width:72px; height:72px; border-radius:50%; border:3px solid #fcdbc6;'} overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
                                 <img src="${m.imageUrl}" style="width:100%; height:100%; object-fit:${isCrew ? 'contain' : 'cover'};" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/72'">
                             </div>
-                            ${(m.nickname && !isCrew) ? `<span style="font-size:13px; font-weight:700; color:#5D4037; text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing: -0.5px;">${m.nickname}</span>` : ''}
+                            ${(m.nickname && !isCrew) ? `<span class="dm-text-brown" style="font-size:13px; font-weight:700; color:#5D4037; text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing: -0.5px;">${m.nickname}</span>` : ''}
                         </div>`;
                     }).join('')}
                 </div>`;
