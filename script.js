@@ -1262,7 +1262,7 @@ const soopBoards = [
     { name: '달타', userId: 'dalta20', color: '#FBC02D', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/dalta20/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=89892972' },
     { name: '다룽', userId: 'daarung22', color: '#1E88E5', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/daarung22/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=90309005' },
     { name: '최또', userId: 'choiagain', color: '#f745c1', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/choiagain/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=98735869' },
-    { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/post/204108673/relatedposts?page=1&perPage=20&type=all', noticeBoard: true }
+    { name: '카나시', userId: 'kjhh0029', color: '#F57C00', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/kjhh0029/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=80727213' }
 ];
 
 // 모바일/데스크탑 어디서 홈 화면이 다시 그려지더라도(날짜 이동 등) 공지 데이터를
