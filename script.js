@@ -1321,12 +1321,14 @@ async function fetchAndRenderAllNotices() {
                 post.user_id || post.userId || post.writer_id || post.writerId ||
                 post.writer?.id || post.writer?.user_id || post.author_id || post.authorId;
 
-            // 공지 전용 게시판(noticeBoard)은 이미 해당 채널/게시글 범위로 응답이 한정되어 오고,
-            // 응답 스키마도 일반 게시판 목록 API와 달라 user_id 필드가 없거나 다른 형태일 수 있으므로
-            // 이 경우엔 user_id로 걸러내지 않고 받은 글을 그대로 사용한다.
-            const streamerPosts = board.noticeBoard ? posts : posts.filter((post) => {
+            // 공지 전용 게시판(noticeBoard)이라도, relatedposts류 API는 다른 사람 글이 섞여 올 수 있으므로
+            // user_id가 kjhh0029(등록된 board.userId)와 일치하는 글만 남긴다.
+            // 단, 응답 스키마에 user_id 관련 필드가 아예 없는 경우(값 자체가 undefined)까지 걸러버리면
+            // 전부 사라질 수 있으니, 그런 글은 일단 남겨두고 콘솔에 경고만 남긴다.
+            const streamerPosts = posts.filter((post) => {
                 const uid = getPostUserId(post);
-                return uid && uid.toLowerCase() === board.userId.toLowerCase();
+                if (!uid) return true; // uid 필드를 못 찾은 경우는 판단 불가 -> 일단 유지
+                return uid.toLowerCase() === board.userId.toLowerCase();
             });
 
             if (posts.length > 0 && streamerPosts.length === 0) {
