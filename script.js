@@ -4195,7 +4195,7 @@ function searchUpbo() {
             });
         }
         
-        if (totalItems === 0 && !r.roulette) {
+        if (totalItems === 0 && !r.roulette && !r.memo) {
             itemsHtml = `<div class="text-gray-400 font-bold text-center py-6 bg-gray-50 rounded-xl border border-dashed">주문된 상품이 없습니다.</div>`;
         }
 
@@ -4205,6 +4205,15 @@ function searchUpbo() {
                 <div class="flex justify-between items-center bg-purple-50 border-[2px] border-purple-200 p-4 rounded-xl shadow-sm">
                     <span class="font-bold text-purple-700 text-[16px] shrink-0">🎲 룰렛 당첨</span>
                     <div class="font-black text-[16px] text-purple-800 bg-white px-3 py-1.5 rounded-lg border border-purple-200 text-right leading-snug break-words ml-2 whitespace-pre-line">${r.roulette}</div>
+                </div>`;
+        }
+
+        // 👇 요청사항 출력 부분 👇
+        if(r.memo) {
+            itemsHtml += `
+                <div class="flex justify-between items-center bg-blue-50 border-[2px] border-blue-200 p-4 rounded-xl shadow-sm">
+                    <span class="font-bold text-blue-700 text-[16px] shrink-0">📝 요청사항</span>
+                    <div class="font-black text-[16px] text-blue-800 bg-white px-3 py-1.5 rounded-lg border border-blue-200 text-right leading-snug break-words ml-2 whitespace-pre-line">${r.memo}</div>
                 </div>`;
         }
 
