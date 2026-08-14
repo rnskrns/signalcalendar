@@ -1025,6 +1025,15 @@ async function submitUserProfileSetup() {
     }
 
     try {
+        // SOOP 아이디 중복 확인
+        const dupQuery = query(collection(db, "users"), where("soopId", "==", soopId));
+        const dupSnap = await getDocs(dupQuery);
+        const isDuplicate = dupSnap.docs.some(d => d.id !== currentUser.uid);
+        if (isDuplicate) {
+            alert('이미 사용 중인 SOOP 아이디입니다. 다른 아이디를 입력해주세요.');
+            return;
+        }
+
         // 최초 가입 시점: 구글계정 정보 + 닉네임/SOOP 아이디 + 승인상태(기본 승인)를 함께 저장합니다.
         await setDoc(doc(db, "users", currentUser.uid), {
             email: currentUser.email || null,
