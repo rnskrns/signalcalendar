@@ -104,11 +104,7 @@
                     <i class="fi fi-brands-youtube mt-1"></i>
                 </a>
                 <div id="desktopAuthContainer" class="ml-1 relative">
-                    <button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="toggleLoginChoiceMenu('desktop')">로그인</button>
-                    <div id="loginChoiceMenu_desktop" class="hidden absolute right-0 top-[110%] bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[160px] z-[2000]">
-                        <button onclick="closeLoginChoiceMenu('desktop'); handleAdminClick();" class="w-full px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 flex items-center gap-2 border-b border-gray-100"><i class="fi fi-rr-user"></i> 관리자 로그인</button>
-                        <button onclick="closeLoginChoiceMenu('desktop'); loginAsUser();" class="w-full px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 flex items-center gap-2"><i class="fi fi-brands-google"></i> 구글로 로그인</button>
-                    </div>
+                    <button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="handleAdminClick()">로그인</button>
                 </div>
                 <button class="dark-mode-toggle-btn" onclick="toggleDarkMode()" title="다크모드 전환">
                     <i class="fi fi-rr-sun fi-sun"></i>
@@ -130,11 +126,7 @@
                 <i class="fi fi-brands-youtube mt-0.5"></i>
             </a>
             <div id="mobileAuthContainer" class="shrink-0 relative">
-                <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="toggleLoginChoiceMenu('mobile')">로그인</button>
-                <div id="loginChoiceMenu_mobile" class="hidden absolute right-0 top-[110%] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden min-w-[140px] z-[2000]">
-                    <button onclick="closeLoginChoiceMenu('mobile'); handleAdminClick();" class="w-full px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 flex items-center gap-1.5 border-b border-gray-100"><i class="fi fi-rr-user"></i> 관리자 로그인</button>
-                    <button onclick="closeLoginChoiceMenu('mobile'); loginAsUser();" class="w-full px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 flex items-center gap-1.5"><i class="fi fi-brands-google"></i> 구글로 로그인</button>
-                </div>
+                <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="handleAdminClick()">로그인</button>
             </div>
             <button class="dark-mode-toggle-btn-mobile" onclick="toggleDarkMode()" title="다크모드 전환">
                 <i class="fi fi-rr-sun fi-sun"></i>
@@ -299,14 +291,14 @@
     <div id="passwordModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
         <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border-4 border-[#5D4037] relative">
             <button class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer" onclick="closePasswordModal()"><i class="fi fi-br-cross-small"></i></button>
-            <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">관리자 로그인</h2>
+            <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">로그인</h2>
 
-            <button type="button" onclick="loginWithGoogle()" class="w-full flex items-center justify-center gap-2 border-2 border-gray-300 rounded-lg py-2.5 mb-4 font-bold text-[14px] text-gray-700 bg-white hover:bg-gray-50 transition cursor-pointer">
+            <button type="button" onclick="closePasswordModal(); loginAsUser();" class="w-full flex items-center justify-center gap-2 border-2 border-gray-300 rounded-lg py-2.5 mb-4 font-bold text-[14px] text-gray-700 bg-white hover:bg-gray-50 transition cursor-pointer">
                 <i class="fi fi-brands-google text-[16px]"></i> 구글 계정으로 로그인
             </button>
             <div class="relative flex items-center mb-4">
                 <div class="flex-grow border-t border-gray-300"></div>
-                <span class="flex-shrink-0 mx-3 text-gray-400 text-[12px] font-bold">또는 아이디로 로그인</span>
+                <span class="flex-shrink-0 mx-3 text-gray-400 text-[12px] font-bold">또는 관리자 아이디로 로그인</span>
                 <div class="flex-grow border-t border-gray-300"></div>
             </div>
 
@@ -339,6 +331,19 @@
             <div class="flex gap-2 mt-6">
                 <button class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-bold hover:bg-gray-300 transition cursor-pointer" onclick="closeLogoutModal()">취소</button>
                 <button class="flex-1 bg-red-500 text-white py-2 rounded font-bold hover:bg-red-600 transition cursor-pointer" onclick="logoutAdmin()">로그아웃</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="userProfileSetupModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[6000]">
+        <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border-4 border-[#5D4037] relative">
+            <h2 class="text-xl font-bold mb-2 text-center text-[#5D4037]">추가 정보 입력</h2>
+            <p class="text-[13px] text-gray-500 text-center mb-4 leading-snug">처음 로그인하셨네요!<br>닉네임과 SOOP 아이디를 입력해주세요.<br>입력하지 않으면 로그인이 취소됩니다.</p>
+            <input type="text" id="nicknameInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="닉네임">
+            <input type="text" id="soopIdInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="SOOP 아이디" onkeypress="if(event.key==='Enter') submitUserProfileSetup()">
+            <div class="flex gap-2">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-lg font-bold hover:bg-gray-300 transition cursor-pointer" onclick="cancelUserProfileSetup()">취소</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-3 rounded-lg font-bold hover:brightness-110 transition cursor-pointer" onclick="submitUserProfileSetup()">확인</button>
             </div>
         </div>
     </div>

@@ -146,9 +146,9 @@ function loadScript(src) {
 // =========================================================================
 // 전역 함수 바인딩
 // =========================================================================
-window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; window.checkPassword = checkPassword; window.logoutAdmin = logoutAdmin; window.loginWithGoogle = loginWithGoogle;
+window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; window.checkPassword = checkPassword; window.logoutAdmin = logoutAdmin;
 window.loginAsUser = loginAsUser; window.logoutUser = logoutUser;
-window.toggleLoginChoiceMenu = toggleLoginChoiceMenu; window.closeLoginChoiceMenu = closeLoginChoiceMenu;
+window.cancelUserProfileSetup = cancelUserProfileSetup; window.submitUserProfileSetup = submitUserProfileSetup;
 window.openPasswordModal = openPasswordModal; window.closePasswordModal = closePasswordModal; window.closeLogoutModal = closeLogoutModal;
 window.handleDayClick = handleDayClick; window.handleDayRightClick = handleDayRightClick; window.editFromMenu = editFromMenu;
 window.closeEditModal = closeEditModal; window.saveEditedSchedule = saveEditedSchedule; window.deleteScheduleAction = deleteScheduleAction; window.openDetailModal = openDetailModal; window.closeDetailModal = closeDetailModal;
@@ -962,53 +962,6 @@ async function checkPassword() {
     }
 }
 
-async function loginWithGoogle() {
-    const isAutoLogin = document.getElementById('autoLoginCheck')?.checked;
-
-    try {
-        const provider = new GoogleAuthProvider();
-        const result = await signInWithPopup(auth, provider);
-        const email = result.user.email;
-
-        if (!email) {
-            alert("구글 계정에서 이메일 정보를 가져올 수 없습니다.");
-            return;
-        }
-
-        const q = query(collection(db, "admins"), where("email", "==", email));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            alert("등록되지 않은 구글 계정입니다. 관리자에게 문의해주세요.");
-            return;
-        }
-
-        const adminDoc = querySnapshot.docs[0];
-        const adminData = adminDoc.data();
-        const docId = adminDoc.id;
-        const token = generateAuthToken();
-
-        isAdmin = true;
-        loggedInUser = { docId, ...adminData };
-
-        if (isAutoLogin) {
-            localStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
-        } else {
-            sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
-        }
-
-        saveProfileLocally({ docId, id: adminData.id, name: adminData.name, img: adminData.img, token });
-
-        refreshAuthUI();
-        alert(`${adminData.name}님 환영합니다!`);
-        closePasswordModal();
-    } catch (e) {
-        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-        console.error("구글 로그인 에러:", e);
-        alert("구글 로그인 중 오류가 발생했습니다.");
-    }
-}
-
 // =========================================================================
 // 일반 유저 로그인 (구글 계정, 관리자와 별도)
 // =========================================================================
@@ -1029,6 +982,64 @@ async function logoutUser() {
         await signOut(auth);
     } catch (e) {
         console.error("유저 로그아웃 에러:", e);
+    }
+}
+
+// =========================================================================
+// 최초 로그인 시 닉네임 / SOOP 아이디 입력 강제
+// =========================================================================
+function openUserProfileSetupModal() {
+    const nicknameEl = document.getElementById('nicknameInput');
+    const soopIdEl = document.getElementById('soopIdInput');
+    if (nicknameEl) nicknameEl.value = '';
+    if (soopIdEl) soopIdEl.value = '';
+    const modal = document.getElementById('userProfileSetupModal');
+    if (modal) modal.classList.replace('hidden', 'flex');
+}
+
+function closeUserProfileSetupModal() {
+    const modal = document.getElementById('userProfileSetupModal');
+    if (modal) modal.classList.replace('flex', 'hidden');
+}
+
+async function cancelUserProfileSetup() {
+    closeUserProfileSetupModal();
+    alert('닉네임과 SOOP 아이디를 입력하지 않아 로그인이 취소되었습니다.');
+    await logoutUser();
+}
+
+async function submitUserProfileSetup() {
+    const nickname = document.getElementById('nicknameInput').value.trim();
+    const soopId = document.getElementById('soopIdInput').value.trim();
+
+    if (!nickname || !soopId) {
+        closeUserProfileSetupModal();
+        alert('닉네임과 SOOP 아이디를 모두 입력해야 합니다. 입력하지 않아 로그인이 취소됩니다.');
+        await logoutUser();
+        return;
+    }
+
+    if (!currentUser) {
+        closeUserProfileSetupModal();
+        return;
+    }
+
+    try {
+        // 최초 가입 시점: 구글계정 정보 + 닉네임/SOOP 아이디 + 승인상태(기본 승인)를 함께 저장합니다.
+        await setDoc(doc(db, "users", currentUser.uid), {
+            email: currentUser.email || null,
+            name: currentUser.displayName || null,
+            photo: currentUser.photoURL || null,
+            nickname,
+            soopId,
+            status: '승인'
+        }, { merge: true });
+        closeUserProfileSetupModal();
+        await finalizeUserLogin(currentUser, { status: '승인' });
+        alert(`${nickname}님 환영합니다!`);
+    } catch (e) {
+        console.error('프로필 저장 실패:', e);
+        alert('프로필 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
 }
 
@@ -1063,34 +1074,11 @@ async function mergeLocalLikesIntoAccount(uid, accountLikedSongs) {
 
 function renderLoggedOutAuthHtml(scope) {
     const isDesktop = scope === 'desktop';
-    const menuId = isDesktop ? 'loginChoiceMenu_desktop' : 'loginChoiceMenu_mobile';
     const btnClass = isDesktop
         ? 'font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm'
         : 'font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm';
-    const itemClass = isDesktop
-        ? 'w-full px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 flex items-center gap-2'
-        : 'w-full px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 flex items-center gap-1.5';
-    const menuClass = isDesktop
-        ? 'hidden absolute right-0 top-[110%] bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[160px] z-[2000]'
-        : 'hidden absolute right-0 top-[110%] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden min-w-[140px] z-[2000]';
 
-    return `
-        <button class="${btnClass}" onclick="toggleLoginChoiceMenu('${scope}')">로그인</button>
-        <div id="${menuId}" class="${menuClass}">
-            <button onclick="closeLoginChoiceMenu('${scope}'); handleAdminClick();" class="${itemClass} border-b border-gray-100"><i class="fi fi-rr-user"></i> 관리자 로그인</button>
-            <button onclick="closeLoginChoiceMenu('${scope}'); loginAsUser();" class="${itemClass}"><i class="fi fi-brands-google"></i> 구글로 로그인</button>
-        </div>
-    `;
-}
-
-function toggleLoginChoiceMenu(scope) {
-    const menu = document.getElementById(scope === 'desktop' ? 'loginChoiceMenu_desktop' : 'loginChoiceMenu_mobile');
-    if (menu) menu.classList.toggle('hidden');
-}
-
-function closeLoginChoiceMenu(scope) {
-    const menu = document.getElementById(scope === 'desktop' ? 'loginChoiceMenu_desktop' : 'loginChoiceMenu_mobile');
-    if (menu) menu.classList.add('hidden');
+    return `<button class="${btnClass}" onclick="handleAdminClick()">로그인</button>`;
 }
 
 function renderAdminAuthHtml(scope, user) {
@@ -1175,33 +1163,65 @@ function refreshAuthUI() {
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
 
-    if (user) {
-        try {
-            const userRef = doc(db, "users", user.uid);
-            const userSnap = await getDoc(userRef);
-            const existingLiked = userSnap.exists() ? (userSnap.data().likedSongs || {}) : {};
-
-            await setDoc(userRef, {
-                email: user.email || null,
-                name: user.displayName || null,
-                photo: user.photoURL || null,
-                lastLogin: Date.now()
-            }, { merge: true });
-
-            userLikedSongsCache = await mergeLocalLikesIntoAccount(user.uid, existingLiked);
-        } catch (e) {
-            console.error('유저 정보 동기화 실패:', e);
-            userLikedSongsCache = userLikedSongsCache || {};
-        }
-    } else {
+    if (!user) {
         userLikedSongsCache = null;
+        refreshAuthUI();
+        if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
+            try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
+        }
+        return;
+    }
+
+    try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        const existingData = userSnap.exists() ? userSnap.data() : {};
+
+        // 처음 로그인(닉네임/SOOP 아이디 미등록)이면 추가 정보 입력을 먼저 요구합니다.
+        if (!existingData.nickname || !existingData.soopId) {
+            openUserProfileSetupModal();
+            return;
+        }
+
+        // 차단된 계정이면 로그인을 막습니다.
+        if (existingData.status === '차단') {
+            alert('차단된 계정입니다. 관리자에게 문의해주세요.');
+            await logoutUser();
+            return;
+        }
+
+        await finalizeUserLogin(user, existingData);
+    } catch (e) {
+        console.error('유저 정보 동기화 실패:', e);
+    }
+});
+
+// 닉네임/SOOP 아이디 입력까지 끝난 뒤 실제 로그인을 마무리합니다.
+async function finalizeUserLogin(user, existingData) {
+    try {
+        const userRef = doc(db, "users", user.uid);
+        const existingLiked = (existingData && existingData.likedSongs) || {};
+
+        await setDoc(userRef, {
+            email: user.email || null,
+            name: user.displayName || null,
+            photo: user.photoURL || null,
+            lastLogin: Date.now(),
+            // status 필드가 아직 없는 기존 유저는 기본값 '승인'으로 채워줍니다.
+            ...(existingData && existingData.status ? {} : { status: '승인' })
+        }, { merge: true });
+
+        userLikedSongsCache = await mergeLocalLikesIntoAccount(user.uid, existingLiked);
+    } catch (e) {
+        console.error('유저 정보 동기화 실패:', e);
+        userLikedSongsCache = userLikedSongsCache || {};
     }
 
     refreshAuthUI();
     if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
         try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
     }
-});
+}
 
 function openManageModal(tab = 'link') {
     if (!isAdmin || !loggedInUser) return;
@@ -2240,12 +2260,6 @@ window.addEventListener('click', (e) => {
         const pMenu = document.getElementById(id);
         if(pMenu && !pMenu.classList.contains('hidden') && !e.target.closest('#desktopAuthContainer') && !e.target.closest('#mobileAuthContainer')) {
             pMenu.classList.add('hidden'); pMenu.classList.remove('flex');
-        }
-    });
-    ['loginChoiceMenu_desktop', 'loginChoiceMenu_mobile'].forEach(id => {
-        const cMenu = document.getElementById(id);
-        if(cMenu && !cMenu.classList.contains('hidden') && !e.target.closest('#desktopAuthContainer') && !e.target.closest('#mobileAuthContainer')) {
-            cMenu.classList.add('hidden');
         }
     });
 });
