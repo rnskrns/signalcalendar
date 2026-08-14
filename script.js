@@ -148,6 +148,7 @@ function loadScript(src) {
 // =========================================================================
 window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; window.checkPassword = checkPassword; window.logoutAdmin = logoutAdmin; window.loginWithGoogle = loginWithGoogle;
 window.loginAsUser = loginAsUser; window.logoutUser = logoutUser;
+window.toggleLoginChoiceMenu = toggleLoginChoiceMenu; window.closeLoginChoiceMenu = closeLoginChoiceMenu;
 window.openPasswordModal = openPasswordModal; window.closePasswordModal = closePasswordModal; window.closeLogoutModal = closeLogoutModal;
 window.handleDayClick = handleDayClick; window.handleDayRightClick = handleDayRightClick; window.editFromMenu = editFromMenu;
 window.closeEditModal = closeEditModal; window.saveEditedSchedule = saveEditedSchedule; window.deleteScheduleAction = deleteScheduleAction; window.openDetailModal = openDetailModal; window.closeDetailModal = closeDetailModal;
@@ -896,7 +897,7 @@ async function loginWithProfile(docId, token) {
                     sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
                 }
 
-                updateLoginUI(loggedInUser);
+                refreshAuthUI();
                 alert(`${adminData.name}님 환영합니다!`);
                 closePasswordModal();
             } else {
@@ -943,7 +944,7 @@ async function checkPassword() {
 
                 saveProfileLocally({ docId, id: inputId, name: adminData.name, img: adminData.img, token });
                 
-                updateLoginUI(loggedInUser);
+                refreshAuthUI();
                 alert(`${adminData.name}님 환영합니다!`); 
                 document.getElementById('idInput').value = '';
                 document.getElementById('pwInput').value = ''; 
@@ -998,7 +999,7 @@ async function loginWithGoogle() {
 
         saveProfileLocally({ docId, id: adminData.id, name: adminData.name, img: adminData.img, token });
 
-        updateLoginUI(loggedInUser);
+        refreshAuthUI();
         alert(`${adminData.name}님 환영합니다!`);
         closePasswordModal();
     } catch (e) {
@@ -1060,35 +1061,114 @@ async function mergeLocalLikesIntoAccount(uid, accountLikedSongs) {
     return merged;
 }
 
-function updateUserAuthUI(user) {
-    const desktopContainer = document.getElementById('desktopUserAuthContainer');
-    const mobileContainer = document.getElementById('mobileUserAuthContainer');
+function renderLoggedOutAuthHtml(scope) {
+    const isDesktop = scope === 'desktop';
+    const menuId = isDesktop ? 'loginChoiceMenu_desktop' : 'loginChoiceMenu_mobile';
+    const btnClass = isDesktop
+        ? 'font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm'
+        : 'font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm';
+    const itemClass = isDesktop
+        ? 'w-full px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 flex items-center gap-2'
+        : 'w-full px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 flex items-center gap-1.5';
+    const menuClass = isDesktop
+        ? 'hidden absolute right-0 top-[110%] bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[160px] z-[2000]'
+        : 'hidden absolute right-0 top-[110%] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden min-w-[140px] z-[2000]';
 
-    if (user) {
-        const name = user.displayName || '유저';
-        const photo = user.photoURL || '';
-        const desktopHtml = `
-            <div class="flex items-center gap-2 cursor-pointer" onclick="document.getElementById('userAuthMenu_desktop').classList.toggle('hidden')">
-                <img src="${photo}" class="w-9 h-9 rounded-full object-cover border-2 border-gray-200">
-                <span class="font-paperozi font-bold text-[15px] text-[#5D4037] max-w-[90px] truncate">${name}</span>
+    return `
+        <button class="${btnClass}" onclick="toggleLoginChoiceMenu('${scope}')">로그인</button>
+        <div id="${menuId}" class="${menuClass}">
+            <button onclick="closeLoginChoiceMenu('${scope}'); handleAdminClick();" class="${itemClass} border-b border-gray-100"><i class="fi fi-rr-user"></i> 관리자 로그인</button>
+            <button onclick="closeLoginChoiceMenu('${scope}'); loginAsUser();" class="${itemClass}"><i class="fi fi-brands-google"></i> 구글로 로그인</button>
+        </div>
+    `;
+}
+
+function toggleLoginChoiceMenu(scope) {
+    const menu = document.getElementById(scope === 'desktop' ? 'loginChoiceMenu_desktop' : 'loginChoiceMenu_mobile');
+    if (menu) menu.classList.toggle('hidden');
+}
+
+function closeLoginChoiceMenu(scope) {
+    const menu = document.getElementById(scope === 'desktop' ? 'loginChoiceMenu_desktop' : 'loginChoiceMenu_mobile');
+    if (menu) menu.classList.add('hidden');
+}
+
+function renderAdminAuthHtml(scope, user) {
+    const isDesktop = scope === 'desktop';
+    if (isDesktop) {
+        return `
+            <div class="relative inline-block text-left group z-[2000]">
+                <div class="flex items-center gap-2 cursor-pointer bg-white border-2 border-gray-200 shadow-sm px-4 py-1.5 rounded-xl font-bold" onclick="toggleProfileDropdown('desktopProfileMenu')">
+                    <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover border-2 border-[#5D4037]">
+                    <span class="text-lg text-[#5D4037] font-paperozi">${user.name}</span>
+                    <i class="fi fi-rr-caret-down text-[#5D4037]"></i>
+                </div>
+                <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
+                    <button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
+                    <button onclick="openManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
+                    <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
+                </div>
             </div>
-            <div id="userAuthMenu_desktop" class="hidden absolute right-0 top-[110%] bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[120px] z-[2000]">
-                <button onclick="logoutUser()" class="w-full px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
-            </div>`;
-        const mobileHtml = `
-            <div class="flex items-center gap-1 cursor-pointer" onclick="document.getElementById('userAuthMenu_mobile').classList.toggle('hidden')">
-                <img src="${photo}" class="w-7 h-7 rounded-full object-cover border border-gray-200">
+        `;
+    }
+    return `
+        <div class="relative inline-block text-left z-[2000]">
+            <div class="flex items-center gap-1 cursor-pointer bg-white border border-gray-200 shadow-sm px-2 py-[5px] rounded-lg font-bold" onclick="toggleProfileDropdown('mobileProfileMenu')">
+                <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-[20px] h-[20px] rounded-full object-cover border border-[#5D4037]">
             </div>
-            <div id="userAuthMenu_mobile" class="hidden absolute right-0 top-[110%] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden min-w-[100px] z-[2000]">
-                <button onclick="logoutUser()" class="w-full px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
-            </div>`;
-        if (desktopContainer) desktopContainer.innerHTML = desktopHtml;
-        if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
+            <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
+                <button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
+                <button onclick="openManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
+                <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderUserAuthHtml(scope, user) {
+    const isDesktop = scope === 'desktop';
+    const name = user.displayName || '유저';
+    const photo = user.photoURL || '';
+    const menuId = isDesktop ? 'userAuthMenu_desktop' : 'userAuthMenu_mobile';
+
+    if (isDesktop) {
+        return `
+            <div class="relative inline-block text-left z-[2000]">
+                <div class="flex items-center gap-2 cursor-pointer bg-white border-2 border-gray-200 shadow-sm px-4 py-1.5 rounded-xl font-bold" onclick="toggleProfileDropdown('${menuId}')">
+                    <img src="${photo}" class="w-8 h-8 rounded-full object-cover border-2 border-gray-200">
+                    <span class="text-lg text-[#5D4037] font-paperozi max-w-[100px] truncate">${name}</span>
+                </div>
+                <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-32 bg-white flex-col shadow-xl rounded-xl border-2 border-gray-200 overflow-hidden">
+                    <button onclick="logoutUser()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
+                </div>
+            </div>
+        `;
+    }
+    return `
+        <div class="relative inline-block text-left z-[2000]">
+            <div class="flex items-center gap-1 cursor-pointer bg-white border border-gray-200 shadow-sm px-2 py-[5px] rounded-lg font-bold" onclick="toggleProfileDropdown('${menuId}')">
+                <img src="${photo}" class="w-[20px] h-[20px] rounded-full object-cover border border-gray-200">
+            </div>
+            <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-24 bg-white flex-col shadow-xl rounded-xl border-2 border-gray-200 overflow-hidden">
+                <button onclick="logoutUser()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
+            </div>
+        </div>
+    `;
+}
+
+function refreshAuthUI() {
+    const desktopContainer = document.getElementById('desktopAuthContainer');
+    const mobileContainer = document.getElementById('mobileAuthContainer');
+
+    if (isAdmin && loggedInUser) {
+        if (desktopContainer) desktopContainer.innerHTML = renderAdminAuthHtml('desktop', loggedInUser);
+        if (mobileContainer) mobileContainer.innerHTML = renderAdminAuthHtml('mobile', loggedInUser);
+    } else if (currentUser) {
+        if (desktopContainer) desktopContainer.innerHTML = renderUserAuthHtml('desktop', currentUser);
+        if (mobileContainer) mobileContainer.innerHTML = renderUserAuthHtml('mobile', currentUser);
     } else {
-        const desktopBtn = `<button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm flex items-center gap-2" onclick="loginAsUser()"><i class="fi fi-brands-google text-[16px]"></i> 구글 로그인</button>`;
-        const mobileBtn = `<button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm flex items-center gap-1" onclick="loginAsUser()"><i class="fi fi-brands-google text-[12px]"></i> 로그인</button>`;
-        if (desktopContainer) desktopContainer.innerHTML = desktopBtn;
-        if (mobileContainer) mobileContainer.innerHTML = mobileBtn;
+        if (desktopContainer) desktopContainer.innerHTML = renderLoggedOutAuthHtml('desktop');
+        if (mobileContainer) mobileContainer.innerHTML = renderLoggedOutAuthHtml('mobile');
     }
 }
 
@@ -1117,7 +1197,7 @@ onAuthStateChanged(auth, async (user) => {
         userLikedSongsCache = null;
     }
 
-    updateUserAuthUI(user);
+    refreshAuthUI();
     if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
         try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
     }
@@ -2147,41 +2227,6 @@ function openRollingTopicFromMenu(id) {
 function executeDesktopTabChange(tab) { changeTab(tab); }
 function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }
 
-function updateLoginUI(user) {
-    const desktopContainer = document.getElementById('desktopAuthContainer');
-    if(desktopContainer) {
-        desktopContainer.innerHTML = `
-            <div class="relative inline-block text-left group z-[2000]">
-                <div class="flex items-center gap-2 cursor-pointer bg-white border-2 border-gray-200 shadow-sm px-4 py-1.5 rounded-xl font-bold" onclick="toggleProfileDropdown('desktopProfileMenu')">
-                    <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover border-2 border-[#5D4037]">
-                    <span class="text-lg text-[#5D4037] font-paperozi">${user.name}</span>
-                    <i class="fi fi-rr-caret-down text-[#5D4037]"></i>
-                </div>
-                <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
-                    <button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
-                    <button onclick="openManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
-                    <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
-                </div>
-            </div>
-        `;
-    }
-    const mobileContainer = document.getElementById('mobileAuthContainer');
-    if(mobileContainer) {
-        mobileContainer.innerHTML = `
-            <div class="relative inline-block text-left z-[2000]">
-                <div class="flex items-center gap-1 cursor-pointer bg-white border border-gray-200 shadow-sm px-2 py-[5px] rounded-lg font-bold" onclick="toggleProfileDropdown('mobileProfileMenu')">
-                    <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-[20px] h-[20px] rounded-full object-cover border border-[#5D4037]">
-                </div>
-                <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
-                    <button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
-                    <button onclick="openManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
-                    <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
-                </div>
-            </div>
-        `;
-    }
-}
-
 function toggleProfileDropdown(menuId) {
     const menu = document.getElementById(menuId);
     if(menu) {
@@ -2191,16 +2236,16 @@ function toggleProfileDropdown(menuId) {
 }
 
 window.addEventListener('click', (e) => {
-    ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
+    ['desktopProfileMenu', 'mobileProfileMenu', 'userAuthMenu_desktop', 'userAuthMenu_mobile'].forEach(id => {
         const pMenu = document.getElementById(id);
         if(pMenu && !pMenu.classList.contains('hidden') && !e.target.closest('#desktopAuthContainer') && !e.target.closest('#mobileAuthContainer')) {
             pMenu.classList.add('hidden'); pMenu.classList.remove('flex');
         }
     });
-    ['userAuthMenu_desktop', 'userAuthMenu_mobile'].forEach(id => {
-        const uMenu = document.getElementById(id);
-        if(uMenu && !uMenu.classList.contains('hidden') && !e.target.closest('#desktopUserAuthContainer') && !e.target.closest('#mobileUserAuthContainer')) {
-            uMenu.classList.add('hidden');
+    ['loginChoiceMenu_desktop', 'loginChoiceMenu_mobile'].forEach(id => {
+        const cMenu = document.getElementById(id);
+        if(cMenu && !cMenu.classList.contains('hidden') && !e.target.closest('#desktopAuthContainer') && !e.target.closest('#mobileAuthContainer')) {
+            cMenu.classList.add('hidden');
         }
     });
 });
@@ -5504,10 +5549,7 @@ function logoutAdmin() {
     sessionStorage.removeItem('activeAdminSession'); 
     localStorage.removeItem('activeAdminSession');
     
-    const desktopContainer = document.getElementById('desktopAuthContainer');
-    if(desktopContainer) desktopContainer.innerHTML = `<button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="handleAdminClick()">로그인</button>`;
-    const mobileContainer = document.getElementById('mobileAuthContainer');
-    if(mobileContainer) mobileContainer.innerHTML = `<button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="handleAdminClick()">로그인</button>`;
+    refreshAuthUI();
     
     closeSidePanel();
     alert('로그아웃 되었습니다.'); window.location.reload(); 
@@ -5975,7 +6017,7 @@ async function initApp() {
             if (docSnap.exists() && matchedProfile && matchedProfile.token === token) {
                 isAdmin = true;
                 loggedInUser = { docId, ...docSnap.data() };
-                updateLoginUI(loggedInUser);
+                refreshAuthUI();
             } else {
                 sessionStorage.removeItem('activeAdminSession');
                 localStorage.removeItem('activeAdminSession');

@@ -103,13 +103,12 @@
                 <a href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" class="w-[42px] h-[42px] bg-[#FF0000] text-white rounded-xl hover:brightness-110 transition-all flex items-center justify-center shadow-sm text-xl" title="유튜브">
                     <i class="fi fi-brands-youtube mt-1"></i>
                 </a>
-                <div id="desktopUserAuthContainer" class="relative">
-                    <button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm flex items-center gap-2" onclick="loginAsUser()">
-                        <i class="fi fi-brands-google text-[16px]"></i> 구글 로그인
-                    </button>
-                </div>
                 <div id="desktopAuthContainer" class="ml-1 relative">
-                    <button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="handleAdminClick()">로그인</button>
+                    <button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="toggleLoginChoiceMenu('desktop')">로그인</button>
+                    <div id="loginChoiceMenu_desktop" class="hidden absolute right-0 top-[110%] bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[160px] z-[2000]">
+                        <button onclick="closeLoginChoiceMenu('desktop'); handleAdminClick();" class="w-full px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 flex items-center gap-2 border-b border-gray-100"><i class="fi fi-rr-user"></i> 관리자 로그인</button>
+                        <button onclick="closeLoginChoiceMenu('desktop'); loginAsUser();" class="w-full px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 flex items-center gap-2"><i class="fi fi-brands-google"></i> 구글로 로그인</button>
+                    </div>
                 </div>
                 <button class="dark-mode-toggle-btn" onclick="toggleDarkMode()" title="다크모드 전환">
                     <i class="fi fi-rr-sun fi-sun"></i>
@@ -130,13 +129,12 @@
             <a href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" class="w-[32px] h-[32px] bg-[#FF0000] text-white rounded-lg flex items-center justify-center shadow-sm text-lg">
                 <i class="fi fi-brands-youtube mt-0.5"></i>
             </a>
-            <div id="mobileUserAuthContainer" class="shrink-0 relative">
-                <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm flex items-center gap-1" onclick="loginAsUser()">
-                    <i class="fi fi-brands-google text-[12px]"></i> 로그인
-                </button>
-            </div>
             <div id="mobileAuthContainer" class="shrink-0 relative">
-                <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="handleAdminClick()">로그인</button>
+                <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="toggleLoginChoiceMenu('mobile')">로그인</button>
+                <div id="loginChoiceMenu_mobile" class="hidden absolute right-0 top-[110%] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden min-w-[140px] z-[2000]">
+                    <button onclick="closeLoginChoiceMenu('mobile'); handleAdminClick();" class="w-full px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 flex items-center gap-1.5 border-b border-gray-100"><i class="fi fi-rr-user"></i> 관리자 로그인</button>
+                    <button onclick="closeLoginChoiceMenu('mobile'); loginAsUser();" class="w-full px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 flex items-center gap-1.5"><i class="fi fi-brands-google"></i> 구글로 로그인</button>
+                </div>
             </div>
             <button class="dark-mode-toggle-btn-mobile" onclick="toggleDarkMode()" title="다크모드 전환">
                 <i class="fi fi-rr-sun fi-sun"></i>
