@@ -1,5 +1,6 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 // =========================================================================
 // Cloudinary 설정 (Unsigned Upload)
@@ -145,7 +146,8 @@ function loadScript(src) {
 // =========================================================================
 // 전역 함수 바인딩
 // =========================================================================
-window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; window.checkPassword = checkPassword; window.logoutAdmin = logoutAdmin;
+window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; window.checkPassword = checkPassword; window.logoutAdmin = logoutAdmin; window.loginWithGoogle = loginWithGoogle;
+window.loginAsUser = loginAsUser; window.logoutUser = logoutUser;
 window.openPasswordModal = openPasswordModal; window.closePasswordModal = closePasswordModal; window.closeLogoutModal = closeLogoutModal;
 window.handleDayClick = handleDayClick; window.handleDayRightClick = handleDayRightClick; window.editFromMenu = editFromMenu;
 window.closeEditModal = closeEditModal; window.saveEditedSchedule = saveEditedSchedule; window.deleteScheduleAction = deleteScheduleAction; window.openDetailModal = openDetailModal; window.closeDetailModal = closeDetailModal;
@@ -481,6 +483,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 // 멤버관리(스케줄 멤버) 전용 데이터베이스 - 별도 Firebase 프로젝트 연결
 // 어드민 계정(admins)과 멤버 그룹(memberGroups)은 기존 데이터베이스(db)를 그대로 사용합니다.
@@ -502,6 +505,8 @@ let scheduleList = [];
 let memoList = { '달타':[], '다룽':[], '최또':[], '카나시':[] };
 let isAdmin = false;
 let loggedInUser = null; 
+let currentUser = null;           // 일반 유저(구글 로그인) - Firebase Auth 유저 객체
+let userLikedSongsCache = null;   // { [member]: [songId, ...] } - 로그인한 유저의 좋아요 캐시
 let currentPage = '홈';
 let songbookMember = '달타';
 let currentYear = new Date().getFullYear();
@@ -955,6 +960,168 @@ async function checkPassword() {
         alert("시스템 에러로 로그인에 실패했습니다."); 
     }
 }
+
+async function loginWithGoogle() {
+    const isAutoLogin = document.getElementById('autoLoginCheck')?.checked;
+
+    try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const email = result.user.email;
+
+        if (!email) {
+            alert("구글 계정에서 이메일 정보를 가져올 수 없습니다.");
+            return;
+        }
+
+        const q = query(collection(db, "admins"), where("email", "==", email));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            alert("등록되지 않은 구글 계정입니다. 관리자에게 문의해주세요.");
+            return;
+        }
+
+        const adminDoc = querySnapshot.docs[0];
+        const adminData = adminDoc.data();
+        const docId = adminDoc.id;
+        const token = generateAuthToken();
+
+        isAdmin = true;
+        loggedInUser = { docId, ...adminData };
+
+        if (isAutoLogin) {
+            localStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
+        } else {
+            sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
+        }
+
+        saveProfileLocally({ docId, id: adminData.id, name: adminData.name, img: adminData.img, token });
+
+        updateLoginUI(loggedInUser);
+        alert(`${adminData.name}님 환영합니다!`);
+        closePasswordModal();
+    } catch (e) {
+        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+        console.error("구글 로그인 에러:", e);
+        alert("구글 로그인 중 오류가 발생했습니다.");
+    }
+}
+
+// =========================================================================
+// 일반 유저 로그인 (구글 계정, 관리자와 별도)
+// =========================================================================
+async function loginAsUser() {
+    try {
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        // 로그인 성공 후 처리는 onAuthStateChanged에서 일괄적으로 진행됩니다.
+    } catch (e) {
+        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+        console.error("유저 로그인 에러:", e);
+        alert("구글 로그인 중 오류가 발생했습니다.");
+    }
+}
+
+async function logoutUser() {
+    try {
+        await signOut(auth);
+    } catch (e) {
+        console.error("유저 로그아웃 에러:", e);
+    }
+}
+
+// 로그인 직후, 로그인 전 이 브라우저(비로그인 상태)에서 눌러뒀던 좋아요를 계정으로 병합합니다.
+async function mergeLocalLikesIntoAccount(uid, accountLikedSongs) {
+    const merged = { ...(accountLikedSongs || {}) };
+    let changed = false;
+
+    for (let i = 0; i < localStorage.length; i++) {
+        const storageKey = localStorage.key(i);
+        if (!storageKey || !storageKey.startsWith('likedSongIds_')) continue;
+        const member = storageKey.replace('likedSongIds_', '');
+        try {
+            const localIds = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            if (!localIds.length) continue;
+            const set = new Set(merged[member] || []);
+            localIds.forEach(id => set.add(id));
+            if (set.size !== (merged[member] || []).length) changed = true;
+            merged[member] = Array.from(set);
+        } catch (e) { /* 무시 */ }
+    }
+
+    if (changed) {
+        try {
+            await setDoc(doc(db, "users", uid), { likedSongs: merged }, { merge: true });
+        } catch (e) {
+            console.error('좋아요 병합 저장 실패:', e);
+        }
+    }
+    return merged;
+}
+
+function updateUserAuthUI(user) {
+    const desktopContainer = document.getElementById('desktopUserAuthContainer');
+    const mobileContainer = document.getElementById('mobileUserAuthContainer');
+
+    if (user) {
+        const name = user.displayName || '유저';
+        const photo = user.photoURL || '';
+        const desktopHtml = `
+            <div class="flex items-center gap-2 cursor-pointer" onclick="document.getElementById('userAuthMenu_desktop').classList.toggle('hidden')">
+                <img src="${photo}" class="w-9 h-9 rounded-full object-cover border-2 border-gray-200">
+                <span class="font-paperozi font-bold text-[15px] text-[#5D4037] max-w-[90px] truncate">${name}</span>
+            </div>
+            <div id="userAuthMenu_desktop" class="hidden absolute right-0 top-[110%] bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[120px] z-[2000]">
+                <button onclick="logoutUser()" class="w-full px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
+            </div>`;
+        const mobileHtml = `
+            <div class="flex items-center gap-1 cursor-pointer" onclick="document.getElementById('userAuthMenu_mobile').classList.toggle('hidden')">
+                <img src="${photo}" class="w-7 h-7 rounded-full object-cover border border-gray-200">
+            </div>
+            <div id="userAuthMenu_mobile" class="hidden absolute right-0 top-[110%] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden min-w-[100px] z-[2000]">
+                <button onclick="logoutUser()" class="w-full px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
+            </div>`;
+        if (desktopContainer) desktopContainer.innerHTML = desktopHtml;
+        if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
+    } else {
+        const desktopBtn = `<button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm flex items-center gap-2" onclick="loginAsUser()"><i class="fi fi-brands-google text-[16px]"></i> 구글 로그인</button>`;
+        const mobileBtn = `<button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm flex items-center gap-1" onclick="loginAsUser()"><i class="fi fi-brands-google text-[12px]"></i> 로그인</button>`;
+        if (desktopContainer) desktopContainer.innerHTML = desktopBtn;
+        if (mobileContainer) mobileContainer.innerHTML = mobileBtn;
+    }
+}
+
+onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+
+    if (user) {
+        try {
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            const existingLiked = userSnap.exists() ? (userSnap.data().likedSongs || {}) : {};
+
+            await setDoc(userRef, {
+                email: user.email || null,
+                name: user.displayName || null,
+                photo: user.photoURL || null,
+                lastLogin: Date.now()
+            }, { merge: true });
+
+            userLikedSongsCache = await mergeLocalLikesIntoAccount(user.uid, existingLiked);
+        } catch (e) {
+            console.error('유저 정보 동기화 실패:', e);
+            userLikedSongsCache = userLikedSongsCache || {};
+        }
+    } else {
+        userLikedSongsCache = null;
+    }
+
+    updateUserAuthUI(user);
+    if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
+        try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
+    }
+});
 
 function openManageModal(tab = 'link') {
     if (!isAdmin || !loggedInUser) return;
@@ -2028,6 +2195,12 @@ window.addEventListener('click', (e) => {
         const pMenu = document.getElementById(id);
         if(pMenu && !pMenu.classList.contains('hidden') && !e.target.closest('#desktopAuthContainer') && !e.target.closest('#mobileAuthContainer')) {
             pMenu.classList.add('hidden'); pMenu.classList.remove('flex');
+        }
+    });
+    ['userAuthMenu_desktop', 'userAuthMenu_mobile'].forEach(id => {
+        const uMenu = document.getElementById(id);
+        if(uMenu && !uMenu.classList.contains('hidden') && !e.target.closest('#desktopUserAuthContainer') && !e.target.closest('#mobileUserAuthContainer')) {
+            uMenu.classList.add('hidden');
         }
     });
 });
@@ -3229,17 +3402,29 @@ function escapeHtml(str) {
 }
 
 function getLikedSongIds(member = songbookMember) {
+    const key = member || '달타';
+    if (currentUser && userLikedSongsCache) {
+        return new Set(userLikedSongsCache[key] || []);
+    }
     try {
-        const key = `likedSongIds_${member || '달타'}`;
-        return new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+        const localKey = `likedSongIds_${key}`;
+        return new Set(JSON.parse(localStorage.getItem(localKey) || '[]'));
     } catch (e) {
         return new Set();
     }
 }
 
 function saveLikedSongIds(set, member = songbookMember) {
-    const key = `likedSongIds_${member || '달타'}`;
-    localStorage.setItem(key, JSON.stringify(Array.from(set)));
+    const key = member || '달타';
+    if (currentUser && userLikedSongsCache) {
+        userLikedSongsCache[key] = Array.from(set);
+        // 계정에 비동기로 저장 (렌더링을 막지 않기 위해 await 하지 않음)
+        setDoc(doc(db, "users", currentUser.uid), { likedSongs: userLikedSongsCache }, { merge: true })
+            .catch(e => console.error('좋아요 계정 저장 실패:', e));
+        return;
+    }
+    const localKey = `likedSongIds_${key}`;
+    localStorage.setItem(localKey, JSON.stringify(Array.from(set)));
 }
 
 function isSongLiked(id) {
