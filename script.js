@@ -580,7 +580,6 @@ function saveScheduleCache() {
             rollingTopics,
             rollingEntries,
             signalRecords,
-            upboData,
             loadedMemberPages: Array.from(loadedMemberPages),
             savedAt: Date.now()
         };
@@ -599,12 +598,7 @@ function hydrateScheduleCache(cache) {
     rollingTopics = Array.isArray(cache.rollingTopics) ? cache.rollingTopics : [];
     rollingEntries = Array.isArray(cache.rollingEntries) ? cache.rollingEntries : [];
     signalRecords = Array.isArray(cache.signalRecords) ? cache.signalRecords : [];
-    upboData = cache.upboData || {
-        '달타': { products: [], records: [] },
-        '다룽': { products: [], records: [] },
-        '최또': { products: [], records: [] },
-        '카나시': { products: [], records: [] }
-    };
+    // 업보관리 데이터는 로컬 캐시에 저장/복원하지 않는다. 항상 loadUpboDataFromFirebase()로 즉시 최신 데이터를 받아온다.
     loadedMemberPages = new Set(Array.isArray(cache.loadedMemberPages) ? cache.loadedMemberPages : []);
     return true;
 }
@@ -3025,6 +3019,34 @@ function sortRollingTopics() {
     });
 }
 
+// 업보관리 데이터는 로컬(세션 캐시)에 저장하지 않고, 호출될 때마다 Firebase에서 즉시 최신 데이터를 가져온다.
+async function loadUpboDataFromFirebase() {
+    try {
+        const upboSnap = await getDocs(collection(db, 'upboData'));
+        const mapToKor = {'dalta':'달타', 'darung':'다룽', 'choiagain':'최또', 'kanashi':'카나시'};
+        const freshUpboData = {
+            '달타': { products: [], records: [] },
+            '다룽': { products: [], records: [] },
+            '최또': { products: [], records: [] },
+            '카나시': { products: [], records: [] }
+        };
+        upboSnap.forEach(docSnap => {
+            const k = mapToKor[docSnap.id];
+            if (k) freshUpboData[k] = docSnap.data();
+        });
+        for (let m in freshUpboData) {
+            if (!freshUpboData[m].products) freshUpboData[m].products = [];
+            if (!freshUpboData[m].records) freshUpboData[m].records = [];
+        }
+        upboData = freshUpboData;
+        return true;
+    } catch (e) {
+        console.error("업보데이터 로드 에러:", e);
+        return false;
+    }
+}
+window.loadUpboDataFromFirebase = loadUpboDataFromFirebase;
+
 async function loadSchedulesFromFirebase({ forceReload = false, member = null, useCacheOnly = false } = {}) {
     const cached = !forceReload ? readScheduleCache() : null;
 
@@ -3142,20 +3164,6 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, u
                 sortSignalRecords();
             } catch (e) { console.error("시그널 데이터 로드 에러:", e); }
 
-            try {
-                const upboSnap = await getDocs(collection(db, 'upboData'));
-                upboSnap.forEach(docSnap => {
-                    const mapToKor = {'dalta':'달타', 'darung':'다룽', 'choiagain':'최또', 'kanashi':'카나시'};
-                    const k = mapToKor[docSnap.id];
-                    if(k) {
-                        upboData[k] = docSnap.data();
-                    }
-                });
-                for(let m in upboData) {
-                    if(!upboData[m].products) upboData[m].products = [];
-                    if(!upboData[m].records) upboData[m].records = [];
-                }
-            } catch(e) { console.error("업보데이터 로드 에러:", e); }
         }
 
         saveScheduleCache();
@@ -3220,6 +3228,10 @@ async function changeTab(tabName) {
         if (!isMobile) {
             await loadScript('https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js');
         }
+    } else if (currentPage === '업보정리') {
+        await loadSchedulesFromFirebase({ useCacheOnly: true });
+        // 업보관리 데이터는 로컬에 기억해두지 않고 탭에 들어올 때마다 항상 최신 데이터를 즉시 불러온다.
+        await loadUpboDataFromFirebase();
     } else {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
     }
@@ -6082,6 +6094,8 @@ async function initApp() {
     await loadSchedulesFromFirebase();
     if (currentPage === '홈') {
         await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
+    } else if (isEmbedMode && currentPage === '업보정리') {
+        await loadUpboDataFromFirebase(); // 임베드 모드로 업보정리에 바로 진입하는 경우, 캐시 없이 즉시 최신 데이터를 가져온다
     }
     setActiveSongs(songbookMember);
 
