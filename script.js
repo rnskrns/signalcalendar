@@ -6245,6 +6245,7 @@ window.addCustomMember = async function() {
             timestamp: newMem.timestamp
         });
         customMembers.push({ id: docId, ...newMem });
+        saveScheduleCache();
         
         document.getElementById('newMemberNickname').value = '';
         document.getElementById('newMemberSoopId').value = '';
@@ -6284,6 +6285,7 @@ window.deleteCustomMember = async function(id) {
     try {
         await deleteDoc(doc(memberDb, 'members', id));
         customMembers = customMembers.filter(m => m.id !== id);
+        saveScheduleCache();
         renderCustomMembersList();
         render();
     } catch(e) { console.error(e); }
@@ -6412,6 +6414,7 @@ window.importMembersListFile = async function(event) {
         }
 
         renderCustomMembersList();
+        saveScheduleCache();
         alert(`${addedCount}명 추가되었습니다.${skippedCount > 0 ? ` (${skippedCount}명은 중복/오류로 제외)` : ''}`);
         event.target.value = '';
     };
