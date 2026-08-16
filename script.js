@@ -3323,6 +3323,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     const isHabBang = sch.broadType === '합방';
     const isSignalHabBang = sch.broadType === '시그널합방';
     const isCheonTaBus = sch.broadType === '천타버스';
+    const isBibangSchedule = sch.broadType === '비방일정';
 
     let bgColor = sch.globalType === '휴방' ? '#E5E7EB' : (memberColors[memberName] || '#FFFFFF');
     let textColor = ''; 
@@ -3339,6 +3340,9 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     } else if (isCheonTaBus) {
         bgColor = '#c8f0f5'; 
         finalTextColor = '#0891b2';
+    } else if (isBibangSchedule) {
+        bgColor = '#E5E7EB'; 
+        finalTextColor = '#6B7280';
     }
 
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
@@ -5681,7 +5685,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
                         <option value="시그널합방" ${broad==='시그널합방'?'selected':''}>시그널합방</option>
                         <option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option>
                         ${cheonTaBusOptionHtml}
-                        <option value="휴방" ${broad==='휴방'?'selected':''}>휴방</option>
+                        <option value="비방일정" ${broad==='비방일정'?'selected':''}>비방일정</option>
                     </select>
                 </div>
             </div>
@@ -5916,6 +5920,8 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                 broadStyle = 'background-color: #c8f0f5; color: #0891b2; border-color: #0891b2;'; 
             } else if (broadText === '시네티') {
                 broadStyle = 'background-color: #f3e8ff; color: #9333ea; border-color: #9333ea;'; 
+            } else if (broadText === '비방일정') {
+                broadStyle = 'background-color: #E5E7EB; color: #6B7280; border-color: #6B7280;'; 
             } else {
                 let bgC = cardBgColors[sch.tabOrMember] || 'var(--card-bg-white)';
                 broadStyle = `background-color: ${bgC}; color: ${themeColor}; border-color: ${themeColor};`;
