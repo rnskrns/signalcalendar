@@ -3372,7 +3372,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     }
 
     const timeHtml = formattedTime ? `
-        <div class="absolute top-0.5 right-1.5 z-10">
+        <div class="absolute -top-0.5 right-1.5 z-10">
             <span class="text-[11px] font-bold dm-text-brown" style="color: #5D4037;">${formattedTime}</span>
         </div>
     ` : '';
