@@ -6730,7 +6730,9 @@ window.copyUpboEmbedCode = function() {
         ? `&upbo=${encodeURIComponent(upboCurrentMember)}`
         : '&upbo=달타';
     const embedUrl = `${currentUrl}?mode=embed${memberParam}`;
-    const iframeCode = `<iframe src="${embedUrl}" width="100%" height="700px" style="border:none; border-radius:16px;" sandbox="allow-scripts allow-same-origin"></iframe>`;
+    
+    // 👇 style에 width: 100%; max-width: 100%; 를 명시적으로 추가했습니다.
+    const iframeCode = `<iframe src="${embedUrl}" width="100%" height="700px" style="width: 100%; max-width: 100%; border:none; border-radius:16px;" sandbox="allow-scripts allow-same-origin"></iframe>`;
 
     navigator.clipboard.writeText(iframeCode).then(() => {
         const btn = document.querySelector('button[onclick="copyUpboEmbedCode()"]');
