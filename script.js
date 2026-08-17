@@ -4160,7 +4160,7 @@ function renderUpboPage() {
     tabsHtml += `</div>`;
     }
 
-    let mainHtml = `<div class="big-white-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">`;
+    let mainHtml = `<div class="big-white-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; ${isMobile ? 'min-width: 0;' : ''} box-sizing: border-box;">`;
     mainHtml += toggleBtnHtml; 
     
     const titleText = (isAdmin && upboViewMode === 'admin') ? '업보 관리' : '업보 조회';
