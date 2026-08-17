@@ -522,9 +522,8 @@ let memoPinned = localStorage.getItem('memoBoardPinned') === 'true';
 // 모바일 기기라도 화면을 가로로 돌리면(가로가 세로보다 길고, 폭이 충분히 넓으면) PC 레이아웃으로 보이게 함
 function computeIsMobile() {
     const w = window.innerWidth;
-    const h = window.innerHeight;
-    const isLandscapeWide = w > h && w >= 640; // 가로모드 + 최소 폭 확보 시 PC 레이아웃 취급
-    return !(w > 1024 || isLandscapeWide);
+    // 가로 폭 기준 1050px 이하는 가로모드(landscape)여도 모바일 레이아웃으로 취급
+    return w <= 1050;
 }
 
 let isMobile = computeIsMobile();

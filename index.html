@@ -32,12 +32,13 @@
     <title>시그널 일정</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // 모바일이라도 화면을 가로로 돌리면(가로 폭이 충분하면) lg: 클래스가 PC 레이아웃처럼 적용되게 함
+        // 가로 폭이 1050px을 초과할 때만 PC(lg) 레이아웃 적용. 즉, 휴대폰을 가로로 돌려도
+        // 화면 가로 폭이 1050px 이하이면 계속 모바일 레이아웃으로 보이게 함.
         tailwind.config = {
             theme: {
                 extend: {
                     screens: {
-                        lg: { raw: '(min-width: 1024px), (orientation: landscape) and (min-width: 640px)' }
+                        lg: { raw: '(min-width: 1051px)' }
                     }
                 }
             }
