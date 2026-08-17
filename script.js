@@ -6034,7 +6034,7 @@ document.addEventListener('click', function(e) {
 
 function hidePageLoadingScreen() {
     const el = document.getElementById('pageLoadingScreen');
-    if (!el) return;
+    if (!el) return; // 임베드 모드는 index.html에서 이미 제거되어 여기서 바로 종료됨
     const MIN_DISPLAY_MS = 1500;
     const startTime = window.__pageLoadingStartTime || Date.now();
     const elapsed = Date.now() - startTime;

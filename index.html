@@ -60,6 +60,15 @@
     </div>
     <script>
         (function() {
+            // 임베드 모드(iframe)에서는 로딩 화면을 아예 띄우지 않는다
+            var isEmbed = new URLSearchParams(window.location.search).get('mode') === 'embed';
+            if (isEmbed) {
+                var screenEl = document.getElementById('pageLoadingScreen');
+                if (screenEl) screenEl.remove();
+                window.__pageLoadingStartTime = 0;
+                return;
+            }
+
             var loadingImages = [
                 'https://res.cloudinary.com/dtlqzklk5/image/upload/q_auto,f_auto/v1784212187/oadtzkneiagjxjpe7de1.webp',
                 'https://res.cloudinary.com/dtlqzklk5/image/upload/q_auto,f_auto/v1784212186/lsnbtpiymojjtjmd9x5q.webp',
