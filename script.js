@@ -6730,9 +6730,9 @@ window.copyUpboEmbedCode = function() {
         ? `&upbo=${encodeURIComponent(upboCurrentMember)}`
         : '&upbo=달타';
     const embedUrl = `${currentUrl}?mode=embed${memberParam}`;
-    
-    // 👇 style에 width: 100%; max-width: 100%; 를 명시적으로 추가했습니다.
-    const iframeCode = `<iframe src="${embedUrl}" width="100%" height="700px" style="width: 100%; max-width: 100%; border:none; border-radius:16px;" sandbox="allow-scripts allow-same-origin"></iframe>`;
+
+    // 👇 aspect-ratio: 9 / 16 을 적용하고, max-width: 450px로 PC 환경에서의 최대 너비를 제한했습니다.
+    const iframeCode = `<iframe src="${embedUrl}" width="100%" height="800px" style="width: 100%; max-width: 450px; aspect-ratio: 9 / 16; border:none; border-radius:16px;" sandbox="allow-scripts allow-same-origin"></iframe>`;
 
     navigator.clipboard.writeText(iframeCode).then(() => {
         const btn = document.querySelector('button[onclick="copyUpboEmbedCode()"]');
