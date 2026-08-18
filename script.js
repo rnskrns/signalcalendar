@@ -7389,15 +7389,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     }
     
     try {
-        const bjIdMap = {
-            '달타': 'dalta20',
-            '다룽': 'daarung22',
-            '최또': 'choiagain',
-            '카나시': 'kjhh0029'
-        };
-        const originalBjId = bjIdMap[streamerName] || '';
-
-        // Vercel Serverless Function 호출
+        // Vercel Serverless Function을 통해 SOOP 통합검색의 VOD 탭을 호출한다.
         let targetUrl = `/api/clip?streamer=${encodeURIComponent(streamerName)}&page=${currentClipPage}`;
 
         const res = await fetch(targetUrl);
@@ -7408,39 +7400,43 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         if (Array.isArray(json)) rawClips = json;
         else if (json.data && Array.isArray(json.data)) rawClips = json.data;
         else if (json.data && json.data.vod && Array.isArray(json.data.vod)) rawClips = json.data.vod;
+        else if (json.data && json.data.vod && Array.isArray(json.data.vod.list)) rawClips = json.data.vod.list;
+        else if (json.data && json.data.vod && Array.isArray(json.data.vod.items)) rawClips = json.data.vod.items;
         else if (json.DATA && Array.isArray(json.DATA)) rawClips = json.DATA;
         else if (json.list && Array.isArray(json.list)) rawClips = json.list;
+        else if (json.vod && Array.isArray(json.vod)) rawClips = json.vod;
+        else if (json.vod && Array.isArray(json.vod.list)) rawClips = json.vod.list;
+        else if (json.vod && Array.isArray(json.vod.items)) rawClips = json.vod.items;
 
-        const clips = rawClips.filter(clip => {
-            const uId = clip.user_id || clip.userId || clip.bj_id;
-            return uId !== originalBjId;
-        });
+        // 통합검색에 표시되는 VOD를 그대로 보여준다. 기존의 "본인 VOD 제외" 필터를
+        // 적용하면 검색 결과가 전부 사라질 수 있다.
+        const clips = rawClips;
 
         if (!isLoadMore && clips.length === 0) {
-            container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">최근 등록된 클립이 없습니다.</div>`;
+            container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">검색된 VOD가 없습니다.</div>`;
             isClipLoading = false;
             return;
         }
 
         let html = '';
         clips.forEach(clip => {
-            const title = clip.title || clip.title_name || clip.vod_title || '제목 없음';
+            const title = clip.title || clip.title_name || clip.vod_title || clip.title_nm || '제목 없음';
             
-            let thumb = clip.thumb || clip.thumbnail || clip.szThumb || clip.ucThumb || clip.file_path || 'https://via.placeholder.com/320x180';
+            let thumb = clip.thumb || clip.thumbnail || clip.szThumb || clip.ucThumb || clip.file_path || clip.thumb_url || clip.thumbnail_url || 'https://via.placeholder.com/320x180';
             if (thumb.startsWith('//')) {
                 thumb = 'https:' + thumb;
             }
             
-            const titleNo = clip.title_no || clip.vod_bno || clip.nTitleNo || clip.id;
-            const link = titleNo ? `https://vod.sooplive.com/player/${titleNo}` : '#';
+            const titleNo = clip.title_no || clip.vod_bno || clip.nTitleNo || clip.bno || clip.id;
+            const link = clip.url || clip.link_url || clip.vod_url || (titleNo ? `https://vod.sooplive.com/player/${titleNo}` : '#');
             
-            let dateStr = clip.reg_date || clip.szRegDate || clip.createdAt || '';
+            let dateStr = clip.reg_date || clip.szRegDate || clip.createdAt || clip.regdate || '';
             if (dateStr) {
                 dateStr = dateStr.substring(0, 10).replace(/-/g, '.');
             }
             
             let durationHtml = '';
-            const totalSeconds = parseInt(clip.duration || clip.nTotalTime || clip.total_time, 10);
+            const totalSeconds = parseInt(clip.duration || clip.nTotalTime || clip.total_time || clip.play_time, 10);
             if (!isNaN(totalSeconds) && totalSeconds > 0) {
                 const h = Math.floor(totalSeconds / 3600);
                 const m = Math.floor((totalSeconds % 3600) / 60);
@@ -7459,7 +7455,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
                         </div>
                     </div>
                     <div class="p-4 flex flex-col gap-1.5 flex-1 bg-[#FFFDF5]">
-                        <div class="text-[15px] font-bold text-[#5D4037] font-paperozi line-clamp-2 leading-snug">${title}</div>
+                        <div class="text-[15px] font-bold text-[#5D4037] font-paperozi line-clamp-2 leading-snug">${escapeHtml(title)}</div>
                         <div class="text-[12px] font-bold text-gray-400 mt-auto pt-2">${dateStr}</div>
                     </div>
                 </div>
