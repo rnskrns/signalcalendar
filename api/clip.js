@@ -13,9 +13,10 @@ export default async function handler(req, res) {
 
   // SOOP VOD Finder가 제공하는 공개 검색 API를 서버에서 프록시한다.
   // 브라우저에서 직접 호출하면 CORS로 차단되므로 이 API 경유가 필요하다.
-  const searchParams = new URLSearchParams({ limit: '24' });
-  // '전체' 탭은 검색어 없이 최신 공개 VOD/클립 전체를 조회한다.
-  if (streamer !== '전체') searchParams.set('q', streamer);
+  const searchParams = new URLSearchParams({
+    q: streamer,
+    limit: '24'
+  });
   // 해당 스트리머가 원본인 영상/클립은 제외하고, 관련 클립만 보여준다.
   if (originalBjId) {
     searchParams.set('originalBjId', originalBjId);
