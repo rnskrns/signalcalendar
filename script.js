@@ -7351,7 +7351,7 @@ window.processRouletteFile = async function(input) {
 // =========================================================================
 // 클립 탐색기 (SOOP 통합 검색 API 연동)
 // =========================================================================
-let currentClipStreamer = '달타';
+let currentClipStreamer = '전체';
 let currentClipPage = 1;          
 let currentClipCursor = null;
 let currentClipLoadedCount = 0;
@@ -7522,6 +7522,11 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 window.renderClipPage = function() {
     const content = document.getElementById('mainContent');
     const isMobile = window.innerWidth <= 1050;
+    // 탭에 들어올 때는 최신 전체 기록부터 보여준다.
+    currentClipStreamer = '전체';
+    currentClipPage = 1;
+    currentClipCursor = null;
+    currentClipLoadedCount = 0;
     
     let html = `
     <div class="big-white-box relative flex flex-col bg-[#fafafa]" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">
@@ -7537,7 +7542,8 @@ window.renderClipPage = function() {
         </div>
         
         <div class="flex gap-2 overflow-x-auto pb-5 hide-scrollbar shrink-0">
-            <button class="clip-streamer-btn bg-violet-600 text-white border-violet-600 px-5 py-2 rounded-lg font-bold text-[14px] border shadow-sm transition whitespace-nowrap shrink-0" data-id="달타" onclick="window.changeClipStreamerNative('달타')">달타</button>
+            <button class="clip-streamer-btn bg-violet-600 text-white border-violet-600 px-5 py-2 rounded-lg font-bold text-[14px] border shadow-sm transition whitespace-nowrap shrink-0" data-id="전체" onclick="window.changeClipStreamerNative('전체')">전체</button>
+            <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="달타" onclick="window.changeClipStreamerNative('달타')">달타</button>
             <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="다룽" onclick="window.changeClipStreamerNative('다룽')">다룽</button>
             <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="최또" onclick="window.changeClipStreamerNative('최또')">최또</button>
             <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="카나시" onclick="window.changeClipStreamerNative('카나시')">카나시</button>
