@@ -3,12 +3,25 @@ export default async function handler(req, res) {
 
   if (!streamer) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
+  const originalBjIdMap = {
+    '달타': 'dalta20',
+    '다룽': 'daarung22',
+    '최또': 'choiagain',
+    '카나시': 'kjhh0029'
+  };
+  const originalBjId = originalBjIdMap[streamer];
+
   // SOOP VOD Finder가 제공하는 공개 검색 API를 서버에서 프록시한다.
   // 브라우저에서 직접 호출하면 CORS로 차단되므로 이 API 경유가 필요하다.
   const searchParams = new URLSearchParams({
     q: streamer,
     limit: '24'
   });
+  // 해당 스트리머가 원본인 영상/클립은 제외하고, 관련 클립만 보여준다.
+  if (originalBjId) {
+    searchParams.set('originalBjId', originalBjId);
+    searchParams.set('excludeOriginal', 'true');
+  }
   if (cursor) searchParams.set('cursor', cursor);
 
   try {

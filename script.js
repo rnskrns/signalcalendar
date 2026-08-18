@@ -7354,6 +7354,7 @@ window.processRouletteFile = async function(input) {
 let currentClipStreamer = '달타';
 let currentClipPage = 1;          
 let currentClipCursor = null;
+let currentClipLoadedCount = 0;
 let isClipLoading = false;        
 
 window.changeClipStreamerNative = function(streamerName) {
@@ -7362,12 +7363,13 @@ window.changeClipStreamerNative = function(streamerName) {
     currentClipStreamer = streamerName;
     currentClipPage = 1; 
     currentClipCursor = null;
+    currentClipLoadedCount = 0;
     
     document.querySelectorAll('.clip-streamer-btn').forEach(btn => {
         if (btn.dataset.id === streamerName) {
-            btn.className = 'clip-streamer-btn bg-[#8B5CF6] text-white border-[#8B5CF6] px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm transition whitespace-nowrap shrink-0 font-paperozi';
+            btn.className = 'clip-streamer-btn bg-violet-600 text-white border-violet-600 px-5 py-2 rounded-lg font-bold text-[14px] border shadow-sm transition whitespace-nowrap shrink-0';
         } else {
-            btn.className = 'clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi';
+            btn.className = 'clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0';
         }
     });
 
@@ -7417,6 +7419,9 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         // 통합검색에 표시되는 VOD를 그대로 보여준다. 기존의 "본인 VOD 제외" 필터를
         // 적용하면 검색 결과가 전부 사라질 수 있다.
         const clips = rawClips;
+        currentClipLoadedCount = isLoadMore ? currentClipLoadedCount + clips.length : clips.length;
+        const resultCount = document.getElementById('clipResultCount');
+        if (resultCount) resultCount.textContent = `${currentClipLoadedCount.toLocaleString('ko-KR')}개 표시 중`;
 
         if (!isLoadMore && clips.length === 0) {
             container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">검색된 VOD가 없습니다.</div>`;
@@ -7456,18 +7461,29 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
                 durationHtml = `<div class="absolute bottom-2 right-2 bg-black/80 text-white text-[11px] font-bold px-1.5 py-0.5 rounded shadow-sm">${timeText}</div>`;
             }
 
+            const type = String(clip.type || 'VOD').toUpperCase();
+            const typeLabel = type === 'CLIP' ? '클립' : type === 'CATCH' ? '캐치' : '다시보기';
+            const typeClass = type === 'CLIP' ? 'bg-violet-100 text-violet-700' : type === 'CATCH' ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700';
+            const stationName = escapeHtml(clip.stationNick || clip.originalStationNick || clip.bjId || 'SOOP');
+            const viewCount = Number(clip.viewCount);
+            const viewText = Number.isFinite(viewCount) ? `조회 ${viewCount.toLocaleString('ko-KR')}` : '';
+
             html += `
-                <div class="rounded-2xl overflow-hidden bg-white border-[3px] border-[#8B5CF6] cursor-pointer hover:-translate-y-1 transition relative group flex flex-col shadow-sm" onclick="openSmartLink('${link}')">
-                    <div class="w-full aspect-video overflow-hidden bg-gray-100 relative border-b-2 border-gray-100">
+                <div class="rounded-xl overflow-hidden bg-white border border-gray-200 cursor-pointer hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg transition-all relative group flex flex-col shadow-sm" onclick="openSmartLink('${link}')">
+                    <div class="w-full aspect-video overflow-hidden bg-gray-100 relative">
                         <img src="${thumb}" class="w-full h-full object-cover" alt="클립 썸네일" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/320x180'">
                         ${durationHtml}
                         <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                             <i class="fi fi-rr-play text-white text-4xl drop-shadow-md"></i>
                         </div>
                     </div>
-                    <div class="p-4 flex flex-col gap-1.5 flex-1 bg-[#FFFDF5]">
-                        <div class="text-[15px] font-bold text-[#5D4037] font-paperozi line-clamp-2 leading-snug">${escapeHtml(title)}</div>
-                        <div class="text-[12px] font-bold text-gray-400 mt-auto pt-2">${dateStr}</div>
+                    <div class="p-3.5 flex flex-col gap-2 flex-1">
+                        <div class="flex items-center gap-1.5 text-[11px] font-bold">
+                            <span class="px-1.5 py-0.5 rounded ${typeClass}">${typeLabel}</span>
+                            <span class="text-gray-500 truncate">${stationName}</span>
+                        </div>
+                        <div class="text-[14px] font-bold text-gray-900 line-clamp-2 leading-snug">${escapeHtml(title)}</div>
+                        <div class="text-[11px] text-gray-400 mt-auto pt-1 flex items-center gap-2">${dateStr ? `<span>${dateStr}</span>` : ''}${viewText ? `<span>${viewText}</span>` : ''}</div>
                     </div>
                 </div>
             `;
@@ -7508,25 +7524,35 @@ window.renderClipPage = function() {
     const isMobile = window.innerWidth <= 1050;
     
     let html = `
-    <div class="big-white-box relative theme-rolling flex flex-col" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">
-        <div class="flex justify-between items-center mb-6 shrink-0 border-b-[3px] border-[#5D4037] pb-4">
-            <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
-                <i class="fi fi-rr-video-camera-alt"></i> 클립 모아보기
-            </h2>
+    <div class="big-white-box relative flex flex-col bg-[#fafafa]" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">
+        <div class="mb-6 shrink-0 border-b border-gray-200 pb-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm"><i class="fi fi-rr-video-camera-alt text-lg"></i></div>
+                <div>
+                    <div class="text-[10px] font-black tracking-[0.16em] text-violet-600">SOOP VOD FINDER</div>
+                    <h2 class="mt-0.5 text-[24px] lg:text-[27px] font-bold text-gray-900">클립 탐색기</h2>
+                </div>
+            </div>
+            <p class="mt-3 text-[13px] text-gray-500">SOOP 공개 VOD 검색 결과를 확인하세요.</p>
         </div>
         
-        <div class="flex gap-2 overflow-x-auto pb-4 mb-2 hide-scrollbar shrink-0">
-            <button class="clip-streamer-btn bg-[#8B5CF6] text-white border-[#8B5CF6] px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm transition whitespace-nowrap shrink-0 font-paperozi" data-id="달타" onclick="window.changeClipStreamerNative('달타')">달타</button>
-            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="다룽" onclick="window.changeClipStreamerNative('다룽')">다룽</button>
-            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="최또" onclick="window.changeClipStreamerNative('최또')">최또</button>
-            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="카나시" onclick="window.changeClipStreamerNative('카나시')">카나시</button>
+        <div class="flex gap-2 overflow-x-auto pb-5 hide-scrollbar shrink-0">
+            <button class="clip-streamer-btn bg-violet-600 text-white border-violet-600 px-5 py-2 rounded-lg font-bold text-[14px] border shadow-sm transition whitespace-nowrap shrink-0" data-id="달타" onclick="window.changeClipStreamerNative('달타')">달타</button>
+            <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="다룽" onclick="window.changeClipStreamerNative('다룽')">다룽</button>
+            <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="최또" onclick="window.changeClipStreamerNative('최또')">최또</button>
+            <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="카나시" onclick="window.changeClipStreamerNative('카나시')">카나시</button>
+        </div>
+
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-[15px] font-bold text-gray-900">탐색 결과</h3>
+            <span id="clipResultCount" class="text-[12px] font-medium text-gray-500">검색 중…</span>
         </div>
         
-        <div id="clipGridContainer" class="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        <div id="clipGridContainer" class="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         </div>
         
         <div class="w-full flex justify-center mt-10 mb-4">
-            <button id="clipLoadMoreBtn" class="hidden px-8 py-3 bg-[#5D4037] text-white font-bold rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.2)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[16px]" onclick="window.fetchStreamerClips(currentClipStreamer, true)">더보기 (▼)</button>
+            <button id="clipLoadMoreBtn" class="hidden px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-[14px]" onclick="window.fetchStreamerClips(currentClipStreamer, true)">더보기</button>
         </div>
     </div>`;
     
