@@ -7351,19 +7351,18 @@ window.processRouletteFile = async function(input) {
 initApp().finally(hidePageLoadingScreen);
 
 // =========================================================================
-// 클립 탐색기 (SOOP 공식 검색 API 연동)
+// 클립 탐색기 (SOOP 통합 검색 API 연동)
 // =========================================================================
-let currentClipStreamer = '달타'; // 처음 들어갔을 때 기본 로딩될 멤버
-let currentClipPage = 1;          // 현재 로딩된 페이지 번호
-let isClipLoading = false;        // 중복 로딩 방지 플래그
+let currentClipStreamer = '달타';
+let currentClipPage = 1;          
+let isClipLoading = false;        
 
 window.changeClipStreamerNative = function(streamerName) {
     if (isClipLoading) return;
     
     currentClipStreamer = streamerName;
-    currentClipPage = 1; // 멤버를 바꾸면 1페이지로 초기화
+    currentClipPage = 1; 
     
-    // 버튼 시각 효과 변경 (선택된 멤버만 보라색 테마)
     document.querySelectorAll('.clip-streamer-btn').forEach(btn => {
         if (btn.dataset.id === streamerName) {
             btn.className = 'clip-streamer-btn bg-[#8B5CF6] text-white border-[#8B5CF6] px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm transition whitespace-nowrap shrink-0 font-paperozi';
@@ -7375,7 +7374,6 @@ window.changeClipStreamerNative = function(streamerName) {
     fetchStreamerClips(streamerName, false);
 };
 
-// API에서 데이터를 가져와 화면에 그리는 함수
 window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     const container = document.getElementById('clipGridContainer');
     const loadMoreBtn = document.getElementById('clipLoadMoreBtn');
@@ -7384,7 +7382,6 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     
     isClipLoading = true;
 
-    // 더보기 로딩 시 페이지 번호 증가
     if (isLoadMore) {
         currentClipPage++;
         if (loadMoreBtn) loadMoreBtn.innerText = '불러오는 중...⏳';
@@ -7394,7 +7391,6 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     }
     
     try {
-        // 멤버별 본인 방송국 아이디 매핑 (걸러내기 용도)
         const bjIdMap = {
             '달타': 'dalta20',
             '다룽': 'daarung22',
@@ -7403,21 +7399,22 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         };
         const originalBjId = bjIdMap[streamerName] || '';
 
-        // 자체 API 라우트(/api/clip) 호출
+        // Vercel Serverless Function 호출
         let targetUrl = `/api/clip?streamer=${encodeURIComponent(streamerName)}&page=${currentClipPage}`;
 
         const res = await fetch(targetUrl);
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const json = await res.json();
         
-        // SOOP 검색 API 응답 데이터 추출 (API 형태에 따라 data 안의 배열 형태를 방어적으로 파싱)
+        // unifiedSearch API 응답 데이터 추출 방어적 파싱
         let rawClips = [];
         if (Array.isArray(json)) rawClips = json;
         else if (json.data && Array.isArray(json.data)) rawClips = json.data;
+        else if (json.data && json.data.vod && Array.isArray(json.data.vod)) rawClips = json.data.vod;
         else if (json.DATA && Array.isArray(json.DATA)) rawClips = json.DATA;
         else if (json.list && Array.isArray(json.list)) rawClips = json.list;
 
-        // 🔥 클라이언트 단 필터링: 본인 방송국(originalBjId)에서 생성된 VOD를 제외 (타인 클립만)
+        // 클라이언트 단 필터링: 본인 방송국에서 생성된 VOD를 제외 (타인 클립만)
         const clips = rawClips.filter(clip => {
             const uId = clip.user_id || clip.userId || clip.bj_id;
             return uId !== originalBjId;
@@ -7431,22 +7428,25 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 
         let html = '';
         clips.forEach(clip => {
-            // 공식 API는 필드명이 다를 수 있으므로 폭넓게 대응
             const title = clip.title || clip.vod_title || '제목 없음';
-            const thumb = clip.thumb || clip.thumbnail || clip.ucThumb || 'https://via.placeholder.com/320x180';
             
-            // 영상 재생 링크 (공식 검색 API는 보통 title_no 대신 vod_bno 또는 nTitleNo 등으로 옵니다)
+            // 썸네일 추출 및 보정
+            let thumb = clip.thumb || clip.thumbnail || clip.szThumb || clip.ucThumb || clip.file_path || 'https://via.placeholder.com/320x180';
+            if (thumb.startsWith('//')) {
+                thumb = 'https:' + thumb;
+            }
+            
+            // 영상 재생 링크
             const titleNo = clip.title_no || clip.vod_bno || clip.nTitleNo || clip.id;
             const link = titleNo ? `https://vod.sooplive.com/player/${titleNo}` : '#';
             
             // 등록일자 포맷팅
             let dateStr = clip.reg_date || clip.szRegDate || clip.createdAt || '';
             if (dateStr) {
-                // "2026-08-16 14:00:00" 형태라면 앞의 날짜만 자르기
                 dateStr = dateStr.substring(0, 10).replace(/-/g, '.');
             }
             
-            // 영상 길이 (초 단위 필드가 주로 내려옵니다)
+            // 영상 길이 
             let durationHtml = '';
             const totalSeconds = parseInt(clip.duration || clip.nTotalTime || clip.total_time, 10);
             if (!isNaN(totalSeconds) && totalSeconds > 0) {
@@ -7460,7 +7460,8 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             html += `
                 <div class="rounded-2xl overflow-hidden bg-white border-[3px] border-[#8B5CF6] cursor-pointer hover:-translate-y-1 transition relative group flex flex-col shadow-sm" onclick="openSmartLink('${link}')">
                     <div class="w-full aspect-video overflow-hidden bg-gray-100 relative border-b-2 border-gray-100">
-                        <img src="${thumb}" class="w-full h-full object-cover" alt="클립 썸네일" loading="lazy" onerror="this.src='https://via.placeholder.com/320x180'">
+                        <!-- referrerpolicy="no-referrer" 로 엑스박스(이미지 깨짐) 방지 -->
+                        <img src="${thumb}" class="w-full h-full object-cover" alt="클립 썸네일" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/320x180'">
                         ${durationHtml}
                         <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                             <i class="fi fi-rr-play text-white text-4xl drop-shadow-md"></i>
@@ -7480,13 +7481,13 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             container.innerHTML = html;
         }
 
-        // 받아온 원래의 데이터 갯수가 요청한 갯수(24개)보다 크거나 같다면 다음 페이지가 있을 확률이 높음
         if (loadMoreBtn) {
-            if (rawClips.length >= 24) {
+            // 이번 요청에서 가져온 통합 검색 결과의 데이터가 20개(limit=20)라면 다음 페이지가 있을 확률이 높음
+            if (rawClips.length >= 20) {
                 loadMoreBtn.classList.remove('hidden');
                 loadMoreBtn.innerText = '더보기 (▼)';
             } else {
-                loadMoreBtn.classList.add('hidden'); // 마지막 페이지 도달 시 숨김
+                loadMoreBtn.classList.add('hidden'); 
             }
         }
 
@@ -7533,6 +7534,5 @@ window.renderClipPage = function() {
     content.innerHTML = html;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
 
-    // 최초 렌더링 시 현재 선택된 멤버의 데이터를 바로 불러옵니다
     fetchStreamerClips(currentClipStreamer, false);
 };

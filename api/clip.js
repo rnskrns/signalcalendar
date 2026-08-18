@@ -9,14 +9,14 @@ export default async function handler(req, res) {
   const pageNo = page || 1;
   const keyword = encodeURIComponent(streamer);
   
-  // SOOP 공식 검색 API 주소
-  const targetUrl = `https://sch.sooplive.com/api.php?m=vodSearch&w=webk&szKeyword=${keyword}&nPageNo=${pageNo}&nListCnt=24&szOrder=reg_date&szFileType=ALL&tab=vod`;
+  // 🔥 변경됨: 요청하신 통합 검색(unifiedSearch) API 주소 적용
+  const targetUrl = `https://sch.sooplive.com/api.php?m=unifiedSearch&keyword=${keyword}&character=UTF-8&limit=20&page=${pageNo}&tab=vod`;
 
   try {
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
-        // 🔥 핵심: SOOP 공식 웹사이트에서 요청하는 것처럼 헤더 위조
+        // SOOP 서버 방화벽 우회용 가짜 헤더
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://search.sooplive.com/',
         'Origin': 'https://search.sooplive.com'
