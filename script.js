@@ -7398,6 +7398,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         
         let rawClips = [];
         if (Array.isArray(json)) rawClips = json;
+        else if (Array.isArray(json.items)) rawClips = json.items;
         else if (json.data && Array.isArray(json.data)) rawClips = json.data;
         else if (json.data && json.data.vod && Array.isArray(json.data.vod)) rawClips = json.data.vod;
         else if (json.data && json.data.vod && Array.isArray(json.data.vod.list)) rawClips = json.data.vod.list;
