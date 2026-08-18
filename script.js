@@ -7353,6 +7353,7 @@ window.processRouletteFile = async function(input) {
 // =========================================================================
 let currentClipStreamer = '달타';
 let currentClipPage = 1;          
+let currentClipCursor = null;
 let isClipLoading = false;        
 
 window.changeClipStreamerNative = function(streamerName) {
@@ -7360,6 +7361,7 @@ window.changeClipStreamerNative = function(streamerName) {
     
     currentClipStreamer = streamerName;
     currentClipPage = 1; 
+    currentClipCursor = null;
     
     document.querySelectorAll('.clip-streamer-btn').forEach(btn => {
         if (btn.dataset.id === streamerName) {
@@ -7389,8 +7391,11 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     }
     
     try {
-        // Vercel Serverless Function을 통해 SOOP 통합검색의 VOD 탭을 호출한다.
-        let targetUrl = `/api/clip?streamer=${encodeURIComponent(streamerName)}&page=${currentClipPage}`;
+        // Vercel Serverless Function을 통해 VOD Finder 검색 API를 호출한다.
+        let targetUrl = `/api/clip?streamer=${encodeURIComponent(streamerName)}`;
+        if (isLoadMore && currentClipCursor) {
+            targetUrl += `&cursor=${encodeURIComponent(currentClipCursor)}`;
+        }
 
         const res = await fetch(targetUrl);
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
@@ -7428,16 +7433,17 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
                 thumb = 'https:' + thumb;
             }
             
-            const titleNo = clip.title_no || clip.vod_bno || clip.nTitleNo || clip.bno || clip.id;
+            const titleNo = clip.titleNo || clip.title_no || clip.vod_bno || clip.nTitleNo || clip.bno || clip.id;
             const link = clip.url || clip.link_url || clip.vod_url || (titleNo ? `https://vod.sooplive.com/player/${titleNo}` : '#');
             
-            let dateStr = clip.reg_date || clip.szRegDate || clip.createdAt || clip.regdate || '';
+            let dateStr = clip.regDate || clip.reg_date || clip.szRegDate || clip.createdAt || clip.regdate || '';
             if (dateStr) {
                 dateStr = dateStr.substring(0, 10).replace(/-/g, '.');
             }
             
             let durationHtml = '';
-            const totalSeconds = parseInt(clip.duration || clip.nTotalTime || clip.total_time || clip.play_time, 10);
+            const durationValue = parseInt(clip.durationMs || clip.duration || clip.nTotalTime || clip.total_time || clip.play_time, 10);
+            const totalSeconds = clip.durationMs ? Math.floor(durationValue / 1000) : durationValue;
             if (!isNaN(totalSeconds) && totalSeconds > 0) {
                 const h = Math.floor(totalSeconds / 3600);
                 const m = Math.floor((totalSeconds % 3600) / 60);
@@ -7470,7 +7476,8 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         }
 
         if (loadMoreBtn) {
-            if (rawClips.length >= 20) {
+            currentClipCursor = json.nextCursor || null;
+            if (currentClipCursor) {
                 loadMoreBtn.classList.remove('hidden');
                 loadMoreBtn.innerText = '더보기 (▼)';
             } else {
