@@ -7,19 +7,27 @@ export default async function handler(req, res) {
   }
 
   const pageNo = page || 1;
-  const keyword = encodeURIComponent(streamer);
-  
-  // 🔥 변경됨: 요청하신 통합 검색(unifiedSearch) API 주소 적용
-  const targetUrl = `https://sch.sooplive.com/api.php?m=unifiedSearch&keyword=${keyword}&character=UTF-8&limit=20&page=${pageNo}&tab=vod`;
+
+  // streamer(닉네임) -> 실제 bjid로 매핑
+  const bjIdMap = {
+    '달타': 'dalta20',
+    '다룽': 'daarung22',
+    '최또': 'choiagain',
+    '카나시': 'kjhh0029'
+  };
+  const bjId = bjIdMap[streamer] || streamer;
+
+  // ✅ BJ별 VOD(다시보기) 목록 API로 복원
+  // script.js의 파싱 로직(title_no, thumb, reg_date, duration)이 이 응답 구조에 맞춰져 있음
+  const targetUrl = `https://bjapi.afreecatv.com/api/${bjId}/vods/all?page=${pageNo}&per_page=20&orderby=reg_date&field=title`;
 
   try {
     const response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
-        // SOOP 서버 방화벽 우회용 가짜 헤더
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://search.sooplive.com/',
-        'Origin': 'https://search.sooplive.com'
+        'Referer': `https://www.sooplive.com/station/${bjId}`,
+        'Origin': 'https://www.sooplive.com'
       }
     });
 
