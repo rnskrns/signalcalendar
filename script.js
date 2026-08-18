@@ -7428,9 +7428,13 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         clips.forEach(clip => {
             const title = clip.title || clip.title_name || clip.vod_title || clip.title_nm || '제목 없음';
             
-            let thumb = clip.thumb || clip.thumbnail || clip.szThumb || clip.ucThumb || clip.file_path || clip.thumb_url || clip.thumbnail_url || 'https://via.placeholder.com/320x180';
+            let thumb = clip.thumbnailUrl || clip.thumb || clip.thumbnail || clip.szThumb || clip.ucThumb || clip.file_path || clip.thumb_url || clip.thumbnail_url || 'https://via.placeholder.com/320x180';
             if (thumb.startsWith('//')) {
                 thumb = 'https:' + thumb;
+            }
+            // VOD Finder 응답의 일부 썸네일은 http로 내려와 HTTPS 사이트에서 차단될 수 있다.
+            if (thumb.startsWith('http://videoimg.sooplive.com/')) {
+                thumb = thumb.replace('http://', 'https://');
             }
             
             const titleNo = clip.titleNo || clip.title_no || clip.vod_bno || clip.nTitleNo || clip.bno || clip.id;
