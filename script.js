@@ -7403,11 +7403,9 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         };
         const originalBjId = bjIdMap[streamerName] || '';
 
-        // SOOP 공식 검색 API (페이지 번호: currentClipPage 사용)
-        const keyword = encodeURIComponent(streamerName);
+        // 자체 API 라우트(/api/clip) 호출
+        let targetUrl = `/api/clip?streamer=${encodeURIComponent(streamerName)}&page=${currentClipPage}`;
 
-        // corsproxy 대신, vercel.json에서 설정한 가상 경로(/soop-api/)를 사용합니다.
-        let targetUrl = `/soop-api/api.php?m=vodSearch&w=webk&szKeyword=${keyword}&nPageNo=${currentClipPage}&nListCnt=24&szOrder=reg_date&szFileType=ALL&tab=vod`;
         const res = await fetch(targetUrl);
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const json = await res.json();
