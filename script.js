@@ -2138,7 +2138,7 @@ function renderHeaderTabs() {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
                 clickAction = ''; 
                 mainLinkHtml = `
-                    <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 탐색기</a>
+                    <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
                     <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">업보정리</a>
                 `;
@@ -2213,7 +2213,7 @@ function openMobileTabMenu(tab) {
     `;
     
     if (tab === '더보기') {
-        html += `<button onclick="executeMobileTabChange('클립')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">클립 탐색기</button>`;
+        html += `<button onclick="executeMobileTabChange('클립')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">클립 모아보기</button>`;
         html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">롤링페이퍼</button>`;
         html += `<button onclick="executeMobileTabChange('업보정리_달타')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">업보정리</button>`;
     } else {
