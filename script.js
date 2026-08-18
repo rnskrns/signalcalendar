@@ -7358,6 +7358,59 @@ let currentClipLoadedCount = 0;
 let isClipLoading = false;        
 let currentClipRequestId = 0;
 let clipAbortController = null;
+let clipInfiniteObserver = null;
+const watchedClipStorageKey = 'signal_watched_clip_urls';
+let watchedClipUrls = null;
+
+function getWatchedClipUrls() {
+    if (watchedClipUrls) return watchedClipUrls;
+    try {
+        watchedClipUrls = new Set(JSON.parse(localStorage.getItem(watchedClipStorageKey) || '[]'));
+    } catch (e) {
+        watchedClipUrls = new Set();
+    }
+    return watchedClipUrls;
+}
+
+function isClipWatched(clipUrl) {
+    return getWatchedClipUrls().has(clipUrl);
+}
+
+window.markClipWatched = function(card) {
+    const clipUrl = card?.dataset?.clipUrl;
+    if (!clipUrl) return;
+
+    const watched = getWatchedClipUrls();
+    watched.add(clipUrl);
+    // 저장 용량이 불필요하게 커지지 않도록 최근 시청 기록 500개만 유지한다.
+    const recentWatched = Array.from(watched).slice(-500);
+    watchedClipUrls = new Set(recentWatched);
+    try {
+        localStorage.setItem(watchedClipStorageKey, JSON.stringify(recentWatched));
+    } catch (e) {
+        // 저장 공간을 사용할 수 없는 환경에서도 현재 화면의 표시 상태는 유지한다.
+    }
+    card.classList.add('is-watched');
+};
+
+window.setupClipInfiniteScroll = function() {
+    if (clipInfiniteObserver) clipInfiniteObserver.disconnect();
+
+    const sentinel = document.getElementById('clipInfiniteSentinel');
+    const loadingStatus = document.getElementById('clipInfiniteLoading');
+    if (!sentinel || !currentClipCursor) {
+        if (loadingStatus) loadingStatus.classList.add('hidden');
+        return;
+    }
+
+    clipInfiniteObserver = new IntersectionObserver(entries => {
+        if (!entries[0].isIntersecting || isClipLoading) return;
+        clipInfiniteObserver.unobserve(sentinel);
+        if (loadingStatus) loadingStatus.classList.remove('hidden');
+        window.fetchStreamerClips(currentClipStreamer, true);
+    }, { rootMargin: '500px 0px' });
+    clipInfiniteObserver.observe(sentinel);
+};
 
 window.closeClipPreview = function() {
     const modal = document.getElementById('clipPreviewModal');
@@ -7400,6 +7453,7 @@ window.openClipPreview = function(event, clipUrl, clipTitle) {
 };
 
 window.changeClipStreamerNative = function(streamerName) {
+    if (clipInfiniteObserver) clipInfiniteObserver.disconnect();
     currentClipStreamer = streamerName;
     currentClipPage = 1; 
     currentClipCursor = null;
@@ -7442,7 +7496,8 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     
     try {
         // Vercel Serverless Function을 통해 VOD Finder 검색 API를 호출한다.
-        let targetUrl = `/api/clip?streamer=${encodeURIComponent(streamerName)}`;
+        // 커서 기반 API와 페이지 기반 API 모두에서 다음 목록을 정확히 요청한다.
+        let targetUrl = `/api/clip?streamer=${encodeURIComponent(streamerName)}&page=${currentClipPage}`;
         if (isLoadMore && currentClipCursor) {
             targetUrl += `&cursor=${encodeURIComponent(currentClipCursor)}`;
         }
@@ -7465,6 +7520,15 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         else if (json.vod && Array.isArray(json.vod.list)) rawClips = json.vod.list;
         else if (json.vod && Array.isArray(json.vod.items)) rawClips = json.vod.items;
 
+        currentClipCursor = json.nextCursor
+            || json.next_cursor
+            || json.cursor?.next
+            || json.pagination?.nextCursor
+            || json.pagination?.next_cursor
+            || json.data?.nextCursor
+            || json.data?.next_cursor
+            || null;
+
         // 통합검색에 표시되는 VOD를 그대로 보여준다. 기존의 "본인 VOD 제외" 필터를
         // 적용하면 검색 결과가 전부 사라질 수 있다.
         const clips = rawClips;
@@ -7477,6 +7541,8 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             isClipLoading = false;
             return;
         }
+        // 빈 다음 페이지는 더 이상 자동 요청하지 않는다.
+        if (isLoadMore && clips.length === 0) currentClipCursor = null;
 
         let html = '';
         clips.forEach(clip => {
@@ -7518,9 +7584,9 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             const viewText = Number.isFinite(viewCount) ? `조회 ${viewCount.toLocaleString('ko-KR')}` : '';
 
             html += `
-                <div class="rounded-xl overflow-hidden bg-white border border-gray-200 cursor-pointer hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg transition-all relative group flex flex-col shadow-sm" data-clip-url="${escapeHtml(link)}" data-clip-title="${escapeHtml(title)}" onclick="openSmartLink('${link}')" oncontextmenu="window.openClipPreview(event, this.dataset.clipUrl, this.dataset.clipTitle)">
+                <div class="clip-card ${isClipWatched(link) ? 'is-watched' : ''} rounded-xl overflow-hidden bg-white border border-gray-200 cursor-pointer hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg transition-all relative group flex flex-col shadow-sm" data-clip-url="${escapeHtml(link)}" data-clip-title="${escapeHtml(title)}" onclick="window.markClipWatched(this); openSmartLink('${link}')" oncontextmenu="window.markClipWatched(this); window.openClipPreview(event, this.dataset.clipUrl, this.dataset.clipTitle)">
                     <div class="w-full aspect-video overflow-hidden bg-gray-100 relative">
-                        <img src="${thumb}" class="w-full h-full object-cover" alt="클립 썸네일" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/320x180'">
+                        <img src="${thumb}" class="clip-thumbnail w-full h-full object-cover" alt="클립 썸네일" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/320x180'">
                         ${durationHtml}
                         <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                             <i class="fi fi-rr-play text-white text-4xl drop-shadow-md"></i>
@@ -7544,39 +7610,22 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             container.innerHTML = html;
         }
 
-        if (loadMoreBtn) {
-            // VOD Finder 응답 버전에 따라 다음 커서의 위치가 달라질 수 있다.
-            // 커서가 있는 동안에는 더보기 버튼으로 다음 24개를 이어서 불러온다.
-            currentClipCursor = json.nextCursor
-                || json.next_cursor
-                || json.cursor?.next
-                || json.pagination?.nextCursor
-                || json.pagination?.next_cursor
-                || json.data?.nextCursor
-                || json.data?.next_cursor
-                || null;
-            if (currentClipCursor) {
-                loadMoreBtn.classList.remove('hidden');
-                loadMoreBtn.innerText = '더보기 (▼)';
-            } else {
-                loadMoreBtn.classList.add('hidden'); 
-            }
-        }
-
     } catch (e) {
         if (e.name === 'AbortError') return;
         console.error('클립 데이터 로드 실패:', e);
         if (!isLoadMore) {
             container.innerHTML = `<div class="col-span-full text-center text-red-400 font-bold py-16 text-[15px]">데이터를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</div>`;
         } else {
-            alert('추가 데이터를 불러오지 못했습니다.');
             currentClipPage--; 
-            if (loadMoreBtn) loadMoreBtn.innerText = '더보기 (▼)';
+            currentClipCursor = null;
         }
     } finally {
         if (requestId === currentClipRequestId) {
             isClipLoading = false;
             clipAbortController = null;
+            const loadingStatus = document.getElementById('clipInfiniteLoading');
+            if (loadingStatus) loadingStatus.classList.add('hidden');
+            window.setupClipInfiniteScroll();
         }
     }
 };
@@ -7585,6 +7634,7 @@ window.renderClipPage = function() {
     const content = document.getElementById('mainContent');
     const isMobile = window.innerWidth <= 1050;
     // 탭에 들어올 때는 최또 검색 결과부터 바로 보여준다.
+    if (clipInfiniteObserver) clipInfiniteObserver.disconnect();
     currentClipStreamer = '최또';
     currentClipPage = 1;
     currentClipCursor = null;
@@ -7611,8 +7661,9 @@ window.renderClipPage = function() {
         <div id="clipGridContainer" class="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         </div>
         
-        <div class="w-full flex justify-center mt-10 mb-4">
-            <button id="clipLoadMoreBtn" class="hidden px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-[14px]" onclick="window.fetchStreamerClips(currentClipStreamer, true)">더보기</button>
+        <div class="w-full py-8 text-center">
+            <span id="clipInfiniteLoading" class="hidden text-[13px] font-bold text-gray-400">클립을 더 불러오는 중…</span>
+            <div id="clipInfiniteSentinel" class="h-px w-full"></div>
         </div>
     </div>`;
     

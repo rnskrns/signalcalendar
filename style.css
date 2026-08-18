@@ -735,3 +735,11 @@ html.dark-mode .kakao-bubble-title {
 html.dark-mode .kakao-bubble-body {
     color: #6B5D57 !important; /* 본문 내용 어두운 색으로 고정 */
 }
+
+/* 클립 모아보기: 좌·우클릭으로 본 클립은 썸네일을 어둡게 표시 */
+.clip-card .clip-thumbnail {
+    transition: filter 180ms ease;
+}
+.clip-card.is-watched .clip-thumbnail {
+    filter: brightness(0.5) saturate(0.7);
+}
