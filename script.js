@@ -7424,7 +7424,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 
         let html = '';
         clips.forEach(clip => {
-            const title = clip.title || clip.vod_title || '제목 없음';
+            const title = clip.title || clip.title_name || clip.vod_title || '제목 없음';
             
             let thumb = clip.thumb || clip.thumbnail || clip.szThumb || clip.ucThumb || clip.file_path || 'https://via.placeholder.com/320x180';
             if (thumb.startsWith('//')) {
