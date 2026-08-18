@@ -7405,12 +7405,10 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 
         // SOOP 공식 검색 API (페이지 번호: currentClipPage 사용)
         const keyword = encodeURIComponent(streamerName);
-        let targetUrl = `https://sch.sooplive.com/api.php?m=vodSearch&w=webk&szKeyword=${keyword}&nPageNo=${currentClipPage}&nListCnt=24&szOrder=reg_date&szFileType=ALL&tab=vod`;
-        
-        // CORS 우회 프록시 적용
-        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
 
-        const res = await fetch(proxyUrl);
+        // corsproxy 대신, vercel.json에서 설정한 가상 경로(/soop-api/)를 사용합니다.
+        let targetUrl = `/soop-api/api.php?m=vodSearch&w=webk&szKeyword=${keyword}&nPageNo=${currentClipPage}&nListCnt=24&szOrder=reg_date&szFileType=ALL&tab=vod`;
+        const res = await fetch(targetUrl);
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const json = await res.json();
         
