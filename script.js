@@ -616,13 +616,15 @@ const tabToHash = {
     '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
     '롤링페이퍼': 'rolling', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
     '노래책_달타': 'songbook_dalta', '노래책_다룽': 'songbook_darung', '노래책_최또': 'songbook_choitto', '노래책_카나시': 'songbook_kanashi',
-    '시그널': 'signal'
+    '시그널': 'signal',
+    '클립': 'clip'
 };
 const hashToTab = { 
     '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
     '#rolling': '롤링페이퍼', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시',
     '#songbook_dalta': '노래책_달타', '#songbook_darung': '노래책_다룽', '#songbook_choitto': '노래책_최또', '#songbook_kanashi': '노래책_카나시',
-    '#signal': '시그널'
+    '#signal': '시그널',
+    '#clip': '클립'
 };
 
 // =========================================================================
@@ -700,7 +702,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -2136,6 +2138,7 @@ function renderHeaderTabs() {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
                 clickAction = ''; 
                 mainLinkHtml = `
+                    <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 탐색기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
                     <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">업보정리</a>
                 `;
@@ -2210,6 +2213,7 @@ function openMobileTabMenu(tab) {
     `;
     
     if (tab === '더보기') {
+        html += `<button onclick="executeMobileTabChange('클립')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">클립 탐색기</button>`;
         html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">롤링페이퍼</button>`;
         html += `<button onclick="executeMobileTabChange('업보정리_달타')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">업보정리</button>`;
     } else {
@@ -3395,7 +3399,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '시그널': '#ffdddd' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF' };
     const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', themeColors[activeThemeMember] || '#8B5CF6');
@@ -3425,6 +3429,7 @@ function render() {
         else if (currentPage === '업보정리') mBtnContainer.innerHTML = ''; 
         else if (currentPage === '노래책') mBtnContainer.innerHTML = ''; 
         else if (currentPage === '시그널') mBtnContainer.innerHTML = ''; 
+        else if (currentPage === '클립') mBtnContainer.innerHTML = ''; 
         else mBtnContainer.innerHTML = mobileMemoBtnHtml;
     }
     if (dBtnContainer) {
@@ -3433,6 +3438,7 @@ function render() {
         else if (currentPage === '업보정리') dBtnContainer.innerHTML = ''; 
         else if (currentPage === '노래책') dBtnContainer.innerHTML = ''; 
         else if (currentPage === '시그널') dBtnContainer.innerHTML = ''; 
+        else if (currentPage === '클립') dBtnContainer.innerHTML = ''; 
         else dBtnContainer.innerHTML = desktopMemoBtnHtml;
     }
     
@@ -3450,6 +3456,8 @@ function render() {
 
     if (currentPage === '롤링페이퍼') {
         renderRollingPaper();
+    } else if (currentPage === '클립') {
+        renderClipPage();
     } else if (currentPage === '업보정리') {
         renderUpboPage();
     } else if (currentPage === '노래책') {
@@ -7341,3 +7349,191 @@ window.processRouletteFile = async function(input) {
 };
 
 initApp().finally(hidePageLoadingScreen);
+
+// =========================================================================
+// 클립 탐색기 (VOD Finder) 네이티브 렌더링
+// =========================================================================
+let currentClipStreamer = '달타'; // 처음 들어갔을 때 기본 로딩될 멤버
+let currentClipCursor = null;     // 다음 페이지를 불러오기 위한 커서(Cursor) 저장
+let isClipLoading = false;        // 중복 로딩 방지용 플래그
+
+window.changeClipStreamerNative = function(streamerName) {
+    if (isClipLoading) return;
+    
+    currentClipStreamer = streamerName;
+    currentClipCursor = null; // 멤버를 바꾸면 커서 초기화
+    
+    // 버튼 시각 효과 변경 (선택된 멤버만 보라색 테마)
+    document.querySelectorAll('.clip-streamer-btn').forEach(btn => {
+        if (btn.dataset.id === streamerName) {
+            btn.className = 'clip-streamer-btn bg-[#8B5CF6] text-white border-[#8B5CF6] px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm transition whitespace-nowrap shrink-0 font-paperozi';
+        } else {
+            btn.className = 'clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi';
+        }
+    });
+
+    fetchStreamerClips(streamerName, false);
+};
+
+// API에서 데이터를 가져와 화면에 그리는 함수
+// API에서 데이터를 가져와 화면에 그리는 함수
+window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
+    const container = document.getElementById('clipGridContainer');
+    const loadMoreBtn = document.getElementById('clipLoadMoreBtn');
+    
+    if (!container || isClipLoading) return;
+    
+    isClipLoading = true;
+
+    // 첫 로딩일 때 화면 비우기
+    if (!isLoadMore) {
+        container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">영상을 불러오는 중입니다...⏳</div>`;
+        if (loadMoreBtn) loadMoreBtn.classList.add('hidden');
+    } else {
+        if (loadMoreBtn) loadMoreBtn.innerText = '불러오는 중...⏳';
+    }
+    
+    try {
+        // 멤버별 오리지널 방송국 아이디 매핑
+        const bjIdMap = {
+            '달타': 'dalta20',
+            '다룽': 'daarung22',
+            '최또': 'choiagain',
+            '카나시': 'kjhh0029'
+        };
+        const originalBjId = bjIdMap[streamerName] || '';
+
+        // 🔥 핵심: 본인 방송국(originalBjId)에서 생성된 VOD를 제외(excludeOriginal=true)하고 검색
+        let apiUrl = `https://vod.soopup.live/api/vods?q=${encodeURIComponent(streamerName)}&originalBjId=${originalBjId}&excludeOriginal=true&limit=24`;
+        
+        // 더보기 버튼을 눌렀고, 이전 통신에서 받은 커서(cursor)가 있다면 파라미터 추가
+        if (isLoadMore && currentClipCursor) {
+            apiUrl += `&cursor=${encodeURIComponent(currentClipCursor)}`;
+        }
+
+        const res = await fetch(apiUrl);
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+        const data = await res.json();
+        
+        // 데이터 구조 파악
+        const clips = Array.isArray(data) ? data : (data.items || data.data || data.vods || []);
+        
+        // 다음 페이지가 있다면 커서를 저장
+        const nextCursor = data.nextCursor || data.cursor || (data.meta && data.meta.nextCursor) || null;
+        currentClipCursor = nextCursor;
+
+        if (!isLoadMore && clips.length === 0) {
+            container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">최근 등록된 클립이 없습니다.</div>`;
+            isClipLoading = false;
+            return;
+        }
+
+        let html = '';
+        clips.forEach(clip => {
+            const title = clip.title || clip.name || '제목 없음';
+            const thumb = clip.thumbnail || clip.thumb || clip.thumbnail_url || 'https://via.placeholder.com/320x180';
+            
+            // 영상 재생 링크
+            const titleNo = clip.title_no || clip.titleNo || clip.id || clip.vod_id || clip.videoId;
+            const link = clip.link || clip.url || (titleNo ? `https://vod.sooplive.com/player/${titleNo}` : '#');
+            
+            // 등록일자 포맷팅
+            let dateStr = clip.reg_date || clip.regDate || clip.createdAt || clip.date || '';
+            if (dateStr) {
+                const d = new Date(dateStr);
+                if (!isNaN(d.getTime())) {
+                    dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+                }
+            }
+            
+            // 영상 길이 표시
+            let durationHtml = '';
+            if (clip.duration) {
+                const totalSeconds = parseInt(clip.duration, 10);
+                if (!isNaN(totalSeconds)) {
+                    const h = Math.floor(totalSeconds / 3600);
+                    const m = Math.floor((totalSeconds % 3600) / 60);
+                    const s = totalSeconds % 60;
+                    const timeText = h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+                    durationHtml = `<div class="absolute bottom-2 right-2 bg-black/80 text-white text-[11px] font-bold px-1.5 py-0.5 rounded shadow-sm">${timeText}</div>`;
+                }
+            }
+
+            html += `
+                <div class="rounded-2xl overflow-hidden bg-white border-[3px] border-[#8B5CF6] cursor-pointer hover:-translate-y-1 transition relative group flex flex-col shadow-sm" onclick="openSmartLink('${link}')">
+                    <div class="w-full aspect-video overflow-hidden bg-gray-100 relative border-b-2 border-gray-100">
+                        <img src="${thumb}" class="w-full h-full object-cover" alt="클립 썸네일" loading="lazy" onerror="this.src='https://via.placeholder.com/320x180'">
+                        ${durationHtml}
+                        <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                            <i class="fi fi-rr-play text-white text-4xl drop-shadow-md"></i>
+                        </div>
+                    </div>
+                    <div class="p-4 flex flex-col gap-1.5 flex-1 bg-[#FFFDF5]">
+                        <div class="text-[15px] font-bold text-[#5D4037] font-paperozi line-clamp-2 leading-snug">${title}</div>
+                        <div class="text-[12px] font-bold text-gray-400 mt-auto pt-2">${dateStr}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        if (isLoadMore) {
+            container.insertAdjacentHTML('beforeend', html);
+        } else {
+            container.innerHTML = html;
+        }
+
+        if (loadMoreBtn) {
+            if (currentClipCursor) {
+                loadMoreBtn.classList.remove('hidden');
+                loadMoreBtn.innerText = '더보기 (▼)';
+            } else {
+                loadMoreBtn.classList.add('hidden');
+            }
+        }
+
+    } catch (e) {
+        console.error('클립 데이터 로드 실패:', e);
+        if (!isLoadMore) {
+            container.innerHTML = `<div class="col-span-full text-center text-red-400 font-bold py-16 text-[15px]">데이터를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</div>`;
+        } else {
+            alert('추가 데이터를 불러오지 못했습니다.');
+            if (loadMoreBtn) loadMoreBtn.innerText = '더보기 (▼)';
+        }
+    } finally {
+        isClipLoading = false;
+    }
+};
+
+window.renderClipPage = function() {
+    const content = document.getElementById('mainContent');
+    
+    // UI 전체 구조 (헤더, 스트리머 선택 버튼, 클립 표시 영역, 더보기 버튼)
+    let html = `
+    <div class="big-white-box relative theme-rolling flex flex-col" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">
+        <div class="flex justify-between items-center mb-6 shrink-0 border-b-[3px] border-[#5D4037] pb-4">
+            <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
+                <i class="fi fi-rr-video-camera-alt"></i> 클립 모아보기
+            </h2>
+        </div>
+        
+        <div class="flex gap-2 overflow-x-auto pb-4 mb-2 hide-scrollbar shrink-0">
+            <button class="clip-streamer-btn bg-[#8B5CF6] text-white border-[#8B5CF6] px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm transition whitespace-nowrap shrink-0 font-paperozi" data-id="달타" onclick="changeClipStreamerNative('달타')">달타</button>
+            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="다룽" onclick="changeClipStreamerNative('다룽')">다룽</button>
+            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="최또" onclick="changeClipStreamerNative('최또')">최또</button>
+            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="카나시" onclick="changeClipStreamerNative('카나시')">카나시</button>
+        </div>
+        
+        <div id="clipGridContainer" class="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        </div>
+        
+        <div class="w-full flex justify-center mt-10 mb-4">
+            <button id="clipLoadMoreBtn" class="hidden px-8 py-3 bg-[#5D4037] text-white font-bold rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.2)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[16px]" onclick="fetchStreamerClips(currentClipStreamer, true)">더보기 (▼)</button>
+        </div>
+    </div>`;
+    
+    content.innerHTML = html;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+
+    // 탭 진입 시 현재 선택된 멤버(달타) 영상 최초 호출
+    fetchStreamerClips(currentClipStreamer, false);
+};
