@@ -3457,7 +3457,7 @@ function render() {
     if (currentPage === '롤링페이퍼') {
         renderRollingPaper();
     } else if (currentPage === '클립') {
-        renderClipPage();
+        window.renderClipPage();
     } else if (currentPage === '업보정리') {
         renderUpboPage();
     } else if (currentPage === '노래책') {
@@ -7348,8 +7348,6 @@ window.processRouletteFile = async function(input) {
     else reader.readAsArrayBuffer(file);
 };
 
-initApp().finally(hidePageLoadingScreen);
-
 // =========================================================================
 // 클립 탐색기 (SOOP 통합 검색 API 연동)
 // =========================================================================
@@ -7357,7 +7355,7 @@ let currentClipStreamer = '달타';
 let currentClipPage = 1;          
 let isClipLoading = false;        
 
-function changeClipStreamerNative(streamerName) {
+window.changeClipStreamerNative = function(streamerName) {
     if (isClipLoading) return;
     
     currentClipStreamer = streamerName;
@@ -7371,12 +7369,10 @@ function changeClipStreamerNative(streamerName) {
         }
     });
 
-    fetchStreamerClips(streamerName, false);
-}
-// HTML 인라인 이벤트(onclick)에서 쓸 수 있도록 window에 바인딩
-window.changeClipStreamerNative = changeClipStreamerNative;
+    window.fetchStreamerClips(streamerName, false);
+};
 
-async function fetchStreamerClips(streamerName, isLoadMore = false) {
+window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     const container = document.getElementById('clipGridContainer');
     const loadMoreBtn = document.getElementById('clipLoadMoreBtn');
     
@@ -7408,9 +7404,6 @@ async function fetchStreamerClips(streamerName, isLoadMore = false) {
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const json = await res.json();
         
-        console.log("SOOP API 응답 데이터:", json); // 디버깅용 로그
-        
-        // 데이터 추출
         let rawClips = [];
         if (Array.isArray(json)) rawClips = json;
         else if (json.data && Array.isArray(json.data)) rawClips = json.data;
@@ -7418,7 +7411,6 @@ async function fetchStreamerClips(streamerName, isLoadMore = false) {
         else if (json.DATA && Array.isArray(json.DATA)) rawClips = json.DATA;
         else if (json.list && Array.isArray(json.list)) rawClips = json.list;
 
-        // 클라이언트 단 필터링: 본인 방송국(originalBjId)에서 생성된 VOD를 제외
         const clips = rawClips.filter(clip => {
             const uId = clip.user_id || clip.userId || clip.bj_id;
             return uId !== originalBjId;
@@ -7460,7 +7452,6 @@ async function fetchStreamerClips(streamerName, isLoadMore = false) {
             html += `
                 <div class="rounded-2xl overflow-hidden bg-white border-[3px] border-[#8B5CF6] cursor-pointer hover:-translate-y-1 transition relative group flex flex-col shadow-sm" onclick="openSmartLink('${link}')">
                     <div class="w-full aspect-video overflow-hidden bg-gray-100 relative border-b-2 border-gray-100">
-                        <!-- referrerpolicy="no-referrer" 적용 -->
                         <img src="${thumb}" class="w-full h-full object-cover" alt="클립 썸네일" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/320x180'">
                         ${durationHtml}
                         <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
@@ -7502,12 +7493,11 @@ async function fetchStreamerClips(streamerName, isLoadMore = false) {
     } finally {
         isClipLoading = false;
     }
-}
-window.fetchStreamerClips = fetchStreamerClips;
+};
 
-function renderClipPage() {
+window.renderClipPage = function() {
     const content = document.getElementById('mainContent');
-    const isMobile = window.innerWidth <= 1050; // 기존 로직 참조
+    const isMobile = window.innerWidth <= 1050;
     
     let html = `
     <div class="big-white-box relative theme-rolling flex flex-col" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">
@@ -7518,24 +7508,25 @@ function renderClipPage() {
         </div>
         
         <div class="flex gap-2 overflow-x-auto pb-4 mb-2 hide-scrollbar shrink-0">
-            <button class="clip-streamer-btn bg-[#8B5CF6] text-white border-[#8B5CF6] px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm transition whitespace-nowrap shrink-0 font-paperozi" data-id="달타" onclick="changeClipStreamerNative('달타')">달타</button>
-            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="다룽" onclick="changeClipStreamerNative('다룽')">다룽</button>
-            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="최또" onclick="changeClipStreamerNative('최또')">최또</button>
-            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="카나시" onclick="changeClipStreamerNative('카나시')">카나시</button>
+            <button class="clip-streamer-btn bg-[#8B5CF6] text-white border-[#8B5CF6] px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm transition whitespace-nowrap shrink-0 font-paperozi" data-id="달타" onclick="window.changeClipStreamerNative('달타')">달타</button>
+            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="다룽" onclick="window.changeClipStreamerNative('다룽')">다룽</button>
+            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="최또" onclick="window.changeClipStreamerNative('최또')">최또</button>
+            <button class="clip-streamer-btn bg-white text-[#5D4037] border-gray-200 px-6 py-2.5 rounded-xl font-bold text-[16px] border-2 shadow-sm hover:bg-gray-50 transition whitespace-nowrap shrink-0 font-paperozi" data-id="카나시" onclick="window.changeClipStreamerNative('카나시')">카나시</button>
         </div>
         
         <div id="clipGridContainer" class="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
         </div>
         
         <div class="w-full flex justify-center mt-10 mb-4">
-            <button id="clipLoadMoreBtn" class="hidden px-8 py-3 bg-[#5D4037] text-white font-bold rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.2)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[16px]" onclick="fetchStreamerClips(currentClipStreamer, true)">더보기 (▼)</button>
+            <button id="clipLoadMoreBtn" class="hidden px-8 py-3 bg-[#5D4037] text-white font-bold rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.2)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[16px]" onclick="window.fetchStreamerClips(currentClipStreamer, true)">더보기 (▼)</button>
         </div>
     </div>`;
     
     content.innerHTML = html;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
 
-    fetchStreamerClips(currentClipStreamer, false);
-}
-// render() 안에서 호출될 수 있도록 바인딩
-window.renderClipPage = renderClipPage;
+    window.fetchStreamerClips(currentClipStreamer, false);
+};
+
+// 🚨 주의: 아래 코드가 반드시 위의 클립 코드들보다 "더 밑에(맨 끝에)" 있어야 합니다! 🚨
+initApp().finally(hidePageLoadingScreen);
