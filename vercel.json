@@ -3,6 +3,10 @@
     {
       "source": "/api/comment",
       "destination": "/api/comment.js"
+    },
+    {
+      "source": "/soop-api/:match*",
+      "destination": "https://sch.sooplive.com/:match*"
     }
   ]
 }
