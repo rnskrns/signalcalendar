@@ -7356,10 +7356,50 @@ let currentClipPage = 1;
 let currentClipCursor = null;
 let currentClipLoadedCount = 0;
 let isClipLoading = false;        
+let currentClipRequestId = 0;
+let clipAbortController = null;
+
+window.closeClipPreview = function() {
+    const modal = document.getElementById('clipPreviewModal');
+    if (!modal) return;
+    document.removeEventListener('keydown', modal.closeOnEscape);
+    modal.remove();
+};
+
+window.openClipPreview = function(event, clipUrl, clipTitle) {
+    event.preventDefault();
+    event.stopPropagation();
+    window.closeClipPreview();
+
+    const modal = document.createElement('div');
+    modal.id = 'clipPreviewModal';
+    modal.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4 md:p-8 backdrop-blur-sm';
+    modal.innerHTML = `
+        <div class="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-black shadow-2xl" role="dialog" aria-modal="true" aria-label="클립 미리보기">
+            <button type="button" class="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-2xl font-bold text-white transition hover:bg-black/90" aria-label="미리보기 닫기">×</button>
+            <div class="aspect-video w-full bg-black">
+                <iframe class="h-full w-full border-0" title="클립 미리보기" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            <div class="flex items-center justify-between gap-3 bg-white px-4 py-3 md:px-5">
+                <p class="min-w-0 truncate text-sm font-bold text-gray-800"></p>
+                <a class="shrink-0 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-violet-700" target="_blank" rel="noopener">새 창으로 열기</a>
+            </div>
+        </div>`;
+
+    const iframe = modal.querySelector('iframe');
+    const title = modal.querySelector('p');
+    const openLink = modal.querySelector('a');
+    iframe.src = clipUrl;
+    title.textContent = clipTitle || '클립 미리보기';
+    openLink.href = clipUrl;
+    modal.querySelector('button').onclick = window.closeClipPreview;
+    modal.onclick = e => { if (e.target === modal) window.closeClipPreview(); };
+    modal.closeOnEscape = e => { if (e.key === 'Escape') window.closeClipPreview(); };
+    document.addEventListener('keydown', modal.closeOnEscape);
+    document.body.appendChild(modal);
+};
 
 window.changeClipStreamerNative = function(streamerName) {
-    if (isClipLoading) return;
-    
     currentClipStreamer = streamerName;
     currentClipPage = 1; 
     currentClipCursor = null;
@@ -7380,7 +7420,15 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     const container = document.getElementById('clipGridContainer');
     const loadMoreBtn = document.getElementById('clipLoadMoreBtn');
     
-    if (!container || isClipLoading) return;
+    if (!container || (isLoadMore && isClipLoading)) return;
+
+    // 탐색기 재진입·탭 전환 시 진행 중이던 이전 요청을 취소하고, 새 목록을 즉시 요청한다.
+    const requestId = isLoadMore ? currentClipRequestId : ++currentClipRequestId;
+    if (!isLoadMore) {
+        if (clipAbortController) clipAbortController.abort();
+        clipAbortController = new AbortController();
+    }
+    const requestSignal = clipAbortController?.signal;
     
     isClipLoading = true;
 
@@ -7399,9 +7447,10 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             targetUrl += `&cursor=${encodeURIComponent(currentClipCursor)}`;
         }
 
-        const res = await fetch(targetUrl);
+        const res = await fetch(targetUrl, { signal: requestSignal });
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const json = await res.json();
+        if (requestId !== currentClipRequestId) return;
         
         let rawClips = [];
         if (Array.isArray(json)) rawClips = json;
@@ -7469,7 +7518,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             const viewText = Number.isFinite(viewCount) ? `조회 ${viewCount.toLocaleString('ko-KR')}` : '';
 
             html += `
-                <div class="rounded-xl overflow-hidden bg-white border border-gray-200 cursor-pointer hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg transition-all relative group flex flex-col shadow-sm" onclick="openSmartLink('${link}')">
+                <div class="rounded-xl overflow-hidden bg-white border border-gray-200 cursor-pointer hover:-translate-y-1 hover:border-gray-300 hover:shadow-lg transition-all relative group flex flex-col shadow-sm" data-clip-url="${escapeHtml(link)}" data-clip-title="${escapeHtml(title)}" onclick="openSmartLink('${link}')" oncontextmenu="window.openClipPreview(event, this.dataset.clipUrl, this.dataset.clipTitle)">
                     <div class="w-full aspect-video overflow-hidden bg-gray-100 relative">
                         <img src="${thumb}" class="w-full h-full object-cover" alt="클립 썸네일" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/320x180'">
                         ${durationHtml}
@@ -7496,7 +7545,16 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         }
 
         if (loadMoreBtn) {
-            currentClipCursor = json.nextCursor || null;
+            // VOD Finder 응답 버전에 따라 다음 커서의 위치가 달라질 수 있다.
+            // 커서가 있는 동안에는 더보기 버튼으로 다음 24개를 이어서 불러온다.
+            currentClipCursor = json.nextCursor
+                || json.next_cursor
+                || json.cursor?.next
+                || json.pagination?.nextCursor
+                || json.pagination?.next_cursor
+                || json.data?.nextCursor
+                || json.data?.next_cursor
+                || null;
             if (currentClipCursor) {
                 loadMoreBtn.classList.remove('hidden');
                 loadMoreBtn.innerText = '더보기 (▼)';
@@ -7506,6 +7564,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         }
 
     } catch (e) {
+        if (e.name === 'AbortError') return;
         console.error('클립 데이터 로드 실패:', e);
         if (!isLoadMore) {
             container.innerHTML = `<div class="col-span-full text-center text-red-400 font-bold py-16 text-[15px]">데이터를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</div>`;
@@ -7515,7 +7574,10 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             if (loadMoreBtn) loadMoreBtn.innerText = '더보기 (▼)';
         }
     } finally {
-        isClipLoading = false;
+        if (requestId === currentClipRequestId) {
+            isClipLoading = false;
+            clipAbortController = null;
+        }
     }
 };
 
@@ -7531,20 +7593,13 @@ window.renderClipPage = function() {
     let html = `
     <div class="big-white-box relative flex flex-col bg-[#fafafa]" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">
         <div class="mb-6 shrink-0 border-b border-gray-200 pb-5">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm"><i class="fi fi-rr-video-camera-alt text-lg"></i></div>
-                <div>
-                    <div class="text-[10px] font-black tracking-[0.16em] text-violet-600">SOOP VOD FINDER</div>
-                    <h2 class="mt-0.5 text-[24px] lg:text-[27px] font-bold text-gray-900">클립 탐색기</h2>
-                </div>
-            </div>
-            <p class="mt-3 text-[13px] text-gray-500">SOOP 공개 VOD 검색 결과를 확인하세요.</p>
+            <h2 class="text-[24px] lg:text-[27px] font-bold text-gray-900">클립 모아보기</h2>
         </div>
         
         <div class="flex gap-2 overflow-x-auto pb-5 hide-scrollbar shrink-0">
+            <button class="clip-streamer-btn bg-violet-600 text-white border-violet-600 px-5 py-2 rounded-lg font-bold text-[14px] border shadow-sm transition whitespace-nowrap shrink-0" data-id="최또" onclick="window.changeClipStreamerNative('최또')">최또</button>
             <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="달타" onclick="window.changeClipStreamerNative('달타')">달타</button>
             <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="다룽" onclick="window.changeClipStreamerNative('다룽')">다룽</button>
-            <button class="clip-streamer-btn bg-violet-600 text-white border-violet-600 px-5 py-2 rounded-lg font-bold text-[14px] border shadow-sm transition whitespace-nowrap shrink-0" data-id="최또" onclick="window.changeClipStreamerNative('최또')">최또</button>
             <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="카나시" onclick="window.changeClipStreamerNative('카나시')">카나시</button>
         </div>
 
