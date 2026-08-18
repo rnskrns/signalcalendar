@@ -7351,17 +7351,17 @@ window.processRouletteFile = async function(input) {
 initApp().finally(hidePageLoadingScreen);
 
 // =========================================================================
-// 클립 탐색기 (VOD Finder) 네이티브 렌더링
+// 클립 탐색기 (SOOP 공식 검색 API 연동)
 // =========================================================================
 let currentClipStreamer = '달타'; // 처음 들어갔을 때 기본 로딩될 멤버
-let currentClipCursor = null;     // 다음 페이지를 불러오기 위한 커서(Cursor) 저장
-let isClipLoading = false;        // 중복 로딩 방지용 플래그
+let currentClipPage = 1;          // 현재 로딩된 페이지 번호
+let isClipLoading = false;        // 중복 로딩 방지 플래그
 
 window.changeClipStreamerNative = function(streamerName) {
     if (isClipLoading) return;
     
     currentClipStreamer = streamerName;
-    currentClipCursor = null; // 멤버를 바꾸면 커서 초기화
+    currentClipPage = 1; // 멤버를 바꾸면 1페이지로 초기화
     
     // 버튼 시각 효과 변경 (선택된 멤버만 보라색 테마)
     document.querySelectorAll('.clip-streamer-btn').forEach(btn => {
@@ -7376,7 +7376,6 @@ window.changeClipStreamerNative = function(streamerName) {
 };
 
 // API에서 데이터를 가져와 화면에 그리는 함수
-// API에서 데이터를 가져와 화면에 그리는 함수
 window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     const container = document.getElementById('clipGridContainer');
     const loadMoreBtn = document.getElementById('clipLoadMoreBtn');
@@ -7385,16 +7384,17 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     
     isClipLoading = true;
 
-    // 첫 로딩일 때 화면 비우기
-    if (!isLoadMore) {
+    // 더보기 로딩 시 페이지 번호 증가
+    if (isLoadMore) {
+        currentClipPage++;
+        if (loadMoreBtn) loadMoreBtn.innerText = '불러오는 중...⏳';
+    } else {
         container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">영상을 불러오는 중입니다...⏳</div>`;
         if (loadMoreBtn) loadMoreBtn.classList.add('hidden');
-    } else {
-        if (loadMoreBtn) loadMoreBtn.innerText = '불러오는 중...⏳';
     }
     
     try {
-        // 멤버별 오리지널 방송국 아이디 매핑
+        // 멤버별 본인 방송국 아이디 매핑 (걸러내기 용도)
         const bjIdMap = {
             '달타': 'dalta20',
             '다룽': 'daarung22',
@@ -7403,24 +7403,29 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         };
         const originalBjId = bjIdMap[streamerName] || '';
 
-        // 🔥 핵심: 본인 방송국(originalBjId)에서 생성된 VOD를 제외(excludeOriginal=true)하고 검색
-        let apiUrl = `https://vod.soopup.live/api/vods?q=${encodeURIComponent(streamerName)}&originalBjId=${originalBjId}&excludeOriginal=true&limit=24`;
+        // SOOP 공식 검색 API (페이지 번호: currentClipPage 사용)
+        const keyword = encodeURIComponent(streamerName);
+        let targetUrl = `https://sch.sooplive.com/api.php?m=vodSearch&w=webk&szKeyword=${keyword}&nPageNo=${currentClipPage}&nListCnt=24&szOrder=reg_date&szFileType=ALL&tab=vod`;
         
-        // 더보기 버튼을 눌렀고, 이전 통신에서 받은 커서(cursor)가 있다면 파라미터 추가
-        if (isLoadMore && currentClipCursor) {
-            apiUrl += `&cursor=${encodeURIComponent(currentClipCursor)}`;
-        }
+        // CORS 우회 프록시 적용
+        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
 
-        const res = await fetch(apiUrl);
+        const res = await fetch(proxyUrl);
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-        const data = await res.json();
+        const json = await res.json();
         
-        // 데이터 구조 파악
-        const clips = Array.isArray(data) ? data : (data.items || data.data || data.vods || []);
-        
-        // 다음 페이지가 있다면 커서를 저장
-        const nextCursor = data.nextCursor || data.cursor || (data.meta && data.meta.nextCursor) || null;
-        currentClipCursor = nextCursor;
+        // SOOP 검색 API 응답 데이터 추출 (API 형태에 따라 data 안의 배열 형태를 방어적으로 파싱)
+        let rawClips = [];
+        if (Array.isArray(json)) rawClips = json;
+        else if (json.data && Array.isArray(json.data)) rawClips = json.data;
+        else if (json.DATA && Array.isArray(json.DATA)) rawClips = json.DATA;
+        else if (json.list && Array.isArray(json.list)) rawClips = json.list;
+
+        // 🔥 클라이언트 단 필터링: 본인 방송국(originalBjId)에서 생성된 VOD를 제외 (타인 클립만)
+        const clips = rawClips.filter(clip => {
+            const uId = clip.user_id || clip.userId || clip.bj_id;
+            return uId !== originalBjId;
+        });
 
         if (!isLoadMore && clips.length === 0) {
             container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">최근 등록된 클립이 없습니다.</div>`;
@@ -7430,33 +7435,30 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 
         let html = '';
         clips.forEach(clip => {
-            const title = clip.title || clip.name || '제목 없음';
-            const thumb = clip.thumbnail || clip.thumb || clip.thumbnail_url || 'https://via.placeholder.com/320x180';
+            // 공식 API는 필드명이 다를 수 있으므로 폭넓게 대응
+            const title = clip.title || clip.vod_title || '제목 없음';
+            const thumb = clip.thumb || clip.thumbnail || clip.ucThumb || 'https://via.placeholder.com/320x180';
             
-            // 영상 재생 링크
-            const titleNo = clip.title_no || clip.titleNo || clip.id || clip.vod_id || clip.videoId;
-            const link = clip.link || clip.url || (titleNo ? `https://vod.sooplive.com/player/${titleNo}` : '#');
+            // 영상 재생 링크 (공식 검색 API는 보통 title_no 대신 vod_bno 또는 nTitleNo 등으로 옵니다)
+            const titleNo = clip.title_no || clip.vod_bno || clip.nTitleNo || clip.id;
+            const link = titleNo ? `https://vod.sooplive.com/player/${titleNo}` : '#';
             
             // 등록일자 포맷팅
-            let dateStr = clip.reg_date || clip.regDate || clip.createdAt || clip.date || '';
+            let dateStr = clip.reg_date || clip.szRegDate || clip.createdAt || '';
             if (dateStr) {
-                const d = new Date(dateStr);
-                if (!isNaN(d.getTime())) {
-                    dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
-                }
+                // "2026-08-16 14:00:00" 형태라면 앞의 날짜만 자르기
+                dateStr = dateStr.substring(0, 10).replace(/-/g, '.');
             }
             
-            // 영상 길이 표시
+            // 영상 길이 (초 단위 필드가 주로 내려옵니다)
             let durationHtml = '';
-            if (clip.duration) {
-                const totalSeconds = parseInt(clip.duration, 10);
-                if (!isNaN(totalSeconds)) {
-                    const h = Math.floor(totalSeconds / 3600);
-                    const m = Math.floor((totalSeconds % 3600) / 60);
-                    const s = totalSeconds % 60;
-                    const timeText = h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
-                    durationHtml = `<div class="absolute bottom-2 right-2 bg-black/80 text-white text-[11px] font-bold px-1.5 py-0.5 rounded shadow-sm">${timeText}</div>`;
-                }
+            const totalSeconds = parseInt(clip.duration || clip.nTotalTime || clip.total_time, 10);
+            if (!isNaN(totalSeconds) && totalSeconds > 0) {
+                const h = Math.floor(totalSeconds / 3600);
+                const m = Math.floor((totalSeconds % 3600) / 60);
+                const s = totalSeconds % 60;
+                const timeText = h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+                durationHtml = `<div class="absolute bottom-2 right-2 bg-black/80 text-white text-[11px] font-bold px-1.5 py-0.5 rounded shadow-sm">${timeText}</div>`;
             }
 
             html += `
@@ -7482,12 +7484,13 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             container.innerHTML = html;
         }
 
+        // 받아온 원래의 데이터 갯수가 요청한 갯수(24개)보다 크거나 같다면 다음 페이지가 있을 확률이 높음
         if (loadMoreBtn) {
-            if (currentClipCursor) {
+            if (rawClips.length >= 24) {
                 loadMoreBtn.classList.remove('hidden');
                 loadMoreBtn.innerText = '더보기 (▼)';
             } else {
-                loadMoreBtn.classList.add('hidden');
+                loadMoreBtn.classList.add('hidden'); // 마지막 페이지 도달 시 숨김
             }
         }
 
@@ -7497,6 +7500,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             container.innerHTML = `<div class="col-span-full text-center text-red-400 font-bold py-16 text-[15px]">데이터를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</div>`;
         } else {
             alert('추가 데이터를 불러오지 못했습니다.');
+            currentClipPage--; // 실패 시 페이지 번호 원상복구
             if (loadMoreBtn) loadMoreBtn.innerText = '더보기 (▼)';
         }
     } finally {
@@ -7507,7 +7511,6 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 window.renderClipPage = function() {
     const content = document.getElementById('mainContent');
     
-    // UI 전체 구조 (헤더, 스트리머 선택 버튼, 클립 표시 영역, 더보기 버튼)
     let html = `
     <div class="big-white-box relative theme-rolling flex flex-col" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">
         <div class="flex justify-between items-center mb-6 shrink-0 border-b-[3px] border-[#5D4037] pb-4">
@@ -7534,6 +7537,6 @@ window.renderClipPage = function() {
     content.innerHTML = html;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
 
-    // 탭 진입 시 현재 선택된 멤버(달타) 영상 최초 호출
+    // 최초 렌더링 시 현재 선택된 멤버의 데이터를 바로 불러옵니다
     fetchStreamerClips(currentClipStreamer, false);
 };
