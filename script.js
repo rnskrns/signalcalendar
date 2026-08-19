@@ -5378,8 +5378,10 @@ function renderDesktopIndividual(grouped) {
     const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay(); 
     const startIdx = (firstDay === 0) ? 6 : firstDay - 1; 
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const weeksNeeded = Math.ceil((startIdx + daysInMonth) / 7);
+    const totalCells = weeksNeeded * 7;
     
-    const cellsHtml = Array.from({length: 35}, (_, i) => {
+    const cellsHtml = Array.from({length: totalCells}, (_, i) => {
         const day = i - startIdx + 1;
         if (day > 0 && day <= daysInMonth) {
             const key = `${currentYear}-${currentMonth}-${day}-${currentPage}`; 
@@ -5420,7 +5422,7 @@ function renderDesktopIndividual(grouped) {
     }).join('');
 
     content.innerHTML = `<div class="big-white-box relative theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}">
-        <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'DnfBitbeatV2', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div><div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div><div class="big-box-container">${cellsHtml}</div></div>`;
+        <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'DnfBitbeatV2', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div><div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div><div class="big-box-container" style="grid-template-rows: repeat(${weeksNeeded}, 198px);">${cellsHtml}</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
 }
 
