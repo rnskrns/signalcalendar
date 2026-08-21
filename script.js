@@ -9,9 +9,22 @@ import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/fi
 window.loginWithSoopExtension = loginWithSoopExtension;
 
 // ⭐ 신규: SOOP 확장프로그램 로그인 요청 함수
+let soopLoginResponded = false;
+let soopLoginTimeoutId = null;
+
 function loginWithSoopExtension() {
+    soopLoginResponded = false;
+
     // 확장프로그램에 정보 요청
     window.postMessage({ type: 'REQUEST_SOOP_LOGIN' }, '*');
+
+    // 일정 시간 내에 확장프로그램의 응답이 없으면 미설치로 간주
+    if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
+    soopLoginTimeoutId = setTimeout(() => {
+        if (!soopLoginResponded) {
+            alert("SOOP 확장프로그램이 설치되어 있지 않습니다.\n확장프로그램 설치시 로그인이 가능합니다.");
+        }
+    }, 1500);
 }
 
 // ⭐ 신규: 확장프로그램 응답 수신 리스너
@@ -19,6 +32,8 @@ window.addEventListener('message', (event) => {
     if (event.source !== window) return;
 
     if (event.data.type === 'SOOP_LOGIN_SUCCESS') {
+        soopLoginResponded = true;
+        if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
         const user = event.data.user;
 
         // 기존 시스템(Firebase Auth 등)이 인식하는 currentUser 형식에 맞춰 가짜 유저 객체 생성
@@ -33,6 +48,8 @@ window.addEventListener('message', (event) => {
         alert(`${user.nick}님 환영합니다!`);
 
     } else if (event.data.type === 'SOOP_LOGIN_FAIL') {
+        soopLoginResponded = true;
+        if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
         alert("SOOP 로그인이 되어있지 않거나 확장프로그램 통신에 실패했습니다.");
     }
 });
