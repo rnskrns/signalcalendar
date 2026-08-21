@@ -38,9 +38,27 @@ function restoreSoopSession() {
         currentUser = user;
         isSoopSession = true;
         refreshAuthUI();
+        loadAndMergeSoopLikes(user.uid); // 노래책 좋아요 계정 데이터 비동기 로드
     } catch (e) {
         console.error('SOOP 세션 복원 실패:', e);
         clearSoopSession();
+    }
+}
+
+// SOOP 계정(soopUsers 컬렉션)에 저장된 좋아요 목록을 불러오고, 로그인 전 이 브라우저에서
+// 눌러뒀던 좋아요(게스트 상태 localStorage)를 함께 병합해줍니다.
+async function loadAndMergeSoopLikes(uid) {
+    try {
+        const soopUserRef = doc(db, "soopUsers", uid);
+        const soopUserSnap = await getDoc(soopUserRef);
+        const existingLiked = soopUserSnap.exists() ? (soopUserSnap.data().likedSongs || {}) : {};
+        userLikedSongsCache = await mergeLocalLikesIntoAccount(uid, existingLiked, 'soopUsers');
+    } catch (e) {
+        console.error('SOOP 유저 좋아요 로드 실패:', e);
+        userLikedSongsCache = userLikedSongsCache || {};
+    }
+    if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
+        try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
     }
 }
 
@@ -82,6 +100,9 @@ window.addEventListener('message', (event) => {
         // UI 즉시 업데이트 (프사, 닉네임 적용됨)
         refreshAuthUI();
         alert(`${user.nick}님 환영합니다!`);
+
+        // ⭐ 신규: 노래책 좋아요 목록을 계정 기준으로 불러와 기억되게 함
+        loadAndMergeSoopLikes(user.uid);
 
     } else if (event.data.type === 'SOOP_LOGIN_FAIL') {
         soopLoginResponded = true;
@@ -1057,7 +1078,11 @@ async function logoutUser() {
         // ⭐ 신규: SOOP으로 로그인한 정보 수동 초기화(저장된 세션도 함께 삭제)
         clearSoopSession();
         currentUser = null;
+        userLikedSongsCache = null;
         refreshAuthUI();
+        if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
+            try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
+        }
     }
 }
 
@@ -1129,7 +1154,7 @@ async function submitUserProfileSetup() {
 }
 
 // 로그인 직후, 로그인 전 이 브라우저(비로그인 상태)에서 눌러뒀던 좋아요를 계정으로 병합합니다.
-async function mergeLocalLikesIntoAccount(uid, accountLikedSongs) {
+async function mergeLocalLikesIntoAccount(uid, accountLikedSongs, collectionName = 'users') {
     const merged = { ...(accountLikedSongs || {}) };
     let changed = false;
 
@@ -1149,7 +1174,7 @@ async function mergeLocalLikesIntoAccount(uid, accountLikedSongs) {
 
     if (changed) {
         try {
-            await setDoc(doc(db, "users", uid), { likedSongs: merged }, { merge: true });
+            await setDoc(doc(db, collectionName, uid), { likedSongs: merged }, { merge: true });
         } catch (e) {
             console.error('좋아요 병합 저장 실패:', e);
         }
@@ -3889,7 +3914,8 @@ function saveLikedSongIds(set, member = songbookMember) {
     if (currentUser && userLikedSongsCache) {
         userLikedSongsCache[key] = Array.from(set);
         // 계정에 비동기로 저장 (렌더링을 막지 않기 위해 await 하지 않음)
-        setDoc(doc(db, "users", currentUser.uid), { likedSongs: userLikedSongsCache }, { merge: true })
+        const collectionName = isSoopSession ? 'soopUsers' : 'users';
+        setDoc(doc(db, collectionName, currentUser.uid), { likedSongs: userLikedSongsCache }, { merge: true })
             .catch(e => console.error('좋아요 계정 저장 실패:', e));
         return;
     }
