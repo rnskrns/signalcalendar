@@ -1,6 +1,41 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+
+// =========================================================================
+// SOOP 확장프로그램 로그인 연동
+// =========================================================================
+// ⭐ 신규: 전역 함수 바인딩 영역에 추가
+window.loginWithSoopExtension = loginWithSoopExtension;
+
+// ⭐ 신규: SOOP 확장프로그램 로그인 요청 함수
+function loginWithSoopExtension() {
+    // 확장프로그램에 정보 요청
+    window.postMessage({ type: 'REQUEST_SOOP_LOGIN' }, '*');
+}
+
+// ⭐ 신규: 확장프로그램 응답 수신 리스너
+window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+
+    if (event.data.type === 'SOOP_LOGIN_SUCCESS') {
+        const user = event.data.user;
+
+        // 기존 시스템(Firebase Auth 등)이 인식하는 currentUser 형식에 맞춰 가짜 유저 객체 생성
+        currentUser = {
+            uid: user.uid,               // SOOP 아이디
+            displayName: user.nick,      // SOOP 닉네임
+            photoURL: user.imgUrl        // SOOP 프로필 이미지
+        };
+
+        // UI 즉시 업데이트 (프사, 닉네임 적용됨)
+        refreshAuthUI();
+        alert(`${user.nick}님 환영합니다!`);
+
+    } else if (event.data.type === 'SOOP_LOGIN_FAIL') {
+        alert("SOOP 로그인이 되어있지 않거나 확장프로그램 통신에 실패했습니다.");
+    }
+});
 
 // =========================================================================
 // Cloudinary 설정 (Unsigned Upload)
@@ -147,7 +182,7 @@ function loadScript(src) {
 // 전역 함수 바인딩
 // =========================================================================
 window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; window.checkPassword = checkPassword; window.logoutAdmin = logoutAdmin;
-window.loginAsUser = loginAsUser; window.logoutUser = logoutUser;
+window.logoutUser = logoutUser;
 window.cancelUserProfileSetup = cancelUserProfileSetup; window.submitUserProfileSetup = submitUserProfileSetup;
 window.openPasswordModal = openPasswordModal; window.closePasswordModal = closePasswordModal; window.closeLogoutModal = closeLogoutModal;
 window.handleDayClick = handleDayClick; window.handleDayRightClick = handleDayRightClick; window.editFromMenu = editFromMenu;
@@ -957,26 +992,15 @@ async function checkPassword() {
     }
 }
 
-// =========================================================================
-// 일반 유저 로그인 (구글 계정, 관리자와 별도)
-// =========================================================================
-async function loginAsUser() {
-    try {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
-        // 로그인 성공 후 처리는 onAuthStateChanged에서 일괄적으로 진행됩니다.
-    } catch (e) {
-        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-        console.error("유저 로그인 에러:", e);
-        alert("구글 로그인 중 오류가 발생했습니다.");
-    }
-}
-
 async function logoutUser() {
     try {
         await signOut(auth);
     } catch (e) {
         console.error("유저 로그아웃 에러:", e);
+    } finally {
+        // ⭐ 신규: SOOP으로 로그인한 정보 수동 초기화
+        currentUser = null;
+        refreshAuthUI();
     }
 }
 
@@ -1085,6 +1109,11 @@ function renderLoggedOutAuthHtml(scope) {
     return `<button class="${btnClass}" onclick="handleAdminClick()">로그인</button>`;
 }
 
+window.openRecapFromSite = function() {
+    // 확장프로그램(content.js)에게 리캡 페이지를 열어달라고 신호 전송
+    window.postMessage({ type: 'REQUEST_OPEN_RECAP' }, '*');
+};
+
 function renderAdminAuthHtml(scope, user) {
     const isDesktop = scope === 'desktop';
     if (isDesktop) {
@@ -1095,7 +1124,8 @@ function renderAdminAuthHtml(scope, user) {
                     <span class="text-lg text-[#5D4037] font-paperozi">${user.name}</span>
                     <i class="fi fi-rr-caret-down text-[#5D4037]"></i>
                 </div>
-                <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
+                <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                    <button onclick="openRecapFromSite()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-purple-50 border-b border-gray-100">📊 찐팬점수 리캡</button>
                     <button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
                     <button onclick="openManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                     <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -1108,7 +1138,8 @@ function renderAdminAuthHtml(scope, user) {
             <div class="flex items-center gap-1 cursor-pointer bg-white border border-gray-200 shadow-sm px-2 py-[5px] rounded-lg font-bold" onclick="toggleProfileDropdown('mobileProfileMenu')">
                 <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-[20px] h-[20px] rounded-full object-cover border border-[#5D4037]">
             </div>
-            <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden">
+            <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                <button onclick="openRecapFromSite()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-purple-50 border-b border-gray-100">📊 리캡 보기</button>
                 <button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
                 <button onclick="openManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                 <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -1130,7 +1161,8 @@ function renderUserAuthHtml(scope, user) {
                     <img src="${photo}" class="w-8 h-8 rounded-full object-cover border-2 border-gray-200">
                     <span class="text-lg text-[#5D4037] font-paperozi max-w-[100px] truncate">${name}</span>
                 </div>
-                <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-32 bg-white flex-col shadow-xl rounded-xl border-2 border-gray-200 overflow-hidden">
+                <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-32 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                    <button onclick="openRecapFromSite()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-purple-50 border-b border-gray-100">📊 찐팬점수 리캡</button>
                     <button onclick="logoutUser()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
             </div>
@@ -1141,7 +1173,8 @@ function renderUserAuthHtml(scope, user) {
             <div class="flex items-center gap-1 cursor-pointer bg-white border border-gray-200 shadow-sm px-2 py-[5px] rounded-lg font-bold" onclick="toggleProfileDropdown('${menuId}')">
                 <img src="${photo}" class="w-[20px] h-[20px] rounded-full object-cover border border-gray-200">
             </div>
-            <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-24 bg-white flex-col shadow-xl rounded-xl border-2 border-gray-200 overflow-hidden">
+            <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-24 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                <button onclick="openRecapFromSite()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-purple-50 border-b border-gray-100">📊 리캡 보기</button>
                 <button onclick="logoutUser()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
             </div>
         </div>
@@ -1540,13 +1573,12 @@ const soopBoards = [
 // 다시 fetch하지 않고 재사용할 수 있도록 캐시해 둔다.
 let cachedNoticeItemsHtml = '';
 let hasCachedNotice = false;
+let cachedPerMemberNoticeHtml = {};
 let noticeFetchAttempted = false;
 
 async function fetchAndRenderAllNotices() {
     console.log('[공지 디버그] fetchAndRenderAllNotices() 실행 시작');
-    // 데스크탑(사이드 패널)과 모바일(홈탭 본문) 양쪽 컨테이너를 모두 찾는다.
-    const noticeBox = document.getElementById('homeNoticeBox');
-    const noticeList = document.getElementById('homeNoticeList');
+    // 모바일(홈탭 본문) 컨테이너
     const mobileNoticeBox = document.getElementById('mobileHomeNoticeBox');
     const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
 
@@ -1635,7 +1667,7 @@ async function fetchAndRenderAllNotices() {
             if (board.noticeBoard) {
                 // 이 게시판(bbsNo) 자체가 "공지 전용 게시판"인 경우: 글마다 별도의 고정 플래그가
                 // 없을 수 있으므로 플래그로 거르지 않고, 날짜(regDate 등) 기준 최신순으로 정렬해
-                // 상위 2개를 그대로 공지로 취급한다.
+                // 가져온 1페이지(perPage) 분량을 그대로 공지로 취급한다.
                 const sortedByDate = [...streamerPosts].sort((a, b) => {
                     const da = getPostDate(a);
                     const db = getPostDate(b);
@@ -1644,14 +1676,14 @@ async function fetchAndRenderAllNotices() {
                     if (db) return 1;
                     return 0;
                 });
-                latestPosts = sortedByDate.slice(0, 2);
+                latestPosts = sortedByDate;
             } else {
                 const pinnedPosts = streamerPosts.filter(isPinnedPost);
                 const normalPosts = streamerPosts.filter((post) => !isPinnedPost(post));
                 if (pinnedPosts.length > 0) {
                     console.log(`[공지 디버그] ${board.name} 고정글 ${pinnedPosts.length}건 감지됨:`, pinnedPosts);
                 }
-                latestPosts = [...pinnedPosts, ...normalPosts.slice(0, 2)];
+                latestPosts = [...pinnedPosts, ...normalPosts];
             }
 
             // 게시판 목록 API에는 고정 공지글이 아예 안 잡히는 경우가 있어(오래된 글이라 페이지 밖으로 밀림 등),
@@ -1733,6 +1765,7 @@ async function fetchAndRenderAllNotices() {
     }));
 
     let itemsHtml = '';
+    const perMemberNoticeHtml = {};
     collectedPosts.forEach(({ board, post, date }) => {
         hasAnyPost = true;
         const postNo = post.title_no || post.titleNo || post.no || post.id || post.post_id || post.postId;
@@ -1760,11 +1793,11 @@ async function fetchAndRenderAllNotices() {
 
         console.log(`[공지 디버그] 카드 데이터 → 닉네임:${nickname}, 프사:${profileImg}, 제목:${postTitle}, 내용:${postBody}`);
 
-        itemsHtml += `
+        const rowHtml = `
             <div class="kakao-msg-row" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
                 <img src="${profileImg}" alt="${nickname}" loading="lazy" decoding="async" class="kakao-avatar" style="background-color:${board.color};" onerror="this.style.display='none'">
                 <div class="kakao-msg-col">
-                    <span class="kakao-nick" style="color:${board.color};">${nickname}</span>
+                    <span class="kakao-nick" style="color:#000000;">${nickname}</span>
                     <div class="kakao-bubble-row">
                         <div class="kakao-bubble">
                             <div class="kakao-bubble-title">${postTitle}</div>
@@ -1775,27 +1808,33 @@ async function fetchAndRenderAllNotices() {
                 </div>
             </div>
         `;
+
+        itemsHtml += rowHtml;
+        // 멤버별 여러 건을 순서대로(오래된 글 → 최신 글) 누적해서 보여준다.
+        if (!perMemberNoticeHtml[board.name]) perMemberNoticeHtml[board.name] = [];
+        perMemberNoticeHtml[board.name].push(rowHtml);
     });
 
     // 다음 렌더링(탭 전환, 날짜 이동 등)에서도 다시 쓸 수 있도록 캐시에 저장
     cachedNoticeItemsHtml = itemsHtml;
     hasCachedNotice = hasAnyPost;
+    cachedPerMemberNoticeHtml = perMemberNoticeHtml;
     noticeFetchAttempted = true;
 
-    console.log(`[공지 디버그] fetchAndRenderAllNotices() 완료 → hasAnyPost:${hasAnyPost}, noticeBox있음:${!!noticeBox}, mobileNoticeBox있음:${!!mobileNoticeBox}`);
-
-    if (noticeList) noticeList.innerHTML = itemsHtml;
-    if (noticeBox) noticeBox.classList.toggle('hidden', !hasAnyPost);
+    console.log(`[공지 디버그] fetchAndRenderAllNotices() 완료 → hasAnyPost:${hasAnyPost}, mobileNoticeBox있음:${!!mobileNoticeBox}`);
 
     if (mobileNoticeList) mobileNoticeList.innerHTML = itemsHtml;
     if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasAnyPost);
 
-    // 공지 박스 내용이 갱신됐으니 주간일정 박스 밑선에 맞춰 높이 재조정 후,
+    // 데스크탑 홈탭: 유튜브 영상 박스 아래에 전체 멤버 공지를 한 곳에 모아 표시
+    const noticeBox = document.getElementById('homeNoticeBox');
+    const noticeList = document.getElementById('homeNoticeList');
+    if (noticeList) noticeList.innerHTML = itemsHtml;
+    if (noticeBox) noticeBox.classList.toggle('hidden', !hasAnyPost);
+    requestAnimationFrame(alignNoticeBoxHeight);
+
     // 메신저처럼 최신 글(맨 아래)이 보이도록 스크롤을 맨 밑으로 이동
-    requestAnimationFrame(() => {
-        alignNoticeBoxHeight();
-        scrollNoticeListsToBottom();
-    });
+    scrollNoticeListsToBottomRobust();
     
     // 데이터 렌더링 성공 여부 반환
     return hasAnyPost;
@@ -1809,13 +1848,39 @@ function scrollNoticeListsToBottom() {
     if (mobileNoticeList) mobileNoticeList.scrollTop = mobileNoticeList.scrollHeight;
 }
 
+// 사이트 최초 진입 시에는 폰트/이미지 로딩이 늦게 끝나 리스트 높이가 뒤늦게 늘어나면서
+// 한 번의 스크롤만으로는 맨 밑에 정확히 붙지 않는 경우가 있어, 여러 시점에 걸쳐 재시도한다
+function scrollNoticeListsToBottomRobust() {
+    scrollNoticeListsToBottom();
+    requestAnimationFrame(() => {
+        scrollNoticeListsToBottom();
+        requestAnimationFrame(scrollNoticeListsToBottom);
+    });
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(scrollNoticeListsToBottom).catch(() => {});
+    }
+    setTimeout(scrollNoticeListsToBottom, 150);
+    setTimeout(scrollNoticeListsToBottom, 500);
+    setTimeout(scrollNoticeListsToBottom, 1000);
+}
+
 // mainContent가 새로 그려질 때(모바일 홈탭 등) 캐시된 공지 데이터를 즉시 반영
 function applyCachedNoticeToMobileHome() {
     const mobileNoticeBox = document.getElementById('mobileHomeNoticeBox');
     const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
     if (mobileNoticeList) mobileNoticeList.innerHTML = cachedNoticeItemsHtml;
     if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasCachedNotice);
-    requestAnimationFrame(scrollNoticeListsToBottom);
+    scrollNoticeListsToBottomRobust();
+}
+
+// 데스크탑 홈탭: 유튜브 영상 박스 아래 공지 박스에 캐시된 전체 공지를 즉시 반영
+function applyCachedNoticeToDesktopHome() {
+    const noticeBox = document.getElementById('homeNoticeBox');
+    const noticeList = document.getElementById('homeNoticeList');
+    if (noticeList) noticeList.innerHTML = cachedNoticeItemsHtml;
+    if (noticeBox) noticeBox.classList.toggle('hidden', !hasCachedNotice);
+    scrollNoticeListsToBottomRobust();
+    requestAnimationFrame(alignNoticeBoxHeight);
 }
 
 // 데스크탑 홈 화면(주간일정 박스)과 옆의 공지 박스 밑선을 맞춰서 공지 리스트 높이를 자동 조절
@@ -1838,7 +1903,7 @@ function alignNoticeBoxHeight() {
     // 공지 리스트가 시작되는 위치부터 주간일정 박스 밑선까지 남는 높이를 계산해서 그대로 적용
     // max-height만 쓰면 공지 개수가 적을 때 리스트가 짧아져서 밑선이 안 맞으므로,
     // height를 직접 고정해 내용이 적어도(빈 공간은 스크롤 영역으로) 항상 밑선이 맞도록 함
-    const availableHeight = Math.round(scheduleRect.bottom - noticeListRect.top - noticeBoxPaddingBottom - 4);
+    const availableHeight = Math.round((scheduleRect.bottom - noticeListRect.top - noticeBoxPaddingBottom - 4) * 0.75);
     if (availableHeight > 80) {
         noticeList.style.height = `${availableHeight}px`;
         noticeList.style.maxHeight = `${availableHeight}px`;
@@ -1879,8 +1944,11 @@ async function renderHomeYoutubeBox() {
     // 2. 공지사항 데이터를 불러오고, 표시할 글이 있는지 확인
     const hasNotice = await fetchAndRenderAllNotices();
 
-    // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있으면 전체 박스를 보여줌
-    homeBoxShouldShow = hasVideo || hasNotice;
+    // 2-1. UP 해줘! 버튼을 유튜브 영상 박스 위에 표시(등록된 UP 링크가 있을 때만)
+    const hasUpLinks = await updateHomeUpButtonVisibility();
+
+    // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있거나, UP 링크가 있으면 전체 박스를 보여줌
+    homeBoxShouldShow = hasVideo || hasNotice || hasUpLinks;
     applyHomeYoutubeBoxVisibility();
 }
 
@@ -1889,7 +1957,10 @@ function applyHomeYoutubeBoxVisibility() {
     const box = document.getElementById('homeYoutubeBox');
     if (!box) return;
     if (currentPage === '홈' && !isMobile) {
+        const wasHidden = box.style.display === 'none';
         box.style.display = homeBoxShouldShow ? '' : 'none';
+        // 박스가 숨김→표시로 바뀌는 순간에는 그 전에 시도된 스크롤이 무시됐을 수 있어 다시 시도
+        if (homeBoxShouldShow && wasHidden) scrollNoticeListsToBottomRobust();
     } else {
         box.style.display = 'none';
     }
@@ -2122,6 +2193,7 @@ function renderHeaderTabs() {
 
     if (desktopContainer) {
         let html = `
+            <img src="https://res.cloudinary.com/dtlqzklk5/image/upload/v1785906907/gbcyhj4y00hrunv0encx.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105 mr-1" onclick="executeDesktopTabChange('홈')">
             <button class="font-paperozi px-5 py-2.5 bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[#FF5252] hover:text-[#FF5252] transition-all duration-200 flex items-center justify-center" onclick="executeDesktopTabChange('홈')">
                 <i class="fi fi-rr-home text-2xl"></i>
             </button>
@@ -2164,7 +2236,7 @@ function renderHeaderTabs() {
                     <div class="relative group flex items-center">
                         <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
                         <div class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
-                            <div class="bg-white flex flex-col shadow-xl rounded-xl border-2 border-[#5D4037] overflow-hidden py-1">
+                            <div class="bg-white flex flex-col shadow-xl rounded-2xl border border-[#ECEDFA] overflow-hidden py-1" style="box-shadow: 0 20px 45px -20px rgba(70,60,160,0.22);">
                                 ${mainLinkHtml}${dropdownHtml}
                             </div>
                         </div>
@@ -2213,15 +2285,15 @@ function openMobileTabMenu(tab) {
     `;
     
     if (tab === '더보기') {
-        html += `<button onclick="executeMobileTabChange('클립')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">클립 모아보기</button>`;
-        html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">롤링페이퍼</button>`;
-        html += `<button onclick="executeMobileTabChange('업보정리_달타')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800">업보정리</button>`;
+        html += `<button onclick="executeMobileTabChange('클립')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">클립 모아보기</button>`;
+        html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">롤링페이퍼</button>`;
+        html += `<button onclick="executeMobileTabChange('업보정리_달타')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 leading-snug break-keep whitespace-normal">업보정리</button>`;
     } else {
-        html += `<button onclick="executeMobileTabChange('${tab}')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2">일정표 보기</button>`;
-        html += `<button onclick="executeMobileTabChange('노래책_${tab}')" class="w-full py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2" style="border-color:${color}; color:${color}">노래책</button>`;
+        html += `<button onclick="executeMobileTabChange('${tab}')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">일정표 보기</button>`;
+        html += `<button onclick="executeMobileTabChange('노래책_${tab}')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal" style="border-color:${color}; color:${color}">노래책</button>`;
         const links = dynamicLinks[tab] || [];
         links.forEach(l => {
-            html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95 mb-2" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
+            html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full px-3 py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95 mb-2 leading-snug break-keep whitespace-normal block" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
         });
     }
     html += `</div>`;
@@ -2472,11 +2544,204 @@ function closeSidePanel(instant = false) {
     
     if (instant) {
         panel.classList.add('hidden'); panel.classList.remove('flex');
+        // 이미 안 보이는 상태이므로 지금 초기화해도 움직임이 화면에 보이지 않음
+        resetPanelPositionStyles(panel);
     } else {
         setTimeout(() => {
             if (sidePanelMode === null) { panel.classList.add('hidden'); panel.classList.remove('flex'); }
+            // 완전히 사라진 뒤에 위치·크기를 초기화해서, 드래그로 옮겨둔 자리에서 그대로 페이드아웃되고
+            // "제자리로 돌아왔다가 꺼지는" 모션 없이 바로 닫히게 함
+            resetPanelPositionStyles(panel);
         }, 300);
     }
+}
+
+function resetPanelPositionStyles(panel) {
+    panel.style.position = '';
+    panel.style.left = '';
+    panel.style.top = '';
+    panel.style.right = '';
+    panel.style.bottom = '';
+    panel.style.margin = '';
+    panel.style.width = '';
+    panel.style.height = '';
+    panel.style.zIndex = '';
+    panel.style.transition = '';
+}
+
+// ===== 사이드 패널(메모/시네티 등) PC 전용 드래그 이동 & 크기 조절 =====
+let panelDragState = null;
+let panelResizeState = null;
+
+function startPanelDrag(e) {
+    if (isMobile) return;
+    if (e.target.closest('button')) return; // 헤더 안의 버튼(고정/닫기) 클릭 시엔 드래그 방지
+    e.preventDefault();
+
+    const panel = document.getElementById('sideExpansionPanel');
+    const rect = panel.getBoundingClientRect();
+
+    // 드래그 중 시네티(iframe)가 마우스 이벤트를 가로채지 못하도록 차단
+    const iframe = panel.querySelector('iframe');
+    if (iframe) iframe.style.pointerEvents = 'none';
+
+    panel.style.position = 'fixed';
+    panel.style.left = rect.left + 'px';
+    panel.style.top = rect.top + 'px';
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+    panel.style.margin = '0';
+    panel.style.width = rect.width + 'px';
+    panel.style.height = rect.height + 'px';
+    panel.style.zIndex = '4500';
+    panel.style.transition = 'none'; 
+
+    panelDragState = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startLeft: rect.left,
+        startTop: rect.top
+    };
+
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onPanelDragMove);
+    document.addEventListener('mouseup', onPanelDragEnd);
+}
+window.startPanelDrag = startPanelDrag;
+
+function onPanelDragMove(e) {
+    if (!panelDragState) return;
+    const panel = document.getElementById('sideExpansionPanel');
+
+    let newLeft = panelDragState.startLeft + (e.clientX - panelDragState.startX);
+    let newTop = panelDragState.startTop + (e.clientY - panelDragState.startY);
+
+    // 화면 밖으로 완전히 벗어나지 않도록 제한
+    const maxLeft = window.innerWidth - Math.min(panel.offsetWidth, window.innerWidth);
+    const maxTop = window.innerHeight - Math.min(panel.offsetHeight, window.innerHeight);
+    newLeft = Math.max(0, Math.min(newLeft, Math.max(0, maxLeft)));
+    newTop = Math.max(0, Math.min(newTop, Math.max(0, maxTop)));
+
+    panel.style.left = newLeft + 'px';
+    panel.style.top = newTop + 'px';
+}
+
+function onPanelDragEnd() {
+    panelDragState = null;
+    document.body.style.userSelect = '';
+    const panel = document.getElementById('sideExpansionPanel');
+    
+    if (panel) {
+        if (sidePanelMode !== 'CINETI') panel.style.transition = ''; 
+        
+        // 드래그가 끝나면 iframe 마우스 이벤트 다시 복구
+        const iframe = panel.querySelector('iframe');
+        if (iframe) iframe.style.pointerEvents = '';
+    }
+    
+    document.removeEventListener('mousemove', onPanelDragMove);
+    document.removeEventListener('mouseup', onPanelDragEnd);
+}
+
+function startPanelResize(e, dir) {
+    if (isMobile) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const panel = document.getElementById('sideExpansionPanel');
+    const rect = panel.getBoundingClientRect();
+
+    // 크기 조절 중 시네티(iframe)가 마우스 이벤트를 가로채지 못하도록 차단
+    const iframe = panel.querySelector('iframe');
+    if (iframe) iframe.style.pointerEvents = 'none';
+
+    panel.style.position = 'fixed';
+    panel.style.left = rect.left + 'px';
+    panel.style.top = rect.top + 'px';
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+    panel.style.margin = '0';
+    panel.style.zIndex = '4500';
+    panel.style.transition = 'none';
+
+    panelResizeState = {
+        dir: dir || 'se',
+        startX: e.clientX,
+        startY: e.clientY,
+        startWidth: rect.width,
+        startHeight: rect.height,
+        startTop: rect.top,
+        startLeft: rect.left
+    };
+
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onPanelResizeMove);
+    document.addEventListener('mouseup', onPanelResizeEnd);
+}
+window.startPanelResize = startPanelResize;
+
+function onPanelResizeMove(e) {
+    if (!panelResizeState) return;
+    const panel = document.getElementById('sideExpansionPanel');
+    const state = panelResizeState;
+
+    const MIN_W = 320, MIN_H = 200;
+
+    let newWidth = state.startWidth;
+    let newHeight = state.startHeight;
+    let newLeft = state.startLeft;
+    let newTop = state.startTop;
+
+    // 가로 크기 조절
+    if (state.dir.includes('e')) {
+        newWidth = state.startWidth + (e.clientX - state.startX);
+    } else if (state.dir.includes('w')) {
+        const diff = e.clientX - state.startX;
+        newWidth = state.startWidth - diff;
+        newLeft = state.startLeft + diff;
+    }
+
+    // 세로 크기 조절
+    if (state.dir.includes('s')) {
+        newHeight = state.startHeight + (e.clientY - state.startY);
+    } else if (state.dir.includes('n')) {
+        const diff = e.clientY - state.startY;
+        newHeight = state.startHeight - diff;
+        newTop = state.startTop + diff;
+    }
+
+    // 최소 크기 방어선
+    if (newWidth < MIN_W) {
+        if (state.dir.includes('w')) newLeft -= (MIN_W - newWidth);
+        newWidth = MIN_W;
+    }
+    if (newHeight < MIN_H) {
+        if (state.dir.includes('n')) newTop -= (MIN_H - newHeight);
+        newHeight = MIN_H;
+    }
+
+    // 변경된 값 적용 (비율 고정 없이 자유롭게 크기 조절)
+    panel.style.width = newWidth + 'px';
+    panel.style.height = newHeight + 'px';
+    panel.style.left = newLeft + 'px';
+    panel.style.top = newTop + 'px';
+}
+
+function onPanelResizeEnd() {
+    panelResizeState = null;
+    document.body.style.userSelect = '';
+    const panel = document.getElementById('sideExpansionPanel');
+    
+    if (panel) {
+        if (sidePanelMode !== 'CINETI') panel.style.transition = '';
+        
+        // 크기 조절이 끝나면 iframe 마우스 이벤트 다시 복구
+        const iframe = panel.querySelector('iframe');
+        if (iframe) iframe.style.pointerEvents = '';
+    }
+
+    document.removeEventListener('mousemove', onPanelResizeMove);
+    document.removeEventListener('mouseup', onPanelResizeEnd);
 }
 
 function openSidePanel(mode) {
@@ -2487,12 +2752,34 @@ function openSidePanel(mode) {
     panel.classList.remove('hidden'); panel.classList.add('flex');
     if(isMobile && mobileOverlay) { mobileOverlay.classList.remove('hidden'); mobileOverlay.classList.add('block'); }
 
-    if (!isMobile) panel.style.top = (mode === 'ARTIST') ? '-10px' : '';
+    if (!isMobile) {
+        if (panel.style.position !== 'fixed') {
+            if (mode === 'ARTIST') {
+                panel.style.top = '-10px';
+            } else if (mode === 'CINETI') {
+                // 시네티 초기 팝업: 이미지처럼 우측에 세로로 긴(모바일 뷰) 형태로 배치
+                panel.style.position = 'fixed';
+                panel.style.width = '420px';  // 가로폭 
+                panel.style.height = '860px'; // 세로로 길게
+                panel.style.top = '90px';     // 캘린더 윗선과 비슷한 위치
+                panel.style.right = '40px';   // 우측 여백
+                panel.style.left = 'auto';
+                panel.style.bottom = 'auto';
+                panel.style.zIndex = '4500';
+                panel.style.borderRadius = '16px';
+                panel.style.transition = 'none'; // 애니메이션 끄기
+            } else {
+                panel.style.top = '';
+            }
+        } else if (mode === 'CINETI') {
+            panel.style.transition = 'none'; 
+        }
+    }
     
     if (mode === 'MEMO') {
         const memos = memoList[currentPage] || [];
         const contentHtml = memos.map(memo => `
-            <div class="bg-white p-4 rounded-xl border-[2.5px] border-[#5D4037] relative shadow-sm mb-4 transition" 
+            <div class="bg-white p-4 rounded-xl relative shadow-md mb-4 transition" 
                  oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.openMemoEditModal('${memo.id}'); }">
                 ${isAdmin ? `
                 <div class="absolute top-2 right-2 flex items-center gap-1 z-10">
@@ -2505,16 +2792,17 @@ function openSidePanel(mode) {
         `).join('');
 
         panel.innerHTML = `
-            <div class="p-6 border-b-[4px] border-[#5D4037] bg-white flex justify-between items-center shadow-sm z-10 shrink-0">
+            <div class="p-6 bg-white/15 backdrop-blur-lg flex justify-between items-center shadow-sm z-10 shrink-0" ${isMobile ? 'onmousedown="startPanelDrag(event)"' : ''}>
                 <div class="text-[22px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
                     <i class="fi fi-rr-edit"></i> ${currentPage} 메모장
                 </div>
+                ${isMobile ? `
                 <div class="flex items-center gap-3">
                     <button onclick="toggleMemoPin()" title="고정" class="w-9 h-9 flex items-center justify-center text-xl transition ${memoPinned ? 'text-[#5D4037]' : 'text-gray-300 hover:text-gray-400'}"><i class="fi fi-rr-thumbtack"></i></button>
                     <button onclick="closeSidePanel()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
-                </div>
+                </div>` : ''}
             </div>
-            <div class="flex-1 p-5 pb-24 bg-[#FFFDF5] overflow-y-auto modal-scroll w-full">
+            <div class="flex-1 p-5 pb-24 bg-white overflow-y-auto modal-scroll w-full">
                 ${contentHtml || '<div class="text-center text-gray-400 font-bold mt-16 text-lg">저장된 메모가 없습니다.</div>'}
             </div>
             ${isAdmin ? `<button onclick="openMemoAddModal()" class="absolute bottom-5 right-5 w-14 h-14 flex items-center justify-center bg-[#5D4037] text-white rounded-full font-bold hover:brightness-110 shadow-lg transition z-20 text-xl"><i class="fi fi-br-plus"></i></button>` : ''}
@@ -2525,13 +2813,26 @@ function openSidePanel(mode) {
         renderArtistSidePanel();
     } else if (mode === 'CINETI') {
         panel.innerHTML = `
-            <div class="p-4 border-b-[4px] border-[#5D4037] bg-white flex justify-between items-center shadow-sm z-10 shrink-0">
-                <div class="text-[20px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
+            <!-- 상하좌우, 대각선 크기 조절 핸들 (투명) -->
+            <div class="hidden lg:block absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-30" onmousedown="startPanelResize(event, 'n')"></div>
+            <div class="hidden lg:block absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize z-30" onmousedown="startPanelResize(event, 's')"></div>
+            <div class="hidden lg:block absolute top-0 bottom-0 left-0 w-2 cursor-ew-resize z-30" onmousedown="startPanelResize(event, 'w')"></div>
+            <div class="hidden lg:block absolute top-0 bottom-0 right-0 w-2 cursor-ew-resize z-30" onmousedown="startPanelResize(event, 'e')"></div>
+            <div class="hidden lg:block absolute top-0 left-0 w-3 h-3 cursor-nwse-resize z-40" onmousedown="startPanelResize(event, 'nw')"></div>
+            <div class="hidden lg:block absolute top-0 right-0 w-3 h-3 cursor-nesw-resize z-40" onmousedown="startPanelResize(event, 'ne')"></div>
+            <div class="hidden lg:block absolute bottom-0 left-0 w-3 h-3 cursor-nesw-resize z-40" onmousedown="startPanelResize(event, 'sw')"></div>
+            <div class="hidden lg:block absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-40 flex items-center justify-center text-[#5D4037]/50 hover:text-[#5D4037] transition" onmousedown="startPanelResize(event, 'se')">
+                <i class="fi fi-rr-arrow-small-down text-[14px]" style="transform: rotate(-45deg);"></i>
+            </div>
+
+            <!-- 세로로 긴 팝업에 어울리도록 폰트 사이즈 조정 -->
+            <div class="p-3 bg-white/15 backdrop-blur-lg flex justify-between items-center shadow-sm z-10 shrink-0 lg:cursor-move" onmousedown="startPanelDrag(event)">
+                <div class="text-[18px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2 pointer-events-none ml-2">
                     <i class="fi fi-rr-video-camera-alt"></i> 시네티
                 </div>
-                <button onclick="closeSidePanel()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
+                <button onclick="closeSidePanel()" class="text-2xl text-[#5D4037] hover:text-red-500 cursor-pointer z-50 mr-1"><i class="fi fi-rr-cross-small"></i></button>
             </div>
-            <div class="flex-1 w-full bg-white overflow-hidden">
+            <div class="flex-1 w-full bg-white overflow-hidden relative">
                 <iframe src="https://cineti-mu.vercel.app/" title="시네티" class="w-full h-full border-0" allow="clipboard-write; fullscreen"></iframe>
             </div>
         `;
@@ -2541,7 +2842,13 @@ function openSidePanel(mode) {
         if(isMobile) {
             panel.classList.remove('translate-y-full', 'opacity-0'); panel.classList.add('translate-y-0', 'opacity-100');
         } else {
-            panel.classList.remove('h-0', 'opacity-0'); panel.classList.add('h-[890px]', 'opacity-100');
+            panel.classList.remove('h-0', 'opacity-0');
+            if (mode === 'CINETI') {
+                panel.classList.add('opacity-100');
+                panel.classList.remove('h-[890px]'); 
+            } else {
+                panel.classList.add('h-[890px]', 'opacity-100');
+            }
         }
     });
 }
@@ -2644,15 +2951,16 @@ async function deleteMemo(memoId) {
 async function renderUpLinksPanel() {
     const panel = document.getElementById('sideExpansionPanel');
     const sorted = [...getVisibleUpLinks()].sort(sortUpLinksComparator);
+    updateHomeUpButtonVisibility();
 
     panel.innerHTML = `
-        <div class="p-6 border-b-[4px] border-[#5D4037] bg-white flex justify-between items-center shadow-sm z-10 shrink-0">
+        <div class="p-6 bg-white/15 backdrop-blur-lg flex justify-between items-center shadow-sm z-10 shrink-0">
             <div class="text-[22px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
                 <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
             </div>
             <button onclick="closeSidePanel()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
         </div>
-        <div id="upLinksPanelBody" class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll">
+        <div id="upLinksPanelBody" class="flex-1 p-5 bg-white overflow-y-auto modal-scroll">
             ${sorted.length === 0 ? `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">등록된 UP 링크가 없습니다.</div>` : `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">불러오는 중...⏳</div>`}
         </div>
     `;
@@ -3005,6 +3313,17 @@ function closeUpModeModal() {
 window.openUpModeModal = openUpModeModal;
 window.closeUpModeModal = closeUpModeModal;
 
+// 홈탭 유튜브 영상 위 'UP 해줘!' 버튼: 등록된 UP 링크가 있을 때만 노출하고,
+// 클릭 시 openUpModeModal()이 팝업으로 UP 보드를 띄워줌
+async function updateHomeUpButtonVisibility() {
+    const btn = document.getElementById('homeUpPanelBtn');
+    if (!btn) return false;
+    const sorted = getVisibleUpLinks();
+    const has = sorted.length > 0;
+    btn.classList.toggle('hidden', !has);
+    return has;
+}
+
 function sortRollingTopics() {
     const todayStr = getTodayYYYYMMDD();
     const todayDate = new Date(todayStr).getTime();
@@ -3211,9 +3530,8 @@ async function changeTab(tabName) {
             sidePanelMode = null; closeSidePanel(true);
         }
     } else if (!isMobile) {
-        if(currentPage === '홈') { closeSidePanel(true); }
-        else if (memoPinned && memoCollectionMap[currentPage]) { sidePanelMode = 'MEMO'; openSidePanel('MEMO'); }
-        else { closeSidePanel(true); }
+        // 데스크톱에서는 메모보드가 캘린더 컨테이너 안에 상시 내장되어 렌더링되므로 사이드 패널은 항상 닫아둔다.
+        closeSidePanel(true);
     } else {
         if (memoPinned && memoCollectionMap[currentPage]) { sidePanelMode = 'MEMO'; openSidePanel('MEMO'); }
         else { closeSidePanel(true); }
@@ -3409,38 +3727,12 @@ function render() {
     
     const mBtnContainer = document.getElementById('mobileHeaderRightBtn');
     const dBtnContainer = document.getElementById('dynamicSideBtn');
-    
-    const mobileUpBtnHtml = `<button onclick="toggleUpPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-arrow-up-right"></i> UP</button>`;
-    const mobileMemoBtnHtml = `<div class="flex items-center gap-1.5">
-        <button onclick="toggleMemoPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-edit"></i> 메모</button>
-        <button onclick="toggleCinetiPanel()" class="px-3 py-[6px] bg-[#f3f4f6] text-[#5D4037] font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-gray-200"><i class="fi fi-rr-video-camera-alt"></i> 시네티</button>
-    </div>`;
-    const desktopUpBtnHtml = `<button onclick="toggleUpPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-arrow-up-right text-xl"></i>UP</button>`;
-    const desktopMemoBtnHtml = `<div class="flex flex-col gap-2">
-        <button onclick="toggleMemoPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-edit text-xl"></i>메모</button>
-        <button onclick="toggleCinetiPanel()" class="w-[100px] h-[75px] bg-white text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition-all shadow-sm font-paperozi text-[15px] cursor-pointer flex flex-col items-center justify-center gap-0.5 border-2 border-[#5D4037]"><i class="fi fi-rr-video-camera-alt text-xl"></i>시네티</button>
-    </div>`;    
-    const mobileRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-3 py-[6px] bg-purple-100 text-purple-700 font-bold rounded-lg transition-all shadow-sm font-paperozi text-[14px] cursor-pointer flex items-center gap-1 border border-purple-300 hover:bg-purple-200"><i class="fi fi-br-plus"></i> 주제추가</button>` : '';
-    const desktopRollingBtnHtml = isAdmin ? `<button onclick="openRollingTopicModal()" class="px-6 py-2.5 bg-purple-50 text-purple-700 font-bold rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm font-paperozi text-[18px] cursor-pointer flex items-center gap-2 border-2 border-purple-200"><i class="fi fi-br-plus"></i> 주제 추가</button>` : '';
 
-    if (mBtnContainer) {
-        if (currentPage === '홈') mBtnContainer.innerHTML = mobileUpBtnHtml;
-        else if (currentPage === '롤링페이퍼') mBtnContainer.innerHTML = mobileRollingBtnHtml; 
-        else if (currentPage === '업보정리') mBtnContainer.innerHTML = ''; 
-        else if (currentPage === '노래책') mBtnContainer.innerHTML = ''; 
-        else if (currentPage === '시그널') mBtnContainer.innerHTML = ''; 
-        else if (currentPage === '클립') mBtnContainer.innerHTML = ''; 
-        else mBtnContainer.innerHTML = mobileMemoBtnHtml;
-    }
-    if (dBtnContainer) {
-        if (currentPage === '홈') dBtnContainer.innerHTML = desktopUpBtnHtml;
-        else if (currentPage === '롤링페이퍼') dBtnContainer.innerHTML = desktopRollingBtnHtml; 
-        else if (currentPage === '업보정리') dBtnContainer.innerHTML = ''; 
-        else if (currentPage === '노래책') dBtnContainer.innerHTML = ''; 
-        else if (currentPage === '시그널') dBtnContainer.innerHTML = ''; 
-        else if (currentPage === '클립') dBtnContainer.innerHTML = ''; 
-        else dBtnContainer.innerHTML = desktopMemoBtnHtml;
-    }
+    // 메모/시네티 버튼: 개인 캘린더(달타/다룽/최또/카나시) 탭일 때만 노출.
+    // 모바일에서는 상단바 우측 영역에, 데스크톱은 각 캘린더 컨테이너 내부에서 렌더링.
+    const isMemberPage = ['달타', '다룽', '최또', '카나시'].includes(currentPage);
+    if (mBtnContainer) mBtnContainer.innerHTML = (isMobile && isMemberPage) ? buildMemoCinetiButtonsHtml('mobileHeader') : '';
+    if (dBtnContainer) dBtnContainer.innerHTML = '';
     
     const content = document.getElementById('mainContent'); if(!content) return; content.innerHTML = '';
     
@@ -3490,6 +3782,34 @@ function render() {
 
 function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function buildMemoCinetiButtonsHtml(variant) {
+    if (variant === 'mobileHeader') {
+        return `<div class="flex items-center gap-1 shrink-0">
+            <button onclick="toggleMemoPanel()" title="메모" class="w-[32px] h-[32px] bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm text-[#5D4037] text-[15px] hover:bg-gray-50 transition-all cursor-pointer"><i class="fi fi-rr-edit"></i></button>
+            <button onclick="toggleCinetiPanel()" title="시네티" class="w-[32px] h-[32px] bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm text-[#5D4037] text-[15px] hover:bg-gray-50 transition-all cursor-pointer"><i class="fi fi-rr-video-camera-alt"></i></button>
+        </div>`;
+    }
+    if (variant === 'mobile') {
+        return `<div class="flex items-center justify-center gap-3">
+            <button onclick="toggleMemoPanel()" class="w-14 h-14 bg-white hover:bg-gray-50 text-[#5D4037] font-bold rounded-2xl transition-all font-paperozi text-[11px] cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm hover:-translate-y-0.5"><i class="fi fi-rr-edit text-[18px]"></i><span>메모</span></button>
+            <button onclick="toggleCinetiPanel()" class="w-14 h-14 bg-white hover:bg-gray-50 text-[#5D4037] font-bold rounded-2xl transition-all font-paperozi text-[11px] cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm hover:-translate-y-0.5"><i class="fi fi-rr-video-camera-alt text-[18px]"></i><span>시네티</span></button>
+        </div>`;
+    }
+    if (variant === 'desktop') {
+        // 크기를 w-[62px] h-[62px] 1:1 비율로 맞추고 그림자(shadow) 속성 제거
+        return `<div class="flex items-center shrink-0">
+            <button onclick="toggleCinetiPanel()" class="w-[62px] h-[62px] bg-white hover:bg-gray-50 text-[#5D4037] font-bold rounded-[18px] transition-all flex flex-col items-center justify-center border border-[#ECEDFA] hover:-translate-y-0.5" title="시네티 열기">
+                <i class="fi fi-rr-video-camera-alt text-[20px] mb-0.5"></i>
+                <span class="text-[12px] font-paperozi">시네티</span>
+            </button>
+        </div>`;
+    }
+    return `<div class="flex flex-col items-center gap-3">
+        <button onclick="toggleMemoPanel()" class="w-[72px] h-[72px] bg-white hover:bg-gray-50 text-[#5D4037] font-bold rounded-[22px] transition-all font-paperozi text-[13px] cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm border border-gray-100 hover:-translate-y-1"><i class="fi fi-rr-edit text-[24px]"></i><span>메모</span></button>
+        <button onclick="toggleCinetiPanel()" class="w-[72px] h-[72px] bg-white hover:bg-gray-50 text-[#5D4037] font-bold rounded-[22px] transition-all font-paperozi text-[13px] cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm border border-gray-100 hover:-translate-y-1"><i class="fi fi-rr-video-camera-alt text-[24px]"></i><span>시네티</span></button>
+    </div>`;
 }
 
 function getLikedSongIds(member = songbookMember) {
@@ -3744,12 +4064,12 @@ function renderArtistSidePanel() {
     if (artists.length === 0) listHtml += `<div class="text-center text-gray-400 font-bold py-16 text-[14px]">등록된 가수가 없습니다.</div>`;
 
     panel.innerHTML = `
-        <div class="p-6 border-b-[4px] border-[#5D4037] bg-white flex items-center shadow-sm z-10 shrink-0">
+        <div class="p-6 bg-white/15 backdrop-blur-lg flex items-center shadow-sm z-10 shrink-0">
             <div class="text-[22px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
                 <i class="fi fi-rr-microphone"></i> 가수 목록
             </div>
         </div>
-        <div class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll w-full">
+        <div class="flex-1 p-5 bg-white overflow-y-auto modal-scroll w-full">
             ${listHtml}
         </div>
     `;
@@ -4149,7 +4469,7 @@ function renderUpboPage() {
     if (isAdmin) {
         const isSearch = upboViewMode === 'search';
         toggleBtnHtml = `
-            <div class="absolute top-4 right-4 md:top-8 md:right-8 z-10 flex items-center gap-1 bg-gray-100 p-1.5 rounded-xl border-2 border-gray-200 shadow-inner shrink-0">
+            <div class="flex items-center gap-1 bg-[#F7F7FC] p-1.5 rounded-xl border border-[#ECEDFA] shadow-sm shrink-0">
                 <button onclick="toggleUpboViewMode('search')" class="px-4 py-2 rounded-lg font-bold text-[14px] transition-all ${isSearch ? 'bg-white shadow-sm text-[#5D4037]' : 'text-gray-400 hover:text-gray-600'}">조회</button>
                 <button onclick="toggleUpboViewMode('admin')" class="px-4 py-2 rounded-lg font-bold text-[14px] transition-all ${!isSearch ? 'bg-[#5D4037] shadow-sm text-white' : 'text-gray-400 hover:text-gray-600'}">관리</button>
             </div>
@@ -4157,29 +4477,34 @@ function renderUpboPage() {
     }
 
     const _isEmbed = new URLSearchParams(window.location.search).get('mode') === 'embed';
-    let tabsHtml = _isEmbed ? '' : `<div class="flex justify-center gap-2 mb-8 mt-2 overflow-x-auto whitespace-nowrap px-2">`;
+    let tabsHtml = _isEmbed ? '' : `<div class="flex justify-start md:justify-center gap-2 mb-6 mt-2 overflow-x-auto whitespace-nowrap px-0 md:px-2 upbo-member-tabs">`;
     if (!_isEmbed) {
     ['달타', '다룽', '최또', '카나시'].forEach(m => {
         const active = m === upboCurrentMember;
         const mColor = themeColors[m];
-        tabsHtml += `<button onclick="changeTab('업보정리_${m}')" class="px-6 py-2.5 font-bold font-paperozi text-[17px] rounded-full border-2 transition-all shadow-sm" style="border-color:${mColor}; ${active ? `background-color:${mColor}; color:white;` : `background-color:white; color:${mColor};`}">${m}</button>`;
+        tabsHtml += `<button onclick="changeTab('업보정리_${m}')" class="px-4 py-1.5 font-bold font-paperozi text-[14px] rounded-full border-2 transition-all shadow-sm" style="border-color:${mColor}; ${active ? `background-color:${mColor}; color:white;` : `background-color:white; color:${mColor};`}">${m}</button>`;
     });
     tabsHtml += `</div>`;
     }
 
     let mainHtml = `<div class="big-white-box upbo-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; ${isMobile ? 'min-width: 0;' : ''} box-sizing: border-box;">`;
-    mainHtml += toggleBtnHtml; 
-    
     const titleText = (isAdmin && upboViewMode === 'admin') ? '업보 관리' : '업보 조회';
-    mainHtml += `<h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi text-center mb-6 pt-12 md:pt-0"><i class="fi fi-rr-box-open"></i> ${titleText}</h2>`;
+    mainHtml += `
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-[#ECEDFA]">
+            <div>
+                <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-box-open"></i> ${titleText}</h2>
+                <p class="text-[14px] font-bold text-gray-400 mt-1">${upboCurrentMember}님의 구매 내역과 배송 상태를 확인하세요.</p>
+            </div>
+            ${toggleBtnHtml}
+        </div>`;
     mainHtml += tabsHtml;
 
     if (upboViewMode === 'search' || !isAdmin) {
         mainHtml += `
-            <div class="max-w-2xl mx-auto mb-10">
-                <div class="flex gap-2">
-                    <input type="text" id="upboSearchInput" class="flex-1 border-[2.5px] border-[#5D4037] rounded-xl p-4 text-[17px] font-bold outline-none focus:border-[var(--theme-color)]" placeholder="닉네임 또는 아이디를 입력하세요" onkeypress="if(event.key==='Enter') searchUpbo()">
-                    <button onclick="searchUpbo()" class="px-6 py-4 text-white font-bold rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap text-[17px] font-paperozi" style="background-color:${themeColor};"><i class="fi fi-rr-search"></i> 검색</button>
+            <div class="max-w-2xl mx-auto mb-10 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_10px_28px_rgba(70,60,160,0.08)] p-4 md:p-5">
+                <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    <input type="text" id="upboSearchInput" class="min-w-0 border-[1.5px] border-[#ECEDFA] bg-[#FAFAFD] rounded-xl p-4 text-[17px] font-bold outline-none focus:border-[var(--theme-color)]" placeholder="닉네임 또는 아이디를 입력하세요" onkeypress="if(event.key==='Enter') searchUpbo()">
+                    <button onclick="searchUpbo()" class="px-5 md:px-6 py-4 text-white font-bold rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap text-[17px] font-paperozi" style="background-color:${themeColor};"><i class="fi fi-rr-search"></i><span class="hidden sm:inline"> 검색</span></button>
                 </div>
                 <div id="upboSearchResult" class="mt-8">
                     <div class="flex flex-col items-center justify-center text-center py-14 gap-3">
@@ -4192,13 +4517,13 @@ function renderUpboPage() {
         `;
     } else if (isAdmin && upboViewMode === 'admin') {
         mainHtml += `
-            <div class="mt-4 pt-4 border-t-[3px] border-dashed border-[#5D4037]">
+            <div class="mt-4">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
-                    <div class="absolute top-[120px] -right-[170px] flex flex-col gap-2 shrink-0 z-50">
+                    <div class="flex flex-wrap items-center justify-start sm:justify-end gap-2 shrink-0 upbo-admin-toolbar">
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#967978] text-white font-bold font-Diary rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
                         
-                        <div id="upboFileMenuWrapper" class="relative w-full">
+                        <div id="upboFileMenuWrapper" class="relative">
                             <button type="button" onclick="event.stopPropagation(); toggleUpboFileMenu()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-Diary rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드</button>
                             <div id="upboFileMenu" class="hidden absolute top-full right-0 mt-2 w-44 bg-white border-2 border-[#967978] rounded-xl shadow-lg z-20 overflow-hidden flex-col">
                                 <button type="button" onclick="event.stopPropagation(); closeUpboFileMenu(); openUpboTextUploadModal();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-comment-alt"></i> 댓글 업로드</button>
@@ -4214,7 +4539,7 @@ function renderUpboPage() {
                     </div>
 
                     <!-- 일괄 처리 컨트롤 바 -->
-                    <div class="flex items-center gap-2 mb-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                    <div class="flex flex-wrap items-center gap-2 mb-4 bg-[#F7F7FC] p-3 rounded-xl border border-[#ECEDFA] shadow-sm">
                         <span class="text-[14px] font-bold text-[#5D4037] ml-1">선택 항목:</span>
                         <select id="batchStatusSelect" class="border-[2px] border-[#5D4037] rounded-lg p-1.5 text-[13px] outline-none font-bold text-[#5D4037] cursor-pointer">
                             <option value="배송중">배송중</option>
@@ -4225,7 +4550,7 @@ function renderUpboPage() {
                         <button onclick="deleteSelectedUpboRows()" class="px-3 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border-[1.5px] border-red-200 shadow-sm text-[13px] hover:bg-red-100 transition">선택 삭제</button>
                     </div>
 
-                    <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border-2 border-[#5D4037] rounded-2xl p-6 shadow-sm">
+                    <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border border-[#ECEDFA] rounded-2xl p-6 shadow-[0_8px_20px_rgba(70,60,160,0.08)]">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
                                 <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-box-open"></i> 업보정리 사용법</div>
@@ -4245,7 +4570,7 @@ function renderUpboPage() {
                             </div>
                         </div>
                     </div>
-                    <div class="overflow-x-auto lg:overflow-visible border-2 border-[#5D4037] rounded-xl bg-white mb-4 shadow-sm scrollbar-hide">
+                    <div class="overflow-x-auto lg:overflow-visible border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
                         <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable">
                         </table>
                     </div>
@@ -4532,10 +4857,17 @@ function renderRollingPaper() {
     let html = `<div class="big-white-box relative theme-rolling" style="min-height: 1200px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">`;
     const todayStr = getTodayYYYYMMDD();
 
+    const addTopicBtnHtml = isAdmin ? `
+        <button onclick="openRollingTopicModal()" class="px-4 py-2.5 md:px-6 md:py-3 bg-[#8B5CF6] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[15px] md:text-lg shrink-0 flex items-center gap-1.5">
+            <i class="fi fi-br-plus"></i> 주제 추가
+        </button>
+    ` : '';
+
     if (!currentRollingTopic) {
         html += `
             <div class="flex justify-between items-center mb-8">
                 <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi">롤링페이퍼 주제 목록</h2>
+                ${addTopicBtnHtml}
             </div>
             <div class="flex flex-wrap justify-start gap-6">
         `;
@@ -4546,8 +4878,12 @@ function renderRollingPaper() {
                 : `<span class="bg-[#8B5CF6] text-white text-[12px] px-2 py-1 rounded font-bold mr-2 align-middle">진행중</span>`;
             
             html += `
-                <div class="w-full md:w-[calc(50%-0.75rem)] max-w-[850px] min-h-[200px] flex flex-col justify-center bg-white border-[3px] border-[#8B5CF6] rounded-2xl p-10 cursor-pointer hover:-translate-y-1 transition group relative" onclick="openRollingTopic('${topic.id}')">
-                    ${isAdmin ? `<button onclick="event.stopPropagation(); deleteRollingTopic('${topic.id}')" class="absolute top-5 right-5 text-red-500 hover:text-red-700 p-1 opacity-0 group-hover:opacity-100 transition"><i class="fi fi-br-cross-small text-2xl"></i></button>` : ''}
+                <div class="rolling-topic-card w-full md:w-[calc(50%-0.75rem)] max-w-[850px] min-h-[200px] flex flex-col justify-center p-10 cursor-pointer relative bg-white rounded-2xl shadow-[0_8px_22px_rgba(93,64,55,0.10)] hover:shadow-[0_14px_30px_rgba(93,64,55,0.16)] hover:-translate-y-1 transition" onclick="openRollingTopic('${topic.id}')">
+                    ${isAdmin ? `
+                    <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
+                        <button onclick="event.stopPropagation(); deleteRollingTopic('${topic.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
+                    </div>
+                    ` : ''}
                     <div class="text-[24px] font-bold text-[#5D4037] mb-4 font-paperozi line-clamp-2">${badgeHtml}${escapeHtml(topic.title)}</div>
                     <div class="text-gray-500 font-bold text-[17px]">${topic.date}</div>
                 </div>
@@ -4559,11 +4895,11 @@ function renderRollingPaper() {
         currentTopicEntries = rollingEntries.filter(e => e.topicId === currentRollingTopic.id);
         const isExpired = currentRollingTopic.date < todayStr;
         const actionBtn = isExpired 
-            ? `<button class="px-6 py-3 bg-gray-400 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(156,163,175,1)] cursor-not-allowed font-paperozi text-lg shrink-0" onclick="alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 없습니다.')"><i class="fi fi-rr-lock"></i> 마감됨</button>`
+            ? `<button class="px-6 py-3 bg-gray-400 text-white font-bold rounded-xl cursor-not-allowed font-paperozi text-lg shrink-0 shadow-[2px_2px_0px_0px_rgba(93,64,55,1)]" onclick="alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 없습니다.')"><i class="fi fi-rr-lock"></i> 마감됨</button>`
             : `<button onclick="openRollingEntryModal()" class="px-6 py-3 bg-[#8B5CF6] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-lg shrink-0"><i class="fi fi-rr-edit"></i> 작성하기</button>`;
 
         html += `
-            <div class="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b-[3px] border-[#5D4037] pb-5 gap-4">
+            <div class="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b border-[#ECEDFA] pb-5 gap-4">
                 <div class="flex items-center gap-3">
                     <button onclick="closeRollingTopic()" class="text-3xl text-[#5D4037] hover:scale-110 transition"><i class="fi fi-rr-angle-left"></i></button>
                     <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi line-clamp-1">${escapeHtml(currentRollingTopic.title)}</h2>
@@ -4575,21 +4911,22 @@ function renderRollingPaper() {
         
         currentTopicEntries.forEach((entry, idx) => {
             const bgStyle = entry.imageUrl 
-                ? `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${entry.imageUrl}'); background-size: cover; background-position: center; border: none;` 
-                : `background-color: var(--card-bg-cream); border: 3px solid #5D4037;`;
+                ? `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${entry.imageUrl}'); background-size: cover; background-position: center;` 
+                : `background-color: #ffffff;`;
             const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
             const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #d1d5db;`;
 
             html += `
-                <div class="rounded-xl p-5 cursor-pointer shadow-[3px_3px_0px_0px_rgba(93,64,55,1)] hover:-translate-y-1 transition relative flex flex-col h-[400px]" style="${bgStyle}" onclick="openRollingDetailModal(${idx})">
+                <div class="rolling-entry-card rounded-2xl p-5 cursor-pointer relative flex flex-col h-[400px] shadow-[0_8px_22px_rgba(93,64,55,0.10)] hover:shadow-[0_14px_30px_rgba(93,64,55,0.16)] hover:-translate-y-1 transition" style="${bgStyle}" onclick="openRollingDetailModal(${idx})">
                     ${isAdmin ? `
-                    <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5] rounded-md px-1" style="${entry.imageUrl ? 'background: rgba(255,255,255,0.8);' : ''}">
+                    <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
                         <button onclick="event.stopPropagation(); openEditRollingEntryModal('${entry.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
                         <button onclick="event.stopPropagation(); deleteRollingEntry('${entry.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
                     </div>
                     ` : ''}
-                <div class="text-[16px] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words ${entry.imageUrl ? '' : 'dm-text-brown'}" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical; ${textStyle}">${escapeHtml(entry.content)}</div>
-                <div class="text-right text-[14px] font-bold mt-3 pt-2 border-t-2 border-dashed pointer-events-none shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>                </div>
+                    <div class="text-[16px] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words ${entry.imageUrl ? '' : 'dm-text-brown'}" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical; ${textStyle}">${escapeHtml(entry.content)}</div>
+                    <div class="text-right text-[14px] font-bold mt-3 pt-2 border-t-2 border-dashed pointer-events-none shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>
+                </div>
             `;
         });
         if(currentTopicEntries.length === 0) html += `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-lg">첫 번째 롤링페이퍼를 작성해 보세요!</div>`;
@@ -4842,7 +5179,7 @@ function renderSignalPage() {
         }).join(' ');
 
         html += `
-            <div class="rounded-2xl overflow-hidden bg-white border-[3px] border-[#5D4037] cursor-pointer hover:-translate-y-1 transition relative group flex flex-col" onclick="openSignalDetailModal('${record.id}')">
+            <div class="rounded-2xl overflow-hidden bg-white shadow-md cursor-pointer hover:-translate-y-1 transition relative group flex flex-col" onclick="openSignalDetailModal('${record.id}')">
                 ${isAdmin ? `
                 <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
                     <button onclick="event.stopPropagation(); openSignalEditModal('${record.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
@@ -5150,7 +5487,7 @@ function openSignalDetailModal(id) {
     `;
 
     const html = `
-        <div class="modal-content bg-[#FFFDF5] rounded-2xl w-[95%] max-w-[520px] shadow-xl border-4 border-[#5D4037] relative flex flex-col max-h-[90vh] overflow-hidden">
+        <div class="modal-content bg-white rounded-2xl w-[95%] max-w-[520px] shadow-xl border border-[#ECEDFA] relative flex flex-col max-h-[90vh] overflow-hidden">
             ${adminBtnsHtml}
             <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer z-10 bg-white/90 w-9 h-9 rounded-full flex items-center justify-center shadow" onclick="closeSignalDetailModal()"><i class="fi fi-br-cross"></i></button>
             <div class="w-full aspect-video bg-gray-100 shrink-0">
@@ -5184,7 +5521,7 @@ function renderMobileHome(grouped) {
 
     const memberColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#fdecf9', '카나시': '#FFF3E0' };
     let html = `
-        <div class="w-full flex justify-between items-center mb-5 px-4 mt-2">
+        <div class="w-[calc(100%-2rem)] flex justify-between items-center mb-5 mx-4 mt-2 px-2 py-1.5 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_8px_20px_rgba(70,60,160,0.08)]">
             <button onclick="changeHomeDate(-1)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-left text-3xl"></i></button>
             <div class="text-[22px] font-bold font-paperozi text-[#5D4037] cursor-pointer hover:opacity-70 transition-opacity flex items-center gap-2" onclick="openMobileDatePicker()">
                 ${dateStr} (${dayStr}) <i class="fi fi-sr-caret-down text-sm mt-1"></i>
@@ -5208,23 +5545,23 @@ function renderMobileHome(grouped) {
             const bgColor = isHubang ? '#E5E7EB' : (memberColors[member.name] || '#FFFFFF');
             const finalTextColor = isHubang ? '#6B7280' : (themeColors[member.name] || '#5D4037');
 
-            schedulesHtml = `<div class="schedule-card ${isHubang ? 'hubang' : ''} h-full w-full flex items-center justify-center overflow-hidden relative" style="--sch-bg: ${bgColor}; --sch-text: ${finalTextColor}; color: ${finalTextColor}; background-color: ${bgColor}; padding:0; border-radius: 12px; box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.2);" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="${isHubang ? '휴방' : '뱅온'}" loading="lazy" decoding="async">${dayGlobalTime ? `<div class="absolute bottom-4 right-2.5 text-[14px] font-black tracking-tight" style="color: ${finalTextColor}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
+            schedulesHtml = `<div class="schedule-card ${isHubang ? 'hubang' : ''} aspect-square w-full flex items-center justify-center overflow-hidden relative shadow-sm" style="--sch-bg: ${bgColor}; --sch-text: ${finalTextColor}; color: ${finalTextColor}; background-color: ${bgColor}; padding:0; border-radius: 16px;" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="${isHubang ? '휴방' : '뱅온'}" loading="lazy" decoding="async">${dayGlobalTime ? `<div class="absolute bottom-4 right-2.5 text-[14px] font-black tracking-tight" style="color: ${finalTextColor}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
         } else {
-            schedulesHtml = `<div class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50"><span class="text-gray-400 text-[15px] font-bold">일정 없음</span></div>`;
+            schedulesHtml = `<div class="w-full aspect-square flex items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50"><span class="text-gray-400 text-[15px] font-bold">일정 없음</span></div>`;
         }
 
-        const borderColor = themeColors[member.name] || '#5D4037';
-        
         html += `
-            <div class="flex w-full bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[2.5px] overflow-hidden" style="border-color: ${borderColor}">
-                <div class="w-1/2 aspect-square border-r-[2.5px] relative cursor-pointer p-0 shrink-0" style="border-color: ${borderColor}" onclick="handleProfileClick(event, '${member.name}', '${member.link}')">
-                    <img src="${member.img}" class="w-full h-full object-cover">
-                    <div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요">
-                        <span class="live-badge-dot"></span>LIVE
+            <div class="flex flex-col w-full bg-white rounded-[26px] shadow-[0_10px_26px_rgba(70,60,160,0.10)] border-[1.5px] border-[#ECEDFA] overflow-hidden">
+                <div class="flex w-full px-4 pt-4 pb-4 gap-3">
+                    <div class="w-1/2 aspect-square rounded-[18px] overflow-hidden relative cursor-pointer p-0 shrink-0" onclick="handleProfileClick(event, '${member.name}', '${member.link}')">
+                        <img src="${member.img}" class="w-full h-full object-cover">
+                        <div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요">
+                            <span class="live-badge-dot"></span>LIVE
+                        </div>
                     </div>
-                </div>
-                <div class="w-1/2 aspect-square p-2 flex flex-col justify-center gap-2 bg-[#FFFDF5] overflow-y-auto" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')">
-                    ${schedulesHtml}
+                    <div class="w-1/2 aspect-square p-2 flex flex-col justify-center gap-2 bg-[#FAFAFD] rounded-[18px] overflow-y-auto" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')">
+                        ${schedulesHtml}
+                    </div>
                 </div>
             </div>
         `;
@@ -5267,7 +5604,7 @@ function renderMobileIndividual(grouped) {
     const themeColor = themeColors[currentPage];
 
     let html = `
-        <div class="w-full flex justify-between items-center mb-5 px-4 mt-2">
+        <div class="w-[calc(100%-2rem)] flex justify-between items-center mb-3 mx-4 mt-2 px-2 py-1.5 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_8px_20px_rgba(70,60,160,0.08)]">
             <button onclick="changeIndividualWeek(-7)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-left text-3xl"></i></button>
             <div class="text-[20px] font-bold font-paperozi text-[#5D4037] cursor-pointer hover:opacity-70 transition-opacity flex items-center gap-2" onclick="openMonthPicker()">
                 ${weekDates[0].getFullYear()}년 ${monthStr} 주간 <i class="fi fi-sr-caret-down text-sm mt-1"></i>
@@ -5304,13 +5641,13 @@ function renderMobileIndividual(grouped) {
         }
 
         html += `
-            <div class="flex w-full bg-[#FFFDF5] rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] border-[1.5px] cursor-pointer transition-transform hover:-translate-y-1 min-h-[90px] ${isToday ? '' : 'dm-text-brown'}" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; color: ${isToday ? themeColor : '#3E2723'}" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')">
-                <div class="w-[75px] shrink-0 flex flex-col items-center justify-center border-r-[1.5px]" style="border-color: ${isToday ? themeColor : '#e5e7eb'}; background-color: ${isToday ? themeColor : 'var(--card-bg-white)'}; color: ${isToday ? 'white' : 'inherit'}; border-top-left-radius: 10px; border-bottom-left-radius: 10px;">
+            <div class="flex w-full bg-white rounded-2xl shadow-[0_8px_20px_rgba(70,60,160,0.08)] border-[1.5px] border-[#ECEDFA] cursor-pointer transition-transform hover:-translate-y-1 min-h-[96px] overflow-hidden ${isToday ? '' : 'dm-text-brown'}" style="color: ${isToday ? themeColor : '#3E2723'}" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')">
+                <div class="w-[78px] shrink-0 flex flex-col items-center justify-center" style="background-color: ${isToday ? themeColor : '#FAFAFD'}; color: ${isToday ? 'white' : themeColor};">
                     <span class="text-[14px] font-bold mb-0.5 opacity-80">${daysLabel[i]}</span>
                     <span class="text-[26px] font-bold leading-none">${d.getDate()}</span>
                     ${timeDisplayHtml}
                 </div>
-                <div class="flex-1 p-2 flex flex-col justify-center gap-2 overflow-y-auto bg-white" style="border-top-right-radius: 10px; border-bottom-right-radius: 10px;">
+                <div class="flex-1 p-2.5 flex flex-col justify-center gap-2 overflow-y-auto bg-white">
                     ${schedulesHtml}
                 </div>
             </div>
@@ -5324,51 +5661,101 @@ function renderMobileIndividual(grouped) {
 function renderDesktopHome(grouped) {
     const content = document.getElementById('mainContent');
     const realToday = new Date();
-    const logoImgUrl = "https://res.cloudinary.com/dtlqzklk5/image/upload/v1785906907/gbcyhj4y00hrunv0encx.webp";
-    
-    const today = new Date(); const diff = today.getDay() === 0 ? -6 : 1 - today.getDay();
-    const monday = new Date(today); monday.setDate(today.getDate() + diff);
-    const weekDates = Array.from({length: 7}, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
-    const daysLabel = ['월', '화', '수', '목', '금', '토', '일'];
-    
-    const headerHtml = weekDates.map((d, i) => {
-        let c = ''; if (i === 5) c = 'text-blue-600'; if (i === 6) c = 'text-red-600';
-        const isToday = d.getFullYear() === realToday.getFullYear() && d.getMonth() === realToday.getMonth() && d.getDate() === realToday.getDate();
-        const dateStr = `${d.getMonth() + 1}.${d.getDate()}`;
-        const displayDate = isToday ? `<span class="bg-[#5D4037] text-white px-2 py-0.5 rounded-md">${dateStr}</span>` : dateStr;
-        return `<div class="header-days-cell ${c}"><div class="leading-none mb-1">${daysLabel[i]}</div><div class="text-[14px] text-gray-500 font-bold font-paperozi">${displayDate}</div></div>`;
-    }).join('');
 
     const memberColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#fdecf9', '카나시': '#FFF3E0' };
 
-    let homeHtml = `<div class="home-white-box"><div class="mb-3 w-full"><div class="flex gap-[22px] justify-center items-end"><div class="w-[277px] flex items-center justify-center pb-2"><img src="${logoImgUrl}" alt="SIGNAL Logo" style="height: 110px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105" onclick="changeTab('홈')"></div><div class="header-days-container header-days-container-week">${headerHtml}</div></div></div><div class="weekly-grid">`;
+    let homeHtml = `<div class="home-white-box">
+        <div class="home-member-grid">`;
 
-    members.forEach((member, i) => {
-        let daysCellsHtml = '';
-        weekDates.forEach(d => {
-            const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}-${member.name}`;
-            const daySchedules = grouped[key] || [];
-            let schedulesHtml = '';
-
-            if (daySchedules.length > 0) {
-                const isHubang = daySchedules.some(s => s.globalType === '휴방');
-                const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
-
-                const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
-                const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
-
-                const bgColor = isHubang ? '#F3F4F6' : (memberColors[member.name] || '#FFFFFF');
-                const finalTextColor = isHubang ? '#6B7280' : (themeColors[member.name] || '#5D4037');
-
-                schedulesHtml = `<div class="schedule-card w-full h-full flex items-center justify-center overflow-hidden relative" style="--sch-bg: ${bgColor}; --sch-text: ${finalTextColor}; color: ${finalTextColor}; background-color: ${bgColor}; padding:0; border-radius: 4px;" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" style="border-radius: inherit;" alt="${isHubang ? '휴방' : '뱅온'}">${dayGlobalTime ? `<div class="absolute bottom-4 right-2.5 text-[14px] font-black tracking-tight" style="color: ${finalTextColor}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
-            }
-            daysCellsHtml += `<div class="day-cell" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')"><div class="schedule-list w-full h-full">${schedulesHtml}</div></div>`;
-        });
-
-        homeHtml += `<div class="week-row row-${i+1}"><div class="profile-cell" onclick="handleProfileClick(event, '${member.name}', '${member.link || ''}')"><img src="${member.img}" alt="${member.name}" class="profile-img"><div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요"><span class="live-badge-dot"></span>LIVE</div></div><div class="days-container">${daysCellsHtml}</div></div>`;
+    // 이번 주 월요일 ~ 일요일 날짜 목록 계산 (주간일정 미리보기용)
+    const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+    const todayDow = realToday.getDay(); // 0(일)~6(토)
+    const mondayOffset = todayDow === 0 ? -6 : 1 - todayDow;
+    const weekStart = new Date(realToday.getFullYear(), realToday.getMonth(), realToday.getDate() + mondayOffset);
+    const weekDates = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i);
+        return d;
     });
+
+    members.forEach((member) => {
+        const borderColor = themeColors[member.name] || '#5D4037';
+        const softBg = memberColors[member.name] || '#F5F5F5';
+
+        // 사진과 공지 사이에 표시할 이번 주(월~일) 요약 일정 - 뱅온/휴방 이미지 카드가 1:1 비율로 가로 나열됨
+        const weekRowsHtml = weekDates.map((wd) => {
+            const wKey = `${wd.getFullYear()}-${wd.getMonth() + 1}-${wd.getDate()}-${member.name}`;
+            const wSchedules = grouped[wKey] || [];
+            const isToday = wd.toDateString() === realToday.toDateString();
+
+            let cardInnerHtml;
+            let cardBg = '#FAFAFD';
+            if (wSchedules.length > 0) {
+                const isHubang = wSchedules.some(s => s.globalType === '휴방');
+                const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
+                const sWithGlobal = wSchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+                const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
+                if (!isHubang) cardBg = softBg;
+                cardInnerHtml = `<img src="${imgSrc}" class="w-full h-full object-cover" alt="${isHubang ? '휴방' : '뱅온'}" loading="lazy" decoding="async">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[13px] font-black tracking-tight" style="color:#3E2723; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;">${dayGlobalTime}</div>` : ''}`;
+            } else {
+                cardInnerHtml = `<div class="w-full h-full flex items-center justify-center"><span class="text-[13px] font-bold" style="color:#C8C9DC;">-</span></div>`;
+            }
+
+            return `
+                <div class="flex flex-col items-center gap-1.5 shrink-0 relative">
+                    <div class="flex flex-col items-center gap-0">
+                        <span class="text-[22px] font-black font-paperozi leading-none" style="color: ${isToday ? borderColor : '#A6A3B8'};">${dayLabels[(wd.getDay() + 6) % 7]}</span>
+                        <span class="text-[20px] font-black font-paperozi leading-none mt-1" style="color: ${isToday ? borderColor : '#A6A3B8'};">${wd.getDate()}</span>
+                    </div>
+                    <div class="home-week-card ${isToday ? 'is-today' : ''} aspect-square"
+                        style="width: 240px; background: ${cardBg}; --member-accent: ${borderColor};"
+                        onclick="event.stopPropagation(); openAllSchedulesModal(event, '${wd.getFullYear()}-${wd.getMonth()+1}-${wd.getDate()}', '${member.name}')">
+                        ${cardInnerHtml}
+                    </div>
+                </div>`;
+        }).join('');
+
+        const weeklyScheduleHtml = `
+            <div class="flex flex-col gap-2 cursor-default">
+                <div class="flex items-start gap-3">${weekRowsHtml}</div>
+            </div>`;
+
+        const memberLinks = dynamicLinks[member.name] || [];
+        const soopUrl = (memberLinks.find(l => l.title === 'SOOP') || {}).url || '';
+        const youtubeUrl = (memberLinks.find(l => l.title === '유튜브') || {}).url || '';
+
+        const memberButtonsHtml = `
+            <div class="flex flex-col items-center gap-2 shrink-0 my-5 mr-6">
+                <button onclick="changeTab('${member.name}')" class="app-icon-btn-sm" style="--member-accent: ${borderColor}; color: ${borderColor};" title="일정표">
+                    <i class="fi fi-rr-calendar"></i>
+                </button>
+                <button onclick="changeTab('노래책_${member.name}')" class="app-icon-btn-sm" style="--member-accent: ${borderColor}; color: ${borderColor};" title="노래책">
+                    <i class="fi fi-rr-music-alt"></i>
+                </button>
+                <a href="${soopUrl}" target="_blank" rel="noopener" class="app-icon-btn-sm" style="--member-accent: ${borderColor}; color: ${borderColor};" title="SOOP">
+                    <i class="fi fi-rr-video-camera"></i>
+                </a>
+                <a href="${youtubeUrl}" target="_blank" rel="noopener" class="app-icon-btn-sm" style="--member-accent: ${borderColor}; color: ${borderColor};" title="유튜브">
+                    <i class="fi fi-brands-youtube"></i>
+                </a>
+            </div>`;
+
+        homeHtml += `
+            <div class="home-member-card" style="--member-accent: ${borderColor};">
+                <div class="shrink-0 my-5 ml-6 w-[340px] h-[340px] rounded-[26px] overflow-hidden relative cursor-pointer home-profile-frame" style="--member-accent: ${borderColor}" onclick="handleProfileClick(event, '${member.name}', '${member.link || ''}')">
+                    <img src="${member.img}" alt="${member.name}" class="w-full h-full object-cover">
+                    <div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요"><span class="live-badge-dot"></span>LIVE</div>
+                </div>
+                <div class="flex-1 flex flex-col justify-center gap-2.5 py-6 pl-8 pr-4 min-w-0">
+                    ${weeklyScheduleHtml}
+                </div>
+                ${memberButtonsHtml}
+            </div>
+        `;
+    });
+
     content.innerHTML = homeHtml + `</div></div>`;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
+    applyCachedNoticeToDesktopHome();
 }
 
 function renderDesktopIndividual(grouped) {
@@ -5420,9 +5807,60 @@ function renderDesktopIndividual(grouped) {
         return `<div class="big-cell cursor-default hover:bg-transparent hover:transform-none hover:shadow-none hover:border-dashed"></div>`;
     }).join('');
 
-    content.innerHTML = `<div class="big-white-box relative theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}">
-        <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'DnfBitbeatV2', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div><div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div><div class="big-box-container" style="grid-template-rows: repeat(${weeksNeeded}, 198px);">${cellsHtml}</div></div>`;
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto';
+    const memos = memoList[currentPage] || [];
+    const memoContentHtml = memos.map(memo => `
+        <div class="bg-white p-4 rounded-xl relative shadow-sm mb-4 transition hover:-translate-y-0.5 border border-[#ECEDFA]" 
+             oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.openMemoEditModal('${memo.id}'); }">
+            ${isAdmin ? `
+            <div class="absolute top-2 right-2 flex items-center gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
+                <button onclick="openMemoEditModal('${memo.id}')" class="text-blue-500 hover:text-blue-700 font-bold p-1"><i class="fi fi-rr-edit text-[12px]"></i></button>
+                <button onclick="deleteMemo('${memo.id}')" class="text-red-500 hover:text-red-700 font-bold p-1"><i class="fi fi-br-cross-small text-[12px]"></i></button>
+            </div>` : ''}
+            <div class="text-[12px] font-bold text-gray-400 mb-1 pointer-events-none pr-14">${memo.date || ''}</div>
+            <div class="text-[15px] font-medium text-[#5D4037] whitespace-pre-wrap leading-relaxed pointer-events-none pr-4">${memo.content}</div>
+        </div>
+    `).join('');
+
+    const memoSectionHtml = `
+        <div class="w-[360px] shrink-0 flex flex-col pl-8 border-l-[2px] border-dashed border-gray-200 ml-8 relative pt-0">
+            <!-- 캘린더 타이틀 높이와 완벽하게 동기화하기 위한 투명 더미 요소 -->
+            <div class="nav-container" style="visibility: hidden; pointer-events: none;" aria-hidden="true">
+                <button class="nav-btn"><i class="fi fi-rr-caret-left"></i></button>
+                <div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal leading-none" style="font-family: 'Paperozi', sans-serif;">더미</div></div>
+                <button class="nav-btn"><i class="fi fi-rr-caret-right"></i></button>
+            </div>
+            
+            <!-- 높이를 요일 박스(약 86px)와 정확히 일치시킴 -->
+            <div class="flex justify-between items-center w-full pl-6 pr-4 bg-[var(--card-bg-cream)] border-[1.5px] border-[#ECEDFA] rounded-[25px] shadow-[0_10px_24px_-16px_rgba(70,60,160,0.15)] mb-2 box-border" style="transform: translateY(-14px); height: 86px;">
+                <div class="flex items-center gap-2">
+                    <div class="text-[26px] font-normal text-[#5D4037] font-paperozi flex items-center gap-2" style="letter-spacing: 1px;">
+                        ${currentPage} 메모장
+                    </div>
+                    ${isAdmin ? `<button onclick="openMemoAddModal()" class="w-7 h-7 flex items-center justify-center bg-[#5D4037] text-white rounded-full font-bold hover:brightness-110 shadow-sm transition text-[12px] ml-1"><i class="fi fi-br-plus"></i></button>` : ''}
+                </div>
+                ${buildMemoCinetiButtonsHtml('desktop')}
+            </div>
+            
+            <!-- 캘린더 그리드(mt-15px)와 완벽히 윗선을 맞추기 위해 mt-[15px] 추가 -->
+            <div class="flex-1 overflow-y-auto modal-scroll pr-2 mt-[15px]" style="max-height: 800px;">
+                ${memos.length > 0 ? memoContentHtml : '<div class="text-center text-gray-400 font-bold mt-16 text-lg">저장된 메모가 없습니다.</div>'}
+            </div>
+        </div>
+    `;
+
+    const calendarSectionHtml = `
+        <div class="flex flex-col items-center flex-1 relative ml-6">
+            <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'Paperozi', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div>
+            <div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div>
+            <div class="big-box-container" style="grid-template-rows: repeat(${weeksNeeded}, 198px);">${cellsHtml}</div>
+        </div>
+    `;
+
+    content.innerHTML = `<div class="big-white-box relative theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}" style="flex-direction: row; align-items: stretch; width: max-content; padding: 55px 65px 55px 75px; --member-accent: ${themeColors[currentPage] || '#5D4037'}">
+        ${calendarSectionHtml}
+        ${memoSectionHtml}
+    </div>`;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto mx-auto';
 }
 
 async function deleteScheduleAction() {
@@ -5613,6 +6051,14 @@ function closeLogoutModal() { document.getElementById('logoutModal').classList.r
 function handleDayClick(year, month, day, member) { 
     const dateStr = `${year}-${month}-${day}`;
     openAllSchedulesModal(null, dateStr, member); 
+}
+
+// 홈탭 멤버 카드의 '오늘일정' 버튼: 홈 화면이 다른 날짜로 이동해 있어도 항상 실제 오늘 날짜의 일정을 보여줌
+function openTodayScheduleFromHome(event, member) {
+    if (event) event.stopPropagation();
+    const t = new Date();
+    const dateStr = `${t.getFullYear()}-${t.getMonth()+1}-${t.getDate()}`;
+    openAllSchedulesModal(null, dateStr, member);
 }
 
 function handleDayRightClick(event, year, month, day, member) {
@@ -5893,10 +6339,8 @@ function closeEditModal() { document.getElementById('editScheduleModal').classLi
 function renderSchedulesInModal(schedules, y, m, d, member) {
     const modal = document.getElementById('scheduleDetailModal'); 
     const modalContent = modal.querySelector('.modal-content');
-    modalContent.style.backgroundColor = 'var(--card-bg-cream)'; 
+    modalContent.style.backgroundColor = 'var(--card-bg-white)'; 
     modalContent.style.padding = '20px';
-
-    const cardBgColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FFF0F5', '카나시': '#FFF3E0' };
 
     const titleEl = document.getElementById('detailModalTitle');
     if (titleEl) {
@@ -5921,18 +6365,17 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             
             let broadStyle = '';
             if (broadText === '합방') {
-                broadStyle = 'background-color: #f6cefc; color: #c026d3; border-color: #c026d3;'; 
+                broadStyle = 'background-color: #c026d3; color: #ffffff;'; 
             } else if (broadText === '시그널합방') {
-                broadStyle = 'background-color: #fee2e2; color: #ef4444; border-color: #ef4444;'; 
+                broadStyle = 'background-color: #ef4444; color: #ffffff;'; 
             } else if (broadText === '천타버스') {
-                broadStyle = 'background-color: #c8f0f5; color: #0891b2; border-color: #0891b2;'; 
+                broadStyle = 'background-color: #0891b2; color: #ffffff;'; 
             } else if (broadText === '시네티') {
-                broadStyle = 'background-color: #f3e8ff; color: #9333ea; border-color: #9333ea;'; 
+                broadStyle = 'background-color: #9333ea; color: #ffffff;'; 
             } else if (broadText === '비방일정') {
-                broadStyle = 'background-color: #E5E7EB; color: #6B7280; border-color: #6B7280;'; 
+                broadStyle = 'background-color: #6B7280; color: #ffffff;'; 
             } else {
-                let bgC = cardBgColors[sch.tabOrMember] || 'var(--card-bg-white)';
-                broadStyle = `background-color: ${bgC}; color: ${themeColor}; border-color: ${themeColor};`;
+                broadStyle = `background-color: ${themeColor}; color: #ffffff;`;
             }
 
             const titleInner = schedules.length > 1
@@ -5941,8 +6384,8 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             
             let badgeHtml = sch.globalType === '휴방' ? '' : 
                 `<div class="flex gap-2 justify-center">
-                    ${timeText ? `<span class="px-3 py-1 bg-white text-[11px] font-bold rounded-full shadow-sm border-2" style="color: ${themeColor}; border-color: ${themeColor};">${timeText}</span>` : ''}
-                    <span class="px-3 py-1 text-[11px] font-bold rounded-full border-2 shadow-sm" style="${broadStyle}">${broadText}</span>
+                    ${timeText ? `<span class="px-3 py-1 text-[11px] font-bold rounded-full shadow-sm" style="background-color: ${themeColor}; color: #ffffff;">${timeText}</span>` : ''}
+                    <span class="px-3 py-1 text-[11px] font-bold rounded-full shadow-sm" style="${broadStyle}">${broadText}</span>
                 </div>`;
             
             let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" loading="lazy" decoding="async" class="w-full max-h-[260px] object-contain rounded-xl my-3 shadow-sm border border-gray-200">` : '';
@@ -5956,7 +6399,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                         const isCrew = m.isCrew;
                         return `
                         <div style="${isCrew ? 'width:100%;' : 'width: 74px;'} display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                            <div style="${isCrew ? 'width:100%; border-radius:12px; border:1px solid #f3f4f6;' : 'width:72px; height:72px; border-radius:50%; border:3px solid #fcdbc6;'} overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                            <div style="${isCrew ? 'width:100%; border-radius:12px;' : 'width:72px; height:72px; border-radius:50%;'} overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.15);">
                                 <img src="${m.imageUrl}" style="width:100%; height:100%; object-fit:${isCrew ? 'contain' : 'cover'};" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/72'">
                             </div>
                             ${(m.nickname && !isCrew) ? `<span class="dm-text-brown" style="font-size:13px; font-weight:700; color:#5D4037; text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing: -0.5px;">${m.nickname}</span>` : ''}
@@ -5994,8 +6437,6 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
     htmlContent += '</div>';
 
     document.getElementById('detailDesc').innerHTML = htmlContent;
-    const closeBtn = modal.querySelector('.modal-btn');
-    if(closeBtn) { closeBtn.className = "modal-btn w-full bg-[#5D4037] text-white py-3 rounded-2xl font-bold text-[18px] mt-3 hover:brightness-110 transition-all cursor-pointer"; closeBtn.innerText = "닫기"; }
     modal.classList.replace('hidden', 'flex'); 
 }
 

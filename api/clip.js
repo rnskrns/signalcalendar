@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  const { streamer, cursor } = req.query;
+  const { streamer, cursor, page } = req.query;
 
   if (!streamer) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
@@ -23,6 +23,9 @@ export default async function handler(req, res) {
     searchParams.set('excludeOriginal', 'true');
   }
   if (cursor) searchParams.set('cursor', cursor);
+  // 일부 VOD Finder 배포본은 커서 대신 page 값을 사용한다.
+  // 두 값을 함께 전달하면 사용하는 방식만 반영된다.
+  if (page) searchParams.set('page', page);
 
   try {
     const response = await fetch(`https://vod.soopup.live/api/vods?${searchParams.toString()}`, {
