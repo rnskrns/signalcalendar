@@ -119,10 +119,19 @@ window.addEventListener('message', (event) => {
 // =========================================================================
 const EXT_NOTIF_STORAGE_KEY = 'extNotifications';
 const EXT_NOTIF_MAX_COUNT = 50;
+const EXT_NOTIF_SCHEMA_VERSION = 2; // 알림 표시 형식이 바뀔 때마다 올려서, 예전 형식으로 저장된 알림을 정리함
 let extNotifications = [];
 
 function loadExtNotifications() {
     try {
+        const savedVersion = Number(localStorage.getItem('extNotifSchemaVersion') || '0');
+        if (savedVersion < EXT_NOTIF_SCHEMA_VERSION) {
+            // ⭐ 신규: "[카페명] 새 글" 같은 예전 형식 알림을 정리하고 새 형식부터 다시 쌓음
+            localStorage.removeItem(EXT_NOTIF_STORAGE_KEY);
+            localStorage.setItem('extNotifSchemaVersion', String(EXT_NOTIF_SCHEMA_VERSION));
+            extNotifications = [];
+            return;
+        }
         extNotifications = JSON.parse(localStorage.getItem(EXT_NOTIF_STORAGE_KEY) || '[]');
     } catch (e) {
         extNotifications = [];
@@ -184,22 +193,21 @@ function renderNotifPanelList() {
 
     list.innerHTML = extNotifications.map(n => {
         const timeLabel = formatRelativeTime(new Date(n.time));
-        const kindLabel = n.kind === 'live' ? '🔴 생방송' : (n.kind === 'cafe' ? '💬 카페' : '알림');
-        const nick = (n.member ? `${n.member} · ` : '') + kindLabel;
         const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
         const avatarSrc = n.icon || fallbackAvatar;
         const title = String(n.title || '').replace(/"/g, '&quot;');
+        const unreadDot = n.read ? '' : `<span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;margin-left:5px;"></span>`;
 
         return `
             <div class="kakao-msg-row" onclick="openNotifItem('${n.id}')">
                 <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="kakao-avatar" onerror="this.style.display='none'">
                 <div class="kakao-msg-col">
-                    <span class="kakao-nick" style="color:#000000;">${nick}${n.read ? '' : ' <span style=\'color:#FF5252;\'>●</span>'}</span>
                     <div class="kakao-bubble-row">
                         <div class="kakao-bubble">
                             <div class="kakao-bubble-title">${title}</div>
                         </div>
                         ${timeLabel ? `<span class="kakao-time">${timeLabel}</span>` : ''}
+                        ${unreadDot}
                     </div>
                 </div>
             </div>
