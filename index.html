@@ -792,8 +792,8 @@
     </div>
 
     <div id="notifPanelOverlay" class="hidden fixed inset-0 z-[5000]" onclick="closeNotifPanel()">
-        <div id="notifPanel" class="modal-content w-[92vw] max-w-[380px] max-h-[70vh] bg-[#FFFDF5] rounded-2xl shadow-2xl border border-[#ECEDFA] flex flex-col overflow-hidden" style="position:fixed;" onclick="handleNotifPanelClick(event)">
-            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+        <div id="notifPanel" class="modal-content w-[92vw] max-w-[380px] max-h-[70vh] bg-[#FFFDF5] rounded-2xl shadow-2xl border border-[#ECEDFA] flex flex-col" style="position:fixed;" onclick="handleNotifPanelClick(event)">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0 rounded-t-2xl">
                 <h3 class="font-bold text-[#5D4037] font-paperozi text-lg flex items-center gap-1.5"><i class="fi fi-rr-bell text-[16px]"></i> 알림</h3>
                 <button onclick="closeNotifPanel()" class="text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer leading-none"><i class="fi fi-br-cross-small"></i></button>
             </div>
@@ -823,13 +823,13 @@
                 </div>
             </div>
 
-            <div id="notifPanelList" class="notif-list-bg flex flex-col overflow-y-auto modal-scroll flex-1 px-3 py-1"></div>
+            <div id="notifPanelList" class="notif-list-bg flex flex-col overflow-y-auto modal-scroll flex-1 px-3 py-1 rounded-b-2xl"></div>
         </div>
     </div>
 
     <div id="signalDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4"></div>
 
-    <script type="module" src="script.js?v=20260821-37"></script>
+    <script type="module" src="script.js?v=20260821-38"></script>
 
 </body>
 </html>
