@@ -12,6 +12,38 @@ window.loginWithSoopExtension = loginWithSoopExtension;
 let soopLoginResponded = false;
 let soopLoginTimeoutId = null;
 
+// ⭐ 신규: SOOP 로그인 새로고침 유지(세션 저장/복원)
+const SOOP_SESSION_KEY = 'soopUserSession';
+let isSoopSession = false; // 현재 currentUser가 SOOP 로그인으로 채워진 상태인지 여부
+
+function saveSoopSession(user) {
+    try {
+        localStorage.setItem(SOOP_SESSION_KEY, JSON.stringify(user));
+    } catch (e) { console.error('SOOP 세션 저장 실패:', e); }
+}
+
+function clearSoopSession() {
+    isSoopSession = false;
+    try { localStorage.removeItem(SOOP_SESSION_KEY); } catch (e) { /* 무시 */ }
+}
+
+// 새로고침 시 저장해둔 SOOP 로그인 정보를 불러와 즉시 로그인 상태로 복원합니다.
+function restoreSoopSession() {
+    try {
+        const saved = localStorage.getItem(SOOP_SESSION_KEY);
+        if (!saved) return;
+        const user = JSON.parse(saved);
+        if (!user || !user.uid) return;
+
+        currentUser = user;
+        isSoopSession = true;
+        refreshAuthUI();
+    } catch (e) {
+        console.error('SOOP 세션 복원 실패:', e);
+        clearSoopSession();
+    }
+}
+
 function loginWithSoopExtension() {
     soopLoginResponded = false;
 
@@ -42,6 +74,10 @@ window.addEventListener('message', (event) => {
             displayName: user.nick,      // SOOP 닉네임
             photoURL: user.imgUrl        // SOOP 프로필 이미지
         };
+
+        // ⭐ 신규: 새로고침해도 로그인이 풀리지 않도록 세션 저장
+        isSoopSession = true;
+        saveSoopSession(currentUser);
 
         // UI 즉시 업데이트 (프사, 닉네임 적용됨)
         refreshAuthUI();
@@ -560,6 +596,9 @@ let isAdmin = false;
 let loggedInUser = null; 
 let currentUser = null;           // 일반 유저(구글 로그인) - Firebase Auth 유저 객체
 let userLikedSongsCache = null;   // { [member]: [songId, ...] } - 로그인한 유저의 좋아요 캐시
+
+// ⭐ 신규: 새로고침 시 SOOP 로그인 상태 복원 (Firebase onAuthStateChanged보다 먼저 currentUser를 채워둠)
+restoreSoopSession();
 let currentPage = '홈';
 let songbookMember = '달타';
 let currentYear = new Date().getFullYear();
@@ -1015,7 +1054,8 @@ async function logoutUser() {
     } catch (e) {
         console.error("유저 로그아웃 에러:", e);
     } finally {
-        // ⭐ 신규: SOOP으로 로그인한 정보 수동 초기화
+        // ⭐ 신규: SOOP으로 로그인한 정보 수동 초기화(저장된 세션도 함께 삭제)
+        clearSoopSession();
         currentUser = null;
         refreshAuthUI();
     }
@@ -1211,9 +1251,11 @@ function refreshAuthUI() {
 }
 
 onAuthStateChanged(auth, async (user) => {
-    currentUser = user;
-
     if (!user) {
+        // ⭐ 신규: SOOP 로그인 세션이 복원되어 있는 상태라면, Firebase의 '로그아웃 상태'로 덮어쓰지 않음
+        if (isSoopSession) return;
+
+        currentUser = null;
         userLikedSongsCache = null;
         refreshAuthUI();
         if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
@@ -1221,6 +1263,10 @@ onAuthStateChanged(auth, async (user) => {
         }
         return;
     }
+
+    // 구글 계정으로 실제 로그인한 경우, 기존 SOOP 세션은 정리합니다.
+    clearSoopSession();
+    currentUser = user;
 
     try {
         const userRef = doc(db, "users", user.uid);
