@@ -476,8 +476,8 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
     background-color: var(--card-bg-white);
 }
 /* ⭐ 신규: 프사 오른쪽 아래 라이브(SOOP)/카페 구분 뱃지 */
-.kakao-avatar-wrap { position: relative; flex-shrink: 0; }
-.kakao-avatar-badge {
+.notif-avatar-wrap { position: relative; flex-shrink: 0; }
+.notif-avatar-badge {
     position: absolute;
     right: -2px;
     bottom: -2px;
@@ -492,9 +492,49 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
     border: 2px solid var(--card-bg-white);
     box-shadow: 0 1px 2px rgba(0,0,0,0.25);
 }
-.kakao-avatar-badge-live { background: linear-gradient(135deg, #FF6B4A, #FF3B30); }
-.kakao-avatar-badge-cafe { background: linear-gradient(135deg, #4FA6FF, #2979FF); }
-html.dark-mode .kakao-avatar-badge { border-color: var(--card-bg-white); }
+.notif-avatar-badge-live { background: linear-gradient(135deg, #FF6B4A, #FF3B30); }
+.notif-avatar-badge-cafe { background: linear-gradient(135deg, #4FA6FF, #2979FF); }
+html.dark-mode .notif-avatar-badge { border-color: var(--card-bg-white); }
+
+/* ===== 알림 패널: 카톡 채팅말풍선 대신 플랫한 리스트형 알림 ===== */
+.notif-list-bg { background: var(--card-bg-white); }
+
+.notif-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    cursor: pointer;
+    border-bottom: 1px solid #F0EEE7;
+    transition: background 0.15s ease;
+}
+.notif-row:last-child { border-bottom: none; }
+.notif-row:hover { background: #FAF8F2; }
+html.dark-mode .notif-row { border-bottom-color: #2c2c38; }
+html.dark-mode .notif-row:hover { background: #20202a; }
+
+.notif-avatar {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    background-color: var(--card-bg-white);
+}
+
+.notif-col { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 2px; }
+.notif-title-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.notif-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #3E2723;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+.notif-time { font-size: 11px; font-weight: 500; color: #9c9490; }
+html.dark-mode .notif-title { color: #f0ede8; }
+html.dark-mode .notif-time { color: #8b8b9e; }
 .kakao-msg-col { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .kakao-nick { font-size: 12.5px; font-weight: 700; color: #000000; margin-bottom: 3px; }
 .kakao-bubble-row { display: flex; align-items: flex-end; gap: 6px; }

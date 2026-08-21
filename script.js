@@ -203,28 +203,26 @@ function renderNotifPanelList() {
         const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
         const avatarSrc = n.icon || fallbackAvatar;
         const title = String(n.title || '').replace(/"/g, '&quot;');
-        const unreadDot = n.read ? '' : `<span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;margin-left:5px;"></span>`;
-        // ⭐ 신규: 프사 오른쪽 아래에 라이브(SOOP)/카페 구분 뱃지를 붙임
+        const unreadDot = n.read ? '' : `<span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;flex-shrink:0;"></span>`;
+        // 프사 오른쪽 아래에 라이브(SOOP)/카페 구분 뱃지를 붙임
         const kindBadge = n.kind === 'live'
-            ? `<span class="kakao-avatar-badge kakao-avatar-badge-live" title="SOOP 방송"><i class="fi fi-rr-signal-stream"></i></span>`
+            ? `<span class="notif-avatar-badge notif-avatar-badge-live" title="SOOP 방송"><i class="fi fi-rr-signal-stream"></i></span>`
             : n.kind === 'cafe'
-                ? `<span class="kakao-avatar-badge kakao-avatar-badge-cafe" title="카페 새 글"><i class="fi fi-rr-comment-alt"></i></span>`
+                ? `<span class="notif-avatar-badge notif-avatar-badge-cafe" title="카페 새 글"><i class="fi fi-rr-comment-alt"></i></span>`
                 : '';
 
         return `
-            <div class="kakao-msg-row" onclick="openNotifItem('${n.id}')">
-                <div class="kakao-avatar-wrap">
-                    <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="kakao-avatar" onerror="this.style.display='none'">
+            <div class="notif-row" onclick="openNotifItem('${n.id}')">
+                <div class="notif-avatar-wrap">
+                    <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="notif-avatar" onerror="this.style.display='none'">
                     ${kindBadge}
                 </div>
-                <div class="kakao-msg-col">
-                    <div class="kakao-bubble-row">
-                        <div class="kakao-bubble">
-                            <div class="kakao-bubble-title">${title}</div>
-                        </div>
-                        ${timeLabel ? `<span class="kakao-time">${timeLabel}</span>` : ''}
+                <div class="notif-col">
+                    <div class="notif-title-row">
+                        <span class="notif-title">${title}</span>
                         ${unreadDot}
                     </div>
+                    ${timeLabel ? `<span class="notif-time">${timeLabel}</span>` : ''}
                 </div>
             </div>
         `;
