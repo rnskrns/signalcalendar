@@ -975,6 +975,91 @@ html.dark-mode .dark-mode-toggle-btn:hover {
     background: #262630 !important; 
 }
 
+/* ===== 알림벨 버튼 ===== */
+.notif-bell-btn {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    border: 2px solid #e5e7eb !important;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    font-size: 18px;
+    color: #5D4037;
+    flex-shrink: 0;
+}
+.notif-bell-btn:hover { background: #f9fafb; }
+
+.notif-bell-btn-mobile {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1.5px solid #e5e7eb !important;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: #5D4037;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    flex-shrink: 0;
+}
+
+.notif-bell-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #FF5252;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+.notif-bell-btn.has-new i,
+.notif-bell-btn-mobile.has-new i { animation: notifBellRing 1.6s ease-in-out infinite; }
+@keyframes notifBellRing {
+    0%, 100% { transform: rotate(0deg); }
+    10% { transform: rotate(-14deg); }
+    20% { transform: rotate(12deg); }
+    30% { transform: rotate(-10deg); }
+    40% { transform: rotate(8deg); }
+    50% { transform: rotate(0deg); }
+}
+
+html.dark-mode .notif-bell-btn,
+html.dark-mode .notif-bell-btn-mobile {
+    background: var(--card-bg-white) !important;
+    border-color: var(--white-border) !important;
+    color: #9c9cff !important;
+}
+html.dark-mode .notif-bell-btn:hover { background: #262630 !important; }
+html.dark-mode .notif-bell-badge { box-shadow: 0 0 0 2px var(--card-bg-white); }
+
+/* 알림 패널 내부 빈 상태 문구 */
+.notif-empty {
+    text-align: center;
+    color: #5D4037;
+    opacity: 0.6;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 40px 0;
+}
+html.dark-mode .notif-empty { color: #e6e6f0; }
+
 /* 클립 모아보기 */
 html.dark-mode .clip-card .clip-thumbnail {
     transition: filter 180ms ease;

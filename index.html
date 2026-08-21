@@ -116,6 +116,10 @@
                 <div id="desktopAuthContainer" class="ml-1 relative">
                     <button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="handleAdminClick()">로그인</button>
                 </div>
+                <button id="notifBellBtn" class="notif-bell-btn" onclick="toggleNotifPanel(event)" title="알림">
+                    <i class="fi fi-rr-bell"></i>
+                    <span id="notifBellBadge" class="notif-bell-badge hidden">0</span>
+                </button>
                 <button class="dark-mode-toggle-btn" onclick="toggleDarkMode()" title="다크모드 전환">
                     <i class="fi fi-rr-sun fi-sun"></i>
                     <i class="fi fi-rr-moon fi-moon"></i>
@@ -138,6 +142,10 @@
             <div id="mobileAuthContainer" class="shrink-0 relative">
                 <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="handleAdminClick()">로그인</button>
             </div>
+            <button id="notifBellBtnMobile" class="notif-bell-btn-mobile" onclick="toggleNotifPanel(event)" title="알림">
+                <i class="fi fi-rr-bell"></i>
+                <span id="notifBellBadgeMobile" class="notif-bell-badge hidden">0</span>
+            </button>
             <button class="dark-mode-toggle-btn-mobile" onclick="toggleDarkMode()" title="다크모드 전환">
                 <i class="fi fi-rr-sun fi-sun"></i>
                 <i class="fi fi-rr-moon fi-moon"></i>
@@ -783,9 +791,22 @@
         </div>
     </div>
 
+    <div id="notifPanelOverlay" class="hidden fixed inset-0 z-[5000]" onclick="closeNotifPanel()">
+        <div id="notifPanel" class="modal-content absolute lg:top-[82px] top-[68px] lg:right-6 right-3 w-[92vw] max-w-[380px] max-h-[70vh] bg-[#FFFDF5] rounded-2xl shadow-2xl border border-[#ECEDFA] flex flex-col overflow-hidden" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+                <h3 class="font-bold text-[#5D4037] font-paperozi text-lg flex items-center gap-1.5"><i class="fi fi-rr-bell text-[16px]"></i> 알림</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="clearAllNotifications()" class="text-[12px] font-bold text-gray-400 hover:text-red-500 transition cursor-pointer">모두 지우기</button>
+                    <button onclick="closeNotifPanel()" class="text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer leading-none"><i class="fi fi-br-cross-small"></i></button>
+                </div>
+            </div>
+            <div id="notifPanelList" class="kakao-chat-bg flex flex-col gap-3 p-3 overflow-y-auto modal-scroll flex-1"></div>
+        </div>
+    </div>
+
     <div id="signalDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4"></div>
 
-    <script type="module" src="script.js?v=20260819-30"></script>
+    <script type="module" src="script.js?v=20260821-31"></script>
 
 </body>
 </html>

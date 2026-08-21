@@ -108,8 +108,155 @@ window.addEventListener('message', (event) => {
         soopLoginResponded = true;
         if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
         alert("SOOP 로그인이 되어있지 않거나 확장프로그램 통신에 실패했습니다.");
+    } else if (event.data.type === 'SIGNAL_EXT_NOTIFICATION') {
+        // ⭐ 신규: 확장프로그램이 전달한 방송/카페 알림을 알림벨에 쌓음
+        addExtNotification(event.data.payload);
     }
 });
+
+// =========================================================================
+// ⭐ 신규: 확장프로그램 알림(방송 시작 / 카페 새글) → 알림벨 패널
+// =========================================================================
+const EXT_NOTIF_STORAGE_KEY = 'extNotifications';
+const EXT_NOTIF_MAX_COUNT = 50;
+let extNotifications = [];
+
+function loadExtNotifications() {
+    try {
+        extNotifications = JSON.parse(localStorage.getItem(EXT_NOTIF_STORAGE_KEY) || '[]');
+    } catch (e) {
+        extNotifications = [];
+    }
+}
+
+function saveExtNotifications() {
+    try {
+        localStorage.setItem(EXT_NOTIF_STORAGE_KEY, JSON.stringify(extNotifications.slice(0, EXT_NOTIF_MAX_COUNT)));
+    } catch (e) { console.error('알림 저장 실패:', e); }
+}
+
+function updateNotifBadge() {
+    const unread = extNotifications.filter(n => !n.read).length;
+    const bellBtns = [document.getElementById('notifBellBtn'), document.getElementById('notifBellBtnMobile')];
+    const badges = [document.getElementById('notifBellBadge'), document.getElementById('notifBellBadgeMobile')];
+
+    badges.forEach(badge => {
+        if (!badge) return;
+        if (unread > 0) {
+            badge.textContent = unread > 99 ? '99+' : String(unread);
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    });
+    bellBtns.forEach(btn => {
+        if (!btn) return;
+        btn.classList.toggle('has-new', unread > 0);
+    });
+}
+
+// 확장프로그램에서 받은 알림 1건을 목록 맨 앞에 추가하고 저장/뱃지/패널을 갱신합니다.
+function addExtNotification(payload) {
+    if (!payload) return;
+    const notif = {
+        id: `${payload.kind || 'ext'}_${payload.time || Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        kind: payload.kind || 'ext',
+        member: payload.member || '',
+        title: payload.title || '',
+        message: payload.message || '',
+        url: payload.url || '',
+        icon: payload.icon || '',
+        time: payload.time || Date.now(),
+        read: false
+    };
+
+    extNotifications.unshift(notif);
+    extNotifications = extNotifications.slice(0, EXT_NOTIF_MAX_COUNT);
+    saveExtNotifications();
+    updateNotifBadge();
+
+    const panel = document.getElementById('notifPanelOverlay');
+    if (panel && !panel.classList.contains('hidden')) renderNotifPanelList();
+}
+
+function renderNotifPanelList() {
+    const list = document.getElementById('notifPanelList');
+    if (!list) return;
+
+    if (extNotifications.length === 0) {
+        list.innerHTML = `<div class="notif-empty"><i class="fi fi-rr-bell-slash" style="font-size:26px;display:block;margin-bottom:8px;"></i>아직 도착한 알림이 없어요</div>`;
+        return;
+    }
+
+    list.innerHTML = extNotifications.map(n => {
+        const timeLabel = formatRelativeTime(new Date(n.time));
+        const kindLabel = n.kind === 'live' ? '🔴 생방송' : (n.kind === 'cafe' ? '💬 카페' : '알림');
+        const nick = (n.member ? `${n.member} · ` : '') + kindLabel;
+        const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
+        const avatarSrc = n.icon || fallbackAvatar;
+        const title = String(n.title || '').replace(/"/g, '&quot;');
+        const body = String(n.message || '').replace(/"/g, '&quot;');
+
+        return `
+            <div class="kakao-msg-row" onclick="openNotifItem('${n.id}')">
+                <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="kakao-avatar" onerror="this.style.display='none'">
+                <div class="kakao-msg-col">
+                    <span class="kakao-nick" style="color:#000000;">${nick}${n.read ? '' : ' <span style=\'color:#FF5252;\'>●</span>'}</span>
+                    <div class="kakao-bubble-row">
+                        <div class="kakao-bubble">
+                            <div class="kakao-bubble-title">${title}</div>
+                            ${body ? `<div class="kakao-bubble-body">${body}</div>` : ''}
+                        </div>
+                        ${timeLabel ? `<span class="kakao-time">${timeLabel}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.openNotifItem = function(id) {
+    const notif = extNotifications.find(n => n.id === id);
+    if (!notif) return;
+    notif.read = true;
+    saveExtNotifications();
+    updateNotifBadge();
+    if (notif.url) window.open(notif.url, '_blank');
+};
+
+window.toggleNotifPanel = function(event) {
+    if (event) event.stopPropagation();
+    const overlay = document.getElementById('notifPanelOverlay');
+    if (!overlay) return;
+
+    const isHidden = overlay.classList.contains('hidden');
+    if (isHidden) {
+        renderNotifPanelList();
+        overlay.classList.remove('hidden');
+        // 패널을 열면 모두 읽음 처리 (카톡 채팅방 진입 시와 동일한 느낌)
+        let changed = false;
+        extNotifications.forEach(n => { if (!n.read) { n.read = true; changed = true; } });
+        if (changed) { saveExtNotifications(); updateNotifBadge(); }
+    } else {
+        overlay.classList.add('hidden');
+    }
+};
+
+window.closeNotifPanel = function() {
+    const overlay = document.getElementById('notifPanelOverlay');
+    if (overlay) overlay.classList.add('hidden');
+};
+
+window.clearAllNotifications = function() {
+    extNotifications = [];
+    saveExtNotifications();
+    updateNotifBadge();
+    renderNotifPanelList();
+};
+
+// 페이지 로드 시 저장된 알림을 불러와 뱃지를 즉시 갱신
+loadExtNotifications();
+updateNotifBadge();
 
 // =========================================================================
 // Cloudinary 설정 (Unsigned Upload)
