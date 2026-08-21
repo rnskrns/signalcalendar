@@ -792,21 +792,44 @@
     </div>
 
     <div id="notifPanelOverlay" class="hidden fixed inset-0 z-[5000]" onclick="closeNotifPanel()">
-        <div id="notifPanel" class="modal-content w-[92vw] max-w-[380px] max-h-[70vh] bg-[#FFFDF5] rounded-2xl shadow-2xl border border-[#ECEDFA] flex flex-col overflow-hidden" style="position:fixed;" onclick="event.stopPropagation()">
+        <div id="notifPanel" class="modal-content w-[92vw] max-w-[380px] max-h-[70vh] bg-[#FFFDF5] rounded-2xl shadow-2xl border border-[#ECEDFA] flex flex-col overflow-hidden" style="position:fixed;" onclick="handleNotifPanelClick(event)">
             <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
                 <h3 class="font-bold text-[#5D4037] font-paperozi text-lg flex items-center gap-1.5"><i class="fi fi-rr-bell text-[16px]"></i> 알림</h3>
-                <div class="flex items-center gap-3">
-                    <button onclick="clearAllNotifications()" class="text-[12px] font-bold text-gray-400 hover:text-red-500 transition cursor-pointer">모두 지우기</button>
-                    <button onclick="closeNotifPanel()" class="text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer leading-none"><i class="fi fi-br-cross-small"></i></button>
+                <button onclick="closeNotifPanel()" class="text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer leading-none"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+
+            <div class="flex items-center gap-4 px-4 border-b border-gray-100 shrink-0" id="notifTabRow">
+                <button type="button" class="notif-tab active" data-notif-tab="all" onclick="setNotifTab('all')">전체</button>
+                <button type="button" class="notif-tab" data-notif-tab="live" onclick="setNotifTab('live')">SOOP</button>
+                <button type="button" class="notif-tab" data-notif-tab="cafe" onclick="setNotifTab('cafe')">카페</button>
+            </div>
+
+            <div class="flex items-center justify-between px-3 py-1.5 shrink-0">
+                <div class="relative">
+                    <button type="button" class="notif-sort-btn" onclick="toggleNotifSortMenu(event)">
+                        <span id="notifSortLabel">시간순</span> <i class="fi fi-rr-angle-small-down"></i>
+                    </button>
+                    <div id="notifSortMenu" class="notif-dropdown-menu hidden">
+                        <button type="button" onclick="setNotifSort('time')">시간순</button>
+                        <button type="button" onclick="setNotifSort('unread')">읽지 않은순</button>
+                    </div>
+                </div>
+                <div class="relative">
+                    <button type="button" class="notif-kebab-btn" onclick="toggleNotifMoreMenu(event)" title="더보기"><i class="fi fi-br-menu-dots-vertical"></i></button>
+                    <div id="notifMoreMenu" class="notif-dropdown-menu notif-dropdown-menu-right hidden">
+                        <button type="button" onclick="markAllNotifRead()">모두 읽음</button>
+                        <button type="button" onclick="clearAllNotifications()" class="notif-dropdown-danger">전체 알림 삭제</button>
+                    </div>
                 </div>
             </div>
+
             <div id="notifPanelList" class="kakao-chat-bg flex flex-col gap-3 p-3 overflow-y-auto modal-scroll flex-1"></div>
         </div>
     </div>
 
     <div id="signalDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4"></div>
 
-    <script type="module" src="script.js?v=20260821-34"></script>
+    <script type="module" src="script.js?v=20260821-36"></script>
 
 </body>
 </html>

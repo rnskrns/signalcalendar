@@ -121,6 +121,8 @@ const EXT_NOTIF_STORAGE_KEY = 'extNotifications';
 const EXT_NOTIF_MAX_COUNT = 50;
 const EXT_NOTIF_SCHEMA_VERSION = 2; // 알림 표시 형식이 바뀔 때마다 올려서, 예전 형식으로 저장된 알림을 정리함
 let extNotifications = [];
+let currentNotifTab = 'all';   // 'all' | 'live' | 'cafe'
+let currentNotifSort = 'time'; // 'time' | 'unread'
 
 function loadExtNotifications() {
     try {
@@ -186,21 +188,35 @@ function renderNotifPanelList() {
     const list = document.getElementById('notifPanelList');
     if (!list) return;
 
-    if (extNotifications.length === 0) {
-        list.innerHTML = `<div class="notif-empty"><i class="fi fi-rr-bell-slash" style="font-size:26px;display:block;margin-bottom:8px;"></i>아직 도착한 알림이 없어요</div>`;
+    const filtered = getFilteredNotifications();
+
+    if (filtered.length === 0) {
+        const emptyLabel = currentNotifTab === 'live' ? 'SOOP 방송 알림이 없어요'
+            : currentNotifTab === 'cafe' ? '카페 새 글 알림이 없어요'
+            : '아직 도착한 알림이 없어요';
+        list.innerHTML = `<div class="notif-empty"><i class="fi fi-rr-bell-slash" style="font-size:26px;display:block;margin-bottom:8px;"></i>${emptyLabel}</div>`;
         return;
     }
 
-    list.innerHTML = extNotifications.map(n => {
+    list.innerHTML = filtered.map(n => {
         const timeLabel = formatRelativeTime(new Date(n.time));
         const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
         const avatarSrc = n.icon || fallbackAvatar;
         const title = String(n.title || '').replace(/"/g, '&quot;');
         const unreadDot = n.read ? '' : `<span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;margin-left:5px;"></span>`;
+        // ⭐ 신규: 프사 오른쪽 아래에 라이브(SOOP)/카페 구분 뱃지를 붙임
+        const kindBadge = n.kind === 'live'
+            ? `<span class="kakao-avatar-badge kakao-avatar-badge-live" title="SOOP 방송"><i class="fi fi-rr-signal-stream"></i></span>`
+            : n.kind === 'cafe'
+                ? `<span class="kakao-avatar-badge kakao-avatar-badge-cafe" title="카페 새 글"><i class="fi fi-rr-comment-alt"></i></span>`
+                : '';
 
         return `
             <div class="kakao-msg-row" onclick="openNotifItem('${n.id}')">
-                <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="kakao-avatar" onerror="this.style.display='none'">
+                <div class="kakao-avatar-wrap">
+                    <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="kakao-avatar" onerror="this.style.display='none'">
+                    ${kindBadge}
+                </div>
                 <div class="kakao-msg-col">
                     <div class="kakao-bubble-row">
                         <div class="kakao-bubble">
@@ -214,6 +230,79 @@ function renderNotifPanelList() {
         `;
     }).join('');
 }
+
+// 현재 선택된 탭(전체/SOOP/카페)과 정렬(시간순/읽지 않은순)을 적용한 알림 목록을 반환
+function getFilteredNotifications() {
+    let result = extNotifications;
+    if (currentNotifTab === 'live') result = result.filter(n => n.kind === 'live');
+    else if (currentNotifTab === 'cafe') result = result.filter(n => n.kind === 'cafe');
+
+    if (currentNotifSort === 'unread') {
+        // Array.prototype.sort는 안정 정렬이라, 같은 그룹(읽음/안읽음) 안에서는 기존 시간순이 그대로 유지됨
+        result = [...result].sort((a, b) => (a.read === b.read) ? 0 : (a.read ? 1 : -1));
+    }
+    return result;
+}
+
+// ⭐ 신규: 전체 / SOOP / 카페 탭 전환
+window.setNotifTab = function(tab) {
+    currentNotifTab = tab;
+    document.querySelectorAll('.notif-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.notifTab === tab);
+    });
+    renderNotifPanelList();
+};
+
+// ⭐ 신규: 시간순 / 읽지 않은순 정렬 드롭다운
+window.toggleNotifSortMenu = function(event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('notifSortMenu');
+    const moreMenu = document.getElementById('notifMoreMenu');
+    if (moreMenu) moreMenu.classList.add('hidden');
+    if (menu) menu.classList.toggle('hidden');
+};
+
+window.setNotifSort = function(sort) {
+    currentNotifSort = sort;
+    const label = document.getElementById('notifSortLabel');
+    if (label) label.textContent = sort === 'unread' ? '읽지 않은순' : '시간순';
+    closeNotifDropdowns();
+    renderNotifPanelList();
+};
+
+// ⭐ 신규: 모두 읽음 / 전체 알림 삭제가 담긴 "⋮" 더보기 드롭다운
+window.toggleNotifMoreMenu = function(event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('notifMoreMenu');
+    const sortMenu = document.getElementById('notifSortMenu');
+    if (sortMenu) sortMenu.classList.add('hidden');
+    if (menu) menu.classList.toggle('hidden');
+};
+
+function closeNotifDropdowns() {
+    const sortMenu = document.getElementById('notifSortMenu');
+    const moreMenu = document.getElementById('notifMoreMenu');
+    if (sortMenu) sortMenu.classList.add('hidden');
+    if (moreMenu) moreMenu.classList.add('hidden');
+}
+
+// 알림 패널 내부 클릭은 오버레이(닫기)로 전파되지 않게 막고, 열려있는 드롭다운은 필요할 때 닫아줌
+window.handleNotifPanelClick = function(event) {
+    event.stopPropagation();
+    const isDropdownRelated = event.target.closest('.notif-sort-btn, .notif-kebab-btn, .notif-dropdown-menu');
+    if (!isDropdownRelated) closeNotifDropdowns();
+};
+
+window.markAllNotifRead = function() {
+    let changed = false;
+    extNotifications.forEach(n => { if (!n.read) { n.read = true; changed = true; } });
+    if (changed) {
+        saveExtNotifications();
+        updateNotifBadge();
+        renderNotifPanelList();
+    }
+    closeNotifDropdowns();
+};
 
 window.openNotifItem = function(id) {
     const notif = extNotifications.find(n => n.id === id);
@@ -255,12 +344,11 @@ window.toggleNotifPanel = function(event) {
         positionNotifPanel(notifPanelAnchorBtn);
         renderNotifPanelList();
         overlay.classList.remove('hidden');
-        // 패널을 열면 모두 읽음 처리 (카톡 채팅방 진입 시와 동일한 느낌)
-        let changed = false;
-        extNotifications.forEach(n => { if (!n.read) { n.read = true; changed = true; } });
-        if (changed) { saveExtNotifications(); updateNotifBadge(); }
+        // ⭐ 변경: 예전에는 패널을 열면 자동으로 전부 읽음 처리했지만,
+        // 이제 "모두 읽음" 메뉴가 따로 생겨서 자동 처리 없이 사용자가 직접 선택하게 함
     } else {
         overlay.classList.add('hidden');
+        closeNotifDropdowns();
     }
 };
 
@@ -274,6 +362,7 @@ window.addEventListener('resize', () => {
 window.closeNotifPanel = function() {
     const overlay = document.getElementById('notifPanelOverlay');
     if (overlay) overlay.classList.add('hidden');
+    closeNotifDropdowns();
 };
 
 window.clearAllNotifications = function() {
@@ -281,6 +370,7 @@ window.clearAllNotifications = function() {
     saveExtNotifications();
     updateNotifBadge();
     renderNotifPanelList();
+    closeNotifDropdowns();
 };
 
 // 페이지 로드 시 저장된 알림을 불러와 뱃지를 즉시 갱신
