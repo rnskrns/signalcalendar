@@ -1125,7 +1125,6 @@ function renderAdminAuthHtml(scope, user) {
                     <i class="fi fi-rr-caret-down text-[#5D4037]"></i>
                 </div>
                 <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
-                    <button onclick="openRecapFromSite()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-purple-50 border-b border-gray-100">📊 찐팬점수 리캡</button>
                     <button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
                     <button onclick="openManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                     <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -1139,7 +1138,6 @@ function renderAdminAuthHtml(scope, user) {
                 <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-[20px] h-[20px] rounded-full object-cover border border-[#5D4037]">
             </div>
             <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
-                <button onclick="openRecapFromSite()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-purple-50 border-b border-gray-100">📊 리캡 보기</button>
                 <button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
                 <button onclick="openManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                 <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -1162,7 +1160,6 @@ function renderUserAuthHtml(scope, user) {
                     <span class="text-lg text-[#5D4037] font-paperozi max-w-[100px] truncate">${name}</span>
                 </div>
                 <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-32 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
-                    <button onclick="openRecapFromSite()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-purple-50 border-b border-gray-100">📊 찐팬점수 리캡</button>
                     <button onclick="logoutUser()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
             </div>
@@ -1174,7 +1171,6 @@ function renderUserAuthHtml(scope, user) {
                 <img src="${photo}" class="w-[20px] h-[20px] rounded-full object-cover border border-gray-200">
             </div>
             <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-24 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
-                <button onclick="openRecapFromSite()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-purple-50 border-b border-gray-100">📊 리캡 보기</button>
                 <button onclick="logoutUser()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
             </div>
         </div>
