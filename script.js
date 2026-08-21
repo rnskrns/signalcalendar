@@ -4931,7 +4931,7 @@ function renderRollingPaper() {
 
             html += `
                 <div class="rolling-entry-card rounded-2xl p-5 cursor-pointer relative flex flex-col h-[400px] shadow-[0_8px_22px_rgba(93,64,55,0.10)] hover:shadow-[0_14px_30px_rgba(93,64,55,0.16)] hover:-translate-y-1 transition" style="${bgStyle}" onclick="openRollingDetailModal(${idx})">
-                    ${isAdmin ? `
+                    ${(isAdmin || (currentUser && entry.authorUid && entry.authorUid === currentUser.uid)) ? `
                     <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
                         <button onclick="event.stopPropagation(); openEditRollingEntryModal('${entry.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
                         <button onclick="event.stopPropagation(); deleteRollingEntry('${entry.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
@@ -5011,8 +5011,15 @@ function closeRollingEntryModal() { document.getElementById('rollingEntryModal')
 function openEditRollingEntryModal(id) {
     const entry = rollingEntries.find(e => e.id === id);
     if(!entry) return;
+
+    const isOwner = currentUser && entry.authorUid && entry.authorUid === currentUser.uid;
+    if (!isAdmin && !isOwner) {
+        alert('본인이 작성한 글만 수정할 수 있습니다.');
+        return;
+    }
+
     editRollingEntryId = id;
-    document.getElementById('reModalTitle').innerText = '방명록 수정 (관리자)';
+    document.getElementById('reModalTitle').innerText = isAdmin ? '방명록 수정 (관리자)' : '방명록 수정';
     document.getElementById('reContent').value = entry.content;
     document.getElementById('reNickname').value = entry.nickname;
     
@@ -5075,7 +5082,7 @@ async function saveRollingEntry() {
                 rollingEntries[idx].imageUrl = imageUrl; 
             }
         } else {
-            const newEntry = { topicId: currentRollingTopic.id, content, nickname, imageUrl, timestamp: Date.now() };
+            const newEntry = { topicId: currentRollingTopic.id, content, nickname, imageUrl, timestamp: Date.now(), authorUid: currentUser ? currentUser.uid : null };
             const docRef = await addDoc(collection(db, 'rollingEntries'), newEntry);
             rollingEntries.unshift({ id: docRef.id, ...newEntry });
         }
@@ -5095,6 +5102,15 @@ async function saveRollingEntry() {
 }
 
 async function deleteRollingEntry(id) {
+    const entry = rollingEntries.find(e => e.id === id);
+    if(!entry) return;
+
+    const isOwner = currentUser && entry.authorUid && entry.authorUid === currentUser.uid;
+    if (!isAdmin && !isOwner) {
+        alert('본인이 작성한 글만 삭제할 수 있습니다.');
+        return;
+    }
+
     if(!confirm("이 방명록을 삭제하시겠습니까?")) return;
     try {
         await deleteDoc(doc(db, 'rollingEntries', id));
