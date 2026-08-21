@@ -142,12 +142,7 @@ function updateNotifBadge() {
 
     badges.forEach(badge => {
         if (!badge) return;
-        if (unread > 0) {
-            badge.textContent = unread > 99 ? '99+' : String(unread);
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
-        }
+        badge.classList.toggle('hidden', unread === 0);
     });
     bellBtns.forEach(btn => {
         if (!btn) return;
@@ -224,6 +219,26 @@ window.openNotifItem = function(id) {
     if (notif.url) window.open(notif.url, '_blank');
 };
 
+// 알림 패널을 클릭한 알림벨 버튼 바로 아래에 붙여서 띄웁니다.
+function positionNotifPanel(btn) {
+    const panel = document.getElementById('notifPanel');
+    if (!btn || !panel) return;
+
+    const rect = btn.getBoundingClientRect();
+    const margin = 8;
+    const panelWidth = Math.min(380, window.innerWidth * 0.92);
+
+    let left = rect.right - panelWidth; // 버튼 오른쪽 끝에 패널 오른쪽 끝을 맞춤
+    left = Math.max(8, Math.min(left, window.innerWidth - panelWidth - 8));
+    const top = rect.bottom + margin;
+
+    panel.style.top = `${top}px`;
+    panel.style.left = `${left}px`;
+    panel.style.maxHeight = `${Math.max(200, window.innerHeight - top - 16)}px`;
+}
+
+let notifPanelAnchorBtn = null;
+
 window.toggleNotifPanel = function(event) {
     if (event) event.stopPropagation();
     const overlay = document.getElementById('notifPanelOverlay');
@@ -231,6 +246,8 @@ window.toggleNotifPanel = function(event) {
 
     const isHidden = overlay.classList.contains('hidden');
     if (isHidden) {
+        notifPanelAnchorBtn = (event && event.currentTarget) || document.getElementById('notifBellBtn') || document.getElementById('notifBellBtnMobile');
+        positionNotifPanel(notifPanelAnchorBtn);
         renderNotifPanelList();
         overlay.classList.remove('hidden');
         // 패널을 열면 모두 읽음 처리 (카톡 채팅방 진입 시와 동일한 느낌)
@@ -241,6 +258,13 @@ window.toggleNotifPanel = function(event) {
         overlay.classList.add('hidden');
     }
 };
+
+window.addEventListener('resize', () => {
+    const overlay = document.getElementById('notifPanelOverlay');
+    if (overlay && !overlay.classList.contains('hidden') && notifPanelAnchorBtn) {
+        positionNotifPanel(notifPanelAnchorBtn);
+    }
+});
 
 window.closeNotifPanel = function() {
     const overlay = document.getElementById('notifPanelOverlay');

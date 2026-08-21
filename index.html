@@ -118,7 +118,7 @@
                 </div>
                 <button id="notifBellBtn" class="notif-bell-btn" onclick="toggleNotifPanel(event)" title="알림">
                     <i class="fi fi-rr-bell"></i>
-                    <span id="notifBellBadge" class="notif-bell-badge hidden">0</span>
+                    <span id="notifBellBadge" class="notif-bell-badge hidden"></span>
                 </button>
                 <button class="dark-mode-toggle-btn" onclick="toggleDarkMode()" title="다크모드 전환">
                     <i class="fi fi-rr-sun fi-sun"></i>
@@ -144,7 +144,7 @@
             </div>
             <button id="notifBellBtnMobile" class="notif-bell-btn-mobile" onclick="toggleNotifPanel(event)" title="알림">
                 <i class="fi fi-rr-bell"></i>
-                <span id="notifBellBadgeMobile" class="notif-bell-badge hidden">0</span>
+                <span id="notifBellBadgeMobile" class="notif-bell-badge hidden"></span>
             </button>
             <button class="dark-mode-toggle-btn-mobile" onclick="toggleDarkMode()" title="다크모드 전환">
                 <i class="fi fi-rr-sun fi-sun"></i>
@@ -792,7 +792,7 @@
     </div>
 
     <div id="notifPanelOverlay" class="hidden fixed inset-0 z-[5000]" onclick="closeNotifPanel()">
-        <div id="notifPanel" class="modal-content absolute lg:top-[82px] top-[68px] lg:right-6 right-3 w-[92vw] max-w-[380px] max-h-[70vh] bg-[#FFFDF5] rounded-2xl shadow-2xl border border-[#ECEDFA] flex flex-col overflow-hidden" onclick="event.stopPropagation()">
+        <div id="notifPanel" class="modal-content w-[92vw] max-w-[380px] max-h-[70vh] bg-[#FFFDF5] rounded-2xl shadow-2xl border border-[#ECEDFA] flex flex-col overflow-hidden" style="position:fixed;" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
                 <h3 class="font-bold text-[#5D4037] font-paperozi text-lg flex items-center gap-1.5"><i class="fi fi-rr-bell text-[16px]"></i> 알림</h3>
                 <div class="flex items-center gap-3">
@@ -806,7 +806,7 @@
 
     <div id="signalDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4"></div>
 
-    <script type="module" src="script.js?v=20260821-31"></script>
+    <script type="module" src="script.js?v=20260821-32"></script>
 
 </body>
 </html>
