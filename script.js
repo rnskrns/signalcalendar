@@ -158,7 +158,6 @@ function addExtNotification(payload) {
         kind: payload.kind || 'ext',
         member: payload.member || '',
         title: payload.title || '',
-        message: payload.message || '',
         url: payload.url || '',
         icon: payload.icon || '',
         time: payload.time || Date.now(),
@@ -190,7 +189,6 @@ function renderNotifPanelList() {
         const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
         const avatarSrc = n.icon || fallbackAvatar;
         const title = String(n.title || '').replace(/"/g, '&quot;');
-        const body = String(n.message || '').replace(/"/g, '&quot;');
 
         return `
             <div class="kakao-msg-row" onclick="openNotifItem('${n.id}')">
@@ -200,7 +198,6 @@ function renderNotifPanelList() {
                     <div class="kakao-bubble-row">
                         <div class="kakao-bubble">
                             <div class="kakao-bubble-title">${title}</div>
-                            ${body ? `<div class="kakao-bubble-body">${body}</div>` : ''}
                         </div>
                         ${timeLabel ? `<span class="kakao-time">${timeLabel}</span>` : ''}
                     </div>
