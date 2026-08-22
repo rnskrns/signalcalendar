@@ -835,8 +835,16 @@ html.dark-mode .detail-notebook-line,
 html.dark-mode .schedule-drag-handle:hover,
 html.dark-mode .schedule-accordion-wrapper.schedule-dragging .schedule-drag-handle,
 html.dark-mode .text-\[\#5D4037\],
-html.dark-mode .hover\:text-\[\#5D4037\]:hover {
+html.dark-mode .hover\:text-\[\#5D4037\]:hover,
+html.dark-mode .text-\[\#000\],
+html.dark-mode .text-black,
+html.dark-mode .text-gray-900 {
     color: #f1f1f1 !important;
+}
+
+/* 팝업(모달) 안의 텍스트는 별도 색상 클래스가 없으면 기본적으로 흰색을 따르도록 함 */
+html.dark-mode .modal-content {
+    color: #f1f1f1;
 }
 
 /* 외곽선/보더 및 배경색을 뉴트럴 블랙 톤에 맞게 보정 */
