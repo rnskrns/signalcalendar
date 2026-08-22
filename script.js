@@ -289,8 +289,6 @@ window.setNotifTab = function(tab) {
 window.toggleNotifSortMenu = function(event) {
     if (event) event.stopPropagation();
     const menu = document.getElementById('notifSortMenu');
-    const moreMenu = document.getElementById('notifMoreMenu');
-    if (moreMenu) moreMenu.classList.add('hidden');
     if (menu) menu.classList.toggle('hidden');
 };
 
@@ -302,26 +300,15 @@ window.setNotifSort = function(sort) {
     renderNotifPanelList();
 };
 
-// ⭐ 신규: 모두 읽음 / 전체 알림 삭제가 담긴 "⋮" 더보기 드롭다운
-window.toggleNotifMoreMenu = function(event) {
-    if (event) event.stopPropagation();
-    const menu = document.getElementById('notifMoreMenu');
-    const sortMenu = document.getElementById('notifSortMenu');
-    if (sortMenu) sortMenu.classList.add('hidden');
-    if (menu) menu.classList.toggle('hidden');
-};
-
 function closeNotifDropdowns() {
     const sortMenu = document.getElementById('notifSortMenu');
-    const moreMenu = document.getElementById('notifMoreMenu');
     if (sortMenu) sortMenu.classList.add('hidden');
-    if (moreMenu) moreMenu.classList.add('hidden');
 }
 
 // 알림 패널 내부 클릭은 오버레이(닫기)로 전파되지 않게 막고, 열려있는 드롭다운은 필요할 때 닫아줌
 window.handleNotifPanelClick = function(event) {
     event.stopPropagation();
-    const isDropdownRelated = event.target.closest('.notif-sort-btn, .notif-kebab-btn, .notif-dropdown-menu');
+    const isDropdownRelated = event.target.closest('.notif-sort-btn, .notif-dropdown-menu');
     if (!isDropdownRelated) closeNotifDropdowns();
 };
 

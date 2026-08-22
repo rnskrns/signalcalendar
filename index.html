@@ -814,12 +814,9 @@
                         <button type="button" onclick="setNotifSort('unread')">읽지 않은순</button>
                     </div>
                 </div>
-                <div class="relative">
-                    <button type="button" class="notif-kebab-btn" onclick="toggleNotifMoreMenu(event)" title="더보기"><i class="fi fi-br-menu-dots-vertical"></i></button>
-                    <div id="notifMoreMenu" class="notif-dropdown-menu notif-dropdown-menu-right hidden">
-                        <button type="button" onclick="markAllNotifRead()">모두 읽음</button>
-                        <button type="button" onclick="clearAllNotifications()" class="notif-dropdown-danger">전체 알림 삭제</button>
-                    </div>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" class="notif-action-btn" onclick="markAllNotifRead()">모두 읽음</button>
+                    <button type="button" class="notif-action-btn notif-action-btn-danger" onclick="clearAllNotifications()">전체 삭제</button>
                 </div>
             </div>
 

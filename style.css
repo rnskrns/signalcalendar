@@ -1156,24 +1156,26 @@ html.dark-mode .notif-tab.active::after { background: #9c9cff; }
 html.dark-mode .notif-sort-btn { color: #8b8b9e; }
 html.dark-mode .notif-sort-btn:hover { background: #262630; color: #e6e6f0; }
 
-/* ===== 알림 패널: "⋮" 더보기(모두 읽음 / 전체 알림 삭제) ===== */
-.notif-kebab-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    font-size: 14px;
+/* ===== 알림 패널: "모두 읽음" / "전체 삭제" 바로가기 버튼 ===== */
+.notif-action-btn {
+    font-size: 11.5px;
+    font-weight: 700;
     color: #9c9490;
     cursor: pointer;
+    padding: 4px 8px;
     border-radius: 8px;
+    white-space: nowrap;
     transition: background 0.15s ease, color 0.15s ease;
 }
-.notif-kebab-btn:hover { background: #F3F1EA; color: #5D4037; }
-html.dark-mode .notif-kebab-btn { color: #8b8b9e; }
-html.dark-mode .notif-kebab-btn:hover { background: #262630; color: #e6e6f0; }
+.notif-action-btn:hover { background: #F3F1EA; color: #5D4037; }
+.notif-action-btn-danger { color: #FF5252; }
+.notif-action-btn-danger:hover { background: #FFF0F0; color: #FF5252; }
+html.dark-mode .notif-action-btn { color: #8b8b9e; }
+html.dark-mode .notif-action-btn:hover { background: #262630; color: #e6e6f0; }
+html.dark-mode .notif-action-btn-danger { color: #ff6b6b; }
+html.dark-mode .notif-action-btn-danger:hover { background: #3a2020; color: #ff6b6b; }
 
-/* ===== 알림 패널: 드롭다운 메뉴 공통(정렬 필터 / 더보기) ===== */
+/* ===== 알림 패널: 드롭다운 메뉴 공통(정렬 필터) ===== */
 .notif-dropdown-menu {
     position: absolute;
     top: calc(100% + 4px);
