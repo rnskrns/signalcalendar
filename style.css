@@ -510,8 +510,8 @@ html.dark-mode .notif-avatar-badge { border-color: var(--card-bg-white); }
 }
 .notif-row:last-child { border-bottom: none; }
 .notif-row:hover { background: #FAF8F2; }
-html.dark-mode .notif-row { border-bottom-color: #2c2c38; }
-html.dark-mode .notif-row:hover { background: #20202a; }
+html.dark-mode .notif-row { border-bottom-color: #2a2a2c; }
+html.dark-mode .notif-row:hover { background: #202022; }
 
 .notif-avatar {
     width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
@@ -534,7 +534,7 @@ html.dark-mode .notif-row:hover { background: #20202a; }
 }
 .notif-time { font-size: 11px; font-weight: 500; color: #9c9490; }
 html.dark-mode .notif-title { color: #f0ede8; }
-html.dark-mode .notif-time { color: #8b8b9e; }
+html.dark-mode .notif-time { color: #9a9a9a; }
 .kakao-msg-col { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .kakao-nick { font-size: 12.5px; font-weight: 700; color: #000000; margin-bottom: 3px; }
 .kakao-bubble-row { display: flex; align-items: flex-end; gap: 6px; }
@@ -796,14 +796,14 @@ body.embed-mode .upbo-content-wrap {
 }
 /* =========================================
    다크 모드
-   보여주신 이미지(시네티) 느낌의 세련된 딥 네이비/퍼플 다크 테마
+   SOOP 다크모드 참고 - 뉴트럴 블랙/그레이 다크 테마
    ========================================= */
 html.dark-mode {
-    --bg-cream: #121216;      /* 아주 짙은 딥 다크 네이비 배경 */
-    --card-bg-white: #1c1c24; /* 패널/카드 배경 (약간 더 밝은 톤) */
-    --card-bg-cream: #17171d; /* 보조 배경 */
-    --white-border: #2c2c36;  /* 세련된 다크 그레이/퍼플 테두리 */
-    --text-dark: #f1f1f5;     /* 깨끗한 흰색 텍스트 */
+    --bg-cream: #101012;      /* 아주 짙은 뉴트럴 블랙 배경 */
+    --card-bg-white: #1b1b1e; /* 패널/카드 배경 (약간 더 밝은 톤) */
+    --card-bg-cream: #17171a; /* 보조 배경 */
+    --white-border: #2a2a2c;  /* 뉴트럴 다크 그레이 테두리 */
+    --text-dark: #f1f1f1;     /* 깨끗한 흰색 텍스트 */
 }
 
 /* 페이지 배경 통일 */
@@ -821,7 +821,7 @@ html.dark-mode iframe {
 /* 일정카드: 다크모드에서 배경색과 제목 글자색을 서로 스왑 */
 html.dark-mode .schedule-card {
     background-color: var(--sch-text, var(--card-bg-white)) !important;
-    color: var(--sch-bg, #f1f1f5) !important;
+    color: var(--sch-bg, #f1f1f1) !important;
 }
 
 /* 기존 고동색 텍스트를 깨끗한 흰색/밝은 회색으로 전환 */
@@ -836,10 +836,10 @@ html.dark-mode .schedule-drag-handle:hover,
 html.dark-mode .schedule-accordion-wrapper.schedule-dragging .schedule-drag-handle,
 html.dark-mode .text-\[\#5D4037\],
 html.dark-mode .hover\:text-\[\#5D4037\]:hover {
-    color: #f1f1f5 !important;
+    color: #f1f1f1 !important;
 }
 
-/* 외곽선/보더 및 배경색을 딥 네이비 톤에 맞게 보정 */
+/* 외곽선/보더 및 배경색을 뉴트럴 블랙 톤에 맞게 보정 */
 html.dark-mode .home-white-box {
     background-color: var(--card-bg-white) !important;
     box-shadow: 0px 0px 0px 3px var(--white-border) !important;
@@ -894,10 +894,10 @@ html.dark-mode .bg-\[\#FFFDF5\] {
     background-color: var(--card-bg-cream) !important;
 }
 html.dark-mode .bg-\[\#FFFDF5\]\/90 {
-    background-color: rgba(23, 23, 29, 0.9) !important;
+    background-color: rgba(23, 23, 26, 0.9) !important;
 }
 html.dark-mode .bg-\[\#f3f4f6\] {
-    background-color: #24242e !important;
+    background-color: #202022 !important;
 }
 html.dark-mode .modal-content {
     background-color: var(--card-bg-cream) !important;
@@ -905,55 +905,55 @@ html.dark-mode .modal-content {
 
 /* 상단바 반투명 블러 유리 효과 - 딥 네이비 톤에 맞게 */
 html.dark-mode .bg-white\/15 {
-    background-color: rgba(28, 28, 36, 0.5) !important;
+    background-color: rgba(27, 27, 30, 0.5) !important;
 }
 
-/* 회색 보더/텍스트 쿨톤(딥 네이비/퍼플)으로 보정 */
-html.dark-mode .border-gray-200 { border-color: #2c2c36 !important; }
-html.dark-mode .border-gray-300 { border-color: #383845 !important; }
-html.dark-mode .bg-gray-200 { background-color: #2c2c36 !important; }
-html.dark-mode .bg-gray-50 { background-color: #24242e !important; }
-html.dark-mode .text-gray-400 { color: #8a8a9e !important; }
-html.dark-mode .text-gray-500 { color: #a1a1b5 !important; }
-html.dark-mode .text-gray-600 { color: #b8b8cc !important; }
-html.dark-mode .text-gray-700 { color: #cfcfdf !important; }
-html.dark-mode .text-gray-800 { color: #e6e6f0 !important; }
-html.dark-mode .hover\:bg-gray-50:hover { background-color: #2d2d38 !important; }
-html.dark-mode .hover\:bg-gray-300:hover { background-color: #3d3d4a !important; }
-html.dark-mode #contextMenu .context-menu-btn:hover { background-color: #2c2c36 !important; }
+/* 회색 보더/텍스트 뉴트럴 톤으로 보정 */
+html.dark-mode .border-gray-200 { border-color: #2a2a2c !important; }
+html.dark-mode .border-gray-300 { border-color: #333335 !important; }
+html.dark-mode .bg-gray-200 { background-color: #2a2a2c !important; }
+html.dark-mode .bg-gray-50 { background-color: #202022 !important; }
+html.dark-mode .text-gray-400 { color: #9a9a9a !important; }
+html.dark-mode .text-gray-500 { color: #a8a8a8 !important; }
+html.dark-mode .text-gray-600 { color: #bcbcbc !important; }
+html.dark-mode .text-gray-700 { color: #d0d0d0 !important; }
+html.dark-mode .text-gray-800 { color: #e8e8e8 !important; }
+html.dark-mode .hover\:bg-gray-50:hover { background-color: #232325 !important; }
+html.dark-mode .hover\:bg-gray-300:hover { background-color: #3a3a3c !important; }
+html.dark-mode #contextMenu .context-menu-btn:hover { background-color: #2a2a2c !important; }
 
 /* 스크롤바 */
 html.dark-mode .modal-scroll::-webkit-scrollbar-thumb {
-    background: #4a4a5e;
+    background: #4a4a4a;
     border-color: var(--card-bg-cream);
 }
 
-/* 다크 모드 토글 버튼 - 시네티 톤 앤 매너 적용 */
+/* 다크 모드 토글 버튼 - SOOP 톤 앤 매너 적용 */
 html.dark-mode .dark-mode-toggle-btn {
     background: var(--card-bg-white);
     border-color: var(--white-border);
-    color: #9c9cff;
+    color: #d4d4d4;
 }
-html.dark-mode .dark-mode-toggle-btn:hover { background: #262630; }
+html.dark-mode .dark-mode-toggle-btn:hover { background: #232325; }
 
 html.dark-mode .dark-mode-toggle-btn-mobile {
     background: var(--card-bg-white);
     border-color: var(--white-border);
-    color: #9c9cff;
+    color: #d4d4d4;
 }
 
 /* 다크모드 공지 말풍선: 차가운 어두운 톤 */
 html.dark-mode .kakao-bubble {
-    background-color: #2c2c36 !important;
+    background-color: #2a2a2c !important;
 }
 html.dark-mode .kakao-bubble::before {
-    border-color: transparent #2c2c36 transparent transparent !important;
+    border-color: transparent #2a2a2c transparent transparent !important;
 }
 html.dark-mode .kakao-bubble-title {
-    color: #f1f1f5 !important;
+    color: #f1f1f1 !important;
 }
 html.dark-mode .kakao-bubble-body {
-    color: #a1a1b5 !important;
+    color: #a8a8a8 !important;
 }
 
 /* =========================================
@@ -1024,15 +1024,15 @@ html.dark-mode .dark-mode-toggle-btn-mobile .fi-moon {
     flex-shrink: 0;
 }
 
-/* 다크 모드일 때 외곽선 및 배경색 (시네티 톤) 보정 */
+/* 다크 모드일 때 외곽선 및 배경색 (SOOP 톤) 보정 */
 html.dark-mode .dark-mode-toggle-btn,
 html.dark-mode .dark-mode-toggle-btn-mobile {
     background: var(--card-bg-white) !important;
     border-color: var(--white-border) !important;
-    color: #9c9cff !important;
+    color: #d4d4d4 !important;
 }
 html.dark-mode .dark-mode-toggle-btn:hover { 
-    background: #262630 !important; 
+    background: #232325 !important; 
 }
 
 /* ===== 알림벨 버튼 ===== */
@@ -1098,9 +1098,9 @@ html.dark-mode .notif-bell-btn,
 html.dark-mode .notif-bell-btn-mobile {
     background: var(--card-bg-white) !important;
     border-color: var(--white-border) !important;
-    color: #9c9cff !important;
+    color: #d4d4d4 !important;
 }
-html.dark-mode .notif-bell-btn:hover { background: #262630 !important; }
+html.dark-mode .notif-bell-btn:hover { background: #232325 !important; }
 html.dark-mode .notif-bell-badge { box-shadow: 0 0 0 2px var(--card-bg-white); }
 
 /* 알림 패널 내부 빈 상태 문구 */
@@ -1112,7 +1112,7 @@ html.dark-mode .notif-bell-badge { box-shadow: 0 0 0 2px var(--card-bg-white); }
     font-size: 13px;
     padding: 40px 0;
 }
-html.dark-mode .notif-empty { color: #e6e6f0; }
+html.dark-mode .notif-empty { color: #e8e8e8; }
 
 /* ===== 알림 패널: 전체/SOOP/카페 탭 ===== */
 .notif-tab {
@@ -1134,10 +1134,10 @@ html.dark-mode .notif-empty { color: #e6e6f0; }
     border-radius: 2px;
     background: #5D4037;
 }
-html.dark-mode .notif-tab { color: #8b8b9e; }
-html.dark-mode .notif-tab:hover { color: #e6e6f0; }
-html.dark-mode .notif-tab.active { color: #e6e6f0; }
-html.dark-mode .notif-tab.active::after { background: #9c9cff; }
+html.dark-mode .notif-tab { color: #9a9a9a; }
+html.dark-mode .notif-tab:hover { color: #e8e8e8; }
+html.dark-mode .notif-tab.active { color: #e8e8e8; }
+html.dark-mode .notif-tab.active::after { background: #d4d4d4; }
 
 /* ===== 알림 패널: 시간순/읽지않은순 정렬 필터 ===== */
 .notif-sort-btn {
@@ -1153,8 +1153,8 @@ html.dark-mode .notif-tab.active::after { background: #9c9cff; }
     transition: background 0.15s ease, color 0.15s ease;
 }
 .notif-sort-btn:hover { background: #F3F1EA; color: #5D4037; }
-html.dark-mode .notif-sort-btn { color: #8b8b9e; }
-html.dark-mode .notif-sort-btn:hover { background: #262630; color: #e6e6f0; }
+html.dark-mode .notif-sort-btn { color: #9a9a9a; }
+html.dark-mode .notif-sort-btn:hover { background: #232325; color: #e8e8e8; }
 
 /* ===== 알림 패널: "모두 읽음" / "전체 삭제" 바로가기 버튼 ===== */
 .notif-action-btn {
@@ -1170,8 +1170,8 @@ html.dark-mode .notif-sort-btn:hover { background: #262630; color: #e6e6f0; }
 .notif-action-btn:hover { background: #F3F1EA; color: #5D4037; }
 .notif-action-btn-danger { color: #FF5252; }
 .notif-action-btn-danger:hover { background: #FFF0F0; color: #FF5252; }
-html.dark-mode .notif-action-btn { color: #8b8b9e; }
-html.dark-mode .notif-action-btn:hover { background: #262630; color: #e6e6f0; }
+html.dark-mode .notif-action-btn { color: #9a9a9a; }
+html.dark-mode .notif-action-btn:hover { background: #232325; color: #e8e8e8; }
 html.dark-mode .notif-action-btn-danger { color: #ff6b6b; }
 html.dark-mode .notif-action-btn-danger:hover { background: #3a2020; color: #ff6b6b; }
 
@@ -1211,8 +1211,8 @@ html.dark-mode .notif-dropdown-menu {
     border-color: var(--white-border);
     box-shadow: 0 6px 18px rgba(0,0,0,0.4);
 }
-html.dark-mode .notif-dropdown-menu button { color: #e6e6f0; }
-html.dark-mode .notif-dropdown-menu button:hover { background: #262630; }
+html.dark-mode .notif-dropdown-menu button { color: #e8e8e8; }
+html.dark-mode .notif-dropdown-menu button:hover { background: #232325; }
 html.dark-mode .notif-dropdown-menu button.notif-dropdown-danger { color: #ff6b6b; }
 html.dark-mode .notif-dropdown-menu button.notif-dropdown-danger:hover { background: #3a2020; }
 
