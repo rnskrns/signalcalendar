@@ -39,6 +39,7 @@ function restoreSoopSession() {
         isSoopSession = true;
         refreshAuthUI();
         loadAndMergeSoopLikes(user.uid); // 노래책 좋아요 계정 데이터 비동기 로드
+        flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
     } catch (e) {
         console.error('SOOP 세션 복원 실패:', e);
         clearSoopSession();
@@ -103,6 +104,7 @@ window.addEventListener('message', (event) => {
 
         // ⭐ 신규: 노래책 좋아요 목록을 계정 기준으로 불러와 기억되게 함
         loadAndMergeSoopLikes(user.uid);
+        flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
 
     } else if (event.data.type === 'SOOP_LOGIN_FAIL') {
         soopLoginResponded = true;
@@ -110,7 +112,12 @@ window.addEventListener('message', (event) => {
         alert("SOOP 로그인이 되어있지 않거나 확장프로그램 통신에 실패했습니다.");
     } else if (event.data.type === 'SIGNAL_EXT_NOTIFICATION') {
         // ⭐ 신규: 확장프로그램이 전달한 방송/카페 알림을 알림벨에 쌓음
-        addExtNotification(event.data.payload);
+        // 사이트에 로그인이 안 되어 있으면 바로 쌓지 않고 대기열에 저장해뒀다가, 로그인하면 한꺼번에 반영합니다.
+        if (!currentUser) {
+            queuePendingLoginNotification(event.data.payload);
+        } else {
+            addExtNotification(event.data.payload);
+        }
     }
 });
 
@@ -123,6 +130,33 @@ const EXT_NOTIF_SCHEMA_VERSION = 2; // 알림 표시 형식이 바뀔 때마다 
 let extNotifications = [];
 let currentNotifTab = 'all';   // 'all' | 'live' | 'cafe'
 let currentNotifSort = 'time'; // 'time' | 'unread'
+
+// ⭐ 신규: 사이트에 로그인이 안 되어 있을 때 도착한 알림을 잠시 보관해두는 대기열
+// (로그인 전에는 알림벨 패널에 바로 쌓지 않고, 로그인 완료 시점에 한꺼번에 반영)
+const PENDING_LOGIN_NOTIF_KEY = 'pendingLoginNotifications';
+const PENDING_LOGIN_NOTIF_MAX = 50;
+
+function queuePendingLoginNotification(payload) {
+    if (!payload) return;
+    try {
+        const queue = JSON.parse(localStorage.getItem(PENDING_LOGIN_NOTIF_KEY) || '[]');
+        queue.push(payload);
+        localStorage.setItem(PENDING_LOGIN_NOTIF_KEY, JSON.stringify(queue.slice(-PENDING_LOGIN_NOTIF_MAX)));
+    } catch (e) { console.error('로그인 전 알림 대기열 저장 실패:', e); }
+}
+
+// 로그인이 완료된 시점에 호출: 대기열에 쌓여있던 알림을 오래된 순서대로 알림벨에 반영합니다.
+function flushPendingLoginNotifications() {
+    if (!currentUser) return; // 아직 로그인 안 된 상태면 아무 것도 하지 않음
+    try {
+        const queue = JSON.parse(localStorage.getItem(PENDING_LOGIN_NOTIF_KEY) || '[]');
+        if (!queue.length) return;
+        localStorage.removeItem(PENDING_LOGIN_NOTIF_KEY);
+        // addExtNotification은 맨 앞에 추가(unshift)하므로, 오래된 것부터 순서대로 넣어야
+        // 가장 최근 알림이 최종적으로 맨 위에 오게 됩니다.
+        queue.forEach(payload => addExtNotification(payload));
+    } catch (e) { console.error('로그인 전 알림 대기열 복원 실패:', e); }
+}
 
 function loadExtNotifications() {
     try {
@@ -1603,6 +1637,7 @@ async function finalizeUserLogin(user, existingData) {
     }
 
     refreshAuthUI();
+    flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
     if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
         try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
     }
@@ -2627,24 +2662,46 @@ function openMobileTabMenu(tab) {
     const container = document.getElementById('mobileTabMenuContainer');
     const color = themeColors[tab === '더보기' ? '롤링페이퍼' : tab];
 
+    // 링크 타이틀/URL에 맞는 아이콘을 대략적으로 매칭 (SOOP/유튜브/카페 등)
+    const iconForLink = (title, url) => {
+        const t = (title || '').toLowerCase();
+        const u = (url || '').toLowerCase();
+        if (t.includes('soop') || t.includes('afreeca') || t.includes('숲')) return 'fi-rr-video-camera';
+        if (t.includes('유튜브') || t.includes('youtube') || u.includes('youtube')) return 'fi-brands-youtube';
+        if (t.includes('트위터') || t.includes('twitter') || u.includes('twitter') || u.includes('x.com')) return 'fi-brands-twitter-alt';
+        if (t.includes('인스타') || u.includes('instagram')) return 'fi-brands-instagram';
+        if (u.includes('cafe.naver.com')) return 'fi-rr-comment-heart';
+        return 'fi-rr-link';
+    };
+
     let html = `
-        <div class="flex flex-col gap-2 relative">
-            <div class="text-center font-bold text-[18px] mb-2 font-paperozi" style="color: ${color}">${tab === '더보기' ? '더보기' : tab + ' 메뉴'}</div>
+        <div class="flex flex-col gap-3 relative">
+            <div class="text-center font-bold text-[18px] font-paperozi" style="color: ${color}">${tab === '더보기' ? '더보기' : tab + ' 메뉴'}</div>
+            <div class="grid grid-cols-3 gap-3 justify-items-center">
     `;
-    
+
+    // 앱 아이콘처럼 1:1 비율 정사각 버튼(.app-icon-btn)을 그리드로 배치
+    const iconBtn = (onclick, icon, label, btnColor) => `
+        <button onclick="${onclick}" class="app-icon-btn" style="color: ${btnColor};">
+            <i class="fi ${icon}"></i>
+            <span>${label}</span>
+        </button>`;
+
     if (tab === '더보기') {
-        html += `<button onclick="executeMobileTabChange('클립')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">클립 모아보기</button>`;
-        html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">롤링페이퍼</button>`;
-        html += `<button onclick="executeMobileTabChange('업보정리_달타')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 leading-snug break-keep whitespace-normal">업보정리</button>`;
+        html += iconBtn("executeMobileTabChange('클립')", 'fi-rr-video-camera-alt', '클립', color);
+        html += iconBtn("executeMobileTabChange('롤링페이퍼')", 'fi-rr-envelope', '롤링페이퍼', color);
+        html += iconBtn("executeMobileTabChange('업보정리_달타')", 'fi-rr-box-open', '업보정리', color);
     } else {
-        html += `<button onclick="executeMobileTabChange('${tab}')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">일정표 보기</button>`;
-        html += `<button onclick="executeMobileTabChange('노래책_${tab}')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal" style="border-color:${color}; color:${color}">노래책</button>`;
+        html += iconBtn(`executeMobileTabChange('${tab}')`, 'fi-rr-calendar', '일정표', color);
+        html += iconBtn(`executeMobileTabChange('노래책_${tab}')`, 'fi-rr-music-alt', '노래책', color);
         const links = dynamicLinks[tab] || [];
         links.forEach(l => {
-            html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full px-3 py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95 mb-2 leading-snug break-keep whitespace-normal block" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
+            const isCafe = (l.url || '').toLowerCase().includes('cafe.naver.com');
+            const label = isCafe ? '카페' : l.title;
+            html += iconBtn(`openSmartLink('${l.url}')`, iconForLink(l.title, l.url), label, color);
         });
     }
-    html += `</div>`;
+    html += `</div></div>`;
     container.innerHTML = html;
     
     overlay.classList.remove('hidden'); overlay.classList.add('block');
