@@ -7,6 +7,27 @@ import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/fi
 // =========================================================================
 // ⭐ 신규: 전역 함수 바인딩 영역에 추가
 window.loginWithSoopExtension = loginWithSoopExtension;
+window.closeSoopExtInstallModal = closeSoopExtInstallModal;
+window.goToSoopExtDownload = goToSoopExtDownload;
+
+// ⭐ 신규: SOOP 확장프로그램 다운로드 링크
+const SOOP_EXT_DOWNLOAD_URL = 'https://chromewebstore.google.com/detail/signal/dblpllkikodcdlmfohdnljegobdbhinl?hl=ko&utm_source=ext_sidebar';
+
+// ⭐ 신규: 확장프로그램 미설치 안내 모달 열기/닫기
+function openSoopExtInstallModal() {
+    const modal = document.getElementById('soopExtInstallModal');
+    if (modal) modal.classList.replace('hidden', 'flex');
+}
+
+function closeSoopExtInstallModal() {
+    const modal = document.getElementById('soopExtInstallModal');
+    if (modal) modal.classList.replace('flex', 'hidden');
+}
+
+// ⭐ 신규: 안내 모달의 다운로드 버튼 클릭 시 새 탭으로 크롬 웹스토어 열기
+function goToSoopExtDownload() {
+    window.open(SOOP_EXT_DOWNLOAD_URL, '_blank');
+}
 
 // ⭐ 신규: SOOP 확장프로그램 로그인 요청 함수
 let soopLoginResponded = false;
@@ -73,7 +94,7 @@ function loginWithSoopExtension() {
     if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
     soopLoginTimeoutId = setTimeout(() => {
         if (!soopLoginResponded) {
-            alert("SOOP 확장프로그램이 설치되어 있지 않습니다.\n확장프로그램 설치시 로그인이 가능합니다.");
+            openSoopExtInstallModal();
         }
     }, 1500);
 }

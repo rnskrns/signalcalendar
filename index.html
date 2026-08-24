@@ -359,6 +359,18 @@
         </div>
     </div>
 
+    <div id="soopExtInstallModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border border-[#ECEDFA] relative">
+            <button class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer" onclick="closeSoopExtInstallModal()"><i class="fi fi-br-cross-small"></i></button>
+            <div class="flex justify-center mb-3">
+                <img src="https://res.sooplive.com/images/common/thumb_profile.gif" class="w-12 h-12 rounded-full object-cover">
+            </div>
+            <h2 class="text-lg font-bold mb-2 text-center text-[#5D4037]">SOOP 확장프로그램이 필요해요</h2>
+            <p class="text-[13px] text-gray-500 text-center mb-5 leading-snug">SOOP 계정으로 간편 로그인하려면<br>크롬 확장프로그램 설치가 필요합니다.<br>설치 후 다시 로그인해주세요.</p>
+            <button class="w-full bg-[#5D4037] text-white py-3 rounded-lg font-bold hover:brightness-110 transition cursor-pointer text-[15px]" onclick="goToSoopExtDownload()">확장프로그램 다운로드하러 가기</button>
+        </div>
+    </div>
+
     <div id="userProfileSetupModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[6000]">
         <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border border-[#ECEDFA] relative">
             <h2 class="text-xl font-bold mb-2 text-center text-[#5D4037]">추가 정보 입력</h2>
