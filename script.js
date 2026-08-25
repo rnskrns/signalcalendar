@@ -1,5 +1,5 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 // =========================================================================
@@ -1087,6 +1087,9 @@ let currentTopicEntries = [];
 let currentEntryIndex = 0;
 let editRollingEntryId = null;
 let loadedMemberPages = new Set();
+// 롤링페이퍼는 주제(rollingTopics)는 항상 가볍게 전체 로드하되, 항목(rollingEntries)은
+// 컬렉션 전체를 긁지 않고 실제로 열어본 주제의 항목만 그때그때 불러온다.
+let loadedRollingTopicIds = new Set();
 
 // =========================================================================
 // 시그널 (지난 방송 아카이브) 상태
@@ -1094,6 +1097,11 @@ let loadedMemberPages = new Set();
 let signalRecords = [];
 let editSignalRecordId = null;
 let currentSignalDetailId = null;
+// 시그널 기록도 컬렉션 전체를 한 번에 긁지 않고 최근 N개만 먼저 불러온 뒤 "더 보기"로 이어서 불러온다.
+const SIGNAL_RECORDS_PAGE_SIZE = 30;
+let signalRecordsCursorDate = null;
+let signalRecordsHasMore = true;
+let signalRecordsLoadingMore = false;
 
 let customMembers = []; 
 let memberGroups = []; // { id, name, memberIds: [] }
@@ -1101,7 +1109,10 @@ let popupImagesList = [];
 let homeYoutubeUrl = '';
 let homeBoxShouldShow = false; // 유튜브/이미지 or 공지 중 하나라도 있으면 true
 
-const scheduleCacheStorageKey = 'signal_schedule_cache_v1';
+const scheduleCacheStorageKey = 'signal_schedule_cache_v2';
+// sessionStorage는 새 탭/임베드(iframe)마다 매번 비어있어 캐시가 사실상 무력화되므로
+// 탭 간에도 유지되는 localStorage를 쓰고, 대신 TTL을 두어 데이터가 너무 오래 묵지 않게 한다.
+const SCHEDULE_CACHE_TTL_MS = 7 * 60 * 1000; // 7분
 
 function getDefaultMemoState() {
     return { '달타':[], '다룽':[], '최또':[], '카나시':[] };
@@ -1109,8 +1120,15 @@ function getDefaultMemoState() {
 
 function readScheduleCache() {
     try {
-        const raw = sessionStorage.getItem(scheduleCacheStorageKey);
-        return raw ? JSON.parse(raw) : null;
+        const raw = localStorage.getItem(scheduleCacheStorageKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.savedAt !== 'number' || (Date.now() - parsed.savedAt) > SCHEDULE_CACHE_TTL_MS) {
+            // 유효기간이 지난 캐시는 버리고 새로 로드하게 한다.
+            localStorage.removeItem(scheduleCacheStorageKey);
+            return null;
+        }
+        return parsed;
     } catch (e) {
         console.warn('스케줄 캐시 읽기 실패:', e);
         return null;
@@ -1126,11 +1144,14 @@ function saveScheduleCache() {
             memberGroups,
             rollingTopics,
             rollingEntries,
+            loadedRollingTopicIds: Array.from(loadedRollingTopicIds),
             signalRecords,
+            signalRecordsCursorDate,
+            signalRecordsHasMore,
             loadedMemberPages: Array.from(loadedMemberPages),
             savedAt: Date.now()
         };
-        sessionStorage.setItem(scheduleCacheStorageKey, JSON.stringify(payload));
+        localStorage.setItem(scheduleCacheStorageKey, JSON.stringify(payload));
     } catch (e) {
         console.warn('스케줄 캐시 저장 실패:', e);
     }
@@ -1144,7 +1165,10 @@ function hydrateScheduleCache(cache) {
     memberGroups = Array.isArray(cache.memberGroups) ? cache.memberGroups : [];
     rollingTopics = Array.isArray(cache.rollingTopics) ? cache.rollingTopics : [];
     rollingEntries = Array.isArray(cache.rollingEntries) ? cache.rollingEntries : [];
+    loadedRollingTopicIds = new Set(Array.isArray(cache.loadedRollingTopicIds) ? cache.loadedRollingTopicIds : []);
     signalRecords = Array.isArray(cache.signalRecords) ? cache.signalRecords : [];
+    signalRecordsCursorDate = typeof cache.signalRecordsCursorDate === 'string' ? cache.signalRecordsCursorDate : null;
+    signalRecordsHasMore = cache.signalRecordsHasMore !== false;
     // 업보관리 데이터는 로컬 캐시에 저장/복원하지 않는다. 항상 loadUpboDataFromFirebase()로 즉시 최신 데이터를 받아온다.
     loadedMemberPages = new Set(Array.isArray(cache.loadedMemberPages) ? cache.loadedMemberPages : []);
     return true;
@@ -2737,11 +2761,13 @@ function closeUpPopup(dismissMode = null) {
     document.getElementById('upPopupOverlay').classList.add('hidden');
 }
 
-function openRollingTopicFromPopup(id) {
+async function openRollingTopicFromPopup(id) {
     closeUpPopup(true); 
     if (currentPage !== '롤링페이퍼') changeTab('롤링페이퍼');
     currentRollingTopic = rollingTopics.find(t => t.id === id);
     render();
+    await ensureRollingEntriesLoaded(id);
+    if (currentRollingTopic && currentRollingTopic.id === id) render();
 }
 
 function renderHeaderTabs() {
@@ -2898,11 +2924,13 @@ function closeMobileTabMenu() {
     setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('block'); }, 200);
 }
 
-function openRollingTopicFromMenu(id) {
+async function openRollingTopicFromMenu(id) {
     closeMobileTabMenu();
     if (currentPage !== '롤링페이퍼') changeTab('롤링페이퍼');
     currentRollingTopic = rollingTopics.find(t => t.id === id);
     render();
+    await ensureRollingEntriesLoaded(id);
+    if (currentRollingTopic && currentRollingTopic.id === id) render();
 }
 
 function executeDesktopTabChange(tab) { changeTab(tab); }
@@ -4057,16 +4085,13 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, u
             topicSnap.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
             sortRollingTopics();
 
-            const entrySnap = await getDocs(collection(db, 'rollingEntries'));
+            // rollingEntries는 여기서 전체를 긁지 않는다. 주제 개수가 쌓일수록 항목도 함께 계속
+            // 쌓이는 컬렉션이라, 방문자가 실제로 열어본 주제의 항목만 openRollingTopic 시점에 불러온다.
             rollingEntries = [];
-            entrySnap.forEach(doc => rollingEntries.push({ id: doc.id, ...doc.data() }));
-            rollingEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            loadedRollingTopicIds = new Set();
 
             try {
-                const signalSnap = await getDocs(collection(db, 'signal_records'));
-                signalRecords = [];
-                signalSnap.forEach(docSnap => signalRecords.push({ id: docSnap.id, ...docSnap.data() }));
-                sortSignalRecords();
+                await loadSignalRecordsFirstPage();
             } catch (e) { console.error("시그널 데이터 로드 에러:", e); }
 
         }
@@ -5557,7 +5582,30 @@ async function deleteRollingTopic(id) {
     } catch(e) { console.error(e); }
 }
 
-function openRollingTopic(id) { currentRollingTopic = rollingTopics.find(t => t.id === id); render(); }
+// rollingEntries 컬렉션 전체를 긁는 대신, 실제로 열어본 주제(topicId)의 항목만 그때그때 불러와 캐싱한다.
+async function ensureRollingEntriesLoaded(topicId) {
+    if (!topicId || loadedRollingTopicIds.has(topicId)) return;
+    try {
+        const q = query(collection(db, 'rollingEntries'), where('topicId', '==', topicId));
+        const snap = await getDocs(q);
+        snap.forEach(docSnap => {
+            if (!rollingEntries.some(e => e.id === docSnap.id)) {
+                rollingEntries.push({ id: docSnap.id, ...docSnap.data() });
+            }
+        });
+        loadedRollingTopicIds.add(topicId);
+        saveScheduleCache();
+    } catch (e) {
+        console.error('롤링페이퍼 항목 로드 에러:', e);
+    }
+}
+
+async function openRollingTopic(id) {
+    currentRollingTopic = rollingTopics.find(t => t.id === id);
+    render();
+    await ensureRollingEntriesLoaded(id);
+    if (currentRollingTopic && currentRollingTopic.id === id) render();
+}
 function closeRollingTopic() { currentRollingTopic = null; render(); }
 
 function openRollingEntryModal() {
@@ -5749,6 +5797,49 @@ function sortSignalRecords() {
     });
 }
 
+// 시그널 기록 컬렉션은 계속 쌓이는 구조라 매번 전체를 긁지 않고,
+// date 기준 최근 SIGNAL_RECORDS_PAGE_SIZE개만 먼저 불러온다.
+async function loadSignalRecordsFirstPage() {
+    const q = query(collection(db, 'signal_records'), orderBy('date', 'desc'), limit(SIGNAL_RECORDS_PAGE_SIZE));
+    const snap = await getDocs(q);
+    signalRecords = [];
+    snap.forEach(docSnap => signalRecords.push({ id: docSnap.id, ...docSnap.data() }));
+    signalRecordsCursorDate = signalRecords.length > 0 ? signalRecords[signalRecords.length - 1].date : null;
+    signalRecordsHasMore = snap.docs.length === SIGNAL_RECORDS_PAGE_SIZE;
+    sortSignalRecords();
+}
+
+// "더 보기" - 이전에 불러온 마지막 date 이후(더 과거) 기록을 이어서 불러온다.
+async function loadMoreSignalRecords() {
+    if (signalRecordsLoadingMore || !signalRecordsHasMore) return;
+    signalRecordsLoadingMore = true;
+    render();
+    try {
+        let q = query(collection(db, 'signal_records'), orderBy('date', 'desc'), limit(SIGNAL_RECORDS_PAGE_SIZE));
+        if (signalRecordsCursorDate) {
+            q = query(collection(db, 'signal_records'), orderBy('date', 'desc'), startAfter(signalRecordsCursorDate), limit(SIGNAL_RECORDS_PAGE_SIZE));
+        }
+        const snap = await getDocs(q);
+        snap.forEach(docSnap => {
+            if (!signalRecords.some(r => r.id === docSnap.id)) {
+                signalRecords.push({ id: docSnap.id, ...docSnap.data() });
+            }
+        });
+        if (snap.docs.length > 0) {
+            signalRecordsCursorDate = snap.docs[snap.docs.length - 1].data().date || signalRecordsCursorDate;
+        }
+        signalRecordsHasMore = snap.docs.length === SIGNAL_RECORDS_PAGE_SIZE;
+        sortSignalRecords();
+        saveScheduleCache();
+    } catch (e) {
+        console.error('시그널 추가 로드 에러:', e);
+    } finally {
+        signalRecordsLoadingMore = false;
+        render();
+    }
+}
+window.loadMoreSignalRecords = loadMoreSignalRecords;
+
 function renderSignalPage() {
     const content = document.getElementById('mainContent');
     const bgClass = isMobile ? 'p-4' : 'p-10';
@@ -5802,7 +5893,16 @@ function renderSignalPage() {
     if (signalRecords.length === 0) {
         html += `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-lg">등록된 시그널 기록이 없습니다.</div>`;
     }
-    html += `</div></div>`;
+    html += `</div>`;
+    if (signalRecordsHasMore) {
+        html += `
+        <div class="flex justify-center mt-8">
+            <button onclick="loadMoreSignalRecords()" ${signalRecordsLoadingMore ? 'disabled' : ''} class="px-6 py-2.5 bg-white border-2 border-[#5D4037] text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition font-paperozi text-[14px] disabled:opacity-50">
+                ${signalRecordsLoadingMore ? '불러오는 중...' : '더 보기'}
+            </button>
+        </div>`;
+    }
+    html += `</div>`;
     content.innerHTML = html;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
 }
@@ -7146,11 +7246,15 @@ async function initApp() {
     }
 
     // === 필수 데이터 우선 로딩 (렌더링 최우선) ===
-    await loadSchedulesFromFirebase();
-    if (currentPage === '홈') {
-        await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
-    } else if (isEmbedMode && currentPage === '업보정리') {
-        await loadUpboDataFromFirebase(); // 임베드 모드로 업보정리에 바로 진입하는 경우, 캐시 없이 즉시 최신 데이터를 가져온다
+    // 임베드(iframe) 모드는 항상 업보정리 위젯 하나만 보여주고 스케줄/롤링페이퍼/시그널 등은
+    // 전혀 쓰이지 않으므로, 그 무거운 컬렉션들을 아예 불러오지 않고 업보 데이터만 즉시 가져온다.
+    if (isEmbedMode) {
+        await loadUpboDataFromFirebase();
+    } else {
+        await loadSchedulesFromFirebase();
+        if (currentPage === '홈') {
+            await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
+        }
     }
     setActiveSongs(songbookMember);
 
@@ -7163,20 +7267,21 @@ async function initApp() {
     }
 
     // === 후순위 데이터 병렬 지연 로딩 ===
-    Promise.all([
-        loadLinksFromFirebase(),
-        loadPopupImagesFromFirebase(),
-        currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve()
-    ]).then(() => {
-        // 백그라운드 로드가 끝나면 UI 실시간 갱신
-        renderHeaderTabs();
-        if (!isEmbedMode) {
+    // 임베드 모드에서는 홈 배너/팝업/UP링크가 렌더링되지 않으므로 이 후순위 로딩 자체를 건너뛴다.
+    if (!isEmbedMode) {
+        Promise.all([
+            loadLinksFromFirebase(),
+            loadPopupImagesFromFirebase(),
+            currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve()
+        ]).then(() => {
+            // 백그라운드 로드가 끝나면 UI 실시간 갱신
+            renderHeaderTabs();
             checkAndShowPopup(today);
-        }
-        if (currentPage === '홈') {
-            renderHomeYoutubeBox();
-        }
-    }).catch(e => console.error("지연 로딩 에러:", e));
+            if (currentPage === '홈') {
+                renderHomeYoutubeBox();
+            }
+        }).catch(e => console.error("지연 로딩 에러:", e));
+    }
 }
 
 let editingUpLinkId = null;
