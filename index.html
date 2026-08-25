@@ -373,6 +373,15 @@
         </div>
     </div>
 
+    <div id="googleLinkModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[6000]">
+        <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border border-[#ECEDFA] relative">
+            <button class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer" onclick="closeGoogleLinkModal()"><i class="fi fi-br-cross-small"></i></button>
+            <h2 class="text-xl font-bold mb-2 text-center text-[#5D4037] mt-2">구글 계정 연동</h2>
+            <div id="googleLinkStatus" class="text-[13px] text-gray-500 text-center mb-5 leading-snug min-h-[40px] flex items-center justify-center">연동 상태를 확인하는 중...</div>
+            <button id="googleLinkActionBtn" type="button" onclick="linkGoogleAccount()" class="w-full bg-[#5D4037] text-white py-3 rounded-lg font-bold hover:brightness-110 transition cursor-pointer text-[15px]">확인 중...</button>
+        </div>
+    </div>
+
     <div id="userProfileSetupModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[6000]">
         <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border border-[#ECEDFA] relative">
             <h2 class="text-xl font-bold mb-2 text-center text-[#5D4037]">추가 정보 입력</h2>

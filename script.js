@@ -13,6 +13,8 @@ window.goToSoopExtDownload = goToSoopExtDownload;
 // ⭐ 신규: 구글 로그인(모바일 등 확장프로그램 없이 로그인) / SOOP 계정에 구글 계정 연동
 window.loginWithGoogle = loginWithGoogle;
 window.linkGoogleAccount = linkGoogleAccount;
+window.openGoogleLinkModal = openGoogleLinkModal;
+window.closeGoogleLinkModal = closeGoogleLinkModal;
 
 // 연동 진행 중에는 onAuthStateChanged의 일반 처리 로직을 건너뛰기 위한 플래그
 let isLinkingGoogleAccount = false;
@@ -27,41 +29,112 @@ function loginWithGoogle() {
     });
 }
 
+// ⭐ 신규: "구글 계정 연동" 모달 열기/닫기 + 현재 연동 상태 표시
+async function openGoogleLinkModal() {
+    if (!isSoopSession || !currentUser || !currentUser.uid) {
+        alert('SOOP 계정으로 로그인한 상태에서만 구글 계정을 연동할 수 있습니다.');
+        return;
+    }
+    const modal = document.getElementById('googleLinkModal');
+    if (modal) modal.classList.replace('hidden', 'flex');
+    await refreshGoogleLinkModalStatus();
+}
+
+function closeGoogleLinkModal() {
+    const modal = document.getElementById('googleLinkModal');
+    if (modal) modal.classList.replace('flex', 'hidden');
+}
+
+// 현재 로그인된 SOOP 계정에 연동된 구글 이메일이 있는지 조회해서 모달에 표시
+async function refreshGoogleLinkModalStatus() {
+    const statusEl = document.getElementById('googleLinkStatus');
+    const btnEl = document.getElementById('googleLinkActionBtn');
+    if (!statusEl || !btnEl || !currentUser) return;
+    statusEl.textContent = '연동 상태를 확인하는 중...';
+    btnEl.textContent = '확인 중...';
+    btnEl.disabled = true;
+    try {
+        const soopSnap = await getDoc(doc(db, "soopUsers", currentUser.uid));
+        const data = soopSnap.exists() ? soopSnap.data() : {};
+        if (data.linkedGoogleEmail) {
+            statusEl.innerHTML = `현재 <b class="text-[#5D4037]">${data.linkedGoogleEmail}</b> 계정과 연동되어 있어요.<br>다음부터 이 구글 계정으로 로그인하면 같은 정보로 접속됩니다.`;
+            btnEl.textContent = '연동된 계정 변경';
+        } else {
+            statusEl.textContent = '아직 연동된 구글 계정이 없어요. 연동하면 확장프로그램 없이도 이 계정으로 로그인할 수 있어요.';
+            btnEl.textContent = '구글 계정 연동하기';
+        }
+    } catch (e) {
+        console.error('연동 상태 조회 실패:', e);
+        statusEl.textContent = '연동 상태를 불러오지 못했습니다.';
+        btnEl.textContent = '구글 계정 연동하기';
+    } finally {
+        btnEl.disabled = false;
+    }
+}
+
 // SOOP 계정으로 로그인한 상태에서 구글 계정을 프로필에 연동합니다.
 // 연동 이후에는 구글 로그인만 해도 이 SOOP 계정과 동일한 데이터(닉네임/프사/좋아요/롤링페이퍼 등)를 사용하게 됩니다.
+// 이미 연동된 계정이 있는 상태에서 다시 실행하면, 새로 로그인한 구글 계정으로 연동을 교체합니다.
 async function linkGoogleAccount() {
     if (!isSoopSession || !currentUser || !currentUser.uid) {
         alert('SOOP 계정으로 로그인한 상태에서만 구글 계정을 연동할 수 있습니다.');
         return;
     }
     const soopId = currentUser.uid;
+    const statusEl = document.getElementById('googleLinkStatus');
+    const btnEl = document.getElementById('googleLinkActionBtn');
     isLinkingGoogleAccount = true;
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '연동 진행 중...'; }
+    if (statusEl) statusEl.textContent = '구글 로그인 창을 확인해주세요...';
+
     try {
+        const soopSnapBefore = await getDoc(doc(db, "soopUsers", soopId));
+        const prevGoogleUid = soopSnapBefore.exists() ? (soopSnapBefore.data().linkedGoogleUid || null) : null;
+
         const result = await signInWithPopup(auth, new GoogleAuthProvider());
         const googleUser = result.user;
+
+        // 기존과 같은 구글 계정을 다시 선택한 경우
+        if (prevGoogleUid === googleUser.uid) {
+            if (statusEl) statusEl.innerHTML = `이미 <b class="text-[#5D4037]">${googleUser.email}</b> 계정과 연동되어 있어요.`;
+            if (btnEl) { btnEl.textContent = '연동된 계정 변경'; btnEl.disabled = false; }
+            return;
+        }
 
         // 이미 다른 SOOP 계정에 연동되어 있는 구글 계정이면 막습니다.
         const linkRef = doc(db, "accountLinks", googleUser.uid);
         const linkSnap = await getDoc(linkRef);
         if (linkSnap.exists() && linkSnap.data().soopId && linkSnap.data().soopId !== soopId) {
-            alert('이미 다른 계정에 연동되어 있는 구글 계정입니다.');
+            alert('이미 다른 계정에 연동되어 있는 구글 계정입니다. 다른 계정으로 다시 시도해주세요.');
             await signOut(auth);
+            await refreshGoogleLinkModalStatus();
             return;
         }
 
-        await setDoc(linkRef, { soopId }, { merge: true });
-        await setDoc(doc(db, "soopUsers", soopId), { linkedGoogleUid: googleUser.uid }, { merge: true });
+        // 연동 계정을 바꾸는 경우, 예전 연동 정보는 지워서 예전 구글 계정으로는 더 이상 접속되지 않게 합니다.
+        if (prevGoogleUid && prevGoogleUid !== googleUser.uid) {
+            try { await deleteDoc(doc(db, "accountLinks", prevGoogleUid)); } catch (e) { console.error('이전 연동 정보 삭제 실패:', e); }
+        }
 
-        alert('구글 계정이 연동되었습니다. 다음부터는 구글 로그인만으로도 같은 정보로 접속할 수 있어요.');
+        await setDoc(linkRef, { soopId }, { merge: true });
+        await setDoc(doc(db, "soopUsers", soopId), {
+            linkedGoogleUid: googleUser.uid,
+            linkedGoogleEmail: googleUser.email || null
+        }, { merge: true });
+
+        if (statusEl) statusEl.innerHTML = `<b class="text-[#5D4037]">${googleUser.email}</b> 계정과 연동 완료됐어요!<br>다음부터 이 구글 계정으로 로그인하면 같은 정보로 접속됩니다.`;
+        if (btnEl) { btnEl.textContent = '연동된 계정 변경'; btnEl.disabled = false; }
     } catch (e) {
         if (e.code !== 'auth/popup-closed-by-user') {
             console.error('구글 계정 연동 실패:', e);
             alert('구글 계정 연동에 실패했습니다. 다시 시도해주세요.');
         }
+        await refreshGoogleLinkModalStatus();
     } finally {
         isLinkingGoogleAccount = false;
     }
 }
+
 
 // ⭐ 신규: SOOP 확장프로그램 다운로드 링크
 const SOOP_EXT_DOWNLOAD_URL = 'https://chromewebstore.google.com/detail/signal/dblpllkikodcdlmfohdnljegobdbhinl?hl=ko&utm_source=ext_sidebar';
@@ -179,6 +252,10 @@ window.addEventListener('message', (event) => {
         // ⭐ 신규: 노래책 좋아요 목록을 계정 기준으로 불러와 기억되게 함
         loadAndMergeSoopLikes(user.uid);
         flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
+
+        // ⭐ 신규: SOOP 닉네임/프사를 soopUsers 문서에 저장해둠 → 이후 구글 로그인(연동)으로 접속해도 이 정보를 그대로 사용
+        setDoc(doc(db, "soopUsers", user.uid), { nick: user.nick || null, imgUrl: user.imgUrl || null }, { merge: true })
+            .catch((e) => console.error('SOOP 프로필 저장 실패:', e));
 
     } else if (event.data.type === 'SOOP_LOGIN_FAIL') {
         soopLoginResponded = true;
@@ -1596,10 +1673,10 @@ function renderUserAuthHtml(scope, user) {
     // ⭐ 신규: SOOP 계정으로 로그인한 상태일 때만 "구글 계정 연동" 메뉴를 보여줍니다.
     // (구글 로그인으로 연동된 SOOP 계정에 접속한 경우도 isSoopSession이 true라 함께 노출됩니다.)
     const linkMenuItem = isSoopSession
-        ? `<button onclick="linkGoogleAccount()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">구글 계정 연동</button>`
+        ? `<button onclick="openGoogleLinkModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">구글 계정 연동</button>`
         : '';
     const linkMenuItemMobile = isSoopSession
-        ? `<button onclick="linkGoogleAccount()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">구글 연동</button>`
+        ? `<button onclick="openGoogleLinkModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">구글 연동</button>`
         : '';
 
     if (isDesktop) {
