@@ -1,169 +1,12 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 // =========================================================================
 // SOOP 확장프로그램 로그인 연동
 // =========================================================================
 // ⭐ 신규: 전역 함수 바인딩 영역에 추가
 window.loginWithSoopExtension = loginWithSoopExtension;
-window.closeSoopExtInstallModal = closeSoopExtInstallModal;
-window.goToSoopExtDownload = goToSoopExtDownload;
-
-// ⭐ 신규: 구글 로그인(모바일 등 확장프로그램 없이 로그인) / SOOP 계정에 구글 계정 연동
-window.loginWithGoogle = loginWithGoogle;
-window.linkGoogleAccount = linkGoogleAccount;
-window.openGoogleLinkModal = openGoogleLinkModal;
-window.closeGoogleLinkModal = closeGoogleLinkModal;
-
-// 연동 진행 중에는 onAuthStateChanged의 일반 처리 로직을 건너뛰기 위한 플래그
-let isLinkingGoogleAccount = false;
-
-// 모바일 등 확장프로그램을 쓸 수 없는 환경에서 구글 계정으로 바로 로그인
-function loginWithGoogle() {
-    signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => {
-        if (e.code !== 'auth/popup-closed-by-user') {
-            console.error('구글 로그인 실패:', e);
-            alert('구글 로그인에 실패했습니다. 다시 시도해주세요.');
-        }
-    });
-}
-
-// ⭐ 신규: "구글 계정 연동" 모달 열기/닫기 + 현재 연동 상태 표시
-async function openGoogleLinkModal() {
-    if (!isSoopSession || !currentUser || !currentUser.uid) {
-        alert('SOOP 계정으로 로그인한 상태에서만 구글 계정을 연동할 수 있습니다.');
-        return;
-    }
-    const modal = document.getElementById('googleLinkModal');
-    if (modal) modal.classList.replace('hidden', 'flex');
-    await refreshGoogleLinkModalStatus();
-}
-
-function closeGoogleLinkModal() {
-    const modal = document.getElementById('googleLinkModal');
-    if (modal) modal.classList.replace('flex', 'hidden');
-}
-
-// 현재 로그인된 SOOP 계정에 연동된 구글 이메일이 있는지 조회해서 모달에 표시
-async function refreshGoogleLinkModalStatus() {
-    const statusEl = document.getElementById('googleLinkStatus');
-    const btnEl = document.getElementById('googleLinkActionBtn');
-    if (!statusEl || !btnEl || !currentUser) return;
-
-    // 구글 계정으로 로그인했는데 그 구글 계정이 이미 SOOP 계정에 연동되어 있어서
-    // 자동으로 그 SOOP 계정 정보로 로그인된 경우: 연동 대상 SOOP 계정 정보를 그대로 보여준다.
-    if (soopSessionViaGoogleLink) {
-        statusEl.innerHTML = `soop <b class="text-[#5D4037]">${escapeHtml(currentUser.displayName || '')}</b>,<b class="text-[#5D4037]">${escapeHtml(currentUser.uid || '')}</b>랑 연동 중`;
-        btnEl.classList.add('hidden');
-        return;
-    }
-    btnEl.classList.remove('hidden');
-
-    statusEl.textContent = '연동 상태를 확인하는 중...';
-    btnEl.textContent = '확인 중...';
-    btnEl.disabled = true;
-    try {
-        const soopSnap = await getDoc(doc(db, "soopUsers", currentUser.uid));
-        const data = soopSnap.exists() ? soopSnap.data() : {};
-        if (data.linkedGoogleEmail) {
-            statusEl.innerHTML = `현재 <b class="text-[#5D4037]">${data.linkedGoogleEmail}</b> 계정과 연동되어 있어요.<br>다음부터 이 구글 계정으로 로그인하면 같은 정보로 접속됩니다.`;
-            btnEl.textContent = '연동된 계정 변경';
-        } else {
-            statusEl.textContent = '아직 연동된 구글 계정이 없어요. 연동하면 확장프로그램 없이도 이 계정으로 로그인할 수 있어요.';
-            btnEl.textContent = '구글 계정 연동하기';
-        }
-    } catch (e) {
-        console.error('연동 상태 조회 실패:', e);
-        statusEl.textContent = '연동 상태를 불러오지 못했습니다.';
-        btnEl.textContent = '구글 계정 연동하기';
-    } finally {
-        btnEl.disabled = false;
-    }
-}
-
-// SOOP 계정으로 로그인한 상태에서 구글 계정을 프로필에 연동합니다.
-// 연동 이후에는 구글 로그인만 해도 이 SOOP 계정과 동일한 데이터(닉네임/프사/좋아요/롤링페이퍼 등)를 사용하게 됩니다.
-// 이미 연동된 계정이 있는 상태에서 다시 실행하면, 새로 로그인한 구글 계정으로 연동을 교체합니다.
-async function linkGoogleAccount() {
-    if (!isSoopSession || !currentUser || !currentUser.uid) {
-        alert('SOOP 계정으로 로그인한 상태에서만 구글 계정을 연동할 수 있습니다.');
-        return;
-    }
-    const soopId = currentUser.uid;
-    const statusEl = document.getElementById('googleLinkStatus');
-    const btnEl = document.getElementById('googleLinkActionBtn');
-    isLinkingGoogleAccount = true;
-    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '연동 진행 중...'; }
-    if (statusEl) statusEl.textContent = '구글 로그인 창을 확인해주세요...';
-
-    try {
-        const soopSnapBefore = await getDoc(doc(db, "soopUsers", soopId));
-        const prevGoogleUid = soopSnapBefore.exists() ? (soopSnapBefore.data().linkedGoogleUid || null) : null;
-
-        const result = await signInWithPopup(auth, new GoogleAuthProvider());
-        const googleUser = result.user;
-
-        // 기존과 같은 구글 계정을 다시 선택한 경우
-        if (prevGoogleUid === googleUser.uid) {
-            if (statusEl) statusEl.innerHTML = `이미 <b class="text-[#5D4037]">${googleUser.email}</b> 계정과 연동되어 있어요.`;
-            if (btnEl) { btnEl.textContent = '연동된 계정 변경'; btnEl.disabled = false; }
-            return;
-        }
-
-        // 이미 다른 SOOP 계정에 연동되어 있는 구글 계정이면 막습니다.
-        const linkRef = doc(db, "accountLinks", googleUser.uid);
-        const linkSnap = await getDoc(linkRef);
-        if (linkSnap.exists() && linkSnap.data().soopId && linkSnap.data().soopId !== soopId) {
-            alert('이미 다른 계정에 연동되어 있는 구글 계정입니다. 다른 계정으로 다시 시도해주세요.');
-            await signOut(auth);
-            await refreshGoogleLinkModalStatus();
-            return;
-        }
-
-        // 연동 계정을 바꾸는 경우, 예전 연동 정보는 지워서 예전 구글 계정으로는 더 이상 접속되지 않게 합니다.
-        if (prevGoogleUid && prevGoogleUid !== googleUser.uid) {
-            try { await deleteDoc(doc(db, "accountLinks", prevGoogleUid)); } catch (e) { console.error('이전 연동 정보 삭제 실패:', e); }
-        }
-
-        await setDoc(linkRef, { soopId }, { merge: true });
-        await setDoc(doc(db, "soopUsers", soopId), {
-            linkedGoogleUid: googleUser.uid,
-            linkedGoogleEmail: googleUser.email || null
-        }, { merge: true });
-
-        if (statusEl) statusEl.innerHTML = `<b class="text-[#5D4037]">${googleUser.email}</b> 계정과 연동 완료됐어요!<br>다음부터 이 구글 계정으로 로그인하면 같은 정보로 접속됩니다.`;
-        if (btnEl) { btnEl.textContent = '연동된 계정 변경'; btnEl.disabled = false; }
-    } catch (e) {
-        if (e.code !== 'auth/popup-closed-by-user') {
-            console.error('구글 계정 연동 실패:', e);
-            alert('구글 계정 연동에 실패했습니다. 다시 시도해주세요.');
-        }
-        await refreshGoogleLinkModalStatus();
-    } finally {
-        isLinkingGoogleAccount = false;
-    }
-}
-
-
-// ⭐ 신규: SOOP 확장프로그램 다운로드 링크
-const SOOP_EXT_DOWNLOAD_URL = 'https://chromewebstore.google.com/detail/signal/dblpllkikodcdlmfohdnljegobdbhinl?hl=ko&utm_source=ext_sidebar';
-
-// ⭐ 신규: 확장프로그램 미설치 안내 모달 열기/닫기
-function openSoopExtInstallModal() {
-    const modal = document.getElementById('soopExtInstallModal');
-    if (modal) modal.classList.replace('hidden', 'flex');
-}
-
-function closeSoopExtInstallModal() {
-    const modal = document.getElementById('soopExtInstallModal');
-    if (modal) modal.classList.replace('flex', 'hidden');
-}
-
-// ⭐ 신규: 안내 모달의 다운로드 버튼 클릭 시 새 탭으로 크롬 웹스토어 열기
-function goToSoopExtDownload() {
-    window.open(SOOP_EXT_DOWNLOAD_URL, '_blank');
-}
 
 // ⭐ 신규: SOOP 확장프로그램 로그인 요청 함수
 let soopLoginResponded = false;
@@ -172,19 +15,15 @@ let soopLoginTimeoutId = null;
 // ⭐ 신규: SOOP 로그인 새로고침 유지(세션 저장/복원)
 const SOOP_SESSION_KEY = 'soopUserSession';
 let isSoopSession = false; // 현재 currentUser가 SOOP 로그인으로 채워진 상태인지 여부
-// 현재 SOOP 세션이 "구글 계정으로 로그인했는데 그 구글 계정이 SOOP 계정에 연동되어 있어서"
-// 자동으로 채워진 것인지 여부. true면 "구글 계정 연동" 메뉴에서 연동 대상 SOOP 계정 정보를 보여준다.
-let soopSessionViaGoogleLink = false;
 
-function saveSoopSession(user, viaGoogleLink = false) {
+function saveSoopSession(user) {
     try {
-        localStorage.setItem(SOOP_SESSION_KEY, JSON.stringify({ user, viaGoogleLink }));
+        localStorage.setItem(SOOP_SESSION_KEY, JSON.stringify(user));
     } catch (e) { console.error('SOOP 세션 저장 실패:', e); }
 }
 
 function clearSoopSession() {
     isSoopSession = false;
-    soopSessionViaGoogleLink = false;
     try { localStorage.removeItem(SOOP_SESSION_KEY); } catch (e) { /* 무시 */ }
 }
 
@@ -193,18 +32,13 @@ function restoreSoopSession() {
     try {
         const saved = localStorage.getItem(SOOP_SESSION_KEY);
         if (!saved) return;
-        const parsed = JSON.parse(saved);
-        // 이전 버전(사용자 객체를 그대로 저장)과의 호환도 함께 처리
-        const user = parsed && parsed.user ? parsed.user : parsed;
-        const viaGoogleLink = !!(parsed && parsed.viaGoogleLink);
+        const user = JSON.parse(saved);
         if (!user || !user.uid) return;
 
         currentUser = user;
         isSoopSession = true;
-        soopSessionViaGoogleLink = viaGoogleLink;
         refreshAuthUI();
         loadAndMergeSoopLikes(user.uid); // 노래책 좋아요 계정 데이터 비동기 로드
-        flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
     } catch (e) {
         console.error('SOOP 세션 복원 실패:', e);
         clearSoopSession();
@@ -238,7 +72,7 @@ function loginWithSoopExtension() {
     if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
     soopLoginTimeoutId = setTimeout(() => {
         if (!soopLoginResponded) {
-            openSoopExtInstallModal();
+            alert("SOOP 확장프로그램이 설치되어 있지 않습니다.\n확장프로그램 설치시 로그인이 가능합니다.");
         }
     }, 1500);
 }
@@ -261,8 +95,7 @@ window.addEventListener('message', (event) => {
 
         // ⭐ 신규: 새로고침해도 로그인이 풀리지 않도록 세션 저장
         isSoopSession = true;
-        soopSessionViaGoogleLink = false;
-        saveSoopSession(currentUser, false);
+        saveSoopSession(currentUser);
 
         // UI 즉시 업데이트 (프사, 닉네임 적용됨)
         refreshAuthUI();
@@ -270,11 +103,6 @@ window.addEventListener('message', (event) => {
 
         // ⭐ 신규: 노래책 좋아요 목록을 계정 기준으로 불러와 기억되게 함
         loadAndMergeSoopLikes(user.uid);
-        flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
-
-        // ⭐ 신규: SOOP 닉네임/프사를 soopUsers 문서에 저장해둠 → 이후 구글 로그인(연동)으로 접속해도 이 정보를 그대로 사용
-        setDoc(doc(db, "soopUsers", user.uid), { nick: user.nick || null, imgUrl: user.imgUrl || null }, { merge: true })
-            .catch((e) => console.error('SOOP 프로필 저장 실패:', e));
 
     } else if (event.data.type === 'SOOP_LOGIN_FAIL') {
         soopLoginResponded = true;
@@ -282,12 +110,7 @@ window.addEventListener('message', (event) => {
         alert("SOOP 로그인이 되어있지 않거나 확장프로그램 통신에 실패했습니다.");
     } else if (event.data.type === 'SIGNAL_EXT_NOTIFICATION') {
         // ⭐ 신규: 확장프로그램이 전달한 방송/카페 알림을 알림벨에 쌓음
-        // 사이트에 로그인이 안 되어 있으면 바로 쌓지 않고 대기열에 저장해뒀다가, 로그인하면 한꺼번에 반영합니다.
-        if (!currentUser) {
-            queuePendingLoginNotification(event.data.payload);
-        } else {
-            addExtNotification(event.data.payload);
-        }
+        addExtNotification(event.data.payload);
     }
 });
 
@@ -298,35 +121,6 @@ const EXT_NOTIF_STORAGE_KEY = 'extNotifications';
 const EXT_NOTIF_MAX_COUNT = 50;
 const EXT_NOTIF_SCHEMA_VERSION = 2; // 알림 표시 형식이 바뀔 때마다 올려서, 예전 형식으로 저장된 알림을 정리함
 let extNotifications = [];
-let currentNotifTab = 'all';   // 'all' | 'live' | 'cafe'
-let currentNotifSort = 'time'; // 'time' | 'unread'
-
-// ⭐ 신규: 사이트에 로그인이 안 되어 있을 때 도착한 알림을 잠시 보관해두는 대기열
-// (로그인 전에는 알림벨 패널에 바로 쌓지 않고, 로그인 완료 시점에 한꺼번에 반영)
-const PENDING_LOGIN_NOTIF_KEY = 'pendingLoginNotifications';
-const PENDING_LOGIN_NOTIF_MAX = 50;
-
-function queuePendingLoginNotification(payload) {
-    if (!payload) return;
-    try {
-        const queue = JSON.parse(localStorage.getItem(PENDING_LOGIN_NOTIF_KEY) || '[]');
-        queue.push(payload);
-        localStorage.setItem(PENDING_LOGIN_NOTIF_KEY, JSON.stringify(queue.slice(-PENDING_LOGIN_NOTIF_MAX)));
-    } catch (e) { console.error('로그인 전 알림 대기열 저장 실패:', e); }
-}
-
-// 로그인이 완료된 시점에 호출: 대기열에 쌓여있던 알림을 오래된 순서대로 알림벨에 반영합니다.
-function flushPendingLoginNotifications() {
-    if (!currentUser) return; // 아직 로그인 안 된 상태면 아무 것도 하지 않음
-    try {
-        const queue = JSON.parse(localStorage.getItem(PENDING_LOGIN_NOTIF_KEY) || '[]');
-        if (!queue.length) return;
-        localStorage.removeItem(PENDING_LOGIN_NOTIF_KEY);
-        // addExtNotification은 맨 앞에 추가(unshift)하므로, 오래된 것부터 순서대로 넣어야
-        // 가장 최근 알림이 최종적으로 맨 위에 오게 됩니다.
-        queue.forEach(payload => addExtNotification(payload));
-    } catch (e) { console.error('로그인 전 알림 대기열 복원 실패:', e); }
-}
 
 function loadExtNotifications() {
     try {
@@ -392,106 +186,34 @@ function renderNotifPanelList() {
     const list = document.getElementById('notifPanelList');
     if (!list) return;
 
-    const filtered = getFilteredNotifications();
-
-    if (filtered.length === 0) {
-        const emptyLabel = currentNotifTab === 'live' ? 'SOOP 방송 알림이 없어요'
-            : currentNotifTab === 'cafe' ? '카페 새 글 알림이 없어요'
-            : '아직 도착한 알림이 없어요';
-        list.innerHTML = `<div class="notif-empty"><i class="fi fi-rr-bell-slash" style="font-size:26px;display:block;margin-bottom:8px;"></i>${emptyLabel}</div>`;
+    if (extNotifications.length === 0) {
+        list.innerHTML = `<div class="notif-empty"><i class="fi fi-rr-bell-slash" style="font-size:26px;display:block;margin-bottom:8px;"></i>아직 도착한 알림이 없어요</div>`;
         return;
     }
 
-    list.innerHTML = filtered.map(n => {
+    list.innerHTML = extNotifications.map(n => {
         const timeLabel = formatRelativeTime(new Date(n.time));
         const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
         const avatarSrc = n.icon || fallbackAvatar;
         const title = String(n.title || '').replace(/"/g, '&quot;');
-        const unreadDot = n.read ? '' : `<span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;flex-shrink:0;"></span>`;
-        // 프사 오른쪽 아래에 라이브(SOOP)/카페 구분 뱃지를 붙임
-        const kindBadge = n.kind === 'live'
-            ? `<span class="notif-avatar-badge notif-avatar-badge-live" title="SOOP 방송"><i class="fi fi-rr-signal-stream"></i></span>`
-            : n.kind === 'cafe'
-                ? `<span class="notif-avatar-badge notif-avatar-badge-cafe" title="카페 새 글"><i class="fi fi-rr-comment-alt"></i></span>`
-                : '';
+        const unreadDot = n.read ? '' : `<span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;margin-left:5px;"></span>`;
 
         return `
-            <div class="notif-row" onclick="openNotifItem('${n.id}')">
-                <div class="notif-avatar-wrap">
-                    <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="notif-avatar" onerror="this.style.display='none'">
-                    ${kindBadge}
-                </div>
-                <div class="notif-col">
-                    <div class="notif-title-row">
-                        <span class="notif-title">${title}</span>
+            <div class="kakao-msg-row" onclick="openNotifItem('${n.id}')">
+                <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="kakao-avatar" onerror="this.style.display='none'">
+                <div class="kakao-msg-col">
+                    <div class="kakao-bubble-row">
+                        <div class="kakao-bubble">
+                            <div class="kakao-bubble-title">${title}</div>
+                        </div>
+                        ${timeLabel ? `<span class="kakao-time">${timeLabel}</span>` : ''}
                         ${unreadDot}
                     </div>
-                    ${timeLabel ? `<span class="notif-time">${timeLabel}</span>` : ''}
                 </div>
             </div>
         `;
     }).join('');
 }
-
-// 현재 선택된 탭(전체/SOOP/카페)과 정렬(시간순/읽지 않은순)을 적용한 알림 목록을 반환
-function getFilteredNotifications() {
-    let result = extNotifications;
-    if (currentNotifTab === 'live') result = result.filter(n => n.kind === 'live');
-    else if (currentNotifTab === 'cafe') result = result.filter(n => n.kind === 'cafe');
-
-    if (currentNotifSort === 'unread') {
-        // Array.prototype.sort는 안정 정렬이라, 같은 그룹(읽음/안읽음) 안에서는 기존 시간순이 그대로 유지됨
-        result = [...result].sort((a, b) => (a.read === b.read) ? 0 : (a.read ? 1 : -1));
-    }
-    return result;
-}
-
-// ⭐ 신규: 전체 / SOOP / 카페 탭 전환
-window.setNotifTab = function(tab) {
-    currentNotifTab = tab;
-    document.querySelectorAll('.notif-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.notifTab === tab);
-    });
-    renderNotifPanelList();
-};
-
-// ⭐ 신규: 시간순 / 읽지 않은순 정렬 드롭다운
-window.toggleNotifSortMenu = function(event) {
-    if (event) event.stopPropagation();
-    const menu = document.getElementById('notifSortMenu');
-    if (menu) menu.classList.toggle('hidden');
-};
-
-window.setNotifSort = function(sort) {
-    currentNotifSort = sort;
-    const label = document.getElementById('notifSortLabel');
-    if (label) label.textContent = sort === 'unread' ? '읽지 않은순' : '시간순';
-    closeNotifDropdowns();
-    renderNotifPanelList();
-};
-
-function closeNotifDropdowns() {
-    const sortMenu = document.getElementById('notifSortMenu');
-    if (sortMenu) sortMenu.classList.add('hidden');
-}
-
-// 알림 패널 내부 클릭은 오버레이(닫기)로 전파되지 않게 막고, 열려있는 드롭다운은 필요할 때 닫아줌
-window.handleNotifPanelClick = function(event) {
-    event.stopPropagation();
-    const isDropdownRelated = event.target.closest('.notif-sort-btn, .notif-dropdown-menu');
-    if (!isDropdownRelated) closeNotifDropdowns();
-};
-
-window.markAllNotifRead = function() {
-    let changed = false;
-    extNotifications.forEach(n => { if (!n.read) { n.read = true; changed = true; } });
-    if (changed) {
-        saveExtNotifications();
-        updateNotifBadge();
-        renderNotifPanelList();
-    }
-    closeNotifDropdowns();
-};
 
 window.openNotifItem = function(id) {
     const notif = extNotifications.find(n => n.id === id);
@@ -533,11 +255,12 @@ window.toggleNotifPanel = function(event) {
         positionNotifPanel(notifPanelAnchorBtn);
         renderNotifPanelList();
         overlay.classList.remove('hidden');
-        // ⭐ 변경: 예전에는 패널을 열면 자동으로 전부 읽음 처리했지만,
-        // 이제 "모두 읽음" 메뉴가 따로 생겨서 자동 처리 없이 사용자가 직접 선택하게 함
+        // 패널을 열면 모두 읽음 처리 (카톡 채팅방 진입 시와 동일한 느낌)
+        let changed = false;
+        extNotifications.forEach(n => { if (!n.read) { n.read = true; changed = true; } });
+        if (changed) { saveExtNotifications(); updateNotifBadge(); }
     } else {
         overlay.classList.add('hidden');
-        closeNotifDropdowns();
     }
 };
 
@@ -551,7 +274,6 @@ window.addEventListener('resize', () => {
 window.closeNotifPanel = function() {
     const overlay = document.getElementById('notifPanelOverlay');
     if (overlay) overlay.classList.add('hidden');
-    closeNotifDropdowns();
 };
 
 window.clearAllNotifications = function() {
@@ -559,7 +281,6 @@ window.clearAllNotifications = function() {
     saveExtNotifications();
     updateNotifBadge();
     renderNotifPanelList();
-    closeNotifDropdowns();
 };
 
 // 페이지 로드 시 저장된 알림을 불러와 뱃지를 즉시 갱신
@@ -722,8 +443,6 @@ window.closeScheduleModal = closeScheduleModal; window.saveSchedule = saveSchedu
 window.toggleProfileDropdown = toggleProfileDropdown; window.openLinkModal = openLinkModal; window.closeLinkModal = closeLinkModal;
 window.openManageModal = openManageModal; window.closeManageModal = closeManageModal; window.switchManageTab = switchManageTab;
 window.addUpLink = addUpLink; window.deleteUpLink = deleteUpLink;
-window.addDday = addDday; window.deleteDday = deleteDday; window.selectDdayColor = selectDdayColor;
-window.switchDdayImgTab = switchDdayImgTab; window.previewDdayImageFile = previewDdayImageFile; window.previewDdayImageUrl = previewDdayImageUrl;
 window.toggleUpPanel = toggleUpPanel; window.toggleMemoPanel = toggleMemoPanel; window.closeSidePanel = closeSidePanel;
 window.openMobileTabMenu = openMobileTabMenu; window.closeMobileTabMenu = closeMobileTabMenu;
 window.executeDesktopTabChange = executeDesktopTabChange; window.executeMobileTabChange = executeMobileTabChange;
@@ -1108,9 +827,6 @@ let currentTopicEntries = [];
 let currentEntryIndex = 0;
 let editRollingEntryId = null;
 let loadedMemberPages = new Set();
-// 롤링페이퍼는 주제(rollingTopics)는 항상 가볍게 전체 로드하되, 항목(rollingEntries)은
-// 컬렉션 전체를 긁지 않고 실제로 열어본 주제의 항목만 그때그때 불러온다.
-let loadedRollingTopicIds = new Set();
 
 // =========================================================================
 // 시그널 (지난 방송 아카이브) 상태
@@ -1118,41 +834,14 @@ let loadedRollingTopicIds = new Set();
 let signalRecords = [];
 let editSignalRecordId = null;
 let currentSignalDetailId = null;
-// 시그널 기록도 컬렉션 전체를 한 번에 긁지 않고 최근 N개만 먼저 불러온 뒤 "더 보기"로 이어서 불러온다.
-const SIGNAL_RECORDS_PAGE_SIZE = 30;
-let signalRecordsCursorDate = null;
-let signalRecordsHasMore = true;
-let signalRecordsLoadingMore = false;
 
 let customMembers = []; 
 let memberGroups = []; // { id, name, memberIds: [] }
 let popupImagesList = [];
 let homeYoutubeUrl = '';
 let homeBoxShouldShow = false; // 유튜브/이미지 or 공지 중 하나라도 있으면 true
-let ddaysList = []; // 관리자가 등록한 기념일 목록 { id, title, date, timestamp, color, message }
-let ddayBgImageUrl = ''; // 홈탭 디데이 카드 배경 이미지
-let selectedDdayColor = 'pink'; // 디데이 등록 폼에서 현재 선택된 카드 색상
 
-// 디데이 카드 색상 테마 (핑크/노랑/블루/오렌지 중 선택)
-const DDAY_COLOR_THEMES = {
-    pink:   { swatch: '#f472b6', c1: '236,72,153', c2: '99,102,241',  badgeBg: 'rgba(244,114,182,0.12)', badgeBorder: 'rgba(244,114,182,0.45)', badgeText: '#f9a8d4', statG1: '244,63,94',  statG2: '219,39,119', statBorder: 'rgba(244,63,94,0.55)',  statShadow: 'rgba(244,63,94,0.6)',  statLabel: '#fecdd3' },
-    yellow: { swatch: '#facc15', c1: '250,204,21', c2: '234,88,12',   badgeBg: 'rgba(250,204,21,0.14)',  badgeBorder: 'rgba(250,204,21,0.45)',  badgeText: '#fde68a', statG1: '250,204,21', statG2: '217,119,6', statBorder: 'rgba(250,204,21,0.55)', statShadow: 'rgba(250,204,21,0.5)', statLabel: '#fef3c7' },
-    blue:   { swatch: '#3b82f6', c1: '59,130,246', c2: '14,165,233',  badgeBg: 'rgba(96,165,250,0.14)',  badgeBorder: 'rgba(96,165,250,0.45)',  badgeText: '#bfdbfe', statG1: '59,130,246', statG2: '37,99,235', statBorder: 'rgba(59,130,246,0.55)', statShadow: 'rgba(59,130,246,0.55)', statLabel: '#dbeafe' },
-    orange: { swatch: '#fb923c', c1: '251,146,60', c2: '234,88,12',   badgeBg: 'rgba(251,146,60,0.14)',  badgeBorder: 'rgba(251,146,60,0.45)',  badgeText: '#fed7aa', statG1: '251,146,60', statG2: '234,88,12', statBorder: 'rgba(251,146,60,0.55)', statShadow: 'rgba(251,146,60,0.55)', statLabel: '#ffedd5' }
-};
-
-function selectDdayColor(color) {
-    if (!DDAY_COLOR_THEMES[color]) return;
-    selectedDdayColor = color;
-    document.querySelectorAll('.dday-color-swatch').forEach(btn => {
-        btn.classList.toggle('dday-color-swatch-selected', btn.dataset.color === color);
-    });
-}
-
-const scheduleCacheStorageKey = 'signal_schedule_cache_v2';
-// sessionStorage는 새 탭/임베드(iframe)마다 매번 비어있어 캐시가 사실상 무력화되므로
-// 탭 간에도 유지되는 localStorage를 쓰고, 대신 TTL을 두어 데이터가 너무 오래 묵지 않게 한다.
-const SCHEDULE_CACHE_TTL_MS = 7 * 60 * 1000; // 7분
+const scheduleCacheStorageKey = 'signal_schedule_cache_v1';
 
 function getDefaultMemoState() {
     return { '달타':[], '다룽':[], '최또':[], '카나시':[] };
@@ -1160,15 +849,8 @@ function getDefaultMemoState() {
 
 function readScheduleCache() {
     try {
-        const raw = localStorage.getItem(scheduleCacheStorageKey);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed.savedAt !== 'number' || (Date.now() - parsed.savedAt) > SCHEDULE_CACHE_TTL_MS) {
-            // 유효기간이 지난 캐시는 버리고 새로 로드하게 한다.
-            localStorage.removeItem(scheduleCacheStorageKey);
-            return null;
-        }
-        return parsed;
+        const raw = sessionStorage.getItem(scheduleCacheStorageKey);
+        return raw ? JSON.parse(raw) : null;
     } catch (e) {
         console.warn('스케줄 캐시 읽기 실패:', e);
         return null;
@@ -1184,14 +866,11 @@ function saveScheduleCache() {
             memberGroups,
             rollingTopics,
             rollingEntries,
-            loadedRollingTopicIds: Array.from(loadedRollingTopicIds),
             signalRecords,
-            signalRecordsCursorDate,
-            signalRecordsHasMore,
             loadedMemberPages: Array.from(loadedMemberPages),
             savedAt: Date.now()
         };
-        localStorage.setItem(scheduleCacheStorageKey, JSON.stringify(payload));
+        sessionStorage.setItem(scheduleCacheStorageKey, JSON.stringify(payload));
     } catch (e) {
         console.warn('스케줄 캐시 저장 실패:', e);
     }
@@ -1205,10 +884,7 @@ function hydrateScheduleCache(cache) {
     memberGroups = Array.isArray(cache.memberGroups) ? cache.memberGroups : [];
     rollingTopics = Array.isArray(cache.rollingTopics) ? cache.rollingTopics : [];
     rollingEntries = Array.isArray(cache.rollingEntries) ? cache.rollingEntries : [];
-    loadedRollingTopicIds = new Set(Array.isArray(cache.loadedRollingTopicIds) ? cache.loadedRollingTopicIds : []);
     signalRecords = Array.isArray(cache.signalRecords) ? cache.signalRecords : [];
-    signalRecordsCursorDate = typeof cache.signalRecordsCursorDate === 'string' ? cache.signalRecordsCursorDate : null;
-    signalRecordsHasMore = cache.signalRecordsHasMore !== false;
     // 업보관리 데이터는 로컬 캐시에 저장/복원하지 않는다. 항상 loadUpboDataFromFirebase()로 즉시 최신 데이터를 받아온다.
     loadedMemberPages = new Set(Array.isArray(cache.loadedMemberPages) ? cache.loadedMemberPages : []);
     return true;
@@ -1229,16 +905,14 @@ const tabToHash = {
     '롤링페이퍼': 'rolling', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
     '노래책_달타': 'songbook_dalta', '노래책_다룽': 'songbook_darung', '노래책_최또': 'songbook_choitto', '노래책_카나시': 'songbook_kanashi',
     '시그널': 'signal',
-    '클립': 'clip',
-    '사다리타기': 'ladder'
+    '클립': 'clip'
 };
 const hashToTab = { 
     '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
     '#rolling': '롤링페이퍼', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시',
     '#songbook_dalta': '노래책_달타', '#songbook_darung': '노래책_다룽', '#songbook_choitto': '노래책_최또', '#songbook_kanashi': '노래책_카나시',
     '#signal': '시그널',
-    '#clip': '클립',
-    '#ladder': '사다리타기'
+    '#clip': '클립'
 };
 
 // =========================================================================
@@ -1316,7 +990,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6', '사다리타기': '#8B5CF6' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -1736,15 +1410,6 @@ function renderUserAuthHtml(scope, user) {
     const photo = user.photoURL || '';
     const menuId = isDesktop ? 'userAuthMenu_desktop' : 'userAuthMenu_mobile';
 
-    // ⭐ 신규: SOOP 계정으로 로그인한 상태일 때만 "구글 계정 연동" 메뉴를 보여줍니다.
-    // (구글 로그인으로 연동된 SOOP 계정에 접속한 경우도 isSoopSession이 true라 함께 노출됩니다.)
-    const linkMenuItem = isSoopSession
-        ? `<button onclick="openGoogleLinkModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">구글 계정 연동</button>`
-        : '';
-    const linkMenuItemMobile = isSoopSession
-        ? `<button onclick="openGoogleLinkModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">구글 연동</button>`
-        : '';
-
     if (isDesktop) {
         return `
             <div class="relative inline-block text-left z-[2000]">
@@ -1752,8 +1417,7 @@ function renderUserAuthHtml(scope, user) {
                     <img src="${photo}" class="w-8 h-8 rounded-full object-cover border-2 border-gray-200">
                     <span class="text-lg text-[#5D4037] font-paperozi max-w-[100px] truncate">${name}</span>
                 </div>
-                <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
-                    ${linkMenuItem}
+                <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-32 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
                     <button onclick="logoutUser()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
             </div>
@@ -1764,8 +1428,7 @@ function renderUserAuthHtml(scope, user) {
             <div class="flex items-center gap-1 cursor-pointer bg-white border border-gray-200 shadow-sm px-2 py-[5px] rounded-lg font-bold" onclick="toggleProfileDropdown('${menuId}')">
                 <img src="${photo}" class="w-[20px] h-[20px] rounded-full object-cover border border-gray-200">
             </div>
-            <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
-                ${linkMenuItemMobile}
+            <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-24 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
                 <button onclick="logoutUser()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
             </div>
         </div>
@@ -1789,9 +1452,6 @@ function refreshAuthUI() {
 }
 
 onAuthStateChanged(auth, async (user) => {
-    // 구글 계정 연동 처리 중에는 linkGoogleAccount() 쪽에서 모든 로직을 전담하므로 여기서는 무시합니다.
-    if (isLinkingGoogleAccount) return;
-
     if (!user) {
         // ⭐ 신규: SOOP 로그인 세션이 복원되어 있는 상태라면, Firebase의 '로그아웃 상태'로 덮어쓰지 않음
         if (isSoopSession) return;
@@ -1805,34 +1465,7 @@ onAuthStateChanged(auth, async (user) => {
         return;
     }
 
-    // ⭐ 신규: 이 구글 계정이 SOOP 계정에 연동되어 있는지 먼저 확인합니다.
-    // 연동되어 있으면 SOOP 계정과 완전히 동일한 정보(닉네임/프사/좋아요/롤링페이퍼 등)로 로그인 처리합니다.
-    try {
-        const linkSnap = await getDoc(doc(db, "accountLinks", user.uid));
-        if (linkSnap.exists() && linkSnap.data().soopId) {
-            const soopId = linkSnap.data().soopId;
-            const soopSnap = await getDoc(doc(db, "soopUsers", soopId));
-            if (soopSnap.exists()) {
-                const soopData = soopSnap.data();
-                currentUser = {
-                    uid: soopId,
-                    displayName: soopData.nick || soopData.displayName || user.displayName,
-                    photoURL: soopData.imgUrl || soopData.photoURL || user.photoURL
-                };
-                isSoopSession = true;
-                soopSessionViaGoogleLink = true; // 구글 로그인이 SOOP 계정에 연동되어 자동으로 채워진 세션
-                saveSoopSession(currentUser, true); // 새로고침해도 로그인 유지
-                refreshAuthUI();
-                loadAndMergeSoopLikes(soopId);
-                flushPendingLoginNotifications();
-                return;
-            }
-        }
-    } catch (e) {
-        console.error('연동 계정 확인 실패:', e);
-    }
-
-    // 연동된 SOOP 계정이 없는, 순수 구글 계정으로 실제 로그인한 경우: 기존 SOOP 세션은 정리합니다.
+    // 구글 계정으로 실제 로그인한 경우, 기존 SOOP 세션은 정리합니다.
     clearSoopSession();
     currentUser = user;
 
@@ -1882,7 +1515,6 @@ async function finalizeUserLogin(user, existingData) {
     }
 
     refreshAuthUI();
-    flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
     if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
         try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
     }
@@ -1892,12 +1524,8 @@ function openManageModal(tab = 'link') {
     if (!isAdmin || !loggedInUser) return;
     renderLinkManagePanel();
     renderUpLinkManagePanel();
-    renderDdayManagePanel();
-    resetDdayImageForm();
-    selectDdayColor('pink');
     renderInfoManagePanel();
     renderHomeManagePanel();
-    if (typeof renderUpdateManagePanel === 'function') renderUpdateManagePanel();
     document.getElementById('manageModal').classList.replace('hidden', 'flex');
     switchManageTab(tab);
 
@@ -1912,9 +1540,9 @@ function closeManageModal() {
 }
 
 function switchManageTab(tab) {
-    const panels = { link: document.getElementById('manageTabPanel_link'), up: document.getElementById('manageTabPanel_up'), dday: document.getElementById('manageTabPanel_dday'), home: document.getElementById('manageTabPanel_home'), info: document.getElementById('manageTabPanel_info'), update: document.getElementById('manageTabPanel_update') };
-    const btns = { link: document.getElementById('manageTabBtn_link'), up: document.getElementById('manageTabBtn_up'), dday: document.getElementById('manageTabBtn_dday'), home: document.getElementById('manageTabBtn_home'), info: document.getElementById('manageTabBtn_info'), update: document.getElementById('manageTabBtn_update') };
-    
+    const panels = { link: document.getElementById('manageTabPanel_link'), up: document.getElementById('manageTabPanel_up'), home: document.getElementById('manageTabPanel_home'), info: document.getElementById('manageTabPanel_info') };
+    const btns = { link: document.getElementById('manageTabBtn_link'), up: document.getElementById('manageTabBtn_up'), home: document.getElementById('manageTabBtn_home'), info: document.getElementById('manageTabBtn_info') };
+
     Object.keys(panels).forEach(key => {
         if (!panels[key] || !btns[key]) return;
         const active = key === tab;
@@ -2579,11 +2207,8 @@ async function renderHomeYoutubeBox() {
     // 2-1. UP 해줘! 버튼을 유튜브 영상 박스 위에 표시(등록된 UP 링크가 있을 때만)
     const hasUpLinks = await updateHomeUpButtonVisibility();
 
-    // 2-2. 디데이 박스를 UP 해줘! 버튼 위에 표시(D-30 이내인 기념일이 있을 때만)
-    const hasDday = renderHomeDdayBox();
-
-    // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있거나, UP 링크나 디데이가 있으면 전체 박스를 보여줌
-    homeBoxShouldShow = hasVideo || hasNotice || hasUpLinks || hasDday;
+    // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있거나, UP 링크가 있으면 전체 박스를 보여줌
+    homeBoxShouldShow = hasVideo || hasNotice || hasUpLinks;
     applyHomeYoutubeBoxVisibility();
 }
 
@@ -2642,12 +2267,9 @@ async function deleteHomeYoutubeLink() {
 async function loadHomeSettingsFromFirebase() {
     try {
         const snap = await getDoc(doc(db, 'meta', 'homeSettings'));
-        const data = snap.exists() ? snap.data() : {};
-        homeYoutubeUrl = data.youtubeUrl || '';
-        ddayBgImageUrl = data.ddayBgImage || '';
-    } catch (e) { console.error('홈 설정 로드 실패:', e); homeYoutubeUrl = ''; ddayBgImageUrl = ''; }
+        homeYoutubeUrl = snap.exists() ? (snap.data().youtubeUrl || '') : '';
+    } catch (e) { console.error('홈 설정 로드 실패:', e); homeYoutubeUrl = ''; }
     renderHomeYoutubeBox();
-    renderHomeDdayBox();
 }
 
 async function loadLinksFromFirebase() {
@@ -2814,13 +2436,11 @@ function closeUpPopup(dismissMode = null) {
     document.getElementById('upPopupOverlay').classList.add('hidden');
 }
 
-async function openRollingTopicFromPopup(id) {
+function openRollingTopicFromPopup(id) {
     closeUpPopup(true); 
     if (currentPage !== '롤링페이퍼') changeTab('롤링페이퍼');
     currentRollingTopic = rollingTopics.find(t => t.id === id);
     render();
-    await ensureRollingEntriesLoaded(id);
-    if (currentRollingTopic && currentRollingTopic.id === id) render();
 }
 
 function renderHeaderTabs() {
@@ -2833,10 +2453,7 @@ function renderHeaderTabs() {
 
     if (desktopContainer) {
         let html = `
-            <div class="relative cursor-pointer hover:scale-105 mr-1" onclick="openUpdateModal()">
-                <img src="https://res.cloudinary.com/dtlqzklk5/image/upload/v1785906907/gbcyhj4y00hrunv0encx.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;">
-                <span id="desktopLogoNewBadge" class="hidden absolute -top-1 -right-2.5 bg-[#FF5252] text-white text-[9px] font-black px-1.5 py-[1px] rounded-full shadow-md font-paperozi tracking-wider z-10">NEW</span>
-            </div>
+            <img src="https://res.cloudinary.com/dtlqzklk5/image/upload/v1785906907/gbcyhj4y00hrunv0encx.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105 mr-1" onclick="executeDesktopTabChange('홈')">
             <button class="font-paperozi px-5 py-2.5 bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[#FF5252] hover:text-[#FF5252] transition-all duration-200 flex items-center justify-center" onclick="executeDesktopTabChange('홈')">
                 <i class="fi fi-rr-home text-2xl"></i>
             </button>
@@ -2855,8 +2472,7 @@ function renderHeaderTabs() {
                 mainLinkHtml = `
                     <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
-                    <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">업보정리</a>
-                    <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">사다리타기</a>
+                    <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">업보정리</a>
                 `;
             } else if (tab === '시그널') {
                 clickAction = `onclick="executeDesktopTabChange('시그널')"`;
@@ -2887,15 +2503,14 @@ function renderHeaderTabs() {
                     </div>
                 `;
             }
-       });
+        });
         desktopContainer.innerHTML = html;
-        if (typeof checkUpdateBadge === 'function') checkUpdateBadge();
     }
 
     if (mobileNav) {
         let mHtml = '';
         ['홈', ...tabs].forEach(tab => {
-            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '사다리타기' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
+            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
             const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
             let contentHtml = '';
             
@@ -2924,47 +2539,24 @@ function openMobileTabMenu(tab) {
     const container = document.getElementById('mobileTabMenuContainer');
     const color = themeColors[tab === '더보기' ? '롤링페이퍼' : tab];
 
-    // 링크 타이틀/URL에 맞는 아이콘을 대략적으로 매칭 (SOOP/유튜브/카페 등)
-    const iconForLink = (title, url) => {
-        const t = (title || '').toLowerCase();
-        const u = (url || '').toLowerCase();
-        if (t.includes('soop') || t.includes('afreeca') || t.includes('숲')) return 'fi-rr-video-camera';
-        if (t.includes('유튜브') || t.includes('youtube') || u.includes('youtube')) return 'fi-brands-youtube';
-        if (t.includes('트위터') || t.includes('twitter') || u.includes('twitter') || u.includes('x.com')) return 'fi-brands-twitter-alt';
-        if (t.includes('인스타') || u.includes('instagram')) return 'fi-brands-instagram';
-        if (u.includes('cafe.naver.com')) return 'fi-rr-comment-heart';
-        return 'fi-rr-link';
-    };
-
     let html = `
-        <div class="flex flex-col gap-3 relative">
-            <div class="text-center font-bold text-[18px] font-paperozi" style="color: ${color}">${tab === '더보기' ? '더보기' : tab + ' 메뉴'}</div>
-            <div class="grid grid-cols-3 gap-3 justify-items-center">
+        <div class="flex flex-col gap-2 relative">
+            <div class="text-center font-bold text-[18px] mb-2 font-paperozi" style="color: ${color}">${tab === '더보기' ? '더보기' : tab + ' 메뉴'}</div>
     `;
-
-    // 앱 아이콘처럼 1:1 비율 정사각 버튼(.app-icon-btn)을 그리드로 배치
-    const iconBtn = (onclick, icon, label, btnColor) => `
-        <button onclick="${onclick}" class="app-icon-btn" style="color: ${btnColor};">
-            <i class="fi ${icon}"></i>
-            <span>${label}</span>
-        </button>`;
-
+    
     if (tab === '더보기') {
-        html += iconBtn("executeMobileTabChange('클립')", 'fi-rr-video-camera-alt', '클립', color);
-        html += iconBtn("executeMobileTabChange('롤링페이퍼')", 'fi-rr-envelope', '롤링페이퍼', color);
-        html += iconBtn("executeMobileTabChange('업보정리_달타')", 'fi-rr-box-open', '업보정리', color);
-        html += iconBtn("executeMobileTabChange('사다리타기')", 'fi-rr-ladder', '사다리타기', color);
+        html += `<button onclick="executeMobileTabChange('클립')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">클립 모아보기</button>`;
+        html += `<button onclick="executeMobileTabChange('롤링페이퍼')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">롤링페이퍼</button>`;
+        html += `<button onclick="executeMobileTabChange('업보정리_달타')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 leading-snug break-keep whitespace-normal">업보정리</button>`;
     } else {
-        html += iconBtn(`executeMobileTabChange('${tab}')`, 'fi-rr-calendar', '일정표', color);
-        html += iconBtn(`executeMobileTabChange('노래책_${tab}')`, 'fi-rr-music-alt', '노래책', color);
+        html += `<button onclick="executeMobileTabChange('${tab}')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal">일정표 보기</button>`;
+        html += `<button onclick="executeMobileTabChange('노래책_${tab}')" class="w-full px-3 py-2.5 bg-white rounded-lg font-bold text-[14px] border-[1.5px] border-gray-200 shadow-sm active:bg-gray-50 text-gray-800 mb-2 leading-snug break-keep whitespace-normal" style="border-color:${color}; color:${color}">노래책</button>`;
         const links = dynamicLinks[tab] || [];
         links.forEach(l => {
-            const isCafe = (l.url || '').toLowerCase().includes('cafe.naver.com');
-            const label = isCafe ? '카페' : l.title;
-            html += iconBtn(`openSmartLink('${l.url}')`, iconForLink(l.title, l.url), label, color);
+            html += `<a href="#" onclick="openSmartLink('${l.url}'); event.preventDefault();" class="w-full px-3 py-2.5 text-center bg-white rounded-lg font-bold text-[14px] shadow-sm border-[1.5px] active:brightness-95 mb-2 leading-snug break-keep whitespace-normal block" style="border-color: ${color}; color: ${color}">${l.title}</a>`;
         });
     }
-    html += `</div></div>`;
+    html += `</div>`;
     container.innerHTML = html;
     
     overlay.classList.remove('hidden'); overlay.classList.add('block');
@@ -2983,446 +2575,11 @@ function closeMobileTabMenu() {
     setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('block'); }, 200);
 }
 
-/* =========================================================
-   더보기 - 사다리타기
-   ========================================================= */
-let ladderCount = 4;
-let ladderNames = [];
-let ladderResults = [];
-let ladderRungsData = [];
-let ladderRowCount = 9;
-let ladderUsedStart = new Set();
-let ladderUsedEnd = new Set();
-let ladderRungsRevealed = false;
-
-const LADDER_HEADER_H = 110;
-const LADDER_TOP_Y = LADDER_HEADER_H + 21;
-const LADDER_ROW_HEIGHT = 44;
-const LADDER_COL_SPACING = 110;
-const LADDER_COLW = 96;
-const LADDER_BOX_W = 88;
-const LADDER_BOX_H = 44;
-const LADDER_AVATAR_BG = ['#F1E7FB', '#E3EEFB', '#FDE9D9', '#E4F1E4', '#FBE7EE', '#FFF3D6', '#E7F5F0', '#E7F0FB'];
-const LADDER_AVATAR_FG = ['#8e5fc9', '#4d84c9', '#e08a3c', '#4c9a63', '#c95f8b', '#c99a2f', '#3f9e88', '#4f75c9'];
-
-function ladderEscapeXml(str) {
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-// 사다리타기에서 사용할 전체 멤버 목록: 기본 멤버(members) + 멤버관리(Firebase)에서 등록한 멤버(customMembers)
-function ladderAllMembersList() {
-    return [
-        ...members.map(m => ({ name: m.name, img: m.img })),
-        ...customMembers.map(m => ({ name: m.nickname, img: m.imageUrl }))
-    ];
-}
-
-// 입력된 이름이 멤버 DB(기본 멤버 + 멤버관리 등록 멤버)에 있는 이름과 일치하면 해당 멤버 정보를 반환
-function ladderMatchedMember(name) {
-    if (!name) return null;
-    const trimmed = String(name).trim();
-    if (!trimmed) return null;
-    return ladderAllMembersList().find(m => m.name === trimmed) || null;
-}
-
-// 사다리타기 아바타(원형) 안쪽 내용을 멤버 매칭 여부에 따라 채워 넣음
-function ladderAvatarInnerHTML(i) {
-    const matched = ladderMatchedMember(ladderNames[i]);
-    if (matched && matched.img) {
-        return `<img src="${ladderEscapeXml(matched.img)}" alt="${ladderEscapeXml(matched.name)}" class="ladder-avatar-img" loading="lazy" decoding="async" onerror="this.style.display='none'">`;
-    }
-    return ladderNames[i] ? ladderEscapeXml(ladderNames[i][0]) : (i + 1);
-}
-
-// 이름 입력창에 입력이 있을 때마다 아바타를 즉시(리렌더 없이) 갱신
-function updateLadderAvatarDisplay(i) {
-    const avatarEl = document.getElementById(`ladderAvatar_${i}`);
-    if (!avatarEl) return;
-    const matched = ladderMatchedMember(ladderNames[i]);
-    if (matched && matched.img) {
-        avatarEl.classList.add('has-photo');
-        avatarEl.style.background = 'transparent';
-        avatarEl.style.color = '';
-        avatarEl.innerHTML = ladderAvatarInnerHTML(i);
-    } else {
-        avatarEl.classList.remove('has-photo');
-        const bg = LADDER_AVATAR_BG[i % LADDER_AVATAR_BG.length];
-        const fg = LADDER_AVATAR_FG[i % LADDER_AVATAR_FG.length];
-        avatarEl.style.background = bg;
-        avatarEl.style.color = fg;
-        avatarEl.innerHTML = ladderAvatarInnerHTML(i);
-    }
-}
-
-function renderLadderPage() {
-    const content = document.getElementById('mainContent');
-    if (!content) return;
-    if (!ladderNames.length) resizeLadderArrays();
-    if (!ladderRungsData.length) ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
-
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
-
-    const html = `<div class="big-white-box relative theme-rolling" style="min-height: 900px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">
-        <div class="mb-6 flex items-center gap-2">
-            <i class="fi fi-rr-ladder text-[24px]" style="color:#8B5CF6;"></i>
-            <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi">사다리타기</h2>
-        </div>
-        <div id="ladderGameBoard" class="ladder-board">
-            <div class="ladder-board-top">
-                <div class="ladder-count-nav" title="참여 인원">
-                    <button type="button" onclick="changeLadderCount(-1)" aria-label="인원 줄이기">‹</button>
-                    <span class="ladder-count-text">참가자 <b id="ladderCountDisplay">${ladderCount}</b>명</span>
-                    <button type="button" onclick="changeLadderCount(1)" aria-label="인원 늘리기">›</button>
-                </div>
-                <div class="ladder-actions">
-                    <button type="button" id="ladderStartBtn" class="ladder-start-btn">▷ START</button>
-                    <button type="button" class="ladder-secondary-btn ladder-shuffle-btn ladder-icon-btn" onclick="shuffleLadderRungs()" aria-label="셔플" title="셔플">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-                    </button>
-                    <button type="button" class="ladder-secondary-btn ladder-reset-btn ladder-icon-btn" onclick="confirmResetLadderGame()" aria-label="리셋" title="리셋">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><polyline points="3 4 3 9 8 9"></polyline></svg>
-                    </button>
-                </div>
-            </div>
-            <div id="ladderSvgWrap" class="ladder-svg-wrap"></div>
-        </div>
-        <div id="ladderResultText" class="ladder-result-text"></div>
-    </div>`;
-
-    content.innerHTML = html;
-    renderLadderSVG();
-    updateLadderStartBtnState();
-}
-
-function updateLadderStartBtnState() {
-    const btn = document.getElementById('ladderStartBtn');
-    if (!btn) return;
-    if (ladderRungsRevealed) {
-        btn.textContent = '전체 결과';
-        btn.onclick = () => playAllLadderPaths();
-    } else {
-        btn.textContent = '▷ START';
-        btn.onclick = () => startLadderGame();
-    }
-}
-
-function ladderX(i) { return 60 + i * LADDER_COL_SPACING; }
-
-function resizeLadderArrays() {
-    const newNames = [], newResults = [];
-    for (let i = 0; i < ladderCount; i++) {
-        newNames.push(ladderNames[i] || '');
-        newResults.push(ladderResults[i] || '');
-    }
-    ladderNames = newNames;
-    ladderResults = newResults;
-}
-
-window.updateLadderName = function(i, val) { ladderNames[i] = val; updateLadderAvatarDisplay(i); };
-window.updateLadderResult = function(i, val) { ladderResults[i] = val; };
-
-window.changeLadderCount = function(delta) {
-    const next = ladderCount + delta;
-    if (next < 2 || next > 10) return;
-    ladderCount = next;
-    resizeLadderArrays();
-    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
-    ladderUsedStart = new Set();
-    ladderUsedEnd = new Set();
-    ladderRungsRevealed = false;
-    const resultTextEl = document.getElementById('ladderResultText');
-    if (resultTextEl) resultTextEl.innerHTML = '';
-    renderLadderSVG();
-    updateLadderStartBtnState();
-    const countDisplay = document.getElementById('ladderCountDisplay');
-    if (countDisplay) countDisplay.textContent = ladderCount;
-};
-
-function generateLadderRungs(n, rowCount) {
-    const rungs = [];
-    for (let r = 0; r < rowCount; r++) {
-        const row = new Array(n - 1).fill(false);
-        let i = 0;
-        while (i < n - 1) {
-            if (Math.random() < 0.45) { row[i] = true; i += 2; }
-            else { i += 1; }
-        }
-        rungs.push(row);
-    }
-    return rungs;
-}
-
-function ladderBottomY() { return LADDER_TOP_Y + ladderRowCount * LADDER_ROW_HEIGHT; }
-
-function renderLadderSVG() {
-    const n = ladderCount;
-    const svgWrap = document.getElementById('ladderSvgWrap');
-    if (!svgWrap) return;
-
-    const width = LADDER_COL_SPACING * (n - 1) + 120;
-    const bottom = ladderBottomY();
-    const height = bottom + 60;
-
-    let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="auto" style="max-width:${width}px;" xmlns="http://www.w3.org/2000/svg">`;
-
-    for (let i = 0; i < n; i++) {
-        const x = ladderX(i);
-        svg += `<line class="ladder-vline" x1="${x}" y1="${LADDER_TOP_Y}" x2="${x}" y2="${bottom}"></line>`;
-    }
-
-    if (ladderRungsRevealed) {
-        for (let r = 0; r < ladderRowCount; r++) {
-            const y = LADDER_TOP_Y + (r + 0.5) * LADDER_ROW_HEIGHT;
-            ladderRungsData[r].forEach((has, i) => {
-                if (has) svg += `<line class="ladder-rung" x1="${ladderX(i)}" y1="${y}" x2="${ladderX(i + 1)}" y2="${y}"></line>`;
-            });
-        }
-    }
-
-    svg += `<g id="ladderPathsLayer"></g>`;
-
-    for (let i = 0; i < n; i++) {
-        const x = ladderX(i);
-        const bg = LADDER_AVATAR_BG[i % LADDER_AVATAR_BG.length];
-        const fg = LADDER_AVATAR_FG[i % LADDER_AVATAR_FG.length];
-        const matched = ladderMatchedMember(ladderNames[i]);
-        const avatarStyle = matched && matched.img ? 'background:transparent;' : `background:${bg}; color:${fg};`;
-        const avatarCls = matched && matched.img ? ' has-photo' : '';
-        const isUsed = ladderUsedStart.has(i);
-        const usedCls = isUsed ? ' used' : '';
-        const clickable = ladderRungsRevealed && !isUsed;
-        const clickCls = clickable ? ' clickable' : '';
-        const headerClickAttr = clickable ? ` onclick="playLadderFromStart(${i})"` : '';
-
-        svg += `<foreignObject x="${x - LADDER_COLW / 2}" y="0" width="${LADDER_COLW}" height="${LADDER_HEADER_H}">
-            <div xmlns="http://www.w3.org/1999/xhtml" class="ladder-col-header${usedCls}${clickCls}" id="ladderColHeader_${i}"${headerClickAttr}>
-                <div class="ladder-avatar${avatarCls}" id="ladderAvatar_${i}" style="${avatarStyle}">${ladderAvatarInnerHTML(i)}</div>
-                <input class="ladder-name-pill" id="ladderNameInput_${i}" value="${ladderEscapeXml(ladderNames[i] || '')}" placeholder="이름${i + 1}" maxlength="8" oninput="updateLadderName(${i}, this.value)" ${isUsed ? 'disabled' : ''} ${clickable ? 'readonly style="pointer-events:none;"' : ''}>
-            </div>
-        </foreignObject>`;
-    }
-
-    for (let i = 0; i < n; i++) {
-        const x = ladderX(i);
-        const y = bottom + 12;
-        if (!ladderRungsRevealed) {
-            svg += `<g class="ladder-result-box" id="ladderBottomBox_${i}">
-                <rect x="${x - LADDER_BOX_W / 2}" y="${y}" width="${LADDER_BOX_W}" height="${LADDER_BOX_H}" rx="12"></rect>
-            </g>
-            <foreignObject x="${x - LADDER_BOX_W / 2}" y="${y + 3}" width="${LADDER_BOX_W}" height="${LADDER_BOX_H - 6}">
-                <input xmlns="http://www.w3.org/1999/xhtml" type="text" class="ladder-result-input" id="ladderResultInput_${i}" value="${ladderEscapeXml(ladderResults[i] || '')}" placeholder="결과${i + 1}" maxlength="8" oninput="updateLadderResult(${i}, this.value)">
-            </foreignObject>`;
-        } else {
-            const isEndUsed = ladderUsedEnd.has(i);
-            const resultLabel = ladderResults[i] ? ladderEscapeXml(ladderResults[i]) : `결과${i + 1}`;
-            const labelClickAttr = isEndUsed ? '' : `onclick="playLadderFromResult(${i})"`;
-            const labelUsedCls = isEndUsed ? ' is-used' : '';
-            const hitCls = isEndUsed ? ' hit' : '';
-            svg += `<g class="ladder-result-box${hitCls}" id="ladderBottomBox_${i}">
-                <rect x="${x - LADDER_BOX_W / 2}" y="${y}" width="${LADDER_BOX_W}" height="${LADDER_BOX_H}" rx="12"></rect>
-            </g>
-            <foreignObject x="${x - LADDER_BOX_W / 2}" y="${y + 3}" width="${LADDER_BOX_W}" height="${LADDER_BOX_H - 6}">
-                <div xmlns="http://www.w3.org/1999/xhtml" class="ladder-result-label${labelUsedCls}" id="ladderResultLabel_${i}" ${labelClickAttr}>${resultLabel}</div>
-            </foreignObject>`;
-        }
-    }
-
-    svg += `</svg>`;
-    svgWrap.innerHTML = svg;
-}
-
-function ladderAnimatePath(d) {
-    const pathsLayer = document.getElementById('ladderPathsLayer');
-    if (!pathsLayer) return;
-    const ns = 'http://www.w3.org/2000/svg';
-    const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('class', 'ladder-path');
-    pathsLayer.appendChild(path);
-    const len = path.getTotalLength();
-    path.style.strokeDasharray = String(len);
-    path.style.strokeDashoffset = String(len);
-    path.getBoundingClientRect();
-    path.style.transition = 'stroke-dashoffset 0.9s ease';
-    requestAnimationFrame(() => { path.style.strokeDashoffset = '0'; });
-}
-
-function markLadderUsed(start, end) {
-    const colHeader = document.getElementById(`ladderColHeader_${start}`);
-    if (colHeader) { colHeader.classList.add('used'); colHeader.style.pointerEvents = 'none'; }
-    const nameInput = document.getElementById(`ladderNameInput_${start}`);
-    if (nameInput) nameInput.disabled = true;
-    const bottomBox = document.getElementById(`ladderBottomBox_${end}`);
-    if (bottomBox) bottomBox.classList.add('hit');
-    const resultLabel = document.getElementById(`ladderResultLabel_${end}`);
-    if (resultLabel) { resultLabel.classList.add('is-used'); resultLabel.removeAttribute('onclick'); }
-    ladderUsedStart.add(start);
-    ladderUsedEnd.add(end);
-}
-
-function addLadderResultSummaryItem(i, end) {
-    const resultTextEl = document.getElementById('ladderResultText');
-    if (!resultTextEl) return;
-    const bg = LADDER_AVATAR_BG[i % LADDER_AVATAR_BG.length];
-    const fg = LADDER_AVATAR_FG[i % LADDER_AVATAR_FG.length];
-    const matched = ladderMatchedMember(ladderNames[i]);
-    const name = ladderNames[i] || `참가자${i + 1}`;
-    const result = ladderResults[end] || `결과${end + 1}`;
-    const avatarInner = matched && matched.img
-        ? `<img src="${ladderEscapeXml(matched.img)}" alt="${ladderEscapeXml(matched.name)}" class="ladder-result-summary-avatar-img" loading="lazy" decoding="async" onerror="this.style.display='none'">`
-        : (ladderNames[i] ? ladderEscapeXml(ladderNames[i][0]) : (i + 1));
-    const avatarStyle = matched && matched.img ? 'background:transparent;' : `background:${bg}; color:${fg};`;
-
-    const item = document.createElement('div');
-    item.className = 'ladder-result-summary-item';
-    item.innerHTML = `
-        <span class="ladder-result-summary-avatar" style="display:flex;align-items:center;justify-content:center;font-weight:900;${avatarStyle}">${avatarInner}</span>
-        <span class="ladder-result-summary-name">${ladderEscapeXml(name)}</span>
-        <span class="ladder-result-summary-arrow">→</span>
-        <span class="ladder-result-summary-result">${ladderEscapeXml(result)}</span>
-    `;
-    resultTextEl.appendChild(item);
-}
-
-window.playLadderFromResult = function(end) {
-    if (ladderUsedEnd.has(end)) return;
-    const n = ladderCount;
-    let curCol = end;
-    let d = `M ${ladderX(curCol)} ${ladderBottomY()}`;
-    for (let r = ladderRowCount - 1; r >= 0; r--) {
-        const midY = LADDER_TOP_Y + (r + 0.5) * LADDER_ROW_HEIGHT;
-        const rowTopY = LADDER_TOP_Y + r * LADDER_ROW_HEIGHT;
-        d += ` L ${ladderX(curCol)} ${midY}`;
-        let newCol = curCol;
-        if (curCol > 0 && ladderRungsData[r][curCol - 1]) newCol = curCol - 1;
-        else if (curCol < n - 1 && ladderRungsData[r][curCol]) newCol = curCol + 1;
-        if (newCol !== curCol) { d += ` L ${ladderX(newCol)} ${midY}`; curCol = newCol; }
-        d += ` L ${ladderX(curCol)} ${rowTopY}`;
-    }
-    const start = curCol;
-    ladderAnimatePath(d);
-    markLadderUsed(start, end);
-    addLadderResultSummaryItem(start, end);
-    checkLadderAllDone();
-};
-
-window.playLadderFromStart = function(start) {
-    if (ladderUsedStart.has(start)) return;
-    const n = ladderCount;
-    let curCol = start;
-    let d = `M ${ladderX(curCol)} ${LADDER_TOP_Y}`;
-    for (let r = 0; r < ladderRowCount; r++) {
-        const midY = LADDER_TOP_Y + (r + 0.5) * LADDER_ROW_HEIGHT;
-        const rowBottomY = LADDER_TOP_Y + (r + 1) * LADDER_ROW_HEIGHT;
-        d += ` L ${ladderX(curCol)} ${midY}`;
-        let newCol = curCol;
-        if (curCol > 0 && ladderRungsData[r][curCol - 1]) newCol = curCol - 1;
-        else if (curCol < n - 1 && ladderRungsData[r][curCol]) newCol = curCol + 1;
-        if (newCol !== curCol) { d += ` L ${ladderX(newCol)} ${midY}`; curCol = newCol; }
-        d += ` L ${ladderX(curCol)} ${rowBottomY}`;
-    }
-    const end = curCol;
-    ladderAnimatePath(d);
-    markLadderUsed(start, end);
-    addLadderResultSummaryItem(start, end);
-    checkLadderAllDone();
-};
-
-window.playAllLadderPaths = function() {
-    for (let i = 0; i < ladderCount; i++) {
-        if (!ladderUsedStart.has(i)) playLadderFromStart(i);
-    }
-};
-
-// 참가자 전원이 사다리를 다 탔는지 확인하고, 다 탔다면 결과창 맨 위에 "다시하기" 버튼을 보여준다.
-function checkLadderAllDone() {
-    if (ladderCount > 0 && ladderUsedStart.size === ladderCount) {
-        showLadderReplayButton();
-    }
-}
-
-function showLadderReplayButton() {
-    const resultTextEl = document.getElementById('ladderResultText');
-    if (!resultTextEl || document.getElementById('ladderReplayBtn')) return;
-    const row = document.createElement('div');
-    row.className = 'ladder-replay-btn-row';
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'ladderReplayBtn';
-    btn.className = 'ladder-replay-btn-sm';
-    btn.textContent = '↻ 다시하기';
-    btn.onclick = replayLadderSameSetup;
-    row.appendChild(btn);
-    resultTextEl.appendChild(row);
-}
-
-// 참가자 이름/결과 항목은 그대로 유지한 채, 선(사다리 경로)는 새로 섞고 시작 전 준비 단계(줄 안 보임)로 되돌림
-window.replayLadderSameSetup = function() {
-    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
-    ladderUsedStart = new Set();
-    ladderUsedEnd = new Set();
-    ladderRungsRevealed = false;
-    const resultTextEl = document.getElementById('ladderResultText');
-    if (resultTextEl) resultTextEl.innerHTML = '';
-    renderLadderSVG();
-    updateLadderStartBtnState();
-};
-
-window.startLadderGame = function() {
-    if (!ladderRungsData.length) ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
-    ladderRungsRevealed = true;
-    renderLadderSVG();
-    updateLadderStartBtnState();
-};
-
-function resetLadderGame() {
-    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
-    ladderUsedStart = new Set();
-    ladderUsedEnd = new Set();
-    ladderRungsRevealed = false;
-    const resultTextEl = document.getElementById('ladderResultText');
-    if (resultTextEl) resultTextEl.innerHTML = '';
-    renderLadderSVG();
-    updateLadderStartBtnState();
-}
-window.resetLadderGame = resetLadderGame;
-
-function fullResetLadderGame() {
-    ladderCount = 4; ladderNames = []; ladderResults = [];
-    resizeLadderArrays();
-    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
-    ladderUsedStart = new Set(); ladderUsedEnd = new Set(); ladderRungsRevealed = false;
-    const resultTextEl = document.getElementById('ladderResultText');
-    if (resultTextEl) resultTextEl.innerHTML = '';
-    renderLadderSVG();
-    updateLadderStartBtnState();
-    const countDisplay = document.getElementById('ladderCountDisplay');
-    if (countDisplay) countDisplay.textContent = ladderCount;
-}
-
-window.confirmResetLadderGame = function() {
-    if (!confirm('사다리 세팅을 초기화 할까요?')) return;
-    fullResetLadderGame();
-    showToast('사다리 세팅을 초기화했습니다.');
-};
-
-// 진행 중(누군가 이미 사다리를 탄 상태)이 아니면 사다리 선 배치를 즉시 새로 섞음
-window.shuffleLadderRungs = function() {
-    if (ladderUsedStart.size > 0) {
-        showToast('이미 진행된 사다리는 섞을 수 없어요.');
-        return;
-    }
-    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
-    renderLadderSVG();
-};
-
-async function openRollingTopicFromMenu(id) {
+function openRollingTopicFromMenu(id) {
     closeMobileTabMenu();
     if (currentPage !== '롤링페이퍼') changeTab('롤링페이퍼');
     currentRollingTopic = rollingTopics.find(t => t.id === id);
     render();
-    await ensureRollingEntriesLoaded(id);
-    if (currentRollingTopic && currentRollingTopic.id === id) render();
 }
 
 function executeDesktopTabChange(tab) { changeTab(tab); }
@@ -3605,235 +2762,6 @@ async function deleteUpLink(upId, source = 'uplinks') {
         if (isUpModeModalOpen()) renderUpModeModalContent();
         renderUpLinkManagePanel();
     } catch(e) { console.error(e); }
-}
-
-// =========================================================================
-// 디데이(기념일 카운트다운) — 홈탭 UP 해줘! 버튼 위에 D-30부터 표시
-// =========================================================================
-
-// 기준일 대비 남은 일수 계산 (KST 자정 기준, 지난 날짜는 음수)
-function getDdayDaysLeft(dateStr, todayStr = getTodayYYYYMMDD()) {
-    if (!dateStr) return NaN;
-    const target = new Date(`${dateStr}T00:00:00+09:00`);
-    const today = new Date(`${todayStr}T00:00:00+09:00`);
-    return Math.round((target - today) / (24 * 60 * 60 * 1000));
-}
-
-async function loadDdaysFromFirebase() {
-    try {
-        const snap = await getDocs(collection(db, 'ddays'));
-        ddaysList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch (e) {
-        console.error('디데이 로드 실패:', e);
-        ddaysList = [];
-    }
-    renderHomeDdayBox();
-}
-
-// 홈탭 UP 해줘! 버튼 바로 위 박스 - D-30 이내(당일 포함)로 남은 기념일만 가까운 순으로 표시
-function renderHomeDdayBox() {
-    const box = document.getElementById('homeDdayBox');
-    if (!box) return false;
-
-    const todayStr = getTodayYYYYMMDD();
-    const items = ddaysList
-        .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.date, todayStr) }))
-        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 30)
-        .sort((a, b) => a.daysLeft - b.daysLeft);
-
-    if (items.length === 0) {
-        box.classList.add('hidden');
-        box.innerHTML = '';
-        box.style.backgroundImage = '';
-        box.classList.remove('home-dday-box-bg');
-        return false;
-    }
-
-    const rowsHtml = items.map(d => {
-        const dateLabel = (d.date || '').replaceAll('-', '.');
-        const isToday = d.daysLeft === 0;
-        const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
-        const themeVars = `--dday-c1:${theme.c1};--dday-c2:${theme.c2};--dday-badge-bg:${theme.badgeBg};--dday-badge-border:${theme.badgeBorder};--dday-badge-text:${theme.badgeText};--dday-stat-g1:${theme.statG1};--dday-stat-g2:${theme.statG2};--dday-stat-border:${theme.statBorder};--dday-stat-shadow:${theme.statShadow};--dday-stat-label:${theme.statLabel};`;
-        const cardImage = d.image || ddayBgImageUrl;
-        
-        const bgImageStyle = cardImage
-                ? `--dday-img: url('${cardImage}');`
-                : '';            
-        const message = (d.message || '').trim() || '함께 손꼽아 기다려요!';
-        return `
-        <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''}" style="${themeVars}${bgImageStyle}">
-            <span class="dday-hero-badge">${escapeHtml(dateLabel)} COUNTDOWN</span>
-            <div class="dday-hero-title font-paperozi">${escapeHtml(d.title || '기념일')}까지</div>
-            <div class="dday-hero-sub">${escapeHtml(message)}</div>
-            <div class="dday-hero-stat-row">
-                <div class="dday-hero-stat">
-                    <div class="dday-hero-stat-num">${isToday ? 'D-DAY' : d.daysLeft}</div>
-                    ${isToday ? '' : '<div class="dday-hero-stat-label">DAYS</div>'}
-                </div>
-            </div>
-        </div>
-    `;
-    }).join('');
-
-    box.classList.remove('home-dday-box-bg');
-    box.style.backgroundImage = '';
-    box.innerHTML = rowsHtml;
-    box.classList.remove('hidden');
-    return true;
-}
-
-// 디데이 등록 폼: 디데이별 배경 이미지 (링크 입력 또는 파일 업로드)
-function switchDdayImgTab(tab) {
-    const urlSection = document.getElementById('ddayImageUrlSection');
-    const fileSection = document.getElementById('ddayImageFileSection');
-    const tabUrl = document.getElementById('ddayImgTabUrl');
-    const tabFile = document.getElementById('ddayImgTabFile');
-    if (!urlSection || !fileSection) return;
-    if (tab === 'url') {
-        urlSection.classList.remove('hidden');
-        fileSection.classList.add('hidden');
-        tabUrl.classList.add('bg-[#5D4037]', 'text-white');
-        tabUrl.classList.remove('bg-white', 'text-[#5D4037]');
-        tabFile.classList.add('bg-white', 'text-[#5D4037]');
-        tabFile.classList.remove('bg-[#5D4037]', 'text-white');
-    } else {
-        urlSection.classList.add('hidden');
-        fileSection.classList.remove('hidden');
-        tabFile.classList.add('bg-[#5D4037]', 'text-white');
-        tabFile.classList.remove('bg-white', 'text-[#5D4037]');
-        tabUrl.classList.add('bg-white', 'text-[#5D4037]');
-        tabUrl.classList.remove('bg-[#5D4037]', 'text-white');
-    }
-}
-
-function previewDdayImageFile(input) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const preview = document.getElementById('ddayImagePreview');
-        if (preview) { preview.src = e.target.result; preview.classList.remove('hidden'); }
-    };
-    reader.readAsDataURL(file);
-}
-
-function previewDdayImageUrl(input) {
-    const url = input.value.trim();
-    const preview = document.getElementById('ddayImagePreview');
-    if (!preview) return;
-    if (url) { preview.src = url; preview.classList.remove('hidden'); }
-    else { preview.classList.add('hidden'); }
-}
-
-// 디데이 등록 폼의 이미지 입력 영역을 초기 상태로 되돌린다 (등록 완료 후 / 모달 오픈 시 호출)
-function resetDdayImageForm() {
-    const urlInput = document.getElementById('ddayImageUrlText');
-    const fileInput = document.getElementById('ddayImageFile');
-    const preview = document.getElementById('ddayImagePreview');
-    if (urlInput) urlInput.value = '';
-    if (fileInput) fileInput.value = '';
-    if (preview) { preview.src = ''; preview.classList.add('hidden'); }
-    switchDdayImgTab('url');
-}
-
-// 관리자 > 관리 > 디데이 관리 탭: 등록된 기념일 전체를 날짜 가까운 순으로 보여준다 (D-30 밖이어도 관리 목록에는 항상 표시)
-function renderDdayManagePanel() {
-    if (!isAdmin || !loggedInUser) return;
-    const container = document.getElementById('ddayManageContainer');
-    if (!container) return;
-
-    if (ddaysList.length === 0) {
-        container.innerHTML = `<div class="text-center text-gray-400 font-bold py-6 text-[13px]">등록된 디데이가 없습니다.</div>`;
-        return;
-    }
-
-    const todayStr = getTodayYYYYMMDD();
-    const sorted = [...ddaysList].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-
-    container.innerHTML = sorted.map(d => {
-        const daysLeft = getDdayDaysLeft(d.date, todayStr);
-        const label = daysLeft === 0 ? 'D-DAY' : (daysLeft > 0 ? `D-${daysLeft}` : `D+${Math.abs(daysLeft)}`);
-        const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
-        const thumb = d.image
-            ? `<img src="${d.image}" class="w-10 h-10 rounded-lg object-cover border-2 border-gray-200 shrink-0">`
-            : `<span class="w-10 h-10 rounded-lg shrink-0" style="background:${theme.swatch};"></span>`;
-        return `
-        <div class="flex justify-between items-center bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm gap-2">
-            ${thumb}
-            <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${theme.swatch};"></span>
-                    <span class="text-[11px] font-bold shrink-0 text-blue-600">${label}</span>
-                    <div class="font-bold text-[14px] text-[#5D4037] truncate">${escapeHtml(d.title || '기념일')}</div>
-                </div>
-                <div class="text-[11.5px] text-gray-400 font-bold mt-0.5">${d.date}${d.message ? ' · ' + escapeHtml(d.message) : ''}</div>
-            </div>
-            <button onclick="deleteDday('${d.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
-        </div>`;
-    }).join('');
-}
-
-async function addDday() {
-    const titleInput = document.getElementById('ddayTitle');
-    const dateInput = document.getElementById('ddayDate');
-    const messageInput = document.getElementById('ddayMessage');
-    const title = titleInput.value.trim();
-    const date = dateInput.value;
-    const message = messageInput ? messageInput.value.trim() : '';
-    const color = DDAY_COLOR_THEMES[selectedDdayColor] ? selectedDdayColor : 'pink';
-
-    if (!date) return alert('날짜를 선택하세요.');
-    if (!title) return alert('기념일 제목을 입력하세요.');
-
-    let imageUrl = document.getElementById('ddayImageUrlText') ? document.getElementById('ddayImageUrlText').value.trim() : '';
-    const imageFileInput = document.getElementById('ddayImageFile');
-    let toast = null;
-
-    try {
-        if (imageFileInput && imageFileInput.files.length > 0) {
-            toast = document.createElement('div');
-            toast.innerText = '이미지를 업로드 중 입니다..⏳';
-            toast.className = 'fixed bottom-12 left-1/2 transform -translate-x-1/2 bg-[#5D4037] text-white px-6 py-3 rounded-xl shadow-2xl z-[9999] font-bold font-paperozi transition-opacity duration-300 opacity-0';
-            document.body.appendChild(toast);
-            requestAnimationFrame(() => toast.classList.remove('opacity-0'));
-
-            const url = await window.uploadImageToCloudinary(imageFileInput.files[0]);
-            if (url) imageUrl = url;
-
-            toast.classList.add('opacity-0');
-            setTimeout(() => toast.remove(), 300);
-            toast = null;
-        }
-
-        const newDday = { title, date, color, message, image: imageUrl, timestamp: Date.now() };
-        const docRef = await addDoc(collection(db, 'ddays'), newDday);
-        ddaysList.push({ id: docRef.id, ...newDday });
-        alert('디데이가 추가되었습니다.');
-        titleInput.value = '';
-        dateInput.value = '';
-        if (messageInput) messageInput.value = '';
-        resetDdayImageForm();
-        selectDdayColor('pink');
-        renderDdayManagePanel();
-        renderHomeDdayBox();
-    } catch (e) {
-        console.error('디데이 추가 실패:', e);
-        alert('추가에 실패했습니다.');
-        if (toast) toast.remove();
-    }
-}
-
-async function deleteDday(ddayId) {
-    if (!confirm('이 디데이를 삭제하시겠습니까?')) return;
-    try {
-        await deleteDoc(doc(db, 'ddays', ddayId));
-        ddaysList = ddaysList.filter(d => d.id !== ddayId);
-        renderDdayManagePanel();
-        renderHomeDdayBox();
-    } catch (e) {
-        console.error('디데이 삭제 실패:', e);
-        alert('삭제에 실패했습니다.');
-    }
 }
 
 function toggleUpPanel() {
@@ -4701,12 +3629,8 @@ async function loadUpboDataFromFirebase() {
 }
 window.loadUpboDataFromFirebase = loadUpboDataFromFirebase;
 
-async function loadSchedulesFromFirebase({ forceReload = false, member = null, members = null, useCacheOnly = false } = {}) {
+async function loadSchedulesFromFirebase({ forceReload = false, member = null, useCacheOnly = false } = {}) {
     const cached = !forceReload ? readScheduleCache() : null;
-    const allMemberKeys = Object.keys(collectionMap);
-    // member/members를 둘 다 지정하지 않은 "전체 멤버" 요청인지 여부 (예: 홈 탭)
-    const wantsAllMembers = !member && members === null;
-    const cachedHasAllMembers = !!(cached && Array.isArray(cached.loadedMemberPages) && allMemberKeys.every(m => cached.loadedMemberPages.includes(m)));
 
     if (!forceReload && member && loadedMemberPages.has(member) && cached) {
         hydrateScheduleCache(cached);
@@ -4715,18 +3639,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         return true;
     }
 
-    // 전체 멤버 요청은 캐시가 실제로 모든 멤버의 일정을 담고 있을 때만 캐시를 그대로 쓴다.
-    // (예: 다른 탭으로 처음 들어와 일부 멤버 데이터만 캐싱된 상태에서 홈으로 이동한 경우 재요청 필요)
-    if (!forceReload && wantsAllMembers && cached && cachedHasAllMembers) {
-        hydrateScheduleCache(cached);
-        renderHeaderTabs();
-        render();
-        return true;
-    }
-
-    // 특정 멤버 목록(빈 배열 포함)만 요청한 경우: 공통 데이터(멤버 목록/그룹/롤링 주제 등)는
-    // 캐시가 존재하는 한 항상 채워져 있으므로, 캐시가 있으면 그대로 사용해도 된다.
-    if (!forceReload && members !== null && cached) {
+    if (!forceReload && !member && cached) {
         hydrateScheduleCache(cached);
         renderHeaderTabs();
         render();
@@ -4746,7 +3659,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
     }
 
     try {
-        const targetMembers = members !== null ? members : (member ? [member] : allMemberKeys);
+        const targetMembers = member ? [member] : Object.keys(collectionMap);
         const eventPromises = targetMembers.map((targetMember) => {
             const colName = collectionMap[targetMember];
             return getDocs(collection(db, colName)).then(snapshot => ({ type: 'event', member: targetMember, colName, snapshot }));
@@ -4798,27 +3711,19 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         }
 
         if (!cached) {
-            try {
-                const smSnap = await getDocs(collection(memberDb, 'members'));
-                customMembers = [];
-                smSnap.forEach(docSnap => {
-                    const data = docSnap.data();
-                    customMembers.push({
-                        id: docSnap.id,
-                        nickname: data.name || '',
-                        soopId: data.soopId || '',
-                        imageUrl: data.img || 'https://via.placeholder.com/60',
-                        isCrew: data.type === 'crew',
-                        timestamp: data.timestamp || 0
-                    });
+            const smSnap = await getDocs(collection(memberDb, 'members'));
+            customMembers = [];
+            smSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                customMembers.push({
+                    id: docSnap.id,
+                    nickname: data.name || '',
+                    soopId: data.soopId || '',
+                    imageUrl: data.img || 'https://via.placeholder.com/60',
+                    isCrew: data.type === 'crew',
+                    timestamp: data.timestamp || 0
                 });
-            } catch (memberErr) {
-                // 멤버관리 DB(memberDb)만 실패해도 스케줄 등 나머지 데이터 로드/렌더는 계속 진행되도록 별도로 처리
-                console.error('멤버관리 데이터 로드 실패 (memberDb - members 컬렉션):', memberErr);
-                if (isAdmin && typeof showToast === 'function') {
-                    showToast('멤버 목록을 불러오지 못했습니다. Firestore 권한(규칙)을 확인해주세요.');
-                }
-            }
+            });
 
             const grpSnap = await getDocs(collection(db, 'memberGroups'));
             memberGroups = [];
@@ -4829,13 +3734,16 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
             topicSnap.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
             sortRollingTopics();
 
-            // rollingEntries는 여기서 전체를 긁지 않는다. 주제 개수가 쌓일수록 항목도 함께 계속
-            // 쌓이는 컬렉션이라, 방문자가 실제로 열어본 주제의 항목만 openRollingTopic 시점에 불러온다.
+            const entrySnap = await getDocs(collection(db, 'rollingEntries'));
             rollingEntries = [];
-            loadedRollingTopicIds = new Set();
+            entrySnap.forEach(doc => rollingEntries.push({ id: doc.id, ...doc.data() }));
+            rollingEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
             try {
-                await loadSignalRecordsFirstPage();
+                const signalSnap = await getDocs(collection(db, 'signal_records'));
+                signalRecords = [];
+                signalSnap.forEach(docSnap => signalRecords.push({ id: docSnap.id, ...docSnap.data() }));
+                sortSignalRecords();
             } catch (e) { console.error("시그널 데이터 로드 에러:", e); }
 
         }
@@ -4905,9 +3813,6 @@ async function changeTab(tabName) {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
         // 업보관리 데이터는 로컬에 기억해두지 않고 탭에 들어올 때마다 항상 최신 데이터를 즉시 불러온다.
         await loadUpboDataFromFirebase();
-    } else if (currentPage === '홈') {
-        // 홈은 모든 멤버의 일정을 합쳐서 보여주므로, 캐시에 전체 멤버 데이터가 없다면 새로 불러온다.
-        await loadSchedulesFromFirebase();
     } else {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
     }
@@ -5072,7 +3977,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF' };
     const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', themeColors[activeThemeMember] || '#8B5CF6');
@@ -5111,8 +4016,6 @@ function render() {
         renderSongbook();
     } else if (currentPage === '시그널') {
         renderSignalPage();
-    } else if (currentPage === '사다리타기') {
-        renderLadderPage();
     } else {
         if (isMobile) {
             if (currentPage === '홈') renderMobileHome(grouped);
@@ -6331,30 +5234,7 @@ async function deleteRollingTopic(id) {
     } catch(e) { console.error(e); }
 }
 
-// rollingEntries 컬렉션 전체를 긁는 대신, 실제로 열어본 주제(topicId)의 항목만 그때그때 불러와 캐싱한다.
-async function ensureRollingEntriesLoaded(topicId) {
-    if (!topicId || loadedRollingTopicIds.has(topicId)) return;
-    try {
-        const q = query(collection(db, 'rollingEntries'), where('topicId', '==', topicId));
-        const snap = await getDocs(q);
-        snap.forEach(docSnap => {
-            if (!rollingEntries.some(e => e.id === docSnap.id)) {
-                rollingEntries.push({ id: docSnap.id, ...docSnap.data() });
-            }
-        });
-        loadedRollingTopicIds.add(topicId);
-        saveScheduleCache();
-    } catch (e) {
-        console.error('롤링페이퍼 항목 로드 에러:', e);
-    }
-}
-
-async function openRollingTopic(id) {
-    currentRollingTopic = rollingTopics.find(t => t.id === id);
-    render();
-    await ensureRollingEntriesLoaded(id);
-    if (currentRollingTopic && currentRollingTopic.id === id) render();
-}
+function openRollingTopic(id) { currentRollingTopic = rollingTopics.find(t => t.id === id); render(); }
 function closeRollingTopic() { currentRollingTopic = null; render(); }
 
 function openRollingEntryModal() {
@@ -6546,49 +5426,6 @@ function sortSignalRecords() {
     });
 }
 
-// 시그널 기록 컬렉션은 계속 쌓이는 구조라 매번 전체를 긁지 않고,
-// date 기준 최근 SIGNAL_RECORDS_PAGE_SIZE개만 먼저 불러온다.
-async function loadSignalRecordsFirstPage() {
-    const q = query(collection(db, 'signal_records'), orderBy('date', 'desc'), limit(SIGNAL_RECORDS_PAGE_SIZE));
-    const snap = await getDocs(q);
-    signalRecords = [];
-    snap.forEach(docSnap => signalRecords.push({ id: docSnap.id, ...docSnap.data() }));
-    signalRecordsCursorDate = signalRecords.length > 0 ? signalRecords[signalRecords.length - 1].date : null;
-    signalRecordsHasMore = snap.docs.length === SIGNAL_RECORDS_PAGE_SIZE;
-    sortSignalRecords();
-}
-
-// "더 보기" - 이전에 불러온 마지막 date 이후(더 과거) 기록을 이어서 불러온다.
-async function loadMoreSignalRecords() {
-    if (signalRecordsLoadingMore || !signalRecordsHasMore) return;
-    signalRecordsLoadingMore = true;
-    render();
-    try {
-        let q = query(collection(db, 'signal_records'), orderBy('date', 'desc'), limit(SIGNAL_RECORDS_PAGE_SIZE));
-        if (signalRecordsCursorDate) {
-            q = query(collection(db, 'signal_records'), orderBy('date', 'desc'), startAfter(signalRecordsCursorDate), limit(SIGNAL_RECORDS_PAGE_SIZE));
-        }
-        const snap = await getDocs(q);
-        snap.forEach(docSnap => {
-            if (!signalRecords.some(r => r.id === docSnap.id)) {
-                signalRecords.push({ id: docSnap.id, ...docSnap.data() });
-            }
-        });
-        if (snap.docs.length > 0) {
-            signalRecordsCursorDate = snap.docs[snap.docs.length - 1].data().date || signalRecordsCursorDate;
-        }
-        signalRecordsHasMore = snap.docs.length === SIGNAL_RECORDS_PAGE_SIZE;
-        sortSignalRecords();
-        saveScheduleCache();
-    } catch (e) {
-        console.error('시그널 추가 로드 에러:', e);
-    } finally {
-        signalRecordsLoadingMore = false;
-        render();
-    }
-}
-window.loadMoreSignalRecords = loadMoreSignalRecords;
-
 function renderSignalPage() {
     const content = document.getElementById('mainContent');
     const bgClass = isMobile ? 'p-4' : 'p-10';
@@ -6642,16 +5479,7 @@ function renderSignalPage() {
     if (signalRecords.length === 0) {
         html += `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-lg">등록된 시그널 기록이 없습니다.</div>`;
     }
-    html += `</div>`;
-    if (signalRecordsHasMore) {
-        html += `
-        <div class="flex justify-center mt-8">
-            <button onclick="loadMoreSignalRecords()" ${signalRecordsLoadingMore ? 'disabled' : ''} class="px-6 py-2.5 bg-white border-2 border-[#5D4037] text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition font-paperozi text-[14px] disabled:opacity-50">
-                ${signalRecordsLoadingMore ? '불러오는 중...' : '더 보기'}
-            </button>
-        </div>`;
-    }
-    html += `</div>`;
+    html += `</div></div>`;
     content.innerHTML = html;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
 }
@@ -7995,22 +6823,11 @@ async function initApp() {
     }
 
     // === 필수 데이터 우선 로딩 (렌더링 최우선) ===
-    // 임베드(iframe) 모드는 항상 업보정리 위젯 하나만 보여주고 스케줄/롤링페이퍼/시그널 등은
-    // 전혀 쓰이지 않으므로, 그 무거운 컬렉션들을 아예 불러오지 않고 업보 데이터만 즉시 가져온다.
-    if (isEmbedMode) {
-        await loadUpboDataFromFirebase();
-    } else if (currentPage === '홈') {
-        // 홈은 모든 멤버의 일정이 필요하므로 전체를 불러온다.
-        await loadSchedulesFromFirebase();
+    await loadSchedulesFromFirebase();
+    if (currentPage === '홈') {
         await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
-        await loadDdaysFromFirebase(); // 홈 탭 입장 시 디데이 목록도 함께 가져옴
-    } else if (['달타', '다룽', '최또', '카나시'].includes(currentPage)) {
-        // 개인 캘린더 탭은 해당 멤버의 일정/메모 컬렉션만 불러온다.
-        await loadSchedulesFromFirebase({ member: currentPage });
-    } else {
-        // 그 외 탭(업보정리/롤링페이퍼/노래책/시그널/클립 등)은 멤버별 일정 컬렉션이 필요 없으므로,
-        // 멤버 목록·그룹·롤링 주제 등 공통 데이터만 가볍게 불러온다.
-        await loadSchedulesFromFirebase({ members: [] });
+    } else if (isEmbedMode && currentPage === '업보정리') {
+        await loadUpboDataFromFirebase(); // 임베드 모드로 업보정리에 바로 진입하는 경우, 캐시 없이 즉시 최신 데이터를 가져온다
     }
     setActiveSongs(songbookMember);
 
@@ -8023,22 +6840,20 @@ async function initApp() {
     }
 
     // === 후순위 데이터 병렬 지연 로딩 ===
-    // 임베드 모드에서는 홈 배너/팝업/UP링크가 렌더링되지 않으므로 이 후순위 로딩 자체를 건너뛴다.
-    if (!isEmbedMode) {
-        Promise.all([
-            loadLinksFromFirebase(),
-            loadPopupImagesFromFirebase(),
-            currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve(),
-            currentPage !== '홈' ? loadDdaysFromFirebase() : Promise.resolve()
-        ]).then(() => {
-            // 백그라운드 로드가 끝나면 UI 실시간 갱신
-            renderHeaderTabs();
+    Promise.all([
+        loadLinksFromFirebase(),
+        loadPopupImagesFromFirebase(),
+        currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve()
+    ]).then(() => {
+        // 백그라운드 로드가 끝나면 UI 실시간 갱신
+        renderHeaderTabs();
+        if (!isEmbedMode) {
             checkAndShowPopup(today);
-            if (currentPage === '홈') {
-                renderHomeYoutubeBox();
-            }
-        }).catch(e => console.error("지연 로딩 에러:", e));
-    }
+        }
+        if (currentPage === '홈') {
+            renderHomeYoutubeBox();
+        }
+    }).catch(e => console.error("지연 로딩 에러:", e));
 }
 
 let editingUpLinkId = null;
@@ -8113,40 +6928,16 @@ window.deleteUpLinkFromEditModal = async function() {
     closeEditUpLinkModal();
 };
 
-window.openMemberManageModal = async function() {
+window.openMemberManageModal = function() {
     if(!isAdmin) return;
-    // 캐시된 값이 있다면 우선 그대로 먼저 보여주고, 동시에 최신 데이터로 다시 불러온다.
     renderCustomMembersList();
     renderMemberGroupsList();
     document.getElementById('memberManageModal').classList.replace('hidden', 'flex');
-
+    
     ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
         const pMenu = document.getElementById(id);
         if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
     });
-
-    // 모달을 열 때마다 멤버관리 DB(memberDb)에서 최신 멤버 목록을 다시 불러온다.
-    // (스케줄 캐시 로직 때문에 customMembers가 갱신되지 않고 비어 보이는 문제를 방지하기 위함)
-    try {
-        const smSnap = await getDocs(collection(memberDb, 'members'));
-        customMembers = [];
-        smSnap.forEach(docSnap => {
-            const data = docSnap.data();
-            customMembers.push({
-                id: docSnap.id,
-                nickname: data.name || '',
-                soopId: data.soopId || '',
-                imageUrl: data.img || 'https://via.placeholder.com/60',
-                isCrew: data.type === 'crew',
-                timestamp: data.timestamp || 0
-            });
-        });
-        saveScheduleCache();
-        renderCustomMembersList();
-    } catch (e) {
-        console.error('멤버 목록 새로고침 실패 (memberDb - members 컬렉션):', e);
-        showToast('멤버 목록을 불러오지 못했습니다. Firestore 권한(규칙)을 확인해주세요.');
-    }
 };
 
 window.closeMemberManageModal = function() {
@@ -9600,141 +8391,6 @@ window.renderClipPage = function() {
 
     window.fetchStreamerClips(currentClipStreamer, false);
 };
-
-// 전역 함수 바인딩 추가
-window.openUpdateModal = openUpdateModal;
-window.closeUpdateModal = closeUpdateModal;
-window.addUpdateLog = addUpdateLog;
-window.deleteUpdateLog = deleteUpdateLog;
-
-let updateLogsList = [];
-
-async function loadUpdateLogsFromFirebase() {
-    try {
-        const snap = await getDocs(query(collection(db, 'updates'), orderBy('timestamp', 'desc')));
-        updateLogsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        checkUpdateBadge();
-    } catch(e) { console.error('업데이트 로드 에러:', e); }
-}
-
-function checkUpdateBadge() {
-    const desktopBadge = document.getElementById('desktopLogoNewBadge');
-    const mobileBadge = document.getElementById('mobileLogoNewBadge');
-
-    if (updateLogsList.length === 0) {
-        if (desktopBadge) desktopBadge.classList.add('hidden');
-        if (mobileBadge) mobileBadge.classList.add('hidden');
-        return;
-    }
-
-    const newestLog = updateLogsList[0];
-    const lastSeenTs = Number(localStorage.getItem('lastSeenUpdateTs') || '0');
-    const now = Date.now();
-    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-
-    // 작성 후 48시간 이내 && 클릭(확인) 전일 때만 NEW 뱃지 표시
-    if (newestLog.timestamp > lastSeenTs && (now - newestLog.timestamp) < twoDaysMs) {
-        if (desktopBadge) desktopBadge.classList.remove('hidden');
-        if (mobileBadge) mobileBadge.classList.remove('hidden');
-    } else {
-        if (desktopBadge) desktopBadge.classList.add('hidden');
-        if (mobileBadge) mobileBadge.classList.add('hidden');
-    }
-}
-
-function openUpdateModal() {
-        if (updateLogsList.length > 0) {
-            localStorage.setItem('lastSeenUpdateTs', Date.now().toString());
-            checkUpdateBadge();
-        }
-        
-        const container = document.getElementById('updateListContainer');
-        if (updateLogsList.length === 0) {
-            container.innerHTML = `<div class="text-center text-gray-400 font-bold py-16 text-[15px]">업데이트 내역이 없습니다.</div>`;
-        } else {
-            container.innerHTML = updateLogsList.map(log => {
-                // 버튼 이름이 비어있으면 '자세히 보기'로 설정
-                const displayBtnText = log.btnText ? escapeHtml(log.btnText) : '자세히 보기';
-                return `
-                <div class="bg-white border-2 border-[#ECEDFA] p-5 rounded-xl shadow-sm mb-1">
-                    <div class="text-[12.5px] text-[#FF5252] font-bold mb-1.5">${log.date}</div>
-                    <div class="font-bold text-[18px] text-[#5D4037] mb-2 leading-snug">${escapeHtml(log.title)}</div>
-                    ${log.content ? `<div class="text-[15px] font-medium text-gray-600 mb-4 whitespace-pre-wrap leading-relaxed">${escapeHtml(log.content)}</div>` : ''}
-                    ${log.url ? `<button onclick="window.open('${log.url}', '_blank')" class="text-[14px] bg-[#FFF5F5] border border-[#FFE0E0] text-[#FF5252] font-bold px-4 py-2.5 rounded-xl hover:bg-[#FFE0E0] transition shadow-sm w-full text-center block mt-2">${displayBtnText}</button>` : ''}
-                </div>
-       `}).join('');
-    }
-        document.getElementById('updateModal').classList.replace('hidden', 'flex');
-}
-
-function closeUpdateModal() {
-    document.getElementById('updateModal').classList.replace('flex', 'hidden');
-}
-
-async function addUpdateLog() {
-        const title = document.getElementById('updateTitle').value.trim();
-        const content = document.getElementById('updateContent').value.trim();
-        const url = document.getElementById('updateUrl').value.trim();
-        const btnText = document.getElementById('updateBtnText').value.trim(); // 버튼명 추가
-        const date = getTodayYYYYMMDD();
-        
-        if (!title) return alert('업데이트 제목을 입력하세요.');
-        
-        try {
-            const newLog = { title, content, url, btnText, date, timestamp: Date.now() };
-            const docRef = await addDoc(collection(db, 'updates'), newLog);
-            updateLogsList.unshift({ id: docRef.id, ...newLog });
-            
-            document.getElementById('updateTitle').value = '';
-            document.getElementById('updateContent').value = '';
-            document.getElementById('updateUrl').value = '';
-            document.getElementById('updateBtnText').value = ''; // 초기화
-            
-            alert('업데이트 내역이 등록되었습니다.');
-            renderUpdateManagePanel();
-            checkUpdateBadge();
-        } catch(e) { console.error(e); }
-    }
-
-async function deleteUpdateLog(id) {
-    if(!confirm('이 업데이트 내역을 삭제하시겠습니까?')) return;
-    try {
-        await deleteDoc(doc(db, 'updates', id));
-        updateLogsList = updateLogsList.filter(log => log.id !== id);
-        renderUpdateManagePanel();
-        checkUpdateBadge();
-    } catch(e) { console.error(e); }
-}
-
-function renderUpdateManagePanel() {
-        if (!isAdmin || !loggedInUser) return;
-        const container = document.getElementById('updateManageContainer');
-        if (!container) return;
-        
-        if (updateLogsList.length === 0) {
-            container.innerHTML = `<div class="text-center text-gray-400 font-bold py-6 text-[13px]">등록된 업데이트 내역이 없습니다.</div>`;
-            return;
-        }
-        
-        container.innerHTML = updateLogsList.map(log => {
-            const displayBtnText = log.btnText ? escapeHtml(log.btnText) : '자세히 보기';
-            return `
-            <div class="bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm flex flex-col gap-2">
-                <div class="flex justify-between items-center">
-                    <span class="text-[12px] font-bold text-[#FF5252]">${log.date}</span>
-                    <button onclick="deleteUpdateLog('${log.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
-                </div>
-                <div class="font-bold text-[14px] text-[#5D4037]">${escapeHtml(log.title)}</div>
-                ${log.content ? `<div class="text-[12px] text-gray-500 whitespace-pre-wrap font-medium">${escapeHtml(log.content)}</div>` : ''}
-                ${log.url ? `<a href="${log.url}" target="_blank" class="text-[12px] text-blue-500 underline truncate block max-w-full">${log.url} (버튼명: ${displayBtnText})</a>` : ''}
-            </div>
-        `}).join('');
-    }
-    
-// DOMContentLoaded 이벤트에 업데이트 내역 불러오기 추가
-document.addEventListener('DOMContentLoaded', () => {
-    loadUpdateLogsFromFirebase();
-});
 
 // 🚨 주의: 아래 코드가 반드시 위의 클립 코드들보다 "더 밑에(맨 끝에)" 있어야 합니다! 🚨
 initApp().finally(hidePageLoadingScreen);

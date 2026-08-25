@@ -48,7 +48,7 @@
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-brands/css/uicons-brands.css'>
-    <link rel="stylesheet" href="style.css?v=20260825-16">
+    <link rel="stylesheet" href="style.css?v=20260819-14">
 
     <!-- 외부 리소스 렌더링 사전 연결 -->
     <link rel="preconnect" href="https://i.postimg.cc">
@@ -77,8 +77,13 @@
                 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785929710/k3ncviazgewam7hghnse.webp'
             ];
             
+            // 로컬 스토리지에서 현재 인덱스를 가져옵니다. 값이 없으면 0부터 시작합니다.
             var currentIndex = parseInt(localStorage.getItem('loadingImgIndex') || '0', 10);
+            
+            // 현재 인덱스의 이미지를 선택합니다.
             var pick = loadingImages[currentIndex];
+            
+            // 다음 인덱스를 계산 (배열의 길이를 넘어가면 다시 0으로 돌아옴)하고 로컬 스토리지에 저장합니다.
             var nextIndex = (currentIndex + 1) % loadingImages.length;
             localStorage.setItem('loadingImgIndex', nextIndex);
 
@@ -124,9 +129,8 @@
     </header>
 
     <header class="fixed top-0 left-0 w-full h-[60px] bg-white shadow-sm z-[1000] flex lg:hidden justify-between items-center px-3">
-        <div class="relative flex items-center shrink-0 cursor-pointer" onclick="openUpdateModal()">
-            <img src="https://i.postimg.cc/wjrJrQ0c/A1EAA0.png" class="h-[30px]">
-            <span id="mobileLogoNewBadge" class="hidden absolute -top-1.5 -right-3.5 bg-[#FF5252] text-white text-[9px] font-black px-1.5 py-[1px] rounded-full shadow-md z-10 font-paperozi tracking-wider">NEW</span>
+        <div class="flex items-center shrink-0">
+            <img src="https://i.postimg.cc/wjrJrQ0c/A1EAA0.png" class="h-[30px] cursor-pointer" onclick="executeMobileTabChange('홈')">
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
             <a href="https://cafe.naver.com/restormy" target="_blank" class="w-[32px] h-[32px] bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm">
@@ -153,7 +157,7 @@
     <nav id="mobileBottomNav" class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 z-[2000] flex lg:hidden justify-around items-center h-[70px] pb-2 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]"></nav>
 
     <div id="mobileTabMenuOverlay" class="fixed inset-0 bg-transparent z-[2500] hidden pointer-events-auto" onclick="closeMobileTabMenu()">
-        <div id="mobileTabMenuContainer" class="absolute bottom-[80px] right-4 bg-[#FFFDF5] w-[min(272px,calc(100vw-32px))] max-h-[65vh] overflow-y-auto modal-scroll rounded-2xl p-4 shadow-xl border border-[#ECEDFA] transition-all duration-200 opacity-0 translate-y-4" style="box-shadow: 0 20px 45px -20px rgba(70,60,160,0.22);" onclick="event.stopPropagation()">
+        <div id="mobileTabMenuContainer" class="absolute bottom-[80px] right-4 bg-[#FFFDF5] w-[min(230px,calc(100vw-32px))] max-h-[65vh] overflow-y-auto modal-scroll rounded-2xl p-4 shadow-xl border border-[#ECEDFA] transition-all duration-200 opacity-0 translate-y-4" style="box-shadow: 0 20px 45px -20px rgba(70,60,160,0.22);" onclick="event.stopPropagation()">
         </div>
     </div>
 
@@ -165,9 +169,8 @@
                 <div id="dynamicSideBtn"></div>
             </div>
 
-            <div id="homeYoutubeBox" class="hidden absolute top-[0px] left-0 z-0 lg:flex flex-col w-full gap-4">
-                <div id="homeDdayBox" class="hidden w-full flex flex-col gap-4"></div>
-
+            <div id="homeYoutubeBox" class="hidden absolute top-[80px] left-0 z-0 lg:flex flex-col w-full gap-4">
+                <!-- UP 해줘! 버튼 (유튜브 영상 박스 바로 위, 클릭 시 팝업으로 UP 보드 표시) -->
                 <button type="button" id="homeUpPanelBtn" onclick="openUpModeModal()" class="hidden home-up-panel w-full py-3.5 flex items-center justify-center gap-2 text-[16px] font-bold text-[#5D4037] font-paperozi cursor-pointer transition hover:brightness-95">
                     <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
                 </button>
@@ -179,6 +182,7 @@
                     <div id="homeYoutubeEmbed" class="w-full aspect-video bg-black"></div>
                 </div>
 
+                <!-- 멤버별 공지/최신글을 한 곳에 모아 보여주는 영역 (유튜브 영상 박스 아래, 별도의 흰색 박스) -->
                 <div id="homeNoticeBox" class="hidden home-up-panel overflow-hidden w-full flex flex-col pb-4">
                     <div class="home-up-panel-header p-4 flex items-center gap-2 shrink-0">
                         <div class="text-[18px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
@@ -194,18 +198,6 @@
 
     <div id="mobilePanelOverlay" class="fixed inset-0 bg-black/60 z-[3900] hidden lg:hidden" onclick="closeSidePanelUser()"></div>
 
-<!-- 신규: 업데이트 모달 -->
-    <div id="updateModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4" onclick="if(event.target === this) closeUpdateModal()">
-        <!-- 500px -> 650px 로 가로 너비 확장 -->
-        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[700px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4 shrink-0">
-                <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">업데이트 내역</h2>
-                <button onclick="closeUpdateModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
-            </div>
-            <div id="updateListContainer" class="flex-1 overflow-y-auto modal-scroll pr-2 flex flex-col gap-3"></div>
-        </div>
-    </div>
-
     <div id="upModeModalOverlay" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4" onclick="if(event.target === this) closeUpModeModal()">
         <div class="modal-content bg-[#FFFDF5] rounded-2xl w-full max-w-[480px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[85vh] overflow-hidden" style="min-height: min(600px, 85vh); min-height: min(600px, 85svh);">
             <div class="p-6 border-b border-[#ECEDFA] bg-white flex justify-between items-center shadow-sm shrink-0">
@@ -218,16 +210,6 @@
         </div>
     </div>
 
-    <div id="updateModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4" onclick="if(event.target === this) closeUpdateModal()">
-    <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[500px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
-        <div class="flex justify-between items-center mb-4 shrink-0">
-            <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">업데이트 내역</h2>
-            <button onclick="closeUpdateModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
-        </div>
-        <div id="updateListContainer" class="flex-1 overflow-y-auto modal-scroll pr-2 flex flex-col gap-3"></div>
-    </div>
-</div>
-
     <div id="manageModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4">
         <div class="modal-content bg-[#FFFDF5] rounded-2xl w-[720px] max-w-full shadow-xl border border-[#ECEDFA] flex flex-col h-[650px] max-h-[90vh] overflow-hidden">
             <div class="flex justify-between items-center p-6 pb-4 border-b-2 border-dashed border-gray-300 shrink-0">
@@ -238,10 +220,8 @@
                 <div id="manageTabNav" class="w-[130px] sm:w-[150px] shrink-0 border-r-2 border-gray-200 p-3 flex flex-col gap-2">
                     <button id="manageTabBtn_link" onclick="switchManageTab('link')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">팝업관리</button>
                     <button id="manageTabBtn_up" onclick="switchManageTab('up')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">업링크 관리</button>
-                    <button id="manageTabBtn_dday" onclick="switchManageTab('dday')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">디데이 관리</button>
                     <button id="manageTabBtn_home" onclick="switchManageTab('home')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">홈 관리</button>
                     <button id="manageTabBtn_info" onclick="switchManageTab('info')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">정보 관리</button>
-                    <button id="manageTabBtn_update" onclick="switchManageTab('update')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">업데이트 관리</button>
                 </div>
                 <div class="flex-1 min-w-0 overflow-y-auto modal-scroll p-6">
                     <div id="manageTabPanel_link">
@@ -287,42 +267,6 @@
                         <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">등록된 업링크 목록</h3>
                         <div id="upLinksManageContainer" class="flex flex-col gap-2 mb-4"></div>
                     </div>
-                    <div id="manageTabPanel_dday" class="hidden">
-                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">디데이 등록</h3>
-                        <div class="text-[12.5px] text-gray-500 mb-3 font-bold">등록한 기념일은 디데이 30일 전(D-30)부터 홈탭 UP 버튼 위쪽에 자동으로 표시돼요.</div>
-                        <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
-                            <input type="text" id="ddayTitle" placeholder="기념일 제목 (예: 데뷔 1주년)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                            <input type="date" id="ddayDate" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                            <input type="text" id="ddayMessage" placeholder="고정 멘트 (예: 함께 손꼽아 기다려요!)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                            <div>
-                                <div class="text-[12px] text-gray-500 font-bold mb-1.5">배경 이미지 (선택, 미등록 시 카드 색상으로 표시)</div>
-                                <div class="flex gap-2 mb-2">
-                                    <button type="button" id="ddayImgTabUrl" onclick="switchDdayImgTab('url')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-[#5D4037] text-white transition">링크 입력</button>
-                                    <button type="button" id="ddayImgTabFile" onclick="switchDdayImgTab('file')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-white text-[#5D4037] transition">파일 업로드</button>
-                                </div>
-                                <div id="ddayImageUrlSection">
-                                    <input type="text" id="ddayImageUrlText" placeholder="이미지 URL 입력" oninput="previewDdayImageUrl(this)" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-sm outline-none focus:border-blue-400 font-bold">
-                                </div>
-                                <div id="ddayImageFileSection" class="hidden">
-                                    <input type="file" id="ddayImageFile" accept="image/*" onchange="previewDdayImageFile(this)" class="w-full text-sm text-gray-600 cursor-pointer font-bold border-2 border-dashed border-[#5D4037] rounded-lg p-2">
-                                </div>
-                                <img id="ddayImagePreview" src="" class="hidden w-full max-h-[140px] object-cover rounded-lg border-2 border-gray-200 mt-2">
-                            </div>
-                            <div>
-                                <div class="text-[12px] text-gray-500 font-bold mb-1.5">카드 색상</div>
-                                <div class="flex gap-2">
-                                    <button type="button" data-color="pink" onclick="selectDdayColor('pink')" class="dday-color-swatch dday-color-swatch-selected" style="background:#f472b6;" title="핑크"></button>
-                                    <button type="button" data-color="yellow" onclick="selectDdayColor('yellow')" class="dday-color-swatch" style="background:#facc15;" title="노랑"></button>
-                                    <button type="button" data-color="blue" onclick="selectDdayColor('blue')" class="dday-color-swatch" style="background:#3b82f6;" title="파랑"></button>
-                                    <button type="button" data-color="orange" onclick="selectDdayColor('orange')" class="dday-color-swatch" style="background:#fb923c;" title="주황"></button>
-                                </div>
-                            </div>
-                            <button onclick="addDday()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold mt-2 hover:bg-blue-700 transition">디데이 추가</button>
-                        </div>
-                        <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
-                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">등록된 디데이 목록</h3>
-                        <div id="ddayManageContainer" class="flex flex-col gap-2 mb-4"></div>
-                    </div>
                     <div id="manageTabPanel_home" class="hidden">
                         <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">홈 화면 유튜브 영상 / 이미지</h3>
                         <div class="text-[12.5px] text-gray-500 mb-3 font-bold">큰 박스 오른쪽 영역에 표시될 유튜브 영상 링크 또는 이미지 링크를 등록하세요. (유튜브: 일반 영상/쇼츠/라이브 링크 모두 가능 · 이미지: jpg, png, gif, webp 등 이미지 파일 직링크)</div>
@@ -349,27 +293,11 @@
                             <button class="flex-1 bg-[#5D4037] text-white py-2.5 rounded-xl font-bold hover:brightness-110 transition" onclick="updateUserInfo()">저장 및 로그아웃</button>
                         </div>
                     </div>
-                    <div id="manageTabPanel_update" class="hidden max-w-[600px]">
-                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">업데이트 내역 등록</h3>
-                        <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
-                        <input type="text" id="updateTitle" placeholder="업데이트 제목" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none font-bold">
-                        <textarea id="updateContent" placeholder="내용 직접 입력 (생략 가능)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none resize-none h-24 font-medium"></textarea>
-                        <div class="flex gap-2">
-                                <input type="text" id="updateUrl" placeholder="외부 링크 (생략 가능, https://...)" class="w-2/3 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none font-bold">
-                                <input type="text" id="updateBtnText" placeholder="버튼명 (기본: 자세히 보기)" class="w-1/3 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none font-bold">
-                            </div>
-                            
-                            <button onclick="addUpdateLog()" class="w-full bg-[#5D4037] text-white py-3 rounded-lg font-bold mt-2 hover:brightness-110 transition text-[15px]">등록하기</button>
-                        </div>
-                        <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
-                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">등록된 업데이트 내역</h3>
-                        <div id="updateManageContainer" class="flex flex-col gap-2 mb-4"></div>
-                    </div>                </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 나머지 기존 모달들... -->
     <div id="memoModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
         <div class="modal-content bg-[#FFFDF5] p-9 rounded-2xl w-[90%] max-w-[600px] shadow-xl border border-[#ECEDFA]">
             <h2 class="text-4xl font-bold text-[#5D4037] mb-6 text-center font-paperozi" id="memoModalTitle">메모 추가</h2>
@@ -387,13 +315,11 @@
             <button class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer" onclick="closePasswordModal()"><i class="fi fi-br-cross-small"></i></button>
             <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">로그인</h2>
 
-            <button type="button" onclick="closePasswordModal(); loginWithSoopExtension();" class="w-full flex items-center justify-center gap-2 border-2 border-[#57d5ff] rounded-lg py-2.5 mb-2 font-bold text-[14px] text-[#0a0a0f] bg-[#e6f9ff] hover:bg-[#cceeff] transition cursor-pointer">
+            <!-- ⭐ 신규: SOOP 확장프로그램 로그인 버튼 추가 -->
+            <button type="button" onclick="closePasswordModal(); loginWithSoopExtension();" class="w-full flex items-center justify-center gap-2 border-2 border-[#57d5ff] rounded-lg py-2.5 mb-4 font-bold text-[14px] text-[#0a0a0f] bg-[#e6f9ff] hover:bg-[#cceeff] transition cursor-pointer">
                 <img src="https://res.sooplive.com/images/common/thumb_profile.gif" class="w-4 h-4 rounded-full object-cover"> SOOP 계정으로 간편 로그인
             </button>
-            <button type="button" onclick="closePasswordModal(); loginWithGoogle();" class="w-full flex items-center justify-center gap-2 border-2 border-gray-300 rounded-lg py-2.5 mb-4 font-bold text-[14px] text-[#5D4037] bg-white hover:bg-gray-50 transition cursor-pointer">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4 object-contain"> 구글 계정으로 로그인
-            </button>
-            <div class="text-[11px] text-gray-400 text-center mb-4 -mt-2">구글 로그인은 프로필에서 SOOP 계정과 연동해야 같은 정보를 볼 수 있어요</div>
+            <!-- 여기까지 -->
             <div class="relative flex items-center mb-4">
                 <div class="flex-grow border-t border-gray-300"></div>
                 <span class="flex-shrink-0 mx-3 text-gray-400 text-[12px] font-bold">또는 관리자 아이디로 로그인</span>
@@ -423,8 +349,6 @@
         </div>
     </div>
 
-    <!-- ... 중략 (기존 모달 코드는 동일하게 유지) ... -->
-
     <div id="logoutModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
         <div class="modal-content bg-white p-6 rounded-xl w-80 shadow-xl border border-[#ECEDFA]">
             <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">로그아웃 하시겠습니까?</h2>
@@ -435,7 +359,454 @@
         </div>
     </div>
 
-    <script type="module" src="script.js?v=20260825-42"></script>
+    <div id="userProfileSetupModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[6000]">
+        <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border border-[#ECEDFA] relative">
+            <h2 class="text-xl font-bold mb-2 text-center text-[#5D4037]">추가 정보 입력</h2>
+            <p class="text-[13px] text-gray-500 text-center mb-4 leading-snug">처음 로그인하셨네요!<br>닉네임과 SOOP 아이디를 입력해주세요.<br>입력하지 않으면 로그인이 취소됩니다.</p>
+            <input type="text" id="nicknameInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="닉네임">
+            <input type="text" id="soopIdInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="SOOP 아이디" onkeypress="if(event.key==='Enter') submitUserProfileSetup()">
+            <div class="flex gap-2">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-lg font-bold hover:bg-gray-300 transition cursor-pointer" onclick="cancelUserProfileSetup()">취소</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-3 rounded-lg font-bold hover:brightness-110 transition cursor-pointer" onclick="submitUserProfileSetup()">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scheduleModal" class="hidden fixed inset-0 bg-black/50 z-[5000] overflow-y-auto flex-col items-center py-10 px-4">
+        <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-full max-w-[640px] shadow-xl flex flex-col relative border border-[#ECEDFA] shrink-0 my-auto">
+            <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="closeScheduleModal()"><i class="fi fi-br-cross"></i></button>
+            
+            <div class="text-2xl font-bold text-center text-[#5D4037] mb-6" id="scheduleModalDate"></div>
+            
+            <div class="flex gap-4 mb-5">
+                <div class="flex-1"><input type="radio" id="typeBangon" name="globalSchType" value="뱅온" class="type-radio" checked onchange="toggleFields('scheduleModal', 'globalSchType')"><label for="typeBangon" class="type-label bangon">뱅온</label></div>
+                <div class="flex-1"><input type="radio" id="typeHubang" name="globalSchType" value="휴방" class="type-radio" onchange="toggleFields('scheduleModal', 'globalSchType')"><label for="typeHubang" class="type-label hubang">휴방</label></div>
+            </div>
+            
+            <div id="globalTimeBlock" class="mb-5">
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">뱅온 시간</label>
+                <div id="globalTimeInputs" class="flex items-center gap-2 border-2 border-[#5D4037] rounded-lg p-2 bg-white w-max">
+                    <button type="button" id="globalAmpmBtn" class="ampm-btn px-3 py-1.5 font-bold text-[#5D4037] rounded-md text-[14px]" onclick="toggleAmpm(this)">오후</button>
+                    <input type="number" id="globalHh" min="1" max="12" class="w-[42px] p-1 text-center font-bold text-[#5D4037] outline-none text-[16px]" placeholder="시">
+                    <span class="font-bold text-[#5D4037]">:</span>
+                    <input type="number" id="globalMm" min="0" max="59" class="w-[42px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[16px]" placeholder="분">
+                </div>
+            </div>
+
+            <div id="scheduleInputsContainer" class="flex flex-col gap-3 mb-5 max-h-[55vh] overflow-y-auto modal-scroll pr-1"></div>
+            
+            <button class="w-full py-3.5 border-2 border-dashed border-[#5D4037] text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition mb-4 cursor-pointer" onclick="addScheduleInputBlock()">+ 일정 추가</button>
+            <button class="w-full bg-[#5D4037] text-white py-4 rounded-xl font-bold text-xl hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveSchedule()">저장하기</button>
+        </div>
+    </div>
+
+    <div id="editScheduleModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-[90%] max-w-[640px] shadow-xl relative border border-[#ECEDFA]">
+            <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="closeEditModal()"><i class="fi fi-br-cross"></i></button>
+            <div class="text-2xl font-bold text-center text-[#5D4037] mb-6">일정 수정</div>
+            <div class="flex gap-4 mb-4">
+                <div class="flex-1"><input type="radio" id="editTypeBangon" name="editGlobalSchType" value="뱅온" class="type-radio" checked onchange="toggleFields('editScheduleModal', 'editGlobalSchType')"><label for="editTypeBangon" class="type-label bangon">뱅온</label></div>
+                <div class="flex-1"><input type="radio" id="editTypeHubang" name="editGlobalSchType" value="휴방" class="type-radio" onchange="toggleFields('editScheduleModal', 'editGlobalSchType')"><label for="editTypeHubang" class="type-label hubang">휴방</label></div>
+            </div>
+            <div id="editContainer" class="mb-5 max-h-[60vh] overflow-y-auto modal-scroll pr-1"></div>
+            <div class="flex gap-2">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-4 rounded-xl font-bold text-xl hover:bg-gray-300 transition shadow-md cursor-pointer" onclick="closeEditModal()">취소</button>
+                <button class="flex-1 bg-red-500 text-white py-4 rounded-xl font-bold text-xl hover:bg-red-600 transition shadow-md cursor-pointer" onclick="deleteScheduleAction()">삭제</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-4 rounded-xl font-bold text-xl hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveEditedSchedule()">수정</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editUpLinkModalOverlay" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[6000] p-4" onclick="if(event.target === this) closeEditUpLinkModal()">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[420px] shadow-xl relative border border-[#ECEDFA]">
+            <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="closeEditUpLinkModal()"><i class="fi fi-br-cross"></i></button>
+            <div class="text-xl font-bold text-center text-[#5D4037] mb-5">UP 링크 수정</div>
+            <div class="flex flex-col gap-3">
+                <div>
+                    <label class="text-sm font-bold text-gray-600 mb-1 block">멤버</label>
+                    <input type="text" id="editUpMember" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                </div>
+                <div>
+                    <label class="text-sm font-bold text-gray-600 mb-1 block">컨텐츠 제목</label>
+                    <input type="text" id="editUpTitle" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                </div>
+                <div>
+                    <label class="text-sm font-bold text-gray-600 mb-1 block">URL</label>
+                    <input type="text" id="editUpUrl" placeholder="https://..." class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                </div>
+                <div>
+                    <label class="text-sm font-bold text-gray-600 mb-1 block">마감일자</label>
+                    <input type="date" id="editUpDeadline" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-5">
+                <button class="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 transition shadow-md cursor-pointer" onclick="deleteUpLinkFromEditModal()">삭제</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-3 rounded-xl font-bold hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveEditUpLink()">저장</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="scheduleDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]" onclick="closeDetailModal()">
+        <div class="modal-content bg-white p-5 rounded-3xl w-[95%] max-w-[680px] shadow-2xl relative border border-[#ECEDFA] flex flex-col items-center" onclick="event.stopPropagation()">
+            <div class="w-full flex justify-between items-center mb-2">
+                <div class="w-8 shrink-0"></div>
+                <div id="detailModalTitle" class="text-[20px] font-bold text-[#000] leading-tight break-keep font-paperozi flex-1 text-center px-1"></div>
+                <button class="text-3xl text-[#5D4037] hover:scale-110 transition modal-arrow-btn cursor-pointer shrink-0" onclick="closeDetailModal()"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div id="detailDesc" class="w-full"></div>
+        </div>
+    </div>
+
+    <div id="monthPickerModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[350px] shadow-xl border border-[#ECEDFA]">
+            <div class="flex justify-between items-center mb-6 px-4">
+                <button class="text-2xl text-[#5D4037] hover:scale-110 transition modal-arrow-btn cursor-pointer" onclick="changePickerYear(-1)"><i class="fi fi-rr-angle-left"></i></button>
+                <div class="text-2xl font-bold text-[#5D4037]" id="pickerYearText"></div>
+                <button class="text-2xl text-[#5D4037] hover:scale-110 transition modal-arrow-btn cursor-pointer" onclick="changePickerYear(1)"><i class="fi fi-rr-angle-right"></i></button>
+            </div>
+            <div class="grid grid-cols-4 gap-3 mb-6" id="pickerMonthGrid"></div>
+            <button class="w-full bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold text-lg hover:bg-gray-300 transition cursor-pointer" onclick="closeMonthPicker()">취소</button>
+        </div>
+    </div>
+
+    <div id="mobileDatePickerModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[350px] shadow-xl border border-[#ECEDFA] flex flex-col">
+            <div class="flex justify-between items-center mb-4 px-2">
+                <button class="text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="changeDatePickerMonth(-1)"><i class="fi fi-rr-angle-left"></i></button>
+                <div class="text-xl font-bold text-[#5D4037] font-paperozi" id="datePickerTitle"></div>
+                <button class="text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="changeDatePickerMonth(1)"><i class="fi fi-rr-angle-right"></i></button>
+            </div>
+            <div class="grid grid-cols-7 gap-1 text-center font-bold text-gray-500 text-sm mb-2 font-paperozi">
+                <div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div class="text-blue-500">토</div><div class="text-red-500">일</div>
+            </div>
+            <div id="datePickerGrid" class="grid grid-cols-7 gap-1 text-center font-bold font-paperozi"></div>
+            <button class="w-full mt-4 bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold text-lg hover:bg-gray-300 transition cursor-pointer" onclick="closeMobileDatePicker()">취소</button>
+        </div>
+    </div>
+
+    <div id="upPopupOverlay" class="hidden fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
+        <div id="upPopupBox" class="bg-[#FFFDF5] w-full max-w-[1000px] rounded-2xl shadow-2xl border border-[#ECEDFA] overflow-hidden flex flex-col transition-all" style="max-height: 90svh; max-height: 90vh; min-height: min(750px, 90vh); min-height: min(750px, 90svh);">
+            <div id="upPopupList" class="p-6 overflow-y-auto" style="flex: 1 1 auto; min-height: 0;"></div>
+            <div class="flex justify-between items-center flex-wrap gap-2 p-3 sm:p-4 border-t border-[#ECEDFA] bg-white flex-shrink-0">
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <button onclick="closeUpPopup('today')" class="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-gray-100 border-2 border-gray-200 text-[#5D4037] font-bold rounded-lg hover:bg-gray-200 transition text-[11px] sm:text-[13px] shrink-0">오늘만 안보기</button>
+                    <button onclick="closeUpPopup('week')" class="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-gray-100 border-2 border-gray-200 text-[#5D4037] font-bold rounded-lg hover:bg-gray-200 transition text-[11px] sm:text-[13px] shrink-0">일주일동안 안보기</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.open('https://naver.me/xJc5cCoe', '_blank')" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-100 border-2 border-gray-200 text-[#5D4037] font-bold rounded-lg hover:bg-gray-200 transition text-[11px] sm:text-[13px] shrink-0">추가기능 및 문의</button>
+                    <button onclick="closeUpPopup()" class="px-3 py-1.5 sm:px-6 sm:py-2 bg-[#5D4037] text-white font-bold rounded-lg hover:brightness-110 transition text-[12px] sm:text-[15px] shrink-0">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rollingTopicModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[400px] shadow-xl border border-[#ECEDFA]">
+            <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi">롤링페이퍼 주제 추가</h2>
+            <input type="text" id="rtTitle" placeholder="주제 (예: 달타님 생일 축하해요!)" class="w-full border-2 border-[#5D4037] rounded-lg p-3 mb-3 text-[15px] outline-none focus:border-[#8B5CF6] font-bold">
+            <input type="date" id="rtDate" class="w-full border-2 border-[#5D4037] rounded-lg p-3 mb-4 text-[15px] outline-none focus:border-[#8B5CF6] font-bold">
+            <div class="flex gap-2">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold hover:bg-gray-300 transition" onclick="closeRollingTopicModal()">취소</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-3 rounded-xl font-bold hover:brightness-110 transition" onclick="saveRollingTopic()">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rollingEntryModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-[95%] max-w-[800px] shadow-xl border border-[#ECEDFA]">
+            <h2 class="text-3xl font-bold text-[#5D4037] mb-2 text-center font-paperozi" id="reModalTitle">작성하기</h2>
+            <p class="text-center text-gray-400 text-[14px] font-bold mb-6">저장시 수정 및 삭제가 불가능합니다.</p>
+            
+            <textarea id="reContent" class="w-full border-2 border-[#5D4037] rounded-xl p-6 outline-none h-[400px] resize-none mb-4 text-[18px] font-medium focus:border-[#8B5CF6]" placeholder="따뜻한 마음을 남겨주세요."></textarea>
+            
+            <div class="mb-6">
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">배경 이미지 첨부 (선택)</label>
+                <input type="file" id="reImage" accept="image/*" class="w-full text-[13px] text-gray-600 cursor-pointer font-bold">
+            </div>
+            <div class="flex justify-between items-center gap-6">
+                <input type="text" id="reNickname" placeholder="닉네임 (선택)" class="w-1/2 border-2 border-[#5D4037] rounded-xl p-4 text-[16px] outline-none focus:border-[#8B5CF6] font-bold">
+                <div class="flex gap-3 w-1/2">
+                    <button class="flex-1 bg-gray-200 text-[#5D4037] py-4 rounded-xl font-bold text-lg hover:bg-gray-300 transition" onclick="closeRollingEntryModal()">취소</button>
+                    <button class="flex-1 bg-[#8B5CF6] text-white py-4 rounded-xl font-bold text-lg hover:brightness-110 transition shadow-sm" onclick="saveRollingEntry()">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rollingDetailModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-[5000] p-0 md:p-6">
+        <div class="relative w-full h-full md:h-auto md:max-w-[1000px] flex items-center justify-center">
+            
+            <button class="absolute top-4 right-4 md:-top-12 md:-right-4 text-4xl md:text-5xl text-white hover:scale-110 transition cursor-pointer z-[5100]" onclick="closeRollingDetailModal()">
+                <i class="fi fi-br-cross-small drop-shadow-md"></i>
+            </button>
+    
+            <button onclick="navigateRollingDetail(-1)" class="hidden md:flex absolute -left-20 top-1/2 -translate-y-1/2 w-16 h-16 items-center justify-center bg-white/20 text-white rounded-full hover:bg-white/40 transition text-3xl z-[5050]">
+                <i class="fi fi-rr-angle-left pr-1"></i>
+            </button>
+            
+            <div id="rdSliderContainer" class="flex overflow-x-auto snap-x snap-mandatory w-full h-full md:h-auto hide-scrollbar" onscroll="updateCurrentEntryIndex(this)">
+            </div>
+    
+            <button onclick="navigateRollingDetail(1)" class="hidden md:flex absolute -right-20 top-1/2 -translate-y-1/2 w-16 h-16 items-center justify-center bg-white/20 text-white rounded-full hover:bg-white/40 transition text-3xl z-[5050]">
+                <i class="fi fi-rr-angle-right pl-1"></i>
+            </button>
+            
+        </div>
+    </div>
+    <div id="memberManageModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[560px] shadow-xl border border-[#ECEDFA] relative flex flex-col max-h-[90vh]">
+            <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="closeMemberManageModal()"><i class="fi fi-br-cross"></i></button>
+            <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi">멤버 관리</h2>
+
+            <!-- 탭 -->
+            <div class="flex gap-2 mb-4 border-b-2 border-gray-200 pb-3">
+                <button id="memberTabBtn" onclick="switchMemberManageTab('member')" class="flex-1 py-2 rounded-lg font-bold text-[14px] border-2 transition-all bg-[#5D4037] text-white border-[#5D4037]">멤버</button>
+                <button id="groupTabBtn" onclick="switchMemberManageTab('group')" class="flex-1 py-2 rounded-lg font-bold text-[14px] border-2 transition-all bg-white text-[#5D4037] border-[#5D4037]">그룹</button>
+            </div>
+
+            <!-- 멤버 탭 -->
+            <div id="memberTabContent" class="flex flex-col flex-1 min-h-0">
+                <div class="flex gap-2 mb-4 bg-white p-3 rounded-xl border-2 border-gray-200 flex-col">
+                    <div class="flex gap-2">
+                        <input type="text" id="newMemberNickname" placeholder="이름/크루명" class="flex-1 border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+                        <input type="text" id="newMemberSoopId" placeholder="SOOP ID" class="flex-[1.5] border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+                    </div>
+                    <input type="text" id="newMemberImageUrl" placeholder="이미지 링크 (크루일 경우 필수)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+                    <label class="flex items-center gap-2 text-[13px] font-bold text-[#5D4037]">
+                        <input type="checkbox" id="isCrewCheckbox"> 크루로 등록 (이름 숨김)
+                    </label>
+                    <button onclick="addCustomMember()" class="bg-[#5D4037] text-white py-2 rounded-lg font-bold hover:brightness-110 w-full">추가</button>
+                </div>
+                <!-- 멤버 검색 -->
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="relative flex-1">
+                        <i class="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[13px]"></i>
+                        <input type="text" id="memberSearchInput" placeholder="이름 또는 SOOP ID 검색" class="w-full pl-8 pr-3 py-2 border-2 border-gray-200 rounded-lg text-[13px] outline-none focus:border-[#5D4037] font-bold" oninput="filterMembersList()">
+                    </div>
+                    <span id="memberCountBadge" class="text-[12px] font-bold text-gray-400 shrink-0"></span>
+                </div>
+                <!-- 멤버 목록 내보내기 / 불러오기 -->
+                <div class="flex gap-2 mb-3">
+                    <button type="button" onclick="exportMembersList()" class="flex-1 flex items-center justify-center gap-1.5 bg-white border-2 border-[#5D4037] text-[#5D4037] py-2 rounded-lg font-bold text-[13px] hover:bg-gray-50 transition">
+                        <i class="fi fi-rr-download"></i> 내보내기
+                    </button>
+                    <button type="button" onclick="document.getElementById('memberImportFileInput').click()" class="flex-1 flex items-center justify-center gap-1.5 bg-white border-2 border-[#5D4037] text-[#5D4037] py-2 rounded-lg font-bold text-[13px] hover:bg-gray-50 transition">
+                        <i class="fi fi-rr-upload"></i> 불러오기
+                    </button>
+                    <input type="file" id="memberImportFileInput" accept=".txt" class="hidden" onchange="importMembersListFile(event)">
+                </div>
+                <div class="overflow-y-auto modal-scroll flex-1 pr-2 min-h-[150px] w-full">
+                    <div id="customMembersList" class="w-full block"></div>
+                </div>
+            </div>
+
+            <!-- 그룹 탭 -->
+            <div id="groupTabContent" class="flex-col flex-1 min-h-0 hidden">
+                <!-- 그룹 추가/수정 입력 -->
+                <div class="bg-white p-3 rounded-xl border-2 border-gray-200 mb-4 flex flex-col gap-2">
+                    <input type="text" id="newGroupName" placeholder="그룹 이름 (예: 합방멤버)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-[14px] outline-none font-bold">
+                    <div class="text-[12px] text-gray-500 font-bold mb-1">그룹에 포함할 멤버 선택:</div>
+                    <div class="relative mb-1">
+                        <i class="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[12px]"></i>
+                        <input type="text" id="groupMemberSearchInput" placeholder="멤버 검색" class="w-full pl-8 pr-3 py-1.5 border-2 border-gray-200 rounded-lg text-[12.5px] outline-none focus:border-[#5D4037] font-bold" oninput="filterGroupMemberCheckboxes()">
+                    </div>
+                    <div id="groupSelectedMembersChips" class="flex flex-wrap items-center gap-1.5 min-h-[26px] p-1"></div>
+                    <div id="groupMemberCheckboxes" class="flex flex-wrap gap-2 max-h-[130px] overflow-y-auto modal-scroll p-1"></div>
+                    <div class="flex gap-2 mt-1">
+                        <button id="groupAddBtn" onclick="addMemberGroup()" class="flex-1 bg-[#5D4037] text-white py-2 rounded-lg font-bold hover:brightness-110">그룹 추가</button>
+                        <button id="groupEditCancelBtn" onclick="cancelEditGroup()" class="hidden px-4 py-2 bg-gray-200 text-[#5D4037] rounded-lg font-bold hover:bg-gray-300 transition">취소</button>
+                    </div>
+                </div>
+                <!-- 그룹 검색 -->
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="relative flex-1">
+                        <i class="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[13px]"></i>
+                        <input type="text" id="groupSearchInput" placeholder="그룹 이름 또는 멤버 검색" class="w-full pl-8 pr-3 py-2 border-2 border-gray-200 rounded-lg text-[13px] outline-none focus:border-[#5D4037] font-bold" oninput="filterGroupsList()">
+                    </div>
+                    <span id="groupCountBadge" class="text-[12px] font-bold text-gray-400 shrink-0"></span>
+                </div>
+                <!-- 그룹 목록 -->
+                <div class="overflow-y-auto modal-scroll flex-1 pr-2 min-h-[150px] w-full">
+                    <div id="memberGroupsList" class="w-full flex flex-col gap-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="upboTextUploadModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[500px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[90vh]">
+            <h2 class="text-2xl font-bold text-[#5D4037] mb-4 text-center font-paperozi">파일로 일괄 추가</h2>
+
+            <div class="mb-4 flex gap-1.5 bg-gray-100 p-1 rounded-xl shrink-0">
+                <button type="button" id="upboModeMappingBtn" onclick="setUpboUploadMode('mapping')" class="flex-1 py-2 rounded-lg font-bold text-[12.5px] transition-all">매핑 규칙 사용</button>
+                <button type="button" id="upboModeFixedBtn" onclick="setUpboUploadMode('fixed')" class="flex-1 py-2 rounded-lg font-bold text-[12.5px] transition-all">고정 양식 (구분/의상/헤어/요청)</button>
+            </div>
+
+            <div class="overflow-y-auto pr-1 modal-scroll flex-1">
+            <div id="upboMappingRuleSection" class="mb-4">
+                <label class="block text-[14px] font-bold text-gray-700 mb-2">수량(개수) ↔ 상품 매핑 규칙</label>
+                <div class="text-[12px] text-gray-500 mb-2 font-bold">예: '562' 입력 시 '단컷방셀' 상품 1개 추가 / '단어' 선택 후 '셀카' 입력 시 해당 단어가 포함된 줄에 상품 1개 추가</div>
+                <div id="upboMappingRules" class="flex flex-col gap-2 max-h-[200px] overflow-y-auto modal-scroll p-2 border-2 border-gray-200 rounded-lg bg-white">
+                    </div>
+                <button onclick="addUpboMappingRule()" class="w-full mt-2 py-2 border-2 border-dashed border-[#5D4037] text-[#5D4037] font-bold rounded-lg hover:bg-gray-50 transition text-sm">+ 규칙 추가</button>
+            </div>
+
+            <div id="upboFixedFormatSection" class="mb-4 hidden">
+                <label class="block text-[14px] font-bold text-gray-700 mb-2">고정 양식 안내</label>
+                <div class="text-[12.5px] text-gray-600 font-bold leading-relaxed bg-white border-2 border-gray-200 rounded-lg p-3">
+                    <b class="text-[#5D4037]">① 한 줄 형식</b> — 구분 / 의상번호 / 헤어번호 / 요청사항 순서로 <span class="text-[#5D4037]">'/'</span> 로 구분<br>
+                    예) <span class="text-purple-700 font-black">구매갯수or룰렛/3/5/겉옷off머리장식off</span><br><br>
+                    <b class="text-[#5D4037]">② 여러 줄 형식</b> — 첫 줄에 구분만 적고, 다음 줄부터 각각 <span class="text-[#5D4037]">의상번호/헤어번호/요청사항</span> 으로 여러 개 적으면 한 아이디에 모두 합쳐서 반영됩니다<br>
+                    예) <span class="text-purple-700 font-black">구매갯수or룰렛<br>3/5/겉옷off머리장식off<br>7/2/헤어off</span><br><br>
+                    두 형식 모두 '의상' 또는 '헤어' 상품 열이 없다면 자동으로 만들어집니다.
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-[14px] font-bold text-gray-700 mb-2">텍스트/엑셀/CSV 파일 업로드</label>
+                <div class="text-[12px] text-gray-500 mb-2 font-bold">.txt 채팅 로그 또는 .xlsx/.xls/.csv 파일을 올려주세요. (엑셀·CSV는 첫 행에 '닉네임', '아이디', '댓글내용' 열 제목 필요)</div>
+                <input type="file" id="upboTextFile" accept=".txt,.xlsx,.xls,.csv" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm bg-white cursor-pointer font-bold">
+            </div>
+            </div>
+
+            <div class="flex gap-2 mt-auto shrink-0">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold text-lg hover:bg-gray-300 transition" onclick="closeUpboTextUploadModal()">취소</button>
+                <button class="flex-1 bg-[#5D4037] text-white py-3 rounded-xl font-bold text-lg hover:brightness-110 transition" onclick="processUpboTextFile()">적용하기</button>
+            </div>
+        </div>
+    </div>
+    <div id="songAddModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]" style="--song-modal-accent:#FBC02D; --song-modal-soft:#FFF9C4;">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[420px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">노래 추가</h2>
+                <button onclick="closeSongAddModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+            <div class="overflow-y-auto pr-1 modal-scroll flex-1 flex flex-col gap-3">
+                <div>
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">노래 제목</label>
+                    <input type="text" id="songTitleInput" placeholder="노래 제목을 입력하세요" onblur="autoFetchAlbumArt()" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold">
+                </div>
+                <div>
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">가수</label>
+                    <input type="text" id="songArtistInput" placeholder="가수명을 입력하세요" onblur="autoFetchAlbumArt()" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold">
+                </div>
+                <div>
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">검색용 별칭 <span class="font-normal text-gray-400">(목록엔 안 보이고 검색할 때만 걸려요)</span></label>
+                    <input type="text" id="songAliasInput" placeholder="예: 영어 발음, 줄임말 등 (쉼표로 여러개 입력 가능)" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold">
+                </div>
+                <div class="relative">
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">장르</label>
+                    <div class="relative">
+                        <input type="text" id="songGenreInput" placeholder="선택 또는 직접 입력 (예: 발라드, 댄스)" autocomplete="off" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 pr-10 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold bg-white">
+                        <button type="button" id="songGenreDropdownToggle" tabindex="-1" class="absolute right-0 top-0 h-full w-10 flex items-center justify-center text-[#5D4037] cursor-pointer">
+                            <i class="fi fi-rr-angle-small-down text-[16px] pointer-events-none transition-transform duration-150"></i>
+                        </button>
+                        <div id="songGenreDropdownList" class="song-genre-dropdown hidden absolute left-0 right-0 top-[calc(100%+6px)] bg-white border-2 border-[#5D4037] rounded-xl shadow-lg max-h-[190px] overflow-y-auto modal-scroll z-50"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-[13px] font-bold text-gray-500">앨범아트 (이미지 링크)</label>
+                        <button type="button" onclick="autoFetchAlbumArt()" id="songAlbumArtAutoBtn" class="text-[12px] font-bold text-[#5D4037] bg-[var(--song-modal-soft)] border-2 border-[var(--song-modal-accent)] px-2.5 py-1 rounded-full hover:brightness-105 transition cursor-pointer flex items-center gap-1">
+                            <i class="fi fi-rr-search text-[10px]"></i> 자동 검색
+                        </button>
+                    </div>
+                    <input type="text" id="songAlbumArtInput" placeholder="자동으로 검색되며, 직접 입력도 가능합니다" oninput="previewSongAlbumArt(this.value)" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[var(--song-modal-accent)] font-bold">
+                    <div id="songAlbumArtStatus" class="text-[12px] font-bold text-gray-400 mt-1 h-4"></div>
+                </div>
+                <div id="songAlbumArtPreview" class="hidden">
+                    <img id="songAlbumArtPreviewImg" src="" class="w-full max-h-[160px] object-contain rounded-lg border-2 border-gray-200">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-4 shrink-0">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold text-[16px] hover:bg-gray-300 transition cursor-pointer" onclick="closeSongAddModal()">취소</button>
+                <button class="flex-1 bg-[var(--song-modal-accent)] text-white py-3 rounded-xl font-bold text-[16px] hover:brightness-105 transition cursor-pointer" onclick="saveSong()">저장</button>
+            </div>
+        </div>
+    </div>
+    <div id="songInfoModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]" style="--song-modal-accent:#FBC02D; --song-modal-soft:#FFF9C4;">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[420px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">노래 정보</h2>
+                <button onclick="closeSongInfoModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+            <div class="overflow-y-auto pr-1 modal-scroll flex-1 flex flex-col gap-3">
+                <div id="songInfoArt" class="w-full aspect-square rounded-2xl overflow-hidden border-2 border-gray-200 bg-gray-50 shrink-0"></div>
+                <div class="text-center">
+                    <div id="songInfoTitle" class="font-bold text-[#5D4037] text-[20px] leading-snug"></div>
+                    <div id="songInfoArtist" class="text-gray-500 text-[15px] font-bold mt-0.5"></div>
+                </div>
+                <div id="songInfoGenres" class="flex flex-wrap justify-center gap-1.5"></div>
+                <div class="flex justify-center gap-2">
+                    <button id="songInfoLikeBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border-2 border-gray-200 shadow-sm transition cursor-pointer font-bold text-[13px] text-gray-400"></button>
+                    <button id="songInfoCopyBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border-2 border-gray-200 shadow-sm transition cursor-pointer font-bold text-[13px] text-[#5D4037] hover:bg-gray-50"><i class="fi fi-rr-copy"></i> 복사</button>
+                    <a id="songInfoLyricsBtn" href="#" target="_blank" rel="noopener" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border-2 border-gray-200 shadow-sm transition cursor-pointer font-bold text-[13px] text-[#5D4037] hover:bg-gray-50"><i class="fi fi-rr-music-alt"></i> 가사</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="signalAddModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[440px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="sgModalTitle" class="text-2xl font-bold text-[#5D4037] font-paperozi">시그널 추가</h2>
+                <button onclick="closeSignalAddModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+            <div class="overflow-y-auto pr-1 modal-scroll flex-1 flex flex-col gap-3">
+                <div>
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">제목</label>
+                    <input type="text" id="sgTitle" placeholder="제목을 입력하세요" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold">
+                </div>
+                <div>
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">날짜</label>
+                    <input type="date" id="sgDate" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold">
+                </div>
+                <div>
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">멤버</label>
+                    <input type="text" id="sgMember" placeholder="멤버명을 쉼표(,)로 구분하여 입력하세요" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold">
+                </div>
+                <div>
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">이미지</label>
+                    <div class="flex gap-2 mb-2">
+                        <button type="button" id="sgImgTabUrl" onclick="switchSignalImgTab('url')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-[#5D4037] text-white transition">링크 입력</button>
+                        <button type="button" id="sgImgTabFile" onclick="switchSignalImgTab('file')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-white text-[#5D4037] transition">파일 업로드</button>
+                    </div>
+                    <div id="sgImageUrlSection">
+                        <input type="text" id="sgImageUrlText" placeholder="이미지 URL 입력" oninput="previewSignalImageUrl(this)" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold">
+                    </div>
+                    <div id="sgImageFileSection" class="hidden">
+                        <input type="file" id="sgImage" accept="image/*" onchange="previewSignalImageFile(this)" class="w-full text-sm text-gray-600 cursor-pointer font-bold border-2 border-dashed border-[#5D4037] rounded-lg p-2">
+                    </div>
+                    <img id="sgImagePreview" src="" class="hidden w-full max-h-[160px] object-contain rounded-lg border-2 border-gray-200 mt-2">
+                </div>
+                <div>
+                    <label class="block text-[13px] font-bold text-gray-500 mb-1">다시보기 링크</label>
+                    <div id="sgVodUrlsContainer" class="flex flex-col gap-2"></div>
+                    <button type="button" onclick="addSignalVodRow()" class="mt-2 w-full py-2 text-sm font-bold rounded-lg border-2 border-dashed border-[#5D4037] text-[#5D4037] hover:bg-gray-50 transition">+ 다시보기 링크 추가</button>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-4 shrink-0">
+                <button class="flex-1 bg-gray-200 text-[#5D4037] py-3 rounded-xl font-bold text-[16px] hover:bg-gray-300 transition cursor-pointer" onclick="closeSignalAddModal()">취소</button>
+                <button id="sgSaveBtn" class="flex-1 bg-[#FF5252] text-white py-3 rounded-xl font-bold text-[16px] hover:brightness-105 transition cursor-pointer" onclick="saveSignalRecord()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notifPanelOverlay" class="hidden fixed inset-0 z-[5000]" onclick="closeNotifPanel()">
+        <div id="notifPanel" class="modal-content w-[92vw] max-w-[380px] max-h-[70vh] bg-[#FFFDF5] rounded-2xl shadow-2xl border border-[#ECEDFA] flex flex-col overflow-hidden" style="position:fixed;" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+                <h3 class="font-bold text-[#5D4037] font-paperozi text-lg flex items-center gap-1.5"><i class="fi fi-rr-bell text-[16px]"></i> 알림</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="clearAllNotifications()" class="text-[12px] font-bold text-gray-400 hover:text-red-500 transition cursor-pointer">모두 지우기</button>
+                    <button onclick="closeNotifPanel()" class="text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer leading-none"><i class="fi fi-br-cross-small"></i></button>
+                </div>
+            </div>
+            <div id="notifPanelList" class="kakao-chat-bg flex flex-col gap-3 p-3 overflow-y-auto modal-scroll flex-1"></div>
+        </div>
+    </div>
+
+    <div id="signalDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4"></div>
+
+    <script type="module" src="script.js?v=20260821-34"></script>
 
 </body>
 </html>
