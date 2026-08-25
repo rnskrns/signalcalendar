@@ -245,6 +245,153 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
     border-bottom: 1.5px solid #ECEDFA;
 }
 
+/* 홈탭 디데이 카드: 관리자가 배경 이미지를 등록하면 카드 전체에 사진 배경을 채워 보여준다 */
+.home-dday-box-bg {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-color: transparent;
+}
+
+/* 홈탭 디데이 히어로 카드 - 라이트모드에서는 밝은 카드, 다크모드에서는 어두운 그라디언트 카드로 전환 (외곽선 없음, 등록 시 선택한 색상 테마 적용) */
+.dday-hero-card {
+    --dday-c1: 236,72,153;
+    --dday-c2: 99,102,241;
+    --dday-badge-bg: rgba(244,114,182,0.12);
+    --dday-badge-border: rgba(244,114,182,0.45);
+    --dday-badge-text: #f9a8d4;
+    --dday-stat-g1: 244,63,94;
+    --dday-stat-g2: 219,39,119;
+    --dday-stat-border: rgba(244,63,94,0.55);
+    --dday-stat-shadow: rgba(244,63,94,0.6);
+    --dday-stat-label: #fecdd3;
+    position: relative;
+    width: 100%;
+    padding: 22px 24px;
+    border-radius: 24px;
+    /* 라이트모드 기본 배경: 밝은 톤의 그라디언트 */
+    background:
+        radial-gradient(120% 160% at 0% 0%, rgba(var(--dday-c1),0.16), transparent 55%),
+        radial-gradient(120% 160% at 100% 100%, rgba(var(--dday-c2),0.14), transparent 55%),
+        linear-gradient(135deg, #fff6fa 0%, #fdf2f8 55%, #f5f3ff 100%);
+    box-shadow: 0 18px 36px -24px rgba(90,60,130,0.28);
+    overflow: hidden;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+/* 다크모드에서는 기존의 어두운 그라디언트 카드로 전환 */
+html.dark-mode .dday-hero-card {
+    background:
+        radial-gradient(120% 160% at 0% 0%, rgba(var(--dday-c1),0.18), transparent 55%),
+        radial-gradient(120% 160% at 100% 100%, rgba(var(--dday-c2),0.20), transparent 55%),
+        linear-gradient(135deg, #150b23 0%, #0a0b16 55%, #170c22 100%);
+    box-shadow: 0 18px 40px -20px rgba(0,0,0,0.5);
+}
+/* 배경 사진이 등록된 카드: 라이트 모드에서는 밝은 오버레이, 다크 모드에서는 어두운 오버레이 */
+.dday-hero-card-img {
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.65)), var(--dday-img) !important;
+    background-size: cover !important;
+    background-position: center !important;
+}
+
+html.dark-mode .dday-hero-card-img {
+    background-image: linear-gradient(135deg, rgba(10,8,20,0.85), rgba(10,8,20,0.72)), var(--dday-img) !important;
+}
+
+/* COUNTDOWN 뱃지 글씨색 변경 */
+.dday-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--dday-badge-bg);
+    border: 1px solid var(--dday-badge-border);
+    color: rgb(var(--dday-c1)); /* 👈 이 부분을 테마 색상 변수로 변경 */
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+html.dark-mode .dday-hero-badge { color: var(--dday-badge-text) !important; }
+
+
+/* (중간 클래스들은 그대로 유지) */
+.dday-hero-title {
+    margin-top: 14px;
+    font-weight: 800;
+    font-size: 19px;
+    line-height: 1.4;
+    color: var(--text-dark);
+}
+html.dark-mode .dday-hero-title { color: #ffffff; }
+
+.dday-hero-emoji { font-size: 17px; }
+
+.dday-hero-sub {
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(62,39,35,0.55);
+}
+html.dark-mode .dday-hero-sub { color: #9ca3af; }
+
+.dday-hero-stat-row {
+    margin-top: 18px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.dday-hero-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    padding: 12px 18px;
+    border-radius: 16px;
+    background: linear-gradient(160deg, rgba(var(--dday-stat-g1),0.35), rgba(var(--dday-stat-g2),0.22));
+    border: 1px solid var(--dday-stat-border);
+    box-shadow: 0 0 24px -6px var(--dday-stat-shadow);
+}
+
+
+/* D-DAY (또는 남은 숫자) 글씨색 변경 */
+.dday-hero-stat-num {
+    font-size: 26px;
+    font-weight: 900;
+    color: #000000; /* 확실한 검정색으로 고정 */
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+html.dark-mode .dday-hero-stat-num { color: #ffffff; }
+
+/* 하단 DAYS 라벨 글씨색 변경 */
+.dday-hero-stat-label {
+    margin-top: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #000000; /* 기존 분홍색(#9d174d)에서 검정색으로 변경 */
+}
+html.dark-mode .dday-hero-stat-label { color: var(--dday-stat-label) !important; }
+
+.dday-hero-card-img .dday-hero-stat-label { color: #fecdd3 !important; }
+
+/* 디데이 등록 폼: 카드 색상 선택 스와치 */
+.dday-color-swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.dday-color-swatch:hover { transform: scale(1.08); }
+.dday-color-swatch-selected {
+    border-color: #5D4037;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #5D4037;
+}
+
 /* 홈탭 멤버 카드 맨 오른쪽: 각 멤버의 SOOP 공지(최신글) 여러 건을 카카오톡 채팅 느낌으로 표시 */
 .home-member-notice {
     width: 300px;
@@ -1380,3 +1527,18 @@ html.dark-mode .ladder-rung { stroke: #4a4550; }
 html.dark-mode .ladder-reset-btn { color: #ff8a8a; border-color: #5a2f2f; }
 html.dark-mode .ladder-reset-btn:hover { background: #2e1f1f; }
 
+/* 라이트 모드일 때 이미지 카드의 글씨색을 덮어쓰기 (뱃지는 제외) */
+html:not(.dark-mode) .dday-hero-card-img .dday-hero-stat-label,
+html:not(.dark-mode) .dday-hero-card-img .dday-hero-stat-num,
+html:not(.dark-mode) .dday-hero-card-img .dday-hero-title {
+    color: #000000 !important;
+}
+
+html:not(.dark-mode) .dday-hero-card-img .dday-hero-sub {
+    color: #3E2723 !important; /* 서브 텍스트(디데이 멘트) */
+}
+
+/* 👈 뱃지는 선택한 테마 색상을 강제로 유지하도록 분리 */
+html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
+    color: rgb(var(--dday-c1)) !important; 
+}

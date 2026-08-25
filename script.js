@@ -722,6 +722,8 @@ window.closeScheduleModal = closeScheduleModal; window.saveSchedule = saveSchedu
 window.toggleProfileDropdown = toggleProfileDropdown; window.openLinkModal = openLinkModal; window.closeLinkModal = closeLinkModal;
 window.openManageModal = openManageModal; window.closeManageModal = closeManageModal; window.switchManageTab = switchManageTab;
 window.addUpLink = addUpLink; window.deleteUpLink = deleteUpLink;
+window.addDday = addDday; window.deleteDday = deleteDday; window.selectDdayColor = selectDdayColor;
+window.switchDdayImgTab = switchDdayImgTab; window.previewDdayImageFile = previewDdayImageFile; window.previewDdayImageUrl = previewDdayImageUrl;
 window.toggleUpPanel = toggleUpPanel; window.toggleMemoPanel = toggleMemoPanel; window.closeSidePanel = closeSidePanel;
 window.openMobileTabMenu = openMobileTabMenu; window.closeMobileTabMenu = closeMobileTabMenu;
 window.executeDesktopTabChange = executeDesktopTabChange; window.executeMobileTabChange = executeMobileTabChange;
@@ -1127,6 +1129,25 @@ let memberGroups = []; // { id, name, memberIds: [] }
 let popupImagesList = [];
 let homeYoutubeUrl = '';
 let homeBoxShouldShow = false; // 유튜브/이미지 or 공지 중 하나라도 있으면 true
+let ddaysList = []; // 관리자가 등록한 기념일 목록 { id, title, date, timestamp, color, message }
+let ddayBgImageUrl = ''; // 홈탭 디데이 카드 배경 이미지
+let selectedDdayColor = 'pink'; // 디데이 등록 폼에서 현재 선택된 카드 색상
+
+// 디데이 카드 색상 테마 (핑크/노랑/블루/오렌지 중 선택)
+const DDAY_COLOR_THEMES = {
+    pink:   { swatch: '#f472b6', c1: '236,72,153', c2: '99,102,241',  badgeBg: 'rgba(244,114,182,0.12)', badgeBorder: 'rgba(244,114,182,0.45)', badgeText: '#f9a8d4', statG1: '244,63,94',  statG2: '219,39,119', statBorder: 'rgba(244,63,94,0.55)',  statShadow: 'rgba(244,63,94,0.6)',  statLabel: '#fecdd3' },
+    yellow: { swatch: '#facc15', c1: '250,204,21', c2: '234,88,12',   badgeBg: 'rgba(250,204,21,0.14)',  badgeBorder: 'rgba(250,204,21,0.45)',  badgeText: '#fde68a', statG1: '250,204,21', statG2: '217,119,6', statBorder: 'rgba(250,204,21,0.55)', statShadow: 'rgba(250,204,21,0.5)', statLabel: '#fef3c7' },
+    blue:   { swatch: '#3b82f6', c1: '59,130,246', c2: '14,165,233',  badgeBg: 'rgba(96,165,250,0.14)',  badgeBorder: 'rgba(96,165,250,0.45)',  badgeText: '#bfdbfe', statG1: '59,130,246', statG2: '37,99,235', statBorder: 'rgba(59,130,246,0.55)', statShadow: 'rgba(59,130,246,0.55)', statLabel: '#dbeafe' },
+    orange: { swatch: '#fb923c', c1: '251,146,60', c2: '234,88,12',   badgeBg: 'rgba(251,146,60,0.14)',  badgeBorder: 'rgba(251,146,60,0.45)',  badgeText: '#fed7aa', statG1: '251,146,60', statG2: '234,88,12', statBorder: 'rgba(251,146,60,0.55)', statShadow: 'rgba(251,146,60,0.55)', statLabel: '#ffedd5' }
+};
+
+function selectDdayColor(color) {
+    if (!DDAY_COLOR_THEMES[color]) return;
+    selectedDdayColor = color;
+    document.querySelectorAll('.dday-color-swatch').forEach(btn => {
+        btn.classList.toggle('dday-color-swatch-selected', btn.dataset.color === color);
+    });
+}
 
 const scheduleCacheStorageKey = 'signal_schedule_cache_v2';
 // sessionStorage는 새 탭/임베드(iframe)마다 매번 비어있어 캐시가 사실상 무력화되므로
@@ -1871,8 +1892,12 @@ function openManageModal(tab = 'link') {
     if (!isAdmin || !loggedInUser) return;
     renderLinkManagePanel();
     renderUpLinkManagePanel();
+    renderDdayManagePanel();
+    resetDdayImageForm();
+    selectDdayColor('pink');
     renderInfoManagePanel();
     renderHomeManagePanel();
+    if (typeof renderUpdateManagePanel === 'function') renderUpdateManagePanel();
     document.getElementById('manageModal').classList.replace('hidden', 'flex');
     switchManageTab(tab);
 
@@ -1887,9 +1912,9 @@ function closeManageModal() {
 }
 
 function switchManageTab(tab) {
-    const panels = { link: document.getElementById('manageTabPanel_link'), up: document.getElementById('manageTabPanel_up'), home: document.getElementById('manageTabPanel_home'), info: document.getElementById('manageTabPanel_info') };
-    const btns = { link: document.getElementById('manageTabBtn_link'), up: document.getElementById('manageTabBtn_up'), home: document.getElementById('manageTabBtn_home'), info: document.getElementById('manageTabBtn_info') };
-
+    const panels = { link: document.getElementById('manageTabPanel_link'), up: document.getElementById('manageTabPanel_up'), dday: document.getElementById('manageTabPanel_dday'), home: document.getElementById('manageTabPanel_home'), info: document.getElementById('manageTabPanel_info'), update: document.getElementById('manageTabPanel_update') };
+    const btns = { link: document.getElementById('manageTabBtn_link'), up: document.getElementById('manageTabBtn_up'), dday: document.getElementById('manageTabBtn_dday'), home: document.getElementById('manageTabBtn_home'), info: document.getElementById('manageTabBtn_info'), update: document.getElementById('manageTabBtn_update') };
+    
     Object.keys(panels).forEach(key => {
         if (!panels[key] || !btns[key]) return;
         const active = key === tab;
@@ -2554,8 +2579,11 @@ async function renderHomeYoutubeBox() {
     // 2-1. UP 해줘! 버튼을 유튜브 영상 박스 위에 표시(등록된 UP 링크가 있을 때만)
     const hasUpLinks = await updateHomeUpButtonVisibility();
 
-    // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있거나, UP 링크가 있으면 전체 박스를 보여줌
-    homeBoxShouldShow = hasVideo || hasNotice || hasUpLinks;
+    // 2-2. 디데이 박스를 UP 해줘! 버튼 위에 표시(D-30 이내인 기념일이 있을 때만)
+    const hasDday = renderHomeDdayBox();
+
+    // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있거나, UP 링크나 디데이가 있으면 전체 박스를 보여줌
+    homeBoxShouldShow = hasVideo || hasNotice || hasUpLinks || hasDday;
     applyHomeYoutubeBoxVisibility();
 }
 
@@ -2614,9 +2642,12 @@ async function deleteHomeYoutubeLink() {
 async function loadHomeSettingsFromFirebase() {
     try {
         const snap = await getDoc(doc(db, 'meta', 'homeSettings'));
-        homeYoutubeUrl = snap.exists() ? (snap.data().youtubeUrl || '') : '';
-    } catch (e) { console.error('홈 설정 로드 실패:', e); homeYoutubeUrl = ''; }
+        const data = snap.exists() ? snap.data() : {};
+        homeYoutubeUrl = data.youtubeUrl || '';
+        ddayBgImageUrl = data.ddayBgImage || '';
+    } catch (e) { console.error('홈 설정 로드 실패:', e); homeYoutubeUrl = ''; ddayBgImageUrl = ''; }
     renderHomeYoutubeBox();
+    renderHomeDdayBox();
 }
 
 async function loadLinksFromFirebase() {
@@ -2802,7 +2833,10 @@ function renderHeaderTabs() {
 
     if (desktopContainer) {
         let html = `
-            <img src="https://res.cloudinary.com/dtlqzklk5/image/upload/v1785906907/gbcyhj4y00hrunv0encx.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;" class="cursor-pointer hover:scale-105 mr-1" onclick="executeDesktopTabChange('홈')">
+            <div class="relative cursor-pointer hover:scale-105 mr-1" onclick="openUpdateModal()">
+                <img src="https://res.cloudinary.com/dtlqzklk5/image/upload/v1785906907/gbcyhj4y00hrunv0encx.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;">
+                <span id="desktopLogoNewBadge" class="hidden absolute -top-1 -right-2.5 bg-[#FF5252] text-white text-[9px] font-black px-1.5 py-[1px] rounded-full shadow-md font-paperozi tracking-wider z-10">NEW</span>
+            </div>
             <button class="font-paperozi px-5 py-2.5 bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[#FF5252] hover:text-[#FF5252] transition-all duration-200 flex items-center justify-center" onclick="executeDesktopTabChange('홈')">
                 <i class="fi fi-rr-home text-2xl"></i>
             </button>
@@ -2853,8 +2887,9 @@ function renderHeaderTabs() {
                     </div>
                 `;
             }
-        });
+       });
         desktopContainer.innerHTML = html;
+        if (typeof checkUpdateBadge === 'function') checkUpdateBadge();
     }
 
     if (mobileNav) {
@@ -3570,6 +3605,235 @@ async function deleteUpLink(upId, source = 'uplinks') {
         if (isUpModeModalOpen()) renderUpModeModalContent();
         renderUpLinkManagePanel();
     } catch(e) { console.error(e); }
+}
+
+// =========================================================================
+// 디데이(기념일 카운트다운) — 홈탭 UP 해줘! 버튼 위에 D-30부터 표시
+// =========================================================================
+
+// 기준일 대비 남은 일수 계산 (KST 자정 기준, 지난 날짜는 음수)
+function getDdayDaysLeft(dateStr, todayStr = getTodayYYYYMMDD()) {
+    if (!dateStr) return NaN;
+    const target = new Date(`${dateStr}T00:00:00+09:00`);
+    const today = new Date(`${todayStr}T00:00:00+09:00`);
+    return Math.round((target - today) / (24 * 60 * 60 * 1000));
+}
+
+async function loadDdaysFromFirebase() {
+    try {
+        const snap = await getDocs(collection(db, 'ddays'));
+        ddaysList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+        console.error('디데이 로드 실패:', e);
+        ddaysList = [];
+    }
+    renderHomeDdayBox();
+}
+
+// 홈탭 UP 해줘! 버튼 바로 위 박스 - D-30 이내(당일 포함)로 남은 기념일만 가까운 순으로 표시
+function renderHomeDdayBox() {
+    const box = document.getElementById('homeDdayBox');
+    if (!box) return false;
+
+    const todayStr = getTodayYYYYMMDD();
+    const items = ddaysList
+        .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.date, todayStr) }))
+        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 30)
+        .sort((a, b) => a.daysLeft - b.daysLeft);
+
+    if (items.length === 0) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        box.style.backgroundImage = '';
+        box.classList.remove('home-dday-box-bg');
+        return false;
+    }
+
+    const rowsHtml = items.map(d => {
+        const dateLabel = (d.date || '').replaceAll('-', '.');
+        const isToday = d.daysLeft === 0;
+        const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
+        const themeVars = `--dday-c1:${theme.c1};--dday-c2:${theme.c2};--dday-badge-bg:${theme.badgeBg};--dday-badge-border:${theme.badgeBorder};--dday-badge-text:${theme.badgeText};--dday-stat-g1:${theme.statG1};--dday-stat-g2:${theme.statG2};--dday-stat-border:${theme.statBorder};--dday-stat-shadow:${theme.statShadow};--dday-stat-label:${theme.statLabel};`;
+        const cardImage = d.image || ddayBgImageUrl;
+        
+        const bgImageStyle = cardImage
+                ? `--dday-img: url('${cardImage}');`
+                : '';            
+        const message = (d.message || '').trim() || '함께 손꼽아 기다려요!';
+        return `
+        <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''}" style="${themeVars}${bgImageStyle}">
+            <span class="dday-hero-badge">${escapeHtml(dateLabel)} COUNTDOWN</span>
+            <div class="dday-hero-title font-paperozi">${escapeHtml(d.title || '기념일')}까지</div>
+            <div class="dday-hero-sub">${escapeHtml(message)}</div>
+            <div class="dday-hero-stat-row">
+                <div class="dday-hero-stat">
+                    <div class="dday-hero-stat-num">${isToday ? 'D-DAY' : d.daysLeft}</div>
+                    ${isToday ? '' : '<div class="dday-hero-stat-label">DAYS</div>'}
+                </div>
+            </div>
+        </div>
+    `;
+    }).join('');
+
+    box.classList.remove('home-dday-box-bg');
+    box.style.backgroundImage = '';
+    box.innerHTML = rowsHtml;
+    box.classList.remove('hidden');
+    return true;
+}
+
+// 디데이 등록 폼: 디데이별 배경 이미지 (링크 입력 또는 파일 업로드)
+function switchDdayImgTab(tab) {
+    const urlSection = document.getElementById('ddayImageUrlSection');
+    const fileSection = document.getElementById('ddayImageFileSection');
+    const tabUrl = document.getElementById('ddayImgTabUrl');
+    const tabFile = document.getElementById('ddayImgTabFile');
+    if (!urlSection || !fileSection) return;
+    if (tab === 'url') {
+        urlSection.classList.remove('hidden');
+        fileSection.classList.add('hidden');
+        tabUrl.classList.add('bg-[#5D4037]', 'text-white');
+        tabUrl.classList.remove('bg-white', 'text-[#5D4037]');
+        tabFile.classList.add('bg-white', 'text-[#5D4037]');
+        tabFile.classList.remove('bg-[#5D4037]', 'text-white');
+    } else {
+        urlSection.classList.add('hidden');
+        fileSection.classList.remove('hidden');
+        tabFile.classList.add('bg-[#5D4037]', 'text-white');
+        tabFile.classList.remove('bg-white', 'text-[#5D4037]');
+        tabUrl.classList.add('bg-white', 'text-[#5D4037]');
+        tabUrl.classList.remove('bg-[#5D4037]', 'text-white');
+    }
+}
+
+function previewDdayImageFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('ddayImagePreview');
+        if (preview) { preview.src = e.target.result; preview.classList.remove('hidden'); }
+    };
+    reader.readAsDataURL(file);
+}
+
+function previewDdayImageUrl(input) {
+    const url = input.value.trim();
+    const preview = document.getElementById('ddayImagePreview');
+    if (!preview) return;
+    if (url) { preview.src = url; preview.classList.remove('hidden'); }
+    else { preview.classList.add('hidden'); }
+}
+
+// 디데이 등록 폼의 이미지 입력 영역을 초기 상태로 되돌린다 (등록 완료 후 / 모달 오픈 시 호출)
+function resetDdayImageForm() {
+    const urlInput = document.getElementById('ddayImageUrlText');
+    const fileInput = document.getElementById('ddayImageFile');
+    const preview = document.getElementById('ddayImagePreview');
+    if (urlInput) urlInput.value = '';
+    if (fileInput) fileInput.value = '';
+    if (preview) { preview.src = ''; preview.classList.add('hidden'); }
+    switchDdayImgTab('url');
+}
+
+// 관리자 > 관리 > 디데이 관리 탭: 등록된 기념일 전체를 날짜 가까운 순으로 보여준다 (D-30 밖이어도 관리 목록에는 항상 표시)
+function renderDdayManagePanel() {
+    if (!isAdmin || !loggedInUser) return;
+    const container = document.getElementById('ddayManageContainer');
+    if (!container) return;
+
+    if (ddaysList.length === 0) {
+        container.innerHTML = `<div class="text-center text-gray-400 font-bold py-6 text-[13px]">등록된 디데이가 없습니다.</div>`;
+        return;
+    }
+
+    const todayStr = getTodayYYYYMMDD();
+    const sorted = [...ddaysList].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    container.innerHTML = sorted.map(d => {
+        const daysLeft = getDdayDaysLeft(d.date, todayStr);
+        const label = daysLeft === 0 ? 'D-DAY' : (daysLeft > 0 ? `D-${daysLeft}` : `D+${Math.abs(daysLeft)}`);
+        const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
+        const thumb = d.image
+            ? `<img src="${d.image}" class="w-10 h-10 rounded-lg object-cover border-2 border-gray-200 shrink-0">`
+            : `<span class="w-10 h-10 rounded-lg shrink-0" style="background:${theme.swatch};"></span>`;
+        return `
+        <div class="flex justify-between items-center bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm gap-2">
+            ${thumb}
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${theme.swatch};"></span>
+                    <span class="text-[11px] font-bold shrink-0 text-blue-600">${label}</span>
+                    <div class="font-bold text-[14px] text-[#5D4037] truncate">${escapeHtml(d.title || '기념일')}</div>
+                </div>
+                <div class="text-[11.5px] text-gray-400 font-bold mt-0.5">${d.date}${d.message ? ' · ' + escapeHtml(d.message) : ''}</div>
+            </div>
+            <button onclick="deleteDday('${d.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
+        </div>`;
+    }).join('');
+}
+
+async function addDday() {
+    const titleInput = document.getElementById('ddayTitle');
+    const dateInput = document.getElementById('ddayDate');
+    const messageInput = document.getElementById('ddayMessage');
+    const title = titleInput.value.trim();
+    const date = dateInput.value;
+    const message = messageInput ? messageInput.value.trim() : '';
+    const color = DDAY_COLOR_THEMES[selectedDdayColor] ? selectedDdayColor : 'pink';
+
+    if (!date) return alert('날짜를 선택하세요.');
+    if (!title) return alert('기념일 제목을 입력하세요.');
+
+    let imageUrl = document.getElementById('ddayImageUrlText') ? document.getElementById('ddayImageUrlText').value.trim() : '';
+    const imageFileInput = document.getElementById('ddayImageFile');
+    let toast = null;
+
+    try {
+        if (imageFileInput && imageFileInput.files.length > 0) {
+            toast = document.createElement('div');
+            toast.innerText = '이미지를 업로드 중 입니다..⏳';
+            toast.className = 'fixed bottom-12 left-1/2 transform -translate-x-1/2 bg-[#5D4037] text-white px-6 py-3 rounded-xl shadow-2xl z-[9999] font-bold font-paperozi transition-opacity duration-300 opacity-0';
+            document.body.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('opacity-0'));
+
+            const url = await window.uploadImageToCloudinary(imageFileInput.files[0]);
+            if (url) imageUrl = url;
+
+            toast.classList.add('opacity-0');
+            setTimeout(() => toast.remove(), 300);
+            toast = null;
+        }
+
+        const newDday = { title, date, color, message, image: imageUrl, timestamp: Date.now() };
+        const docRef = await addDoc(collection(db, 'ddays'), newDday);
+        ddaysList.push({ id: docRef.id, ...newDday });
+        alert('디데이가 추가되었습니다.');
+        titleInput.value = '';
+        dateInput.value = '';
+        if (messageInput) messageInput.value = '';
+        resetDdayImageForm();
+        selectDdayColor('pink');
+        renderDdayManagePanel();
+        renderHomeDdayBox();
+    } catch (e) {
+        console.error('디데이 추가 실패:', e);
+        alert('추가에 실패했습니다.');
+        if (toast) toast.remove();
+    }
+}
+
+async function deleteDday(ddayId) {
+    if (!confirm('이 디데이를 삭제하시겠습니까?')) return;
+    try {
+        await deleteDoc(doc(db, 'ddays', ddayId));
+        ddaysList = ddaysList.filter(d => d.id !== ddayId);
+        renderDdayManagePanel();
+        renderHomeDdayBox();
+    } catch (e) {
+        console.error('디데이 삭제 실패:', e);
+        alert('삭제에 실패했습니다.');
+    }
 }
 
 function toggleUpPanel() {
@@ -7739,6 +8003,7 @@ async function initApp() {
         // 홈은 모든 멤버의 일정이 필요하므로 전체를 불러온다.
         await loadSchedulesFromFirebase();
         await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
+        await loadDdaysFromFirebase(); // 홈 탭 입장 시 디데이 목록도 함께 가져옴
     } else if (['달타', '다룽', '최또', '카나시'].includes(currentPage)) {
         // 개인 캘린더 탭은 해당 멤버의 일정/메모 컬렉션만 불러온다.
         await loadSchedulesFromFirebase({ member: currentPage });
@@ -7763,7 +8028,8 @@ async function initApp() {
         Promise.all([
             loadLinksFromFirebase(),
             loadPopupImagesFromFirebase(),
-            currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve()
+            currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve(),
+            currentPage !== '홈' ? loadDdaysFromFirebase() : Promise.resolve()
         ]).then(() => {
             // 백그라운드 로드가 끝나면 UI 실시간 갱신
             renderHeaderTabs();
@@ -9334,6 +9600,141 @@ window.renderClipPage = function() {
 
     window.fetchStreamerClips(currentClipStreamer, false);
 };
+
+// 전역 함수 바인딩 추가
+window.openUpdateModal = openUpdateModal;
+window.closeUpdateModal = closeUpdateModal;
+window.addUpdateLog = addUpdateLog;
+window.deleteUpdateLog = deleteUpdateLog;
+
+let updateLogsList = [];
+
+async function loadUpdateLogsFromFirebase() {
+    try {
+        const snap = await getDocs(query(collection(db, 'updates'), orderBy('timestamp', 'desc')));
+        updateLogsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        checkUpdateBadge();
+    } catch(e) { console.error('업데이트 로드 에러:', e); }
+}
+
+function checkUpdateBadge() {
+    const desktopBadge = document.getElementById('desktopLogoNewBadge');
+    const mobileBadge = document.getElementById('mobileLogoNewBadge');
+
+    if (updateLogsList.length === 0) {
+        if (desktopBadge) desktopBadge.classList.add('hidden');
+        if (mobileBadge) mobileBadge.classList.add('hidden');
+        return;
+    }
+
+    const newestLog = updateLogsList[0];
+    const lastSeenTs = Number(localStorage.getItem('lastSeenUpdateTs') || '0');
+    const now = Date.now();
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+
+    // 작성 후 48시간 이내 && 클릭(확인) 전일 때만 NEW 뱃지 표시
+    if (newestLog.timestamp > lastSeenTs && (now - newestLog.timestamp) < twoDaysMs) {
+        if (desktopBadge) desktopBadge.classList.remove('hidden');
+        if (mobileBadge) mobileBadge.classList.remove('hidden');
+    } else {
+        if (desktopBadge) desktopBadge.classList.add('hidden');
+        if (mobileBadge) mobileBadge.classList.add('hidden');
+    }
+}
+
+function openUpdateModal() {
+        if (updateLogsList.length > 0) {
+            localStorage.setItem('lastSeenUpdateTs', Date.now().toString());
+            checkUpdateBadge();
+        }
+        
+        const container = document.getElementById('updateListContainer');
+        if (updateLogsList.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-400 font-bold py-16 text-[15px]">업데이트 내역이 없습니다.</div>`;
+        } else {
+            container.innerHTML = updateLogsList.map(log => {
+                // 버튼 이름이 비어있으면 '자세히 보기'로 설정
+                const displayBtnText = log.btnText ? escapeHtml(log.btnText) : '자세히 보기';
+                return `
+                <div class="bg-white border-2 border-[#ECEDFA] p-5 rounded-xl shadow-sm mb-1">
+                    <div class="text-[12.5px] text-[#FF5252] font-bold mb-1.5">${log.date}</div>
+                    <div class="font-bold text-[18px] text-[#5D4037] mb-2 leading-snug">${escapeHtml(log.title)}</div>
+                    ${log.content ? `<div class="text-[15px] font-medium text-gray-600 mb-4 whitespace-pre-wrap leading-relaxed">${escapeHtml(log.content)}</div>` : ''}
+                    ${log.url ? `<button onclick="window.open('${log.url}', '_blank')" class="text-[14px] bg-[#FFF5F5] border border-[#FFE0E0] text-[#FF5252] font-bold px-4 py-2.5 rounded-xl hover:bg-[#FFE0E0] transition shadow-sm w-full text-center block mt-2">${displayBtnText}</button>` : ''}
+                </div>
+       `}).join('');
+    }
+        document.getElementById('updateModal').classList.replace('hidden', 'flex');
+}
+
+function closeUpdateModal() {
+    document.getElementById('updateModal').classList.replace('flex', 'hidden');
+}
+
+async function addUpdateLog() {
+        const title = document.getElementById('updateTitle').value.trim();
+        const content = document.getElementById('updateContent').value.trim();
+        const url = document.getElementById('updateUrl').value.trim();
+        const btnText = document.getElementById('updateBtnText').value.trim(); // 버튼명 추가
+        const date = getTodayYYYYMMDD();
+        
+        if (!title) return alert('업데이트 제목을 입력하세요.');
+        
+        try {
+            const newLog = { title, content, url, btnText, date, timestamp: Date.now() };
+            const docRef = await addDoc(collection(db, 'updates'), newLog);
+            updateLogsList.unshift({ id: docRef.id, ...newLog });
+            
+            document.getElementById('updateTitle').value = '';
+            document.getElementById('updateContent').value = '';
+            document.getElementById('updateUrl').value = '';
+            document.getElementById('updateBtnText').value = ''; // 초기화
+            
+            alert('업데이트 내역이 등록되었습니다.');
+            renderUpdateManagePanel();
+            checkUpdateBadge();
+        } catch(e) { console.error(e); }
+    }
+
+async function deleteUpdateLog(id) {
+    if(!confirm('이 업데이트 내역을 삭제하시겠습니까?')) return;
+    try {
+        await deleteDoc(doc(db, 'updates', id));
+        updateLogsList = updateLogsList.filter(log => log.id !== id);
+        renderUpdateManagePanel();
+        checkUpdateBadge();
+    } catch(e) { console.error(e); }
+}
+
+function renderUpdateManagePanel() {
+        if (!isAdmin || !loggedInUser) return;
+        const container = document.getElementById('updateManageContainer');
+        if (!container) return;
+        
+        if (updateLogsList.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-400 font-bold py-6 text-[13px]">등록된 업데이트 내역이 없습니다.</div>`;
+            return;
+        }
+        
+        container.innerHTML = updateLogsList.map(log => {
+            const displayBtnText = log.btnText ? escapeHtml(log.btnText) : '자세히 보기';
+            return `
+            <div class="bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-[12px] font-bold text-[#FF5252]">${log.date}</span>
+                    <button onclick="deleteUpdateLog('${log.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
+                </div>
+                <div class="font-bold text-[14px] text-[#5D4037]">${escapeHtml(log.title)}</div>
+                ${log.content ? `<div class="text-[12px] text-gray-500 whitespace-pre-wrap font-medium">${escapeHtml(log.content)}</div>` : ''}
+                ${log.url ? `<a href="${log.url}" target="_blank" class="text-[12px] text-blue-500 underline truncate block max-w-full">${log.url} (버튼명: ${displayBtnText})</a>` : ''}
+            </div>
+        `}).join('');
+    }
+    
+// DOMContentLoaded 이벤트에 업데이트 내역 불러오기 추가
+document.addEventListener('DOMContentLoaded', () => {
+    loadUpdateLogsFromFirebase();
+});
 
 // 🚨 주의: 아래 코드가 반드시 위의 클립 코드들보다 "더 밑에(맨 끝에)" 있어야 합니다! 🚨
 initApp().finally(hidePageLoadingScreen);
