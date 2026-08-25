@@ -1240,3 +1240,143 @@ html.dark-mode .clip-card.is-watched .clip-thumbnail {
     filter: brightness(0.5) saturate(0.7);
 }
 
+/* ===== 더보기 - 사다리타기 ===== */
+.ladder-board {
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+    width: 100%; box-sizing: border-box;
+    background: linear-gradient(180deg, #F4EEFF 0%, #FFFDF5 100%);
+    border: 1px solid #E4D9FA; border-radius: 24px;
+    padding: 20px 14px 26px; position: relative; overflow: hidden;
+}
+.ladder-board-top { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; position: relative; z-index: 1; }
+.ladder-count-nav {
+    display: flex; align-items: center; gap: 10px;
+    background: #ffffff; border: 1px solid #E4D9FA; border-radius: 30px;
+    padding: 6px 14px; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.1);
+}
+.ladder-count-nav button {
+    width: 22px; height: 22px; border: none; background: transparent; cursor: pointer;
+    font-size: 18px; font-weight: 900; color: #8B5CF6; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+}
+.ladder-count-nav button:hover { color: #7C3AED; }
+.ladder-count-text { font-weight: 900; font-size: 14px; color: #5D4037; white-space: nowrap; font-family: 'Paperozi', sans-serif; }
+.ladder-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.ladder-start-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #8B5CF6; color: #fff; border: none; border-radius: 30px;
+    padding: 10px 22px; font-weight: 900; font-size: 14px; cursor: pointer;
+    box-shadow: 0 3px 8px rgba(139, 92, 246, 0.35); transition: background 0.15s, transform 0.1s;
+    font-family: 'Paperozi', sans-serif;
+}
+.ladder-start-btn:hover { background: #7C3AED; }
+.ladder-start-btn:active { transform: scale(0.97); }
+.ladder-secondary-btn {
+    background: #ffffff; color: #5D4037; border: 1px solid #E4D9FA; border-radius: 30px;
+    padding: 10px 16px; font-weight: 800; font-size: 13px; cursor: pointer; transition: background 0.15s;
+    font-family: 'Paperozi', sans-serif;
+}
+.ladder-secondary-btn:hover { background: #F4EEFF; }
+.ladder-reset-btn { color: #e15b5b; border-color: #f6c9c9; }
+.ladder-reset-btn:hover { background: #fdeeee; }
+.ladder-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; }
+.ladder-icon-btn svg { display: block; }
+
+.ladder-svg-wrap { width: 100%; margin: 0 auto; position: relative; z-index: 1; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.ladder-svg-wrap svg { display: block; height: auto; margin: 0 auto; overflow: visible; }
+.ladder-result-text {
+    min-height: 20px; font-weight: 900; font-size: 14px; color: #7C3AED;
+    text-align: center; position: relative; z-index: 2;
+    display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start; justify-content: center;
+    gap: 12px; width: 100%; box-sizing: border-box; padding: 20px 6px 4px; flex: 1;
+}
+.ladder-result-summary-item { display: flex; align-items: center; gap: 10px; background: #F9F6FF; border: 2px solid #E4D9FA; border-radius: 40px; padding: 8px 18px 8px 8px; animation: ladderResultPop 0.25s ease; }
+.ladder-result-summary-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; overflow: hidden; }
+.ladder-result-summary-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ladder-result-summary-name { font-weight: 900; font-size: 15px; color: #5D4037; }
+.ladder-result-summary-arrow { font-weight: 900; font-size: 15px; color: #8B5CF6; }
+.ladder-result-summary-result { font-weight: 900; font-size: 15px; color: #8B5CF6; }
+@keyframes ladderResultPop { 0% { transform: scale(0.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+.ladder-replay-btn-row { flex: 0 0 100%; display: flex; justify-content: center; margin-top: 6px; }
+.ladder-replay-btn-sm {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    background: #8B5CF6; color: #fff; border: none; border-radius: 30px;
+    padding: 10px 22px; font-weight: 900; font-size: 14px; cursor: pointer;
+    box-shadow: 0 3px 8px rgba(139, 92, 246, 0.35); transition: background 0.15s, transform 0.1s;
+    font-family: 'Paperozi', sans-serif;
+    animation: ladderResultPop 0.25s ease;
+}
+.ladder-replay-btn-sm:hover { background: #7C3AED; }
+.ladder-replay-btn-sm:active { transform: scale(0.97); }
+
+.ladder-col-header { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; transition: opacity 0.2s; }
+.ladder-col-header.used { opacity: 0.5; }
+.ladder-col-header.clickable { cursor: pointer; }
+.ladder-col-header.clickable .ladder-avatar,
+.ladder-col-header.clickable .ladder-name-pill { cursor: pointer; }
+.ladder-col-header.clickable:hover .ladder-avatar { box-shadow: 0 2px 10px rgba(139, 92, 246, 0.45); transform: scale(1.04); }
+.ladder-col-header.clickable:hover .ladder-name-pill { border-color: #8B5CF6; }
+.ladder-col-header.clickable .ladder-avatar { transition: box-shadow 0.2s, transform 0.2s; }
+.ladder-avatar {
+    width: 62%; aspect-ratio: 1 / 1; max-width: 96px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: default; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.18);
+    overflow: hidden; font-size: 28px; font-weight: 900; color: #fff; font-family: 'Paperozi', sans-serif;
+    transition: box-shadow 0.2s;
+}
+.ladder-avatar.has-photo { box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3); }
+.ladder-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ladder-name-pill {
+    width: 100%; box-sizing: border-box; border: 1px solid #E4D9FA; background: #ffffff;
+    border-radius: 20px; padding: 8px; cursor: pointer;
+    font-family: 'Paperozi', sans-serif; font-weight: 800; font-size: 14px; color: #5D4037;
+    text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ladder-name-pill:focus { outline: none; border-color: #8B5CF6; }
+.ladder-name-pill:disabled { cursor: default; }
+
+.ladder-result-input {
+    width: 100%; height: 100%; box-sizing: border-box; margin: 0;
+    border: none; background: transparent;
+    font-family: 'Paperozi', sans-serif; font-size: 15px; font-weight: 800; text-align: center;
+    color: #5D4037; outline: none; padding: 0 2px;
+}
+.ladder-result-input::placeholder { color: #C9B8F2; }
+.ladder-result-label {
+    width: 100%; height: 100%; box-sizing: border-box; margin: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Paperozi', sans-serif; font-size: 15px; font-weight: 800; text-align: center;
+    color: #5D4037; padding: 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: opacity 0.2s; cursor: pointer;
+}
+.ladder-result-label.is-used { opacity: 0.5; cursor: default; pointer-events: none; }
+.ladder-result-box rect { fill: #ffffff; stroke: #E4D9FA; stroke-width: 1.5; }
+.ladder-result-box.hit rect { fill: #EDE3FF; stroke: #C9AFFB; }
+.ladder-vline { stroke: #C9B8F2; stroke-width: 2; }
+.ladder-rung { stroke: #C9B8F2; stroke-width: 2; }
+.ladder-path { fill: none; stroke: #8B5CF6; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+html.dark-mode .ladder-board {
+    background: linear-gradient(180deg, #221f28 0%, var(--card-bg-cream) 100%);
+    border-color: var(--white-border);
+}
+html.dark-mode .ladder-count-nav,
+html.dark-mode .ladder-secondary-btn,
+html.dark-mode .ladder-name-pill,
+html.dark-mode .ladder-result-summary-item {
+    background: var(--card-bg-white);
+    border-color: var(--white-border);
+}
+html.dark-mode .ladder-count-text,
+html.dark-mode .ladder-name-pill,
+html.dark-mode .ladder-result-input,
+html.dark-mode .ladder-result-label,
+html.dark-mode .ladder-result-summary-name { color: #f1f1f1; }
+html.dark-mode .ladder-result-box rect { fill: var(--card-bg-white); stroke: var(--white-border); }
+html.dark-mode .ladder-result-box.hit rect { fill: #372c52; stroke: #8B5CF6; }
+html.dark-mode .ladder-vline,
+html.dark-mode .ladder-rung { stroke: #4a4550; }
+html.dark-mode .ladder-reset-btn { color: #ff8a8a; border-color: #5a2f2f; }
+html.dark-mode .ladder-reset-btn:hover { background: #2e1f1f; }
+

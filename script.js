@@ -1208,14 +1208,16 @@ const tabToHash = {
     '롤링페이퍼': 'rolling', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
     '노래책_달타': 'songbook_dalta', '노래책_다룽': 'songbook_darung', '노래책_최또': 'songbook_choitto', '노래책_카나시': 'songbook_kanashi',
     '시그널': 'signal',
-    '클립': 'clip'
+    '클립': 'clip',
+    '사다리타기': 'ladder'
 };
 const hashToTab = { 
     '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
     '#rolling': '롤링페이퍼', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시',
     '#songbook_dalta': '노래책_달타', '#songbook_darung': '노래책_다룽', '#songbook_choitto': '노래책_최또', '#songbook_kanashi': '노래책_카나시',
     '#signal': '시그널',
-    '#clip': '클립'
+    '#clip': '클립',
+    '#ladder': '사다리타기'
 };
 
 // =========================================================================
@@ -1293,7 +1295,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6', '사다리타기': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -2819,7 +2821,8 @@ function renderHeaderTabs() {
                 mainLinkHtml = `
                     <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
-                    <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">업보정리</a>
+                    <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">업보정리</a>
+                    <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">사다리타기</a>
                 `;
             } else if (tab === '시그널') {
                 clickAction = `onclick="executeDesktopTabChange('시그널')"`;
@@ -2857,7 +2860,7 @@ function renderHeaderTabs() {
     if (mobileNav) {
         let mHtml = '';
         ['홈', ...tabs].forEach(tab => {
-            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
+            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '사다리타기' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
             const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
             let contentHtml = '';
             
@@ -2915,6 +2918,7 @@ function openMobileTabMenu(tab) {
         html += iconBtn("executeMobileTabChange('클립')", 'fi-rr-video-camera-alt', '클립', color);
         html += iconBtn("executeMobileTabChange('롤링페이퍼')", 'fi-rr-envelope', '롤링페이퍼', color);
         html += iconBtn("executeMobileTabChange('업보정리_달타')", 'fi-rr-box-open', '업보정리', color);
+        html += iconBtn("executeMobileTabChange('사다리타기')", 'fi-rr-ladder', '사다리타기', color);
     } else {
         html += iconBtn(`executeMobileTabChange('${tab}')`, 'fi-rr-calendar', '일정표', color);
         html += iconBtn(`executeMobileTabChange('노래책_${tab}')`, 'fi-rr-music-alt', '노래책', color);
@@ -2943,6 +2947,439 @@ function closeMobileTabMenu() {
     container.classList.add('opacity-0', 'translate-y-4');
     setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('block'); }, 200);
 }
+
+/* =========================================================
+   더보기 - 사다리타기
+   ========================================================= */
+let ladderCount = 4;
+let ladderNames = [];
+let ladderResults = [];
+let ladderRungsData = [];
+let ladderRowCount = 9;
+let ladderUsedStart = new Set();
+let ladderUsedEnd = new Set();
+let ladderRungsRevealed = false;
+
+const LADDER_HEADER_H = 110;
+const LADDER_TOP_Y = LADDER_HEADER_H + 21;
+const LADDER_ROW_HEIGHT = 44;
+const LADDER_COL_SPACING = 110;
+const LADDER_COLW = 96;
+const LADDER_BOX_W = 88;
+const LADDER_BOX_H = 44;
+const LADDER_AVATAR_BG = ['#F1E7FB', '#E3EEFB', '#FDE9D9', '#E4F1E4', '#FBE7EE', '#FFF3D6', '#E7F5F0', '#E7F0FB'];
+const LADDER_AVATAR_FG = ['#8e5fc9', '#4d84c9', '#e08a3c', '#4c9a63', '#c95f8b', '#c99a2f', '#3f9e88', '#4f75c9'];
+
+function ladderEscapeXml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// 사다리타기에서 사용할 전체 멤버 목록: 기본 멤버(members) + 멤버관리(Firebase)에서 등록한 멤버(customMembers)
+function ladderAllMembersList() {
+    return [
+        ...members.map(m => ({ name: m.name, img: m.img })),
+        ...customMembers.map(m => ({ name: m.nickname, img: m.imageUrl }))
+    ];
+}
+
+// 입력된 이름이 멤버 DB(기본 멤버 + 멤버관리 등록 멤버)에 있는 이름과 일치하면 해당 멤버 정보를 반환
+function ladderMatchedMember(name) {
+    if (!name) return null;
+    const trimmed = String(name).trim();
+    if (!trimmed) return null;
+    return ladderAllMembersList().find(m => m.name === trimmed) || null;
+}
+
+// 사다리타기 아바타(원형) 안쪽 내용을 멤버 매칭 여부에 따라 채워 넣음
+function ladderAvatarInnerHTML(i) {
+    const matched = ladderMatchedMember(ladderNames[i]);
+    if (matched && matched.img) {
+        return `<img src="${ladderEscapeXml(matched.img)}" alt="${ladderEscapeXml(matched.name)}" class="ladder-avatar-img" loading="lazy" decoding="async" onerror="this.style.display='none'">`;
+    }
+    return ladderNames[i] ? ladderEscapeXml(ladderNames[i][0]) : (i + 1);
+}
+
+// 이름 입력창에 입력이 있을 때마다 아바타를 즉시(리렌더 없이) 갱신
+function updateLadderAvatarDisplay(i) {
+    const avatarEl = document.getElementById(`ladderAvatar_${i}`);
+    if (!avatarEl) return;
+    const matched = ladderMatchedMember(ladderNames[i]);
+    if (matched && matched.img) {
+        avatarEl.classList.add('has-photo');
+        avatarEl.style.background = 'transparent';
+        avatarEl.style.color = '';
+        avatarEl.innerHTML = ladderAvatarInnerHTML(i);
+    } else {
+        avatarEl.classList.remove('has-photo');
+        const bg = LADDER_AVATAR_BG[i % LADDER_AVATAR_BG.length];
+        const fg = LADDER_AVATAR_FG[i % LADDER_AVATAR_FG.length];
+        avatarEl.style.background = bg;
+        avatarEl.style.color = fg;
+        avatarEl.innerHTML = ladderAvatarInnerHTML(i);
+    }
+}
+
+function renderLadderPage() {
+    const content = document.getElementById('mainContent');
+    if (!content) return;
+    if (!ladderNames.length) resizeLadderArrays();
+    if (!ladderRungsData.length) ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
+
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+
+    const html = `<div class="big-white-box relative theme-rolling" style="min-height: 900px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">
+        <div class="mb-6 flex items-center gap-2">
+            <i class="fi fi-rr-ladder text-[24px]" style="color:#8B5CF6;"></i>
+            <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi">사다리타기</h2>
+        </div>
+        <div id="ladderGameBoard" class="ladder-board">
+            <div class="ladder-board-top">
+                <div class="ladder-count-nav" title="참여 인원">
+                    <button type="button" onclick="changeLadderCount(-1)" aria-label="인원 줄이기">‹</button>
+                    <span class="ladder-count-text">참가자 <b id="ladderCountDisplay">${ladderCount}</b>명</span>
+                    <button type="button" onclick="changeLadderCount(1)" aria-label="인원 늘리기">›</button>
+                </div>
+                <div class="ladder-actions">
+                    <button type="button" id="ladderStartBtn" class="ladder-start-btn">▷ START</button>
+                    <button type="button" class="ladder-secondary-btn ladder-shuffle-btn ladder-icon-btn" onclick="shuffleLadderRungs()" aria-label="셔플" title="셔플">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                    </button>
+                    <button type="button" class="ladder-secondary-btn ladder-reset-btn ladder-icon-btn" onclick="confirmResetLadderGame()" aria-label="리셋" title="리셋">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><polyline points="3 4 3 9 8 9"></polyline></svg>
+                    </button>
+                </div>
+            </div>
+            <div id="ladderSvgWrap" class="ladder-svg-wrap"></div>
+        </div>
+        <div id="ladderResultText" class="ladder-result-text"></div>
+    </div>`;
+
+    content.innerHTML = html;
+    renderLadderSVG();
+    updateLadderStartBtnState();
+}
+
+function updateLadderStartBtnState() {
+    const btn = document.getElementById('ladderStartBtn');
+    if (!btn) return;
+    if (ladderRungsRevealed) {
+        btn.textContent = '전체 결과';
+        btn.onclick = () => playAllLadderPaths();
+    } else {
+        btn.textContent = '▷ START';
+        btn.onclick = () => startLadderGame();
+    }
+}
+
+function ladderX(i) { return 60 + i * LADDER_COL_SPACING; }
+
+function resizeLadderArrays() {
+    const newNames = [], newResults = [];
+    for (let i = 0; i < ladderCount; i++) {
+        newNames.push(ladderNames[i] || '');
+        newResults.push(ladderResults[i] || '');
+    }
+    ladderNames = newNames;
+    ladderResults = newResults;
+}
+
+window.updateLadderName = function(i, val) { ladderNames[i] = val; updateLadderAvatarDisplay(i); };
+window.updateLadderResult = function(i, val) { ladderResults[i] = val; };
+
+window.changeLadderCount = function(delta) {
+    const next = ladderCount + delta;
+    if (next < 2 || next > 10) return;
+    ladderCount = next;
+    resizeLadderArrays();
+    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
+    ladderUsedStart = new Set();
+    ladderUsedEnd = new Set();
+    ladderRungsRevealed = false;
+    const resultTextEl = document.getElementById('ladderResultText');
+    if (resultTextEl) resultTextEl.innerHTML = '';
+    renderLadderSVG();
+    updateLadderStartBtnState();
+    const countDisplay = document.getElementById('ladderCountDisplay');
+    if (countDisplay) countDisplay.textContent = ladderCount;
+};
+
+function generateLadderRungs(n, rowCount) {
+    const rungs = [];
+    for (let r = 0; r < rowCount; r++) {
+        const row = new Array(n - 1).fill(false);
+        let i = 0;
+        while (i < n - 1) {
+            if (Math.random() < 0.45) { row[i] = true; i += 2; }
+            else { i += 1; }
+        }
+        rungs.push(row);
+    }
+    return rungs;
+}
+
+function ladderBottomY() { return LADDER_TOP_Y + ladderRowCount * LADDER_ROW_HEIGHT; }
+
+function renderLadderSVG() {
+    const n = ladderCount;
+    const svgWrap = document.getElementById('ladderSvgWrap');
+    if (!svgWrap) return;
+
+    const width = LADDER_COL_SPACING * (n - 1) + 120;
+    const bottom = ladderBottomY();
+    const height = bottom + 60;
+
+    let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="auto" style="max-width:${width}px;" xmlns="http://www.w3.org/2000/svg">`;
+
+    for (let i = 0; i < n; i++) {
+        const x = ladderX(i);
+        svg += `<line class="ladder-vline" x1="${x}" y1="${LADDER_TOP_Y}" x2="${x}" y2="${bottom}"></line>`;
+    }
+
+    if (ladderRungsRevealed) {
+        for (let r = 0; r < ladderRowCount; r++) {
+            const y = LADDER_TOP_Y + (r + 0.5) * LADDER_ROW_HEIGHT;
+            ladderRungsData[r].forEach((has, i) => {
+                if (has) svg += `<line class="ladder-rung" x1="${ladderX(i)}" y1="${y}" x2="${ladderX(i + 1)}" y2="${y}"></line>`;
+            });
+        }
+    }
+
+    svg += `<g id="ladderPathsLayer"></g>`;
+
+    for (let i = 0; i < n; i++) {
+        const x = ladderX(i);
+        const bg = LADDER_AVATAR_BG[i % LADDER_AVATAR_BG.length];
+        const fg = LADDER_AVATAR_FG[i % LADDER_AVATAR_FG.length];
+        const matched = ladderMatchedMember(ladderNames[i]);
+        const avatarStyle = matched && matched.img ? 'background:transparent;' : `background:${bg}; color:${fg};`;
+        const avatarCls = matched && matched.img ? ' has-photo' : '';
+        const isUsed = ladderUsedStart.has(i);
+        const usedCls = isUsed ? ' used' : '';
+        const clickable = ladderRungsRevealed && !isUsed;
+        const clickCls = clickable ? ' clickable' : '';
+        const headerClickAttr = clickable ? ` onclick="playLadderFromStart(${i})"` : '';
+
+        svg += `<foreignObject x="${x - LADDER_COLW / 2}" y="0" width="${LADDER_COLW}" height="${LADDER_HEADER_H}">
+            <div xmlns="http://www.w3.org/1999/xhtml" class="ladder-col-header${usedCls}${clickCls}" id="ladderColHeader_${i}"${headerClickAttr}>
+                <div class="ladder-avatar${avatarCls}" id="ladderAvatar_${i}" style="${avatarStyle}">${ladderAvatarInnerHTML(i)}</div>
+                <input class="ladder-name-pill" id="ladderNameInput_${i}" value="${ladderEscapeXml(ladderNames[i] || '')}" placeholder="이름${i + 1}" maxlength="8" oninput="updateLadderName(${i}, this.value)" ${isUsed ? 'disabled' : ''} ${clickable ? 'readonly style="pointer-events:none;"' : ''}>
+            </div>
+        </foreignObject>`;
+    }
+
+    for (let i = 0; i < n; i++) {
+        const x = ladderX(i);
+        const y = bottom + 12;
+        if (!ladderRungsRevealed) {
+            svg += `<g class="ladder-result-box" id="ladderBottomBox_${i}">
+                <rect x="${x - LADDER_BOX_W / 2}" y="${y}" width="${LADDER_BOX_W}" height="${LADDER_BOX_H}" rx="12"></rect>
+            </g>
+            <foreignObject x="${x - LADDER_BOX_W / 2}" y="${y + 3}" width="${LADDER_BOX_W}" height="${LADDER_BOX_H - 6}">
+                <input xmlns="http://www.w3.org/1999/xhtml" type="text" class="ladder-result-input" id="ladderResultInput_${i}" value="${ladderEscapeXml(ladderResults[i] || '')}" placeholder="결과${i + 1}" maxlength="8" oninput="updateLadderResult(${i}, this.value)">
+            </foreignObject>`;
+        } else {
+            const isEndUsed = ladderUsedEnd.has(i);
+            const resultLabel = ladderResults[i] ? ladderEscapeXml(ladderResults[i]) : `결과${i + 1}`;
+            const labelClickAttr = isEndUsed ? '' : `onclick="playLadderFromResult(${i})"`;
+            const labelUsedCls = isEndUsed ? ' is-used' : '';
+            const hitCls = isEndUsed ? ' hit' : '';
+            svg += `<g class="ladder-result-box${hitCls}" id="ladderBottomBox_${i}">
+                <rect x="${x - LADDER_BOX_W / 2}" y="${y}" width="${LADDER_BOX_W}" height="${LADDER_BOX_H}" rx="12"></rect>
+            </g>
+            <foreignObject x="${x - LADDER_BOX_W / 2}" y="${y + 3}" width="${LADDER_BOX_W}" height="${LADDER_BOX_H - 6}">
+                <div xmlns="http://www.w3.org/1999/xhtml" class="ladder-result-label${labelUsedCls}" id="ladderResultLabel_${i}" ${labelClickAttr}>${resultLabel}</div>
+            </foreignObject>`;
+        }
+    }
+
+    svg += `</svg>`;
+    svgWrap.innerHTML = svg;
+}
+
+function ladderAnimatePath(d) {
+    const pathsLayer = document.getElementById('ladderPathsLayer');
+    if (!pathsLayer) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'ladder-path');
+    pathsLayer.appendChild(path);
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = String(len);
+    path.style.strokeDashoffset = String(len);
+    path.getBoundingClientRect();
+    path.style.transition = 'stroke-dashoffset 0.9s ease';
+    requestAnimationFrame(() => { path.style.strokeDashoffset = '0'; });
+}
+
+function markLadderUsed(start, end) {
+    const colHeader = document.getElementById(`ladderColHeader_${start}`);
+    if (colHeader) { colHeader.classList.add('used'); colHeader.style.pointerEvents = 'none'; }
+    const nameInput = document.getElementById(`ladderNameInput_${start}`);
+    if (nameInput) nameInput.disabled = true;
+    const bottomBox = document.getElementById(`ladderBottomBox_${end}`);
+    if (bottomBox) bottomBox.classList.add('hit');
+    const resultLabel = document.getElementById(`ladderResultLabel_${end}`);
+    if (resultLabel) { resultLabel.classList.add('is-used'); resultLabel.removeAttribute('onclick'); }
+    ladderUsedStart.add(start);
+    ladderUsedEnd.add(end);
+}
+
+function addLadderResultSummaryItem(i, end) {
+    const resultTextEl = document.getElementById('ladderResultText');
+    if (!resultTextEl) return;
+    const bg = LADDER_AVATAR_BG[i % LADDER_AVATAR_BG.length];
+    const fg = LADDER_AVATAR_FG[i % LADDER_AVATAR_FG.length];
+    const matched = ladderMatchedMember(ladderNames[i]);
+    const name = ladderNames[i] || `참가자${i + 1}`;
+    const result = ladderResults[end] || `결과${end + 1}`;
+    const avatarInner = matched && matched.img
+        ? `<img src="${ladderEscapeXml(matched.img)}" alt="${ladderEscapeXml(matched.name)}" class="ladder-result-summary-avatar-img" loading="lazy" decoding="async" onerror="this.style.display='none'">`
+        : (ladderNames[i] ? ladderEscapeXml(ladderNames[i][0]) : (i + 1));
+    const avatarStyle = matched && matched.img ? 'background:transparent;' : `background:${bg}; color:${fg};`;
+
+    const item = document.createElement('div');
+    item.className = 'ladder-result-summary-item';
+    item.innerHTML = `
+        <span class="ladder-result-summary-avatar" style="display:flex;align-items:center;justify-content:center;font-weight:900;${avatarStyle}">${avatarInner}</span>
+        <span class="ladder-result-summary-name">${ladderEscapeXml(name)}</span>
+        <span class="ladder-result-summary-arrow">→</span>
+        <span class="ladder-result-summary-result">${ladderEscapeXml(result)}</span>
+    `;
+    resultTextEl.appendChild(item);
+}
+
+window.playLadderFromResult = function(end) {
+    if (ladderUsedEnd.has(end)) return;
+    const n = ladderCount;
+    let curCol = end;
+    let d = `M ${ladderX(curCol)} ${ladderBottomY()}`;
+    for (let r = ladderRowCount - 1; r >= 0; r--) {
+        const midY = LADDER_TOP_Y + (r + 0.5) * LADDER_ROW_HEIGHT;
+        const rowTopY = LADDER_TOP_Y + r * LADDER_ROW_HEIGHT;
+        d += ` L ${ladderX(curCol)} ${midY}`;
+        let newCol = curCol;
+        if (curCol > 0 && ladderRungsData[r][curCol - 1]) newCol = curCol - 1;
+        else if (curCol < n - 1 && ladderRungsData[r][curCol]) newCol = curCol + 1;
+        if (newCol !== curCol) { d += ` L ${ladderX(newCol)} ${midY}`; curCol = newCol; }
+        d += ` L ${ladderX(curCol)} ${rowTopY}`;
+    }
+    const start = curCol;
+    ladderAnimatePath(d);
+    markLadderUsed(start, end);
+    addLadderResultSummaryItem(start, end);
+    checkLadderAllDone();
+};
+
+window.playLadderFromStart = function(start) {
+    if (ladderUsedStart.has(start)) return;
+    const n = ladderCount;
+    let curCol = start;
+    let d = `M ${ladderX(curCol)} ${LADDER_TOP_Y}`;
+    for (let r = 0; r < ladderRowCount; r++) {
+        const midY = LADDER_TOP_Y + (r + 0.5) * LADDER_ROW_HEIGHT;
+        const rowBottomY = LADDER_TOP_Y + (r + 1) * LADDER_ROW_HEIGHT;
+        d += ` L ${ladderX(curCol)} ${midY}`;
+        let newCol = curCol;
+        if (curCol > 0 && ladderRungsData[r][curCol - 1]) newCol = curCol - 1;
+        else if (curCol < n - 1 && ladderRungsData[r][curCol]) newCol = curCol + 1;
+        if (newCol !== curCol) { d += ` L ${ladderX(newCol)} ${midY}`; curCol = newCol; }
+        d += ` L ${ladderX(curCol)} ${rowBottomY}`;
+    }
+    const end = curCol;
+    ladderAnimatePath(d);
+    markLadderUsed(start, end);
+    addLadderResultSummaryItem(start, end);
+    checkLadderAllDone();
+};
+
+window.playAllLadderPaths = function() {
+    for (let i = 0; i < ladderCount; i++) {
+        if (!ladderUsedStart.has(i)) playLadderFromStart(i);
+    }
+};
+
+// 참가자 전원이 사다리를 다 탔는지 확인하고, 다 탔다면 결과창 맨 위에 "다시하기" 버튼을 보여준다.
+function checkLadderAllDone() {
+    if (ladderCount > 0 && ladderUsedStart.size === ladderCount) {
+        showLadderReplayButton();
+    }
+}
+
+function showLadderReplayButton() {
+    const resultTextEl = document.getElementById('ladderResultText');
+    if (!resultTextEl || document.getElementById('ladderReplayBtn')) return;
+    const row = document.createElement('div');
+    row.className = 'ladder-replay-btn-row';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'ladderReplayBtn';
+    btn.className = 'ladder-replay-btn-sm';
+    btn.textContent = '↻ 다시하기';
+    btn.onclick = replayLadderSameSetup;
+    row.appendChild(btn);
+    resultTextEl.appendChild(row);
+}
+
+// 참가자 이름/결과 항목은 그대로 유지한 채, 선(사다리 경로)는 새로 섞고 시작 전 준비 단계(줄 안 보임)로 되돌림
+window.replayLadderSameSetup = function() {
+    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
+    ladderUsedStart = new Set();
+    ladderUsedEnd = new Set();
+    ladderRungsRevealed = false;
+    const resultTextEl = document.getElementById('ladderResultText');
+    if (resultTextEl) resultTextEl.innerHTML = '';
+    renderLadderSVG();
+    updateLadderStartBtnState();
+};
+
+window.startLadderGame = function() {
+    if (!ladderRungsData.length) ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
+    ladderRungsRevealed = true;
+    renderLadderSVG();
+    updateLadderStartBtnState();
+};
+
+function resetLadderGame() {
+    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
+    ladderUsedStart = new Set();
+    ladderUsedEnd = new Set();
+    ladderRungsRevealed = false;
+    const resultTextEl = document.getElementById('ladderResultText');
+    if (resultTextEl) resultTextEl.innerHTML = '';
+    renderLadderSVG();
+    updateLadderStartBtnState();
+}
+window.resetLadderGame = resetLadderGame;
+
+function fullResetLadderGame() {
+    ladderCount = 4; ladderNames = []; ladderResults = [];
+    resizeLadderArrays();
+    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
+    ladderUsedStart = new Set(); ladderUsedEnd = new Set(); ladderRungsRevealed = false;
+    const resultTextEl = document.getElementById('ladderResultText');
+    if (resultTextEl) resultTextEl.innerHTML = '';
+    renderLadderSVG();
+    updateLadderStartBtnState();
+    const countDisplay = document.getElementById('ladderCountDisplay');
+    if (countDisplay) countDisplay.textContent = ladderCount;
+}
+
+window.confirmResetLadderGame = function() {
+    if (!confirm('사다리 세팅을 초기화 할까요?')) return;
+    fullResetLadderGame();
+    showToast('사다리 세팅을 초기화했습니다.');
+};
+
+// 진행 중(누군가 이미 사다리를 탄 상태)이 아니면 사다리 선 배치를 즉시 새로 섞음
+window.shuffleLadderRungs = function() {
+    if (ladderUsedStart.size > 0) {
+        showToast('이미 진행된 사다리는 섞을 수 없어요.');
+        return;
+    }
+    ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
+    renderLadderSVG();
+};
 
 async function openRollingTopicFromMenu(id) {
     closeMobileTabMenu();
@@ -4097,19 +4534,27 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         }
 
         if (!cached) {
-            const smSnap = await getDocs(collection(memberDb, 'members'));
-            customMembers = [];
-            smSnap.forEach(docSnap => {
-                const data = docSnap.data();
-                customMembers.push({
-                    id: docSnap.id,
-                    nickname: data.name || '',
-                    soopId: data.soopId || '',
-                    imageUrl: data.img || 'https://via.placeholder.com/60',
-                    isCrew: data.type === 'crew',
-                    timestamp: data.timestamp || 0
+            try {
+                const smSnap = await getDocs(collection(memberDb, 'members'));
+                customMembers = [];
+                smSnap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    customMembers.push({
+                        id: docSnap.id,
+                        nickname: data.name || '',
+                        soopId: data.soopId || '',
+                        imageUrl: data.img || 'https://via.placeholder.com/60',
+                        isCrew: data.type === 'crew',
+                        timestamp: data.timestamp || 0
+                    });
                 });
-            });
+            } catch (memberErr) {
+                // 멤버관리 DB(memberDb)만 실패해도 스케줄 등 나머지 데이터 로드/렌더는 계속 진행되도록 별도로 처리
+                console.error('멤버관리 데이터 로드 실패 (memberDb - members 컬렉션):', memberErr);
+                if (isAdmin && typeof showToast === 'function') {
+                    showToast('멤버 목록을 불러오지 못했습니다. Firestore 권한(규칙)을 확인해주세요.');
+                }
+            }
 
             const grpSnap = await getDocs(collection(db, 'memberGroups'));
             memberGroups = [];
@@ -4363,7 +4808,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF' };
     const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', themeColors[activeThemeMember] || '#8B5CF6');
@@ -4402,6 +4847,8 @@ function render() {
         renderSongbook();
     } else if (currentPage === '시그널') {
         renderSignalPage();
+    } else if (currentPage === '사다리타기') {
+        renderLadderPage();
     } else {
         if (isMobile) {
             if (currentPage === '홈') renderMobileHome(grouped);
@@ -7400,16 +7847,40 @@ window.deleteUpLinkFromEditModal = async function() {
     closeEditUpLinkModal();
 };
 
-window.openMemberManageModal = function() {
+window.openMemberManageModal = async function() {
     if(!isAdmin) return;
+    // 캐시된 값이 있다면 우선 그대로 먼저 보여주고, 동시에 최신 데이터로 다시 불러온다.
     renderCustomMembersList();
     renderMemberGroupsList();
     document.getElementById('memberManageModal').classList.replace('hidden', 'flex');
-    
+
     ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
         const pMenu = document.getElementById(id);
         if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
     });
+
+    // 모달을 열 때마다 멤버관리 DB(memberDb)에서 최신 멤버 목록을 다시 불러온다.
+    // (스케줄 캐시 로직 때문에 customMembers가 갱신되지 않고 비어 보이는 문제를 방지하기 위함)
+    try {
+        const smSnap = await getDocs(collection(memberDb, 'members'));
+        customMembers = [];
+        smSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            customMembers.push({
+                id: docSnap.id,
+                nickname: data.name || '',
+                soopId: data.soopId || '',
+                imageUrl: data.img || 'https://via.placeholder.com/60',
+                isCrew: data.type === 'crew',
+                timestamp: data.timestamp || 0
+            });
+        });
+        saveScheduleCache();
+        renderCustomMembersList();
+    } catch (e) {
+        console.error('멤버 목록 새로고침 실패 (memberDb - members 컬렉션):', e);
+        showToast('멤버 목록을 불러오지 못했습니다. Firestore 권한(규칙)을 확인해주세요.');
+    }
 };
 
 window.closeMemberManageModal = function() {
