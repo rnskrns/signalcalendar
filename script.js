@@ -1,6 +1,6 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 // =========================================================================
 // SOOP 확장프로그램 로그인 연동
@@ -9,6 +9,59 @@ import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/fi
 window.loginWithSoopExtension = loginWithSoopExtension;
 window.closeSoopExtInstallModal = closeSoopExtInstallModal;
 window.goToSoopExtDownload = goToSoopExtDownload;
+
+// ⭐ 신규: 구글 로그인(모바일 등 확장프로그램 없이 로그인) / SOOP 계정에 구글 계정 연동
+window.loginWithGoogle = loginWithGoogle;
+window.linkGoogleAccount = linkGoogleAccount;
+
+// 연동 진행 중에는 onAuthStateChanged의 일반 처리 로직을 건너뛰기 위한 플래그
+let isLinkingGoogleAccount = false;
+
+// 모바일 등 확장프로그램을 쓸 수 없는 환경에서 구글 계정으로 바로 로그인
+function loginWithGoogle() {
+    signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => {
+        if (e.code !== 'auth/popup-closed-by-user') {
+            console.error('구글 로그인 실패:', e);
+            alert('구글 로그인에 실패했습니다. 다시 시도해주세요.');
+        }
+    });
+}
+
+// SOOP 계정으로 로그인한 상태에서 구글 계정을 프로필에 연동합니다.
+// 연동 이후에는 구글 로그인만 해도 이 SOOP 계정과 동일한 데이터(닉네임/프사/좋아요/롤링페이퍼 등)를 사용하게 됩니다.
+async function linkGoogleAccount() {
+    if (!isSoopSession || !currentUser || !currentUser.uid) {
+        alert('SOOP 계정으로 로그인한 상태에서만 구글 계정을 연동할 수 있습니다.');
+        return;
+    }
+    const soopId = currentUser.uid;
+    isLinkingGoogleAccount = true;
+    try {
+        const result = await signInWithPopup(auth, new GoogleAuthProvider());
+        const googleUser = result.user;
+
+        // 이미 다른 SOOP 계정에 연동되어 있는 구글 계정이면 막습니다.
+        const linkRef = doc(db, "accountLinks", googleUser.uid);
+        const linkSnap = await getDoc(linkRef);
+        if (linkSnap.exists() && linkSnap.data().soopId && linkSnap.data().soopId !== soopId) {
+            alert('이미 다른 계정에 연동되어 있는 구글 계정입니다.');
+            await signOut(auth);
+            return;
+        }
+
+        await setDoc(linkRef, { soopId }, { merge: true });
+        await setDoc(doc(db, "soopUsers", soopId), { linkedGoogleUid: googleUser.uid }, { merge: true });
+
+        alert('구글 계정이 연동되었습니다. 다음부터는 구글 로그인만으로도 같은 정보로 접속할 수 있어요.');
+    } catch (e) {
+        if (e.code !== 'auth/popup-closed-by-user') {
+            console.error('구글 계정 연동 실패:', e);
+            alert('구글 계정 연동에 실패했습니다. 다시 시도해주세요.');
+        }
+    } finally {
+        isLinkingGoogleAccount = false;
+    }
+}
 
 // ⭐ 신규: SOOP 확장프로그램 다운로드 링크
 const SOOP_EXT_DOWNLOAD_URL = 'https://chromewebstore.google.com/detail/signal/dblpllkikodcdlmfohdnljegobdbhinl?hl=ko&utm_source=ext_sidebar';
@@ -1540,6 +1593,15 @@ function renderUserAuthHtml(scope, user) {
     const photo = user.photoURL || '';
     const menuId = isDesktop ? 'userAuthMenu_desktop' : 'userAuthMenu_mobile';
 
+    // ⭐ 신규: SOOP 계정으로 로그인한 상태일 때만 "구글 계정 연동" 메뉴를 보여줍니다.
+    // (구글 로그인으로 연동된 SOOP 계정에 접속한 경우도 isSoopSession이 true라 함께 노출됩니다.)
+    const linkMenuItem = isSoopSession
+        ? `<button onclick="linkGoogleAccount()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">구글 계정 연동</button>`
+        : '';
+    const linkMenuItemMobile = isSoopSession
+        ? `<button onclick="linkGoogleAccount()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">구글 연동</button>`
+        : '';
+
     if (isDesktop) {
         return `
             <div class="relative inline-block text-left z-[2000]">
@@ -1547,7 +1609,8 @@ function renderUserAuthHtml(scope, user) {
                     <img src="${photo}" class="w-8 h-8 rounded-full object-cover border-2 border-gray-200">
                     <span class="text-lg text-[#5D4037] font-paperozi max-w-[100px] truncate">${name}</span>
                 </div>
-                <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-32 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                    ${linkMenuItem}
                     <button onclick="logoutUser()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
             </div>
@@ -1558,7 +1621,8 @@ function renderUserAuthHtml(scope, user) {
             <div class="flex items-center gap-1 cursor-pointer bg-white border border-gray-200 shadow-sm px-2 py-[5px] rounded-lg font-bold" onclick="toggleProfileDropdown('${menuId}')">
                 <img src="${photo}" class="w-[20px] h-[20px] rounded-full object-cover border border-gray-200">
             </div>
-            <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-24 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+            <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                ${linkMenuItemMobile}
                 <button onclick="logoutUser()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
             </div>
         </div>
@@ -1582,6 +1646,9 @@ function refreshAuthUI() {
 }
 
 onAuthStateChanged(auth, async (user) => {
+    // 구글 계정 연동 처리 중에는 linkGoogleAccount() 쪽에서 모든 로직을 전담하므로 여기서는 무시합니다.
+    if (isLinkingGoogleAccount) return;
+
     if (!user) {
         // ⭐ 신규: SOOP 로그인 세션이 복원되어 있는 상태라면, Firebase의 '로그아웃 상태'로 덮어쓰지 않음
         if (isSoopSession) return;
@@ -1595,7 +1662,33 @@ onAuthStateChanged(auth, async (user) => {
         return;
     }
 
-    // 구글 계정으로 실제 로그인한 경우, 기존 SOOP 세션은 정리합니다.
+    // ⭐ 신규: 이 구글 계정이 SOOP 계정에 연동되어 있는지 먼저 확인합니다.
+    // 연동되어 있으면 SOOP 계정과 완전히 동일한 정보(닉네임/프사/좋아요/롤링페이퍼 등)로 로그인 처리합니다.
+    try {
+        const linkSnap = await getDoc(doc(db, "accountLinks", user.uid));
+        if (linkSnap.exists() && linkSnap.data().soopId) {
+            const soopId = linkSnap.data().soopId;
+            const soopSnap = await getDoc(doc(db, "soopUsers", soopId));
+            if (soopSnap.exists()) {
+                const soopData = soopSnap.data();
+                currentUser = {
+                    uid: soopId,
+                    displayName: soopData.nick || soopData.displayName || user.displayName,
+                    photoURL: soopData.imgUrl || soopData.photoURL || user.photoURL
+                };
+                isSoopSession = true;
+                saveSoopSession(currentUser); // 새로고침해도 로그인 유지
+                refreshAuthUI();
+                loadAndMergeSoopLikes(soopId);
+                flushPendingLoginNotifications();
+                return;
+            }
+        }
+    } catch (e) {
+        console.error('연동 계정 확인 실패:', e);
+    }
+
+    // 연동된 SOOP 계정이 없는, 순수 구글 계정으로 실제 로그인한 경우: 기존 SOOP 세션은 정리합니다.
     clearSoopSession();
     currentUser = user;
 

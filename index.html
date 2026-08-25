@@ -316,9 +316,14 @@
             <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">로그인</h2>
 
             <!-- ⭐ 신규: SOOP 확장프로그램 로그인 버튼 추가 -->
-            <button type="button" onclick="closePasswordModal(); loginWithSoopExtension();" class="w-full flex items-center justify-center gap-2 border-2 border-[#57d5ff] rounded-lg py-2.5 mb-4 font-bold text-[14px] text-[#0a0a0f] bg-[#e6f9ff] hover:bg-[#cceeff] transition cursor-pointer">
+            <button type="button" onclick="closePasswordModal(); loginWithSoopExtension();" class="w-full flex items-center justify-center gap-2 border-2 border-[#57d5ff] rounded-lg py-2.5 mb-2 font-bold text-[14px] text-[#0a0a0f] bg-[#e6f9ff] hover:bg-[#cceeff] transition cursor-pointer">
                 <img src="https://res.sooplive.com/images/common/thumb_profile.gif" class="w-4 h-4 rounded-full object-cover"> SOOP 계정으로 간편 로그인
             </button>
+            <!-- ⭐ 신규: 확장프로그램 없이(모바일 등) 구글 계정으로 로그인. 프로필에서 SOOP 계정과 연동해두면 여기로도 같은 정보로 접속됩니다. -->
+            <button type="button" onclick="closePasswordModal(); loginWithGoogle();" class="w-full flex items-center justify-center gap-2 border-2 border-gray-300 rounded-lg py-2.5 mb-4 font-bold text-[14px] text-[#5D4037] bg-white hover:bg-gray-50 transition cursor-pointer">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4 object-contain"> 구글 계정으로 로그인
+            </button>
+            <div class="text-[11px] text-gray-400 text-center mb-4 -mt-2">구글 로그인은 프로필에서 SOOP 계정과 연동해야 같은 정보를 볼 수 있어요</div>
             <!-- 여기까지 -->
             <div class="relative flex items-center mb-4">
                 <div class="flex-grow border-t border-gray-300"></div>
