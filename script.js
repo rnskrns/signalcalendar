@@ -50,6 +50,16 @@ async function refreshGoogleLinkModalStatus() {
     const statusEl = document.getElementById('googleLinkStatus');
     const btnEl = document.getElementById('googleLinkActionBtn');
     if (!statusEl || !btnEl || !currentUser) return;
+
+    // 구글 계정으로 로그인했는데 그 구글 계정이 이미 SOOP 계정에 연동되어 있어서
+    // 자동으로 그 SOOP 계정 정보로 로그인된 경우: 연동 대상 SOOP 계정 정보를 그대로 보여준다.
+    if (soopSessionViaGoogleLink) {
+        statusEl.innerHTML = `soop <b class="text-[#5D4037]">${escapeHtml(currentUser.displayName || '')}</b>,<b class="text-[#5D4037]">${escapeHtml(currentUser.uid || '')}</b>랑 연동 중`;
+        btnEl.classList.add('hidden');
+        return;
+    }
+    btnEl.classList.remove('hidden');
+
     statusEl.textContent = '연동 상태를 확인하는 중...';
     btnEl.textContent = '확인 중...';
     btnEl.disabled = true;
@@ -162,15 +172,19 @@ let soopLoginTimeoutId = null;
 // ⭐ 신규: SOOP 로그인 새로고침 유지(세션 저장/복원)
 const SOOP_SESSION_KEY = 'soopUserSession';
 let isSoopSession = false; // 현재 currentUser가 SOOP 로그인으로 채워진 상태인지 여부
+// 현재 SOOP 세션이 "구글 계정으로 로그인했는데 그 구글 계정이 SOOP 계정에 연동되어 있어서"
+// 자동으로 채워진 것인지 여부. true면 "구글 계정 연동" 메뉴에서 연동 대상 SOOP 계정 정보를 보여준다.
+let soopSessionViaGoogleLink = false;
 
-function saveSoopSession(user) {
+function saveSoopSession(user, viaGoogleLink = false) {
     try {
-        localStorage.setItem(SOOP_SESSION_KEY, JSON.stringify(user));
+        localStorage.setItem(SOOP_SESSION_KEY, JSON.stringify({ user, viaGoogleLink }));
     } catch (e) { console.error('SOOP 세션 저장 실패:', e); }
 }
 
 function clearSoopSession() {
     isSoopSession = false;
+    soopSessionViaGoogleLink = false;
     try { localStorage.removeItem(SOOP_SESSION_KEY); } catch (e) { /* 무시 */ }
 }
 
@@ -179,11 +193,15 @@ function restoreSoopSession() {
     try {
         const saved = localStorage.getItem(SOOP_SESSION_KEY);
         if (!saved) return;
-        const user = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // 이전 버전(사용자 객체를 그대로 저장)과의 호환도 함께 처리
+        const user = parsed && parsed.user ? parsed.user : parsed;
+        const viaGoogleLink = !!(parsed && parsed.viaGoogleLink);
         if (!user || !user.uid) return;
 
         currentUser = user;
         isSoopSession = true;
+        soopSessionViaGoogleLink = viaGoogleLink;
         refreshAuthUI();
         loadAndMergeSoopLikes(user.uid); // 노래책 좋아요 계정 데이터 비동기 로드
         flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
@@ -243,7 +261,8 @@ window.addEventListener('message', (event) => {
 
         // ⭐ 신규: 새로고침해도 로그인이 풀리지 않도록 세션 저장
         isSoopSession = true;
-        saveSoopSession(currentUser);
+        soopSessionViaGoogleLink = false;
+        saveSoopSession(currentUser, false);
 
         // UI 즉시 업데이트 (프사, 닉네임 적용됨)
         refreshAuthUI();
@@ -1778,7 +1797,8 @@ onAuthStateChanged(auth, async (user) => {
                     photoURL: soopData.imgUrl || soopData.photoURL || user.photoURL
                 };
                 isSoopSession = true;
-                saveSoopSession(currentUser); // 새로고침해도 로그인 유지
+                soopSessionViaGoogleLink = true; // 구글 로그인이 SOOP 계정에 연동되어 자동으로 채워진 세션
+                saveSoopSession(currentUser, true); // 새로고침해도 로그인 유지
                 refreshAuthUI();
                 loadAndMergeSoopLikes(soopId);
                 flushPendingLoginNotifications();
@@ -3980,8 +4000,12 @@ async function loadUpboDataFromFirebase() {
 }
 window.loadUpboDataFromFirebase = loadUpboDataFromFirebase;
 
-async function loadSchedulesFromFirebase({ forceReload = false, member = null, useCacheOnly = false } = {}) {
+async function loadSchedulesFromFirebase({ forceReload = false, member = null, members = null, useCacheOnly = false } = {}) {
     const cached = !forceReload ? readScheduleCache() : null;
+    const allMemberKeys = Object.keys(collectionMap);
+    // member/members를 둘 다 지정하지 않은 "전체 멤버" 요청인지 여부 (예: 홈 탭)
+    const wantsAllMembers = !member && members === null;
+    const cachedHasAllMembers = !!(cached && Array.isArray(cached.loadedMemberPages) && allMemberKeys.every(m => cached.loadedMemberPages.includes(m)));
 
     if (!forceReload && member && loadedMemberPages.has(member) && cached) {
         hydrateScheduleCache(cached);
@@ -3990,7 +4014,18 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, u
         return true;
     }
 
-    if (!forceReload && !member && cached) {
+    // 전체 멤버 요청은 캐시가 실제로 모든 멤버의 일정을 담고 있을 때만 캐시를 그대로 쓴다.
+    // (예: 다른 탭으로 처음 들어와 일부 멤버 데이터만 캐싱된 상태에서 홈으로 이동한 경우 재요청 필요)
+    if (!forceReload && wantsAllMembers && cached && cachedHasAllMembers) {
+        hydrateScheduleCache(cached);
+        renderHeaderTabs();
+        render();
+        return true;
+    }
+
+    // 특정 멤버 목록(빈 배열 포함)만 요청한 경우: 공통 데이터(멤버 목록/그룹/롤링 주제 등)는
+    // 캐시가 존재하는 한 항상 채워져 있으므로, 캐시가 있으면 그대로 사용해도 된다.
+    if (!forceReload && members !== null && cached) {
         hydrateScheduleCache(cached);
         renderHeaderTabs();
         render();
@@ -4010,7 +4045,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, u
     }
 
     try {
-        const targetMembers = member ? [member] : Object.keys(collectionMap);
+        const targetMembers = members !== null ? members : (member ? [member] : allMemberKeys);
         const eventPromises = targetMembers.map((targetMember) => {
             const colName = collectionMap[targetMember];
             return getDocs(collection(db, colName)).then(snapshot => ({ type: 'event', member: targetMember, colName, snapshot }));
@@ -4161,6 +4196,9 @@ async function changeTab(tabName) {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
         // 업보관리 데이터는 로컬에 기억해두지 않고 탭에 들어올 때마다 항상 최신 데이터를 즉시 불러온다.
         await loadUpboDataFromFirebase();
+    } else if (currentPage === '홈') {
+        // 홈은 모든 멤버의 일정을 합쳐서 보여주므로, 캐시에 전체 멤버 데이터가 없다면 새로 불러온다.
+        await loadSchedulesFromFirebase();
     } else {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
     }
@@ -7250,11 +7288,17 @@ async function initApp() {
     // 전혀 쓰이지 않으므로, 그 무거운 컬렉션들을 아예 불러오지 않고 업보 데이터만 즉시 가져온다.
     if (isEmbedMode) {
         await loadUpboDataFromFirebase();
-    } else {
+    } else if (currentPage === '홈') {
+        // 홈은 모든 멤버의 일정이 필요하므로 전체를 불러온다.
         await loadSchedulesFromFirebase();
-        if (currentPage === '홈') {
-            await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
-        }
+        await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
+    } else if (['달타', '다룽', '최또', '카나시'].includes(currentPage)) {
+        // 개인 캘린더 탭은 해당 멤버의 일정/메모 컬렉션만 불러온다.
+        await loadSchedulesFromFirebase({ member: currentPage });
+    } else {
+        // 그 외 탭(업보정리/롤링페이퍼/노래책/시그널/클립 등)은 멤버별 일정 컬렉션이 필요 없으므로,
+        // 멤버 목록·그룹·롤링 주제 등 공통 데이터만 가볍게 불러온다.
+        await loadSchedulesFromFirebase({ members: [] });
     }
     setActiveSongs(songbookMember);
 
