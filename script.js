@@ -7831,8 +7831,11 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                 ? `<div class="text-[17px] font-bold text-[#000] text-center leading-tight break-keep font-paperozi mb-1 whitespace-pre-line">${sch.title}</div>`
                 : '';
             
-            let badgeHtml = sch.globalType === '휴방' ? '' : 
-                `<div class="flex gap-2 justify-center">
+            let badgeHtml = sch.globalType === '휴방'
+                ? `<div class="flex gap-2 justify-center">
+                    <span class="px-3 py-1 text-[11px] font-bold rounded-full shadow-sm" style="background-color: #9CA3AF; color: #ffffff;">휴방</span>
+                </div>`
+                : `<div class="flex gap-2 justify-center">
                     ${timeText ? `<span class="px-3 py-1 text-[11px] font-bold rounded-full shadow-sm" style="background-color: ${themeColor}; color: #ffffff;">${timeText}</span>` : ''}
                     <span class="px-3 py-1 text-[11px] font-bold rounded-full shadow-sm" style="${broadStyle}">${broadText}</span>
                 </div>`;
