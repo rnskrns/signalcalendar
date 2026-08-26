@@ -42,12 +42,7 @@ export default async function handler(req, res) {
     const html = await response.text();
 
     if (!response.ok) {
-      console.error('VOD Finder 페이지 오류:', pageUrl, response.status, html.slice(0, 500));
-      return res.status(response.status).json({
-        error: 'VOD 검색 페이지를 불러오지 못했습니다.',
-        detail: `HTTP ${response.status}`,
-        pageUrl
-      });
+      return res.status(response.status).json({ error: 'VOD 검색 페이지를 불러오지 못했습니다.' });
     }
 
     const $ = cheerio.load(html);
@@ -135,22 +130,8 @@ export default async function handler(req, res) {
       });
     });
 
-    if (clips.length === 0) {
-      // 셀렉터가 실제 마크업과 안 맞을 때, 원인을 바로 알 수 있도록 일부 HTML을 함께 내려준다.
-      console.error('클립 파싱 결과 0건:', pageUrl, html.slice(0, 1000));
-      return res.status(200).json({
-        items: [],
-        debug: {
-          message: '카드를 찾지 못했습니다. 페이지 구조가 바뀌었을 수 있습니다.',
-          pageUrl,
-          htmlSnippet: html.slice(0, 1000)
-        }
-      });
-    }
-
     return res.status(200).json({ items: clips, page: Number(page) || 1, hasMore: false });
   } catch (error) {
-    console.error('VOD Finder 페이지 파싱 실패:', pageUrl, error.message);
-    return res.status(502).json({ error: 'VOD 검색 결과를 가져오지 못했습니다.', detail: error.message });
+    return res.status(502).json({ error: 'VOD 검색 결과를 가져오지 못했습니다.' });
   }
 }
