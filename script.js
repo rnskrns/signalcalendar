@@ -9428,7 +9428,8 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
     try {
         // Vercel Serverless Function을 통해 VOD Finder 검색 API를 호출한다.
         // 커서 기반 API와 페이지 기반 API 모두에서 다음 목록을 정확히 요청한다.
-        let targetUrl = `/api/clip?streamer=${encodeURIComponent(streamerName)}&page=${currentClipPage}`;
+        const soopId = memberSoopIdMap[streamerName] || streamerName;
+        let targetUrl = `/api/clip?streamer=${encodeURIComponent(soopId)}&page=${currentClipPage}`;
         if (isLoadMore && currentClipCursor) {
             targetUrl += `&cursor=${encodeURIComponent(currentClipCursor)}`;
         }
