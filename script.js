@@ -9434,13 +9434,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         }
 
         const res = await fetch(targetUrl, { signal: requestSignal });
-        if (!res.ok) {
-            // 서버가 내려준 실제 에러 내용을 콘솔에 남겨 원인을 바로 확인할 수 있게 한다.
-            let errBody = '';
-            try { errBody = await res.text(); } catch (_) {}
-            console.error('클립 API 오류 응답:', targetUrl, res.status, errBody);
-            throw new Error(`HTTP Error: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const json = await res.json();
         if (requestId !== currentClipRequestId) return;
         
@@ -9549,7 +9543,6 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 
     } catch (e) {
         if (e.name === 'AbortError') return;
-        console.error('클립 데이터 로드 실패:', e);
         if (!isLoadMore) {
             container.innerHTML = `<div class="col-span-full text-center text-red-400 font-bold py-16 text-[15px]">데이터를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</div>`;
         } else {
