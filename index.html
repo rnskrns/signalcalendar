@@ -423,7 +423,33 @@
         </div>
     </div>
 
-    <!-- ... 중략 (기존 모달 코드는 동일하게 유지) ... -->
+    <div id="scheduleModal" class="hidden fixed inset-0 bg-black/50 z-[5000] overflow-y-auto flex-col items-center py-10 px-4">
+        <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-full max-w-[640px] shadow-xl flex flex-col relative border border-[#ECEDFA] shrink-0 my-auto">
+            <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer" onclick="closeScheduleModal()"><i class="fi fi-br-cross"></i></button>
+            
+            <div class="text-2xl font-bold text-center text-[#5D4037] mb-6" id="scheduleModalDate"></div>
+            
+            <div class="flex gap-4 mb-5">
+                <div class="flex-1"><input type="radio" id="typeBangon" name="globalSchType" value="뱅온" class="type-radio" checked onchange="toggleFields('scheduleModal', 'globalSchType')"><label for="typeBangon" class="type-label bangon">뱅온</label></div>
+                <div class="flex-1"><input type="radio" id="typeHubang" name="globalSchType" value="휴방" class="type-radio" onchange="toggleFields('scheduleModal', 'globalSchType')"><label for="typeHubang" class="type-label hubang">휴방</label></div>
+            </div>
+            
+            <div id="globalTimeBlock" class="mb-5">
+                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">뱅온 시간</label>
+                <div id="globalTimeInputs" class="flex items-center gap-2 border-2 border-[#5D4037] rounded-lg p-2 bg-white w-max">
+                    <button type="button" id="globalAmpmBtn" class="ampm-btn px-3 py-1.5 font-bold text-[#5D4037] rounded-md text-[14px]" onclick="toggleAmpm(this)">오후</button>
+                    <input type="number" id="globalHh" min="1" max="12" class="w-[42px] p-1 text-center font-bold text-[#5D4037] outline-none text-[16px]" placeholder="시">
+                    <span class="font-bold text-[#5D4037]">:</span>
+                    <input type="number" id="globalMm" min="0" max="59" class="w-[42px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[16px]" placeholder="분">
+                </div>
+            </div>
+
+            <div id="scheduleInputsContainer" class="flex flex-col gap-3 mb-5 max-h-[55vh] overflow-y-auto modal-scroll pr-1"></div>
+            
+            <button class="w-full py-3.5 border-2 border-dashed border-[#5D4037] text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition mb-4 cursor-pointer" onclick="addScheduleInputBlock()">+ 일정 추가</button>
+            <button class="w-full bg-[#5D4037] text-white py-4 rounded-xl font-bold text-xl hover:brightness-110 transition shadow-md cursor-pointer" onclick="saveSchedule()">저장하기</button>
+        </div>
+    </div>
 
     <div id="editScheduleModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
         <div class="modal-content bg-[#FFFDF5] p-8 rounded-2xl w-[90%] max-w-[640px] shadow-xl relative border border-[#ECEDFA]">
