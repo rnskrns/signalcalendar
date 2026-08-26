@@ -2209,7 +2209,6 @@ let cachedPerMemberNoticeHtml = {};
 let noticeFetchAttempted = false;
 
 async function fetchAndRenderAllNotices() {
-    console.log('[공지 디버그] fetchAndRenderAllNotices() 실행 시작');
     // 모바일(홈탭 본문) 컨테이너
     const mobileNoticeBox = document.getElementById('mobileHomeNoticeBox');
     const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
@@ -2227,25 +2226,6 @@ async function fetchAndRenderAllNotices() {
             
             const data = await res.json();
             const posts = data?.data?.list || data?.data?.posts || data?.data || data?.posts || data?.contents || data?.list || (Array.isArray(data) ? data : []) || [];
-
-            // 진단용 로그: 무슨 상황이든 콘솔에서 원인을 바로 확인할 수 있도록 항상 출력
-            console.log(`[공지 디버그] ${board.name} (${board.userId}) → status:${res.status}, posts수신:${Array.isArray(posts) ? posts.length : '배열아님'}`, data);
-            if (Array.isArray(posts) && posts.length > 0) {
-                console.log(`[공지 디버그] ${board.name} 게시글 샘플 (필드명 확인용):`, posts[0]);
-                try {
-                    console.log(`[공지 디버그] ${board.name} 게시글 샘플 (JSON 전체, 복사용):`, JSON.stringify(posts[0], null, 2));
-                } catch (e) { /* 순환참조 등 무시 */ }
-
-                // 고정/공지 관련 필드를 찾기 위한 진단: 각 글의 키 중 notice/pin/fix/top 이 들어간 키와 값을 모두 출력
-                posts.forEach((post, idx) => {
-                    const suspectKeys = Object.keys(post).filter(k => /notice|pin|fix|top|essential/i.test(k));
-                    if (suspectKeys.length > 0) {
-                        const dump = {};
-                        suspectKeys.forEach(k => { dump[k] = post[k]; });
-                        console.log(`[공지 디버그][고정글 후보] ${board.name} #${idx} (title:${post.titleName || post.title}) →`, dump);
-                    }
-                });
-            }
 
             if (!res.ok) {
                 console.warn(`${board.name} API 응답 오류 (status ${res.status})`, data);
@@ -2312,9 +2292,6 @@ async function fetchAndRenderAllNotices() {
             } else {
                 const pinnedPosts = streamerPosts.filter(isPinnedPost);
                 const normalPosts = streamerPosts.filter((post) => !isPinnedPost(post));
-                if (pinnedPosts.length > 0) {
-                    console.log(`[공지 디버그] ${board.name} 고정글 ${pinnedPosts.length}건 감지됨:`, pinnedPosts);
-                }
                 latestPosts = [...pinnedPosts, ...normalPosts];
             }
 
@@ -2332,8 +2309,6 @@ async function fetchAndRenderAllNotices() {
                         });
                         const pinData = await pinRes.json();
                         const pinnedPost = pinData?.data || pinData;
-
-                        console.log(`[공지 디버그] ${board.name} 고정글 단건 조회(#${pinnedId}) → status:${pinRes.status}`, pinnedPost);
 
                         if (pinnedPost && typeof pinnedPost === 'object' && !Array.isArray(pinnedPost)) {
                             latestPosts = [pinnedPost, ...latestPosts];
@@ -2363,8 +2338,6 @@ async function fetchAndRenderAllNotices() {
         return 0;
     });
 
-    console.log(`[공지 디버그] 정렬 결과 (${collectedPosts.length}건):`, collectedPosts.map(c => ({ name: c.board.name, date: c.date, raw: c.post.reg_date || c.post.regDate || c.post.regdate })));
-
     // 게시판 목록 API는 제목만 내려주고 본문 내용은 비어있는 경우가 많아,
     // 내용이 없는 글은 게시글 단건 조회 API로 본문을 추가로 가져와 채워준다.
     await Promise.all(collectedPosts.map(async (item) => {
@@ -2380,8 +2353,6 @@ async function fetchAndRenderAllNotices() {
             });
             const detailData = await detailRes.json();
             const detailPost = detailData?.data || detailData;
-
-            console.log(`[공지 디버그] ${item.board.name} 본문 단건 조회(#${postNo}) → status:${detailRes.status}`, detailPost);
 
             if (detailPost && typeof detailPost === 'object' && !Array.isArray(detailPost)) {
                 item.post = {
@@ -2423,8 +2394,6 @@ async function fetchAndRenderAllNotices() {
 
         const timeLabel = formatRelativeTime(date);
 
-        console.log(`[공지 디버그] 카드 데이터 → 닉네임:${nickname}, 프사:${profileImg}, 제목:${postTitle}, 내용:${postBody}`);
-
         const rowHtml = `
             <div class="kakao-msg-row" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
                 <img src="${profileImg}" alt="${nickname}" loading="lazy" decoding="async" class="kakao-avatar" style="background-color:${board.color};" onerror="this.style.display='none'">
@@ -2452,8 +2421,6 @@ async function fetchAndRenderAllNotices() {
     hasCachedNotice = hasAnyPost;
     cachedPerMemberNoticeHtml = perMemberNoticeHtml;
     noticeFetchAttempted = true;
-
-    console.log(`[공지 디버그] fetchAndRenderAllNotices() 완료 → hasAnyPost:${hasAnyPost}, mobileNoticeBox있음:${!!mobileNoticeBox}`);
 
     if (mobileNoticeList) mobileNoticeList.innerHTML = itemsHtml;
     if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasAnyPost);
