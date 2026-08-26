@@ -7508,76 +7508,83 @@ function getScheduleFormHTML(data, isDeletable = true) {
         mm = m; 
     }
     
+    // 이동 버튼 모던 스타일 적용
     const moveBtnsHtml = isDeletable ? `
-        <div class="absolute top-4 right-4 flex gap-2 z-10">
-            <button type="button" class="text-gray-400 hover:text-[#5D4037] text-[20px] font-bold flex items-center justify-center hover:scale-110 transition-all" onclick="moveScheduleBlock(this, -1)" title="위로 이동"><i class="fi fi-rr-angle-up"></i></button>
-            <button type="button" class="text-gray-400 hover:text-[#5D4037] text-[20px] font-bold flex items-center justify-center hover:scale-110 transition-all" onclick="moveScheduleBlock(this, 1)" title="아래로 이동"><i class="fi fi-rr-angle-down"></i></button>
+        <div class="absolute top-5 right-5 flex gap-1.5 z-10">
+            <button type="button" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-[#5D4037] bg-gray-50 rounded-lg hover:bg-gray-100 transition-all" onclick="moveScheduleBlock(this, -1)" title="위로 이동"><i class="fi fi-rr-angle-up text-sm mt-0.5"></i></button>
+            <button type="button" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-[#5D4037] bg-gray-50 rounded-lg hover:bg-gray-100 transition-all" onclick="moveScheduleBlock(this, 1)" title="아래로 이동"><i class="fi fi-rr-angle-down text-sm mt-0.5"></i></button>
         </div>
     ` : '';
 
     const removeBtnClass = imageUrl ? '' : 'hidden'; 
+    // 공통 폼 스타일 클래스 (재사용)
+    const inputBase = "w-full border border-gray-200 bg-[#FAFAFD] rounded-xl p-3.5 outline-none focus:bg-white focus:border-[#5D4037] focus:ring-2 focus:ring-[#5D4037]/10 text-[15px] font-medium transition-all text-[#5D4037]";
+    const labelBase = "block text-[13px] text-gray-500 font-bold mb-2 ml-1";
 
     return `
-        <div class="schedule-input-block border-2 border-[#5D4037] p-6 rounded-xl bg-white relative shadow-sm pretendard mt-1">
+        <div class="schedule-input-block border border-gray-200 p-6 rounded-[24px] bg-white relative shadow-sm pretendard mt-3 transition-all hover:shadow-md">
             ${moveBtnsHtml} <input type="hidden" class="sch-id" value="${id}">
             
-            <div class="mb-4 pr-20"> 
-                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">일정 제목</label>
-                <textarea class="sch-title w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[16px] font-medium resize-none" rows="2" placeholder="일정 제목 입력 (Enter로 줄바꿈)">${title}</textarea>
+            <div class="mb-5 pr-20"> 
+                <label class="${labelBase}">일정 제목</label>
+                <textarea class="sch-title ${inputBase} resize-none font-bold text-[16px]" style="field-sizing: content; min-height: 54px;" rows="1" placeholder="일정 제목 입력">${escapeHtml(title)}</textarea>
             </div>
             
-            <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-2 gap-4 mb-5">
                 <div>
-                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">시작일</label>
-                    <input type="date" class="sch-start w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] font-medium" value="${sDate}">
+                    <label class="${labelBase}">시작일</label>
+                    <input type="date" class="sch-start ${inputBase} text-[#5D4037]" value="${sDate}">
                 </div>
                 <div>
-                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">종료일</label>
-                    <input type="date" class="sch-end w-full border-2 border-[#5D4037] rounded-lg p-2.5 outline-none text-[15px] font-medium" value="${eDate}">
+                    <label class="${labelBase}">종료일</label>
+                    <input type="date" class="sch-end ${inputBase} text-[#5D4037]" value="${eDate}">
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">시간 (선택)</label>
-                    <div class="flex items-center justify-between border-2 border-[#5D4037] rounded-lg p-2 bg-white">
-                        <button type="button" class="sch-ampm ampm-btn px-3 py-1.5 font-bold text-[#5D4037] rounded-md text-[14px]" onclick="toggleAmpm(this)">${ampm}</button>
-                        <input type="number" min="1" max="12" class="sch-hh w-[42px] p-1 text-center font-bold text-[#5D4037] outline-none text-[16px]" placeholder="시" value="${hh}">
-                        <span class="font-bold text-[#5D4037]">:</span>
-                        <input type="number" min="0" max="59" class="sch-mm w-[42px] p-1 text-center font-bold text-[#5D4037] outline-none mr-1 text-[16px]" placeholder="분" value="${mm}">
+            <div class="grid grid-cols-2 gap-4 mb-5">
+                <div class="optional-field">
+                    <label class="${labelBase}">시간 (선택)</label>
+                    <div class="flex items-center justify-between border border-gray-200 rounded-xl p-2 bg-[#FAFAFD] focus-within:bg-white focus-within:border-[var(--theme-color)] focus-within:ring-2 focus-within:ring-[var(--theme-color)]/10 transition-all">
+                        <button type="button" class="sch-ampm ampm-btn px-3 py-1.5 font-bold text-gray-500 hover:text-[#5D4037] bg-white rounded-lg shadow-sm border border-gray-100 text-[13px] transition-all" onclick="toggleAmpm(this)">${ampm}</button>
+                        <input type="number" min="1" max="12" class="sch-hh w-[42px] p-1 text-center font-bold text-[#5D4037] bg-transparent outline-none text-[16px]" placeholder="시" value="${hh}">
+                        <span class="font-bold text-gray-300">:</span>
+                        <input type="number" min="0" max="59" class="sch-mm w-[42px] p-1 text-center font-bold text-[#5D4037] bg-transparent outline-none mr-1 text-[16px]" placeholder="분" value="${mm}">
                     </div>
                 </div>
-                <div>
-                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">유형</label>
-                    <select class="sch-broad w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none text-[15px] bg-white font-bold text-[#5D4037] cursor-pointer">
-                        <option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option>
-                        <option value="합방" ${broad==='합방'?'selected':''}>합방</option>
-                        <option value="시그널합방" ${broad==='시그널합방'?'selected':''}>시그널합방</option>
-                        <option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option>
-                        ${cheonTaBusOptionHtml}
-                        <option value="비방일정" ${broad==='비방일정'?'selected':''}>비방일정</option>
-                    </select>
+                <div class="optional-field">
+                    <label class="${labelBase}">유형</label>
+                    <div class="relative">
+                        <select class="sch-broad ${inputBase} text-[#5D4037] appearance-none cursor-pointer pr-10">
+                            <option value="개인방송" ${broad==='개인방송'?'selected':''}>개인방송</option>
+                            <option value="합방" ${broad==='합방'?'selected':''}>합방</option>
+                            <option value="시그널합방" ${broad==='시그널합방'?'selected':''}>시그널합방</option>
+                            <option value="시네티" ${broad==='시네티'?'selected':''}>시네티</option>
+                            ${cheonTaBusOptionHtml}
+                            <option value="비방일정" ${broad==='비방일정'?'selected':''}>비방일정</option>
+                        </select>
+                        <i class="fi fi-br-angle-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs"></i>
+                    </div>
                 </div>
             </div>
 
-            <div class="mb-4">
-                <label class="block text-[13px] text-gray-500 font-bold mb-1.5">함께하는 멤버 / 크루 (선택)</label>
-                <input type="text" class="sch-mem w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[15px] font-medium" placeholder="멤버 혹은 크루 이름 띄어쓰기로 입력" value="${mem}">
+            <div class="mb-5 optional-field">
+                <label class="${labelBase}">함께하는 멤버 / 크루 (선택)</label>
+                <input type="text" class="sch-mem ${inputBase}" placeholder="멤버 혹은 크루 이름 띄어쓰기로 입력" value="${escapeHtml(mem)}">
             </div>
 
-            <div class="grid grid-cols-2 gap-4 mb-4 items-start">
+            <div class="grid grid-cols-2 gap-4 mb-2 items-start">
                 <div>
-                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">이미지 첨부 (선택)</label>
+                    <label class="${labelBase}">이미지 첨부 (선택)</label>
                     <div class="flex items-center gap-2">
-                        <input type="file" accept="image/*" class="flex-1 min-w-0 text-[13px] cursor-pointer" onchange="window.handleScheduleImageUpload(this)">
-                        <button type="button" class="sch-img-remove-btn ${removeBtnClass} px-3 py-1.5 bg-red-500 text-white rounded text-sm font-bold shadow-sm hover:bg-red-600 transition shrink-0" onclick="window.removeScheduleImage(this)">삭제</button>
+                        <input type="file" accept="image/*" class="flex-1 min-w-0 text-[13px] text-gray-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-gray-100 file:text-[#5D4037] hover:file:bg-gray-200 cursor-pointer transition-all" onchange="window.handleScheduleImageUpload(this)">
+                        <button type="button" class="sch-img-remove-btn ${removeBtnClass} px-3 py-2.5 bg-red-50 text-red-500 border border-red-100 rounded-xl text-[13px] font-bold shadow-sm hover:bg-red-500 hover:text-white transition-all shrink-0" onclick="window.removeScheduleImage(this)">삭제</button>
                     </div>
                     <input type="hidden" class="sch-image-url" value="${imageUrl}">
-                    <div class="sch-img-preview">${imageUrl ? `<img src="${imageUrl}" loading="lazy" decoding="async" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">` : ''}</div>
+                    <div class="sch-img-preview">${imageUrl ? `<img src="${imageUrl}" loading="lazy" decoding="async" class="h-24 w-auto rounded-xl object-cover border border-gray-200 mt-3 shadow-sm">` : ''}</div>
                 </div>
                 <div>
-                    <label class="block text-[13px] text-gray-500 font-bold mb-1.5">상세</label>
-                    <textarea class="sch-desc w-full border-2 border-[#5D4037] rounded-lg p-3 outline-none focus:border-[var(--theme-color)] text-[15px] resize-none h-[75px] font-medium" placeholder="상세 내용을 입력하세요">${desc}</textarea>
+                    <label class="${labelBase}">상세 내용</label>
+                    <textarea class="sch-desc ${inputBase} resize-none" style="min-height: 104px;" placeholder="상세 내용을 입력하세요">${escapeHtml(desc)}</textarea>
                 </div>
             </div>
         </div>
@@ -7641,7 +7648,7 @@ function openScheduleModal(year, month, day, member) {
             const btnText = index !== 0 ? '펼치기' : '접기';
             
             return `
-            <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
+            <div class="schedule-accordion-wrapper border border-gray-200 shadow-sm bg-white p-4 rounded-xl mb-3 relative">
                 <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
                     <div class="flex items-center gap-1 min-w-0">
                         <span class="schedule-drag-handle" onpointerdown="event.stopPropagation(); startScheduleDrag(event, this)" onclick="event.stopPropagation()" title="드래그하여 순서 변경">⠿</span>
@@ -7661,7 +7668,7 @@ function openScheduleModal(year, month, day, member) {
         const contentId = `sch-content-0`;
         const btnId = `btn-0`;
         const wrapperHtml = `
-        <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
+        <div class="schedule-accordion-wrapper border border-gray-200 shadow-sm bg-white p-4 rounded-xl mb-3 relative">
             <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
                 <div class="flex items-center gap-1 min-w-0">
                     <span class="schedule-drag-handle" onpointerdown="event.stopPropagation(); startScheduleDrag(event, this)" onclick="event.stopPropagation()" title="드래그하여 순서 변경">⠿</span>
@@ -7694,7 +7701,7 @@ function addScheduleInputBlock() {
     const btnId = `btn-${newIndex}`;
     
     const wrapperHtml = `
-    <div class="schedule-accordion-wrapper bg-white p-4 rounded-xl border-2 border-[#5D4037] shadow-sm mb-3 relative">
+    <div class="schedule-accordion-wrapper border border-gray-200 shadow-sm bg-white p-4 rounded-xl mb-3 relative">
         <div class="flex justify-between items-center cursor-pointer pr-16" onclick="toggleScheduleItem('${contentId}', '${btnId}')">
             <div class="flex items-center gap-1 min-w-0">
                 <span class="schedule-drag-handle" onpointerdown="event.stopPropagation(); startScheduleDrag(event, this)" onclick="event.stopPropagation()" title="드래그하여 순서 변경">⠿</span>
@@ -8086,9 +8093,13 @@ window.deleteUpLinkFromEditModal = async function() {
 window.openMemberManageModal = async function() {
     if(!isAdmin) return;
     // 캐시된 값이 있다면 우선 그대로 먼저 보여주고, 동시에 최신 데이터로 다시 불러온다.
-    renderCustomMembersList();
+    const memberListContainer = document.getElementById('customMembersList') || document.getElementById('memberManageContainer');
+    if (memberListContainer) renderCustomMembersList();
+    renderGroupMemberCheckboxes([]);
     renderMemberGroupsList();
-    document.getElementById('memberManageModal').classList.replace('hidden', 'flex');
+    const modal = document.getElementById('memberManageModal');
+    if (!modal) return;
+    modal.classList.replace('hidden', 'flex');
 
     ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
         const pMenu = document.getElementById(id);
@@ -8112,7 +8123,14 @@ window.openMemberManageModal = async function() {
             });
         });
         saveScheduleCache();
-        renderCustomMembersList();
+        if (memberListContainer) renderCustomMembersList();
+
+        // 멤버 그룹은 멤버관리 전용 DB가 아닌 시그널 DB의 memberGroups 컬렉션에서 불러옵니다.
+        const groupSnap = await getDocs(collection(db, 'memberGroups'));
+        memberGroups = [];
+        groupSnap.forEach(docSnap => memberGroups.push({ id: docSnap.id, ...docSnap.data() }));
+        saveScheduleCache();
+        renderMemberGroupsList();
     } catch (e) {
         console.error('멤버 목록 새로고침 실패 (memberDb - members 컬렉션):', e);
         showToast('멤버 목록을 불러오지 못했습니다. Firestore 권한(규칙)을 확인해주세요.');
@@ -8199,8 +8217,9 @@ window.deleteCustomMember = async function(id) {
 let editingGroupId = null;
 
 window.renderCustomMembersList = function(filterText = '') {
-    const container = document.getElementById('customMembersList');
+    const container = document.getElementById('customMembersList') || document.getElementById('memberManageContainer');
     const badge = document.getElementById('memberCountBadge');
+    if (!container) return;
     const query = filterText.toLowerCase();
     const filtered = query
         ? customMembers.filter(m => m.nickname.toLowerCase().includes(query) || (m.soopId || '').toLowerCase().includes(query))
