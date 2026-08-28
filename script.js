@@ -395,6 +395,35 @@ function addExtNotification(payload) {
     if (panel && !panel.classList.contains('hidden')) renderNotifPanelList();
 }
 
+// 알림의 작성자 이름을 멤버관리에서 등록한 사진과 연결한다. 확장프로그램이 사진 URL을
+// 보내지 않아도, 예를 들어 "다룽" 알림은 멤버관리의 "다룽" 프로필을 우선 표시한다.
+function getNotificationMemberProfile(memberName) {
+    const normalizedName = String(memberName || '')
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/님$/, '')
+        .toLowerCase();
+    if (!normalizedName) return '';
+
+    const matchesName = (name) => String(name || '')
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/님$/, '')
+        .toLowerCase() === normalizedName;
+
+    // 멤버관리에서 직접 등록/수정한 사진을 최우선으로 사용한다.
+    const managedMember = customMembers.find(member => matchesName(member.nickname));
+    if (managedMember && managedMember.imageUrl) return managedMember.imageUrl;
+
+    // 로그인 프로필이 따로 설정된 경우에도 반영한다.
+    const loginMemberName = Object.keys(memberLoginImgMap).find(matchesName);
+    if (loginMemberName && memberLoginImgMap[loginMemberName]) return memberLoginImgMap[loginMemberName];
+
+    // 기본 멤버의 사이트 프로필을 마지막 기본값으로 사용한다.
+    const defaultMember = members.find(member => matchesName(member.name));
+    return defaultMember ? defaultMember.img : '';
+}
+
 function renderNotifPanelList() {
     const list = document.getElementById('notifPanelList');
     if (!list) return;
@@ -412,7 +441,8 @@ function renderNotifPanelList() {
     list.innerHTML = filtered.map(n => {
         const timeLabel = formatRelativeTime(new Date(n.time));
         const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
-        const avatarSrc = n.icon || n.avatar || n.profileImage || n.profile_image || fallbackAvatar;
+        const managedProfileSrc = getNotificationMemberProfile(n.member);
+        const avatarSrc = managedProfileSrc || n.icon || n.avatar || n.profileImage || n.profile_image || fallbackAvatar;
         const thumbnailSrc = n.thumbnail || n.thumb || n.image || n.imageUrl || n.image_url || '';
         const title = String(n.title || '').replace(/"/g, '&quot;');
         const unreadDot = n.read ? '' : `<span class="notif-unread-dot" style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;flex-shrink:0;"></span>`;
