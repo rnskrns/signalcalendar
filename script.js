@@ -281,7 +281,6 @@ window.addEventListener('message', (event) => {
         if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
         alert("SOOP 로그인이 되어있지 않거나 확장프로그램 통신에 실패했습니다.");
     } else if (event.data.type === 'SIGNAL_EXT_NOTIFICATION') {
-        console.log('[디버그] 확장프로그램 알림 payload 전체:', event.data.payload); // TODO: 확인 후 삭제
         // ⭐ 신규: 확장프로그램이 전달한 방송/카페 알림을 알림벨에 쌓음
         // 사이트에 로그인이 안 되어 있으면 바로 쌓지 않고 대기열에 저장해뒀다가, 로그인하면 한꺼번에 반영합니다.
         if (!currentUser) {
@@ -369,11 +368,15 @@ function updateNotifBadge() {
 // 확장프로그램에서 받은 알림 1건을 목록 맨 앞에 추가하고 저장/뱃지/패널을 갱신합니다.
 function addExtNotification(payload) {
     if (!payload) return;
+    // ⭐ 확장프로그램(background.js)은 윈도우 알림에 title(예: "[시그널|SIGNAL] OO님의 새 글")과
+    // message(실제 게시글 제목 / 방송 제목)를 같이 보내는데, 사이트 알림벨에는 실제 제목인
+    // message만 보여줍니다. (live 알림은 title/message가 같은 방송 제목이라 상관없음)
+    const realTitle = payload.message || payload.title || '';
     const notif = {
         id: `${payload.kind || 'ext'}_${payload.time || Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         kind: payload.kind || 'ext',
         member: payload.member || '',
-        title: payload.title || '',
+        title: realTitle,
         url: payload.url || '',
         icon: payload.icon || '',
         time: payload.time || Date.now(),
