@@ -49,6 +49,7 @@
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-brands/css/uicons-brands.css'>
     <link rel="stylesheet" href="style.css?v=20260825-16">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <!-- 외부 리소스 렌더링 사전 연결 -->
     <link rel="preconnect" href="https://i.postimg.cc">
@@ -249,7 +250,7 @@
 </div>
 
     <div id="manageModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-2 sm:p-4">
-        <div class="modal-content bg-[#FFFDF5] rounded-2xl w-[98vw] sm:w-[95vw] max-w-[1600px] shadow-xl border border-[#ECEDFA] flex flex-col h-[96vh] sm:h-[92vh] max-h-[96vh] overflow-hidden">
+        <div class="modal-content bg-[#FFFDF5] rounded-2xl w-[98vw] sm:w-[57vw] max-w-[960px] shadow-xl border border-[#ECEDFA] flex flex-col h-[96vh] sm:h-[92vh] max-h-[96vh] overflow-hidden">
             <div class="flex justify-between items-center p-6 pb-4 border-b-2 border-dashed border-gray-300 shrink-0">
                 <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">관리</h2>
                 <button onclick="closeManageModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
@@ -378,7 +379,7 @@
                         </div>
                     </div>
                     <div id="manageTabPanel_update" class="hidden">
-                        <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">업데이트 내역 등록</h3>
+                        <h3 id="updateFormSectionTitle" class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">업데이트 내역 등록</h3>
                         <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
                         <input type="text" id="updateTitle" oninput="renderUpdateComposerPreview()" placeholder="업데이트 제목" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none font-bold">
                         <div class="flex flex-col md:flex-row gap-4">
@@ -415,7 +416,10 @@
                                 <input type="text" id="updateBtnText" oninput="renderUpdateComposerPreview()" placeholder="버튼명 (기본: 자세히 보기)" class="w-1/3 border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none font-bold">
                             </div>
                             
-                            <button onclick="addUpdateLog()" class="w-full bg-[#5D4037] text-white py-3 rounded-lg font-bold mt-2 hover:brightness-110 transition text-[15px]">등록하기</button>
+                            <div class="flex gap-2 mt-2">
+                                <button id="updateSubmitBtn" onclick="addUpdateLog()" class="flex-1 bg-[#5D4037] text-white py-3 rounded-lg font-bold hover:brightness-110 transition text-[15px]">등록하기</button>
+                                <button id="updateEditCancelBtn" onclick="cancelEditUpdateLog()" class="hidden flex-1 bg-gray-100 text-gray-500 py-3 rounded-lg font-bold hover:bg-gray-200 transition text-[15px]">수정 취소</button>
+                            </div>
                         </div>
                         <div class="w-full border-b-4 border-dashed border-[#5D4037] opacity-50 my-6"></div>
                         <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">등록된 업데이트 내역</h3>

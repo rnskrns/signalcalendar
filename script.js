@@ -1906,6 +1906,7 @@ function openManageModal(tab = 'link') {
 
 function closeManageModal() {
     document.getElementById('manageModal').classList.replace('flex', 'hidden');
+    if (editingUpdateLogId && typeof cancelEditUpdateLog === 'function') cancelEditUpdateLog();
 }
 
 function switchManageTab(tab) {
@@ -9894,6 +9895,9 @@ window.openUpdateModal = openUpdateModal;
 window.closeUpdateModal = closeUpdateModal;
 window.addUpdateLog = addUpdateLog;
 window.deleteUpdateLog = deleteUpdateLog;
+window.startEditUpdateLog = startEditUpdateLog;
+window.cancelEditUpdateLog = cancelEditUpdateLog;
+window.captureUpdateLogScreenshot = captureUpdateLogScreenshot;
 window.switchUpdateImgTab = switchUpdateImgTab;
 window.previewUpdateImageFile = previewUpdateImageFile;
 window.addUpdateImageUrl = addUpdateImageUrl;
@@ -9904,6 +9908,7 @@ window.removeUpdateBlock = removeUpdateBlock;
 window.renderUpdateComposerPreview = renderUpdateComposerPreview;
 
 let updateLogsList = [];
+let editingUpdateLogId = null; // 수정 중인 업데이트 내역의 id (null이면 신규 등록 모드)
 
 async function loadUpdateLogsFromFirebase() {
     try {
@@ -9952,9 +9957,10 @@ function openUpdateModal() {
                 // 버튼 이름이 비어있으면 '자세히 보기'로 설정
                 const displayBtnText = log.btnText ? escapeHtml(log.btnText) : '자세히 보기';
                 return `
-                <div class="bg-white border-2 border-[#ECEDFA] p-5 rounded-xl shadow-sm mb-1">
-                    <div class="text-[12.5px] text-[#FF5252] font-bold mb-1.5">${log.date}</div>
-                    <div class="font-bold text-[18px] text-[#5D4037] mb-2 leading-snug">${escapeHtml(log.title)}</div>
+                <div id="updateLogCard_${log.id}" class="bg-white border-2 border-[#ECEDFA] p-5 rounded-xl shadow-sm mb-1 relative">
+                    ${isAdmin ? `<button onclick="captureUpdateLogScreenshot('${log.id}')" class="update-screenshot-btn absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-white border-2 border-gray-200 rounded-lg text-gray-400 hover:text-[#5D4037] hover:border-[#5D4037] shadow-sm transition z-10" title="스크린샷으로 저장"><i class="fi fi-rr-camera"></i></button>` : ''}
+                    <div class="text-[12.5px] text-[#FF5252] font-bold mb-1.5 ${isAdmin ? 'pr-10' : ''}">${log.date}</div>
+                    <div class="font-bold text-[18px] text-[#5D4037] mb-2 leading-snug ${isAdmin ? 'pr-10' : ''}">${escapeHtml(log.title)}</div>
                     ${(() => {
                         // 글/이미지를 등록한 순서 그대로 보여줌 (blocks가 있는 신규 데이터)
                         if (log.blocks && log.blocks.length > 0) {
@@ -9978,6 +9984,36 @@ function openUpdateModal() {
 
 function closeUpdateModal() {
     document.getElementById('updateModal').classList.replace('flex', 'hidden');
+}
+
+// 관리자가 업데이트 내역 게시글을 이미지(스크린샷)로 저장
+async function captureUpdateLogScreenshot(id) {
+    if (!isAdmin) return;
+    const card = document.getElementById(`updateLogCard_${id}`);
+    if (!card) return;
+    if (typeof html2canvas === 'undefined') {
+        alert('스크린샷 기능을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
+    const btn = card.querySelector('.update-screenshot-btn');
+    if (btn) btn.style.visibility = 'hidden'; // 캡처 이미지에는 버튼 자체가 안 보이도록 숨김
+
+    try {
+        const canvas = await html2canvas(card, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+        const log = updateLogsList.find(l => l.id === id);
+        const safeTitle = (log && log.title ? log.title : '업데이트내역').replace(/[\\/:*?"<>|]/g, '_');
+
+        const link = document.createElement('a');
+        link.download = `${safeTitle}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } catch(e) {
+        console.error('스크린샷 저장 에러:', e);
+        alert('스크린샷 저장에 실패했습니다.');
+    } finally {
+        if (btn) btn.style.visibility = 'visible';
+    }
 }
 
 // 업데이트 등록 폼: 업데이트별 이미지 (링크 입력 또는 파일 업로드)
@@ -10143,11 +10179,71 @@ function resetUpdateImageForm() {
     renderUpdateBlocksList();
     switchUpdateImgTab('url');
 }
+// 등록된 업데이트 내역을 수정 모드로 불러와 등록 폼에 채워넣는다
+function startEditUpdateLog(id) {
+    if (!isAdmin) return;
+    const log = updateLogsList.find(l => l.id === id);
+    if (!log) return;
+
+    editingUpdateLogId = id;
+
+    document.getElementById('updateTitle').value = log.title || '';
+    document.getElementById('updateUrl').value = log.url || '';
+    document.getElementById('updateBtnText').value = log.btnText || '';
+
+    // blocks가 있으면 그대로, 없는 옛날 데이터는 이미지 → 글 순서로 변환해서 불러옴
+    const sourceBlocks = (log.blocks && log.blocks.length > 0)
+        ? log.blocks
+        : (() => {
+            const imgs = (log.images && log.images.length > 0) ? log.images : (log.image ? [log.image] : []);
+            const arr = imgs.map(src => ({ type: 'image', content: src }));
+            if (log.content) arr.push({ type: 'text', content: log.content });
+            return arr;
+        })();
+
+    updateBlocksStaged = sourceBlocks.map(b => b.type === 'image'
+        ? { type: 'image', source: 'url', url: b.content, previewSrc: b.content }
+        : { type: 'text', content: b.content });
+
+    switchUpdateImgTab('url');
+    renderUpdateBlocksList();
+    renderUpdateComposerPreview();
+
+    const submitBtn = document.getElementById('updateSubmitBtn');
+    if (submitBtn) submitBtn.innerText = '수정 완료';
+    const cancelBtn = document.getElementById('updateEditCancelBtn');
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    const formTitle = document.getElementById('updateFormSectionTitle');
+    if (formTitle) formTitle.innerText = '업데이트 내역 수정';
+
+    const titleInput = document.getElementById('updateTitle');
+    if (titleInput) titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// 수정 모드를 취소하고 등록 폼을 초기 상태로 되돌린다
+function cancelEditUpdateLog() {
+    editingUpdateLogId = null;
+    document.getElementById('updateTitle').value = '';
+    document.getElementById('updateUrl').value = '';
+    document.getElementById('updateBtnText').value = '';
+    resetUpdateImageForm();
+
+    const submitBtn = document.getElementById('updateSubmitBtn');
+    if (submitBtn) submitBtn.innerText = '등록하기';
+    const cancelBtn = document.getElementById('updateEditCancelBtn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+    const formTitle = document.getElementById('updateFormSectionTitle');
+    if (formTitle) formTitle.innerText = '업데이트 내역 등록';
+}
+
 async function addUpdateLog() {
         const title = document.getElementById('updateTitle').value.trim();
         const url = document.getElementById('updateUrl').value.trim();
         const btnText = document.getElementById('updateBtnText').value.trim(); // 버튼명 추가
-        const date = getTodayYYYYMMDD();
+        const isEditing = !!editingUpdateLogId;
+        const existingLog = isEditing ? updateLogsList.find(l => l.id === editingUpdateLogId) : null;
+        // 수정일 때는 원래 등록일을 유지, 신규 등록일 때만 오늘 날짜 사용
+        const date = (isEditing && existingLog) ? existingLog.date : getTodayYYYYMMDD();
         
         if (!title) return alert('업데이트 제목을 입력하세요.');
 
@@ -10184,17 +10280,34 @@ async function addUpdateLog() {
             const images = blocks.filter(b => b.type === 'image').map(b => b.content);
             const content = blocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
 
-            // content/images/image 필드는 하위 호환용 (기존 데이터나 코드가 참조할 수 있어 함께 채워둠)
-            const newLog = { title, blocks, content, url, btnText, images, image: images[0] || '', date, timestamp: Date.now() };
-            const docRef = await addDoc(collection(db, 'updates'), newLog);
-            updateLogsList.unshift({ id: docRef.id, ...newLog });
-            
+            if (isEditing) {
+                // content/images/image 필드는 하위 호환용 (기존 데이터나 코드가 참조할 수 있어 함께 채워둠)
+                const updatedFields = { title, blocks, content, url, btnText, images, image: images[0] || '' };
+                await updateDoc(doc(db, 'updates', editingUpdateLogId), updatedFields);
+                const idx = updateLogsList.findIndex(l => l.id === editingUpdateLogId);
+                if (idx !== -1) updateLogsList[idx] = { ...updateLogsList[idx], ...updatedFields };
+            } else {
+                const newLog = { title, blocks, content, url, btnText, images, image: images[0] || '', date, timestamp: Date.now() };
+                const docRef = await addDoc(collection(db, 'updates'), newLog);
+                updateLogsList.unshift({ id: docRef.id, ...newLog });
+            }
+
+            const wasEditing = isEditing;
+            editingUpdateLogId = null;
+
             document.getElementById('updateTitle').value = '';
             document.getElementById('updateUrl').value = '';
             document.getElementById('updateBtnText').value = ''; // 초기화
             resetUpdateImageForm();
+
+            const submitBtn = document.getElementById('updateSubmitBtn');
+            if (submitBtn) submitBtn.innerText = '등록하기';
+            const cancelBtn = document.getElementById('updateEditCancelBtn');
+            if (cancelBtn) cancelBtn.classList.add('hidden');
+            const formTitle = document.getElementById('updateFormSectionTitle');
+            if (formTitle) formTitle.innerText = '업데이트 내역 등록';
             
-            alert('업데이트 내역이 등록되었습니다.');
+            alert(wasEditing ? '업데이트 내역이 수정되었습니다.' : '업데이트 내역이 등록되었습니다.');
             renderUpdateManagePanel();
             checkUpdateBadge();
         } catch(e) {
@@ -10239,7 +10352,10 @@ function renderUpdateManagePanel() {
                 <div class="min-w-0 flex-1 flex flex-col gap-2">
                     <div class="flex justify-between items-center">
                         <span class="text-[12px] font-bold text-[#FF5252]">${log.date}</span>
-                        <button onclick="deleteUpdateLog('${log.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
+                        <div class="flex gap-1.5 shrink-0">
+                            <button onclick="startEditUpdateLog('${log.id}')" class="text-white bg-blue-500 w-6 h-6 rounded flex items-center justify-center hover:bg-blue-600 transition" title="수정"><i class="fi fi-rr-pencil"></i></button>
+                            <button onclick="deleteUpdateLog('${log.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition" title="삭제"><i class="fi fi-br-cross-small"></i></button>
+                        </div>
                     </div>
                     <div class="font-bold text-[14px] text-[#5D4037]">${escapeHtml(log.title)}</div>
                     ${log.blocks && log.blocks.length > 0 ? `<div class="text-[11px] text-gray-400 font-bold">순서: ${log.blocks.map(b => b.type === 'image' ? '이미지' : '글').join(' → ')}</div>` : ''}
