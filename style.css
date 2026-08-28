@@ -286,33 +286,45 @@ html.dark-mode .dday-hero-card {
         linear-gradient(135deg, #150b23 0%, #0a0b16 55%, #170c22 100%);
     box-shadow: 0 18px 40px -20px rgba(0,0,0,0.5);
 }
-/* 배경 사진이 등록된 카드: 라이트 모드에서는 밝은 오버레이, 다크 모드에서는 어두운 오버레이 */
+/* 배경 사진이 등록된 카드: 이미지 자체는 그대로 두고, 위에 별도의 오버레이 레이어(.dday-hero-img-overlay)로 밝기를 덮는다 */
 .dday-hero-card-img {
-    background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.65)), var(--dday-img) !important;
+    background-image: var(--dday-img) !important;
     background-size: cover !important;
     background-position: var(--dday-img-pos, center) !important;
 }
 
-html.dark-mode .dday-hero-card-img {
-    background-image: linear-gradient(135deg, rgba(10,8,20,0.85), rgba(10,8,20,0.72)), var(--dday-img) !important;
+/* 이미지 위 밝기 오버레이 - 물이 빠질수록(D-day에 가까울수록) 옅어지며 배경 사진이 은은하게 드러남 */
+.dday-hero-img-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.78));
+    opacity: var(--dday-img-overlay-opacity, 1);
+    transition: opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html.dark-mode .dday-hero-img-overlay {
+    background: linear-gradient(135deg, rgba(10,8,20,0.9), rgba(10,8,20,0.8));
 }
 
-/* COUNTDOWN 뱃지 글씨색 변경 */
+/* COUNTDOWN 뱃지 - 다크/라이트 모드나 배경 이미지 유무와 상관없이 흰색 불투명 배경으로 고정 */
 .dday-hero-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
     border-radius: 999px;
-    background: var(--dday-badge-bg);
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--dday-badge-border);
-    color: rgb(var(--dday-c1)); /* 👈 이 부분을 테마 색상 변수로 변경 */
+    color: rgb(var(--dday-c1));
     font-weight: 800;
     font-size: 12px;
     letter-spacing: 0.02em;
     white-space: nowrap;
 }
-html.dark-mode .dday-hero-badge { color: var(--dday-badge-text) !important; }
 
 
 /* (중간 클래스들은 그대로 유지) */
@@ -349,7 +361,9 @@ html.dark-mode .dday-hero-sub { color: #9ca3af; }
     min-width: 88px;
     padding: 12px 18px;
     border-radius: 16px;
-    background: linear-gradient(160deg, rgba(var(--dday-stat-g1),0.35), rgba(var(--dday-stat-g2),0.22));
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--dday-stat-border);
     box-shadow: 0 0 24px -6px var(--dday-stat-shadow);
 }
@@ -363,7 +377,7 @@ html.dark-mode .dday-hero-sub { color: #9ca3af; }
     line-height: 1;
     font-variant-numeric: tabular-nums;
 }
-html.dark-mode .dday-hero-stat-num { color: #ffffff; }
+html.dark-mode .dday-hero-stat-num { color: #000000 !important; }
 
 /* 하단 DAYS 라벨 글씨색 변경 */
 .dday-hero-stat-label {
@@ -373,7 +387,7 @@ html.dark-mode .dday-hero-stat-num { color: #ffffff; }
     letter-spacing: 0.08em;
     color: #000000; /* 기존 분홍색(#9d174d)에서 검정색으로 변경 */
 }
-html.dark-mode .dday-hero-stat-label { color: var(--dday-stat-label) !important; }
+html.dark-mode .dday-hero-stat-label { color: #000000 !important; }
 
 .dday-hero-card-img .dday-hero-stat-label { color: #fecdd3 !important; }
 
@@ -385,9 +399,11 @@ html.dark-mode .dday-hero-stat-label { color: var(--dday-stat-label) !important;
     pointer-events: none;
     z-index: 0;
     border-radius: inherit;
+    opacity: var(--dday-particle-opacity, 1);
+    transition: opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
-/* 파티클보다 실제 카드 콘텐츠(뱃지/제목/스탯 등)가 항상 위에 오도록 고정 */
-.dday-hero-card > *:not(.dday-hero-particles) {
+/* 파티클/물채우기/이미지 오버레이 레이어보다 실제 카드 콘텐츠(뱃지/제목/스탯 등)가 항상 위에 오도록 고정 */
+.dday-hero-card > *:not(.dday-hero-particles):not(.dday-hero-water):not(.dday-hero-img-overlay) {
     position: relative;
     z-index: 1;
 }
@@ -405,11 +421,83 @@ html.dark-mode .dday-hero-stat-label { color: var(--dday-stat-label) !important;
 @keyframes ddayParticleFloat {
     0%   { transform: translate(0, 0) scale(0.7); opacity: 0; }
     15%  { opacity: 1; }
-    80%  { opacity: 0.75; }
+    30%  { opacity: 0.2; transform: translate(calc(var(--dday-drift, 12px) * 0.3), -50px) scale(1.2); }
+    50%  { opacity: 1; transform: translate(calc(var(--dday-drift, 12px) * 0.5), -85px) scale(0.8); }
+    80%  { opacity: 0.3; }
     100% { transform: translate(var(--dday-drift, 12px), -170px) scale(1.1); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
     .dday-particle { animation: none; opacity: 0; }
+}
+
+/* 디데이 카드 물 차오르기 효과 - D-30이면 비어있다가 D-day에 가까워질수록(0%→100%) 카드 하단부터 물이 채워짐 */
+.dday-hero-water {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--dday-water-pct, 0%);
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(var(--dday-c1),0.22) 0%, rgba(var(--dday-c2),0.38) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+    transition: height 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity: var(--dday-water-opacity, 1);
+}
+
+.dday-star-particle {
+    position: absolute;
+    clip-path: polygon(50% 0%, 55% 45%, 100% 50%, 55% 55%, 50% 100%, 45% 55%, 0% 50%, 45% 45%);
+    opacity: 0;
+    animation: ddayStarPop var(--star-duration) ease-in-out infinite;
+    animation-delay: var(--star-delay);
+    z-index: 5;
+    pointer-events: none;
+}
+
+@keyframes ddayStarPop {
+    0%   { transform: scale(0) rotate(0deg); opacity: 0; }
+    50%  { transform: scale(1.3) rotate(45deg); opacity: 1; }
+    100% { transform: scale(0) rotate(90deg); opacity: 0; }
+}
+
+html.dark-mode .dday-hero-water {
+    background: linear-gradient(180deg, rgba(var(--dday-c1),0.30) 0%, rgba(var(--dday-c2),0.50) 100%);
+}
+/* 수면 위 출렁이는 물결 두 겹 (속도/방향을 다르게 해서 자연스럽게 겹쳐 보이도록) */
+.dday-hero-water::before,
+.dday-hero-water::after {
+    content: '';
+    position: absolute;
+    left: -50%;
+    width: 200%;
+    background-repeat: repeat-x;
+}
+.dday-hero-water::before {
+    top: -13px;
+    height: 26px;
+    background-size: 50% 26px;
+    background-image: radial-gradient(ellipse 25px 13px at 25% 100%, rgba(var(--dday-c2),0.55) 48%, transparent 52%);
+    animation: ddayWaveMove 6.5s linear infinite;
+    opacity: 0.85;
+}
+.dday-hero-water::after {
+    top: -8px;
+    height: 20px;
+    background-size: 50% 20px;
+    background-image: radial-gradient(ellipse 25px 10px at 25% 100%, rgba(var(--dday-c1),0.5) 48%, transparent 52%);
+    animation: ddayWaveMove 9.5s linear infinite reverse;
+    opacity: 0.6;
+}
+@keyframes ddayWaveMove {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dday-hero-water { transition: none; }
+    .dday-hero-water::before, .dday-hero-water::after { animation: none; }
 }
 
 /* 디데이 등록 폼: 카드 색상 선택 스와치 */

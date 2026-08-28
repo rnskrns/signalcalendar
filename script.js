@@ -3595,15 +3595,27 @@ async function loadDdaysFromFirebase() {
 }
 
 // 디데이 카드용 반짝이 파티클 span들을 랜덤 속성으로 생성 (위치/크기/속도/좌우 흔들림)
-function generateDdayParticles(count = 14) {
+function generateDdayParticles(count = 14, isToday = false) {
     let html = '';
     for (let i = 0; i < count; i++) {
-        const size = (Math.random() * 4 + 3).toFixed(1);       // 3~7px
-        const left = (Math.random() * 96 + 2).toFixed(1);      // 2~98%
-        const duration = (Math.random() * 4 + 4).toFixed(2);   // 4~8s
-        const delay = (Math.random() * -8).toFixed(2);         // 음수 지연으로 진입 즉시 제각각 떠 있는 상태로 시작
-        const drift = (Math.random() * 40 - 20).toFixed(1);    // -20~20px 좌우 흔들림
-        html += `<span class="dday-particle" style="left:${left}%;width:${size}px;height:${size}px;animation-duration:${duration}s;animation-delay:${delay}s;--dday-drift:${drift}px;"></span>`;
+        if (isToday) {
+            const size = (Math.random() * 14 + 8).toFixed(1);
+            const left = (Math.random() * 96 + 2).toFixed(1);
+            const top = (Math.random() * 90 + 5).toFixed(1);
+            const duration = (Math.random() * 2.5 + 1.5).toFixed(2);
+            const delay = (Math.random() * -8).toFixed(2);
+            const colorPick = Math.random();
+            const starColor = colorPick > 0.6 ? '#FFFFFF' : (colorPick > 0.3 ? 'rgb(var(--dday-c1))' : 'rgb(var(--dday-c2))');
+            
+            html += `<span class="dday-star-particle" style="left:${left}%; top:${top}%; width:${size}px; height:${size}px; --star-duration:${duration}s; --star-delay:${delay}s; background:${starColor};"></span>`;
+        } else {
+            const size = (Math.random() * 4 + 3).toFixed(1);
+            const left = (Math.random() * 96 + 2).toFixed(1);
+            const duration = (Math.random() * 4 + 4).toFixed(2);
+            const delay = (Math.random() * -8).toFixed(2);
+            const drift = (Math.random() * 40 - 20).toFixed(1);
+            html += `<span class="dday-particle" style="left:${left}%; bottom:-14px; width:${size}px; height:${size}px; animation-duration:${duration}s; animation-delay:${delay}s; --dday-drift:${drift}px;"></span>`;
+        }
     }
     return html;
 }
@@ -3631,7 +3643,14 @@ function renderHomeDdayBox() {
         const dateLabel = (d.date || '').replaceAll('-', '.');
         const isToday = d.daysLeft === 0;
         const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
-        const themeVars = `--dday-c1:${theme.c1};--dday-c2:${theme.c2};--dday-badge-bg:${theme.badgeBg};--dday-badge-border:${theme.badgeBorder};--dday-badge-text:${theme.badgeText};--dday-stat-g1:${theme.statG1};--dday-stat-g2:${theme.statG2};--dday-stat-border:${theme.statBorder};--dday-stat-shadow:${theme.statShadow};--dday-stat-label:${theme.statLabel};`;
+        // 물 빠지는 정도: D-30이면 100%(가득 참), D-day면 0%(완전히 빠짐)
+        const waterPct = Math.max(0, Math.min(100, (d.daysLeft / 30) * 100));
+        const progress = 1 - (waterPct / 100);
+        const imgOverlayOpacity = isToday ? '0' : (0.45 - progress * 0.3).toFixed(2);
+        const particleOpacity = isToday ? '1' : (0.3 + progress * 0.5).toFixed(2);
+        const particleCount = isToday ? 40 : Math.round(5 + progress * 15);
+        const waterOpacity = isToday ? '0' : '1';
+        const themeVars = `--dday-c1:${theme.c1};--dday-c2:${theme.c2};--dday-badge-bg:${theme.badgeBg};--dday-badge-border:${theme.badgeBorder};--dday-badge-text:${theme.badgeText};--dday-stat-g1:${theme.statG1};--dday-stat-g2:${theme.statG2};--dday-stat-border:${theme.statBorder};--dday-stat-shadow:${theme.statShadow};--dday-stat-label:${theme.statLabel};--dday-water-pct:${waterPct}%;--dday-img-overlay-opacity:${imgOverlayOpacity};--dday-particle-opacity:${particleOpacity};--dday-water-opacity:${waterOpacity};`;
         const cardImage = d.image || ddayBgImageUrl;
         
         const bgImageStyle = cardImage
@@ -3640,14 +3659,18 @@ function renderHomeDdayBox() {
         const message = (d.message || '').trim() || '함께 손꼽아 기다려요!';
         return `
         <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''}" style="${themeVars}${bgImageStyle}">
-            <div class="dday-hero-particles">${generateDdayParticles()}</div>
-            <span class="dday-hero-badge">${escapeHtml(dateLabel)} COUNTDOWN</span>
-            <div class="dday-hero-title font-paperozi">${escapeHtml(d.title || '기념일')}까지</div>
-            <div class="dday-hero-sub">${escapeHtml(message)}</div>
-            <div class="dday-hero-stat-row">
-                <div class="dday-hero-stat">
-                    <div class="dday-hero-stat-num">${isToday ? 'D-DAY' : d.daysLeft}</div>
-                    ${isToday ? '' : '<div class="dday-hero-stat-label">DAYS</div>'}
+            ${(cardImage && !isToday) ? '<div class="dday-hero-img-overlay"></div>' : ''}
+            ${!isToday ? '<div class="dday-hero-water"></div>' : ''}
+            <div class="dday-hero-particles">${generateDdayParticles(particleCount, isToday)}</div>
+            <div class="dday-hero-text">
+                <span class="dday-hero-badge">${escapeHtml(dateLabel)} COUNTDOWN</span>
+                <div class="dday-hero-title font-paperozi">${escapeHtml(d.title || '기념일')}까지</div>
+                <div class="dday-hero-sub">${escapeHtml(message)}</div>
+                <div class="dday-hero-stat-row">
+                    <div class="dday-hero-stat">
+                        <div class="dday-hero-stat-num">${isToday ? 'D-DAY' : d.daysLeft}</div>
+                        ${isToday ? '' : '<div class="dday-hero-stat-label">DAYS</div>'}
+                    </div>
                 </div>
             </div>
         </div>
@@ -6017,7 +6040,7 @@ function renderUpboPage() {
                             <div class="flex items-center gap-3 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_4px_14px_rgba(70,60,160,0.06)] pl-4 pr-4 py-3">
                                 <div class="w-[5px] self-stretch rounded-full shrink-0" style="background-color:${themeColor};"></div>
                                 <div class="flex-1 min-w-0">
-                                    <div class="text-[15px] font-bold text-[#3d2f2c] font-paperozi truncate">${item.name || '(이름 없음)'}</div>
+                                    <div class="text-[15px] font-bold text-[#3d2f2c] font-paperozi whitespace-pre-wrap break-words leading-snug">${item.name || '(이름 없음)'}</div>
                                     <div class="text-[11px] font-bold text-gray-300 mt-0.5">메뉴</div>
                                 </div>
                                 ${item.price ? `<div class="text-[16px] font-extrabold shrink-0" style="color:${themeColor};">${item.price}</div>` : ''}
@@ -6400,7 +6423,7 @@ function renderUpboMenuAdminList() {
 
     container.innerHTML = menu.map((item, idx) => `
         <div class="relative flex items-center gap-2 bg-[#FAFAFD] border border-[#ECEDFA] rounded-xl p-2.5 group">
-            <input type="text" value="${item.name || ''}" placeholder="품목명" class="flex-1 min-w-0 text-[14px] font-bold text-[#5D4037] outline-none bg-transparent border-b border-transparent focus:border-[#ECEDFA] px-1" oninput="updateUpboMenuField(${idx}, 'name', this.value)">
+            <textarea placeholder="품목명" class="flex-1 min-w-0 text-[14px] font-bold text-[#5D4037] outline-none bg-transparent border-b border-transparent focus:border-[#ECEDFA] px-1 resize-none overflow-hidden block" style="min-height:24px; field-sizing: content;" rows="1" oninput="updateUpboMenuField(${idx}, 'name', this.value)">${item.name || ''}</textarea>
             <input type="text" value="${item.price || ''}" placeholder="가격" class="w-28 text-[13px] text-gray-500 outline-none bg-transparent border-b border-transparent focus:border-[#ECEDFA] px-1" oninput="updateUpboMenuField(${idx}, 'price', this.value)">
             <button onclick="removeUpboMenuItem(${idx})" class="text-red-400 hover:text-red-600 bg-white rounded-full w-6 h-6 flex items-center justify-center text-[12px] shadow-sm shrink-0 transition"><i class="fi fi-br-cross-small"></i></button>
         </div>
