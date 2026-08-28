@@ -5973,12 +5973,12 @@ function renderUpboSelectPage() {
     });
 
     const mainHtml = `
-        <div class="big-white-box upbo-box relative mx-auto" style="min-height: ${isMobile ? '420px' : '520px'}; padding: ${isMobile ? '28px 16px' : '48px'}; width: 100%; max-width: 980px; box-sizing: border-box;">
+        <div class="big-white-box upbo-box relative mx-auto" style="min-height: ${isMobile ? '420px' : '520px'}; padding: ${isMobile ? '28px 16px 48px' : '48px 48px 150px'}; width: 100%; max-width: 980px; box-sizing: border-box;">
             <div class="text-center mb-8">
                 <h2 class="text-[26px] lg:text-3xl font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-box-open"></i> 업보정리</h2>
                 <p class="text-[14px] font-bold text-gray-400 mt-2">확인할 멤버를 선택해주세요</p>
             </div>
-            <div class="flex ${isMobile ? 'flex-row flex-nowrap overflow-x-auto justify-start px-1 -mx-1' : 'flex-row flex-wrap justify-center'} items-start gap-4 md:gap-6">
+            <div class="flex flex-row flex-wrap justify-center items-start gap-3 sm:gap-4 md:gap-6">
                 ${cardsHtml}
             </div>
         </div>
@@ -6006,7 +6006,7 @@ function renderUpboPage() {
         `;
     }
 
-    let mainHtml = `<div class="big-white-box upbo-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; ${isMobile ? 'min-width: 0;' : ''} box-sizing: border-box;">`;
+    let mainHtml = `<div class="big-white-box upbo-box relative mx-auto" style="min-height: 850px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; ${isMobile ? 'min-width: 0;' : ''} box-sizing: border-box;">`;
     mainHtml += `
         <div class="flex flex-col md:flex-row md:items-center justify-between w-full gap-4 mb-6 pb-5 border-b border-[#ECEDFA]">
             <div class="flex justify-start">
@@ -6030,12 +6030,12 @@ function renderUpboPage() {
                     <div class="text-[18px] font-bold text-gray-400 flex items-center gap-1.5 group-hover:text-[#5D4037] transition-colors"><i class="fi fi-rr-shop"></i> 메뉴판</div>
                     <i id="upboMenuPanelChevron" class="fi fi-rr-angle-small-down text-gray-400 group-hover:text-[#5D4037] transition-all duration-200"></i>
                 </button>
-                <div id="upboMenuPanelBody" class="flex items-start justify-center gap-4">
+                <div id="upboMenuPanelBody" class="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 lg:gap-4">
                     ${menuListImage ? `
                     <div class="h-[30rem] sm:h-[42rem] md:h-[48rem] w-auto max-w-full rounded-3xl bg-white shadow-[0_10px_28px_rgba(70,60,160,0.12)] p-2 shrink-0 flex items-center justify-center">
                         <img src="${menuListImage}" class="h-full w-auto max-w-full object-contain rounded-2xl">
                     </div>` : `
-                    <div class="w-1/2 min-w-0 flex flex-col gap-2.5">
+                    <div class="w-full lg:w-1/2 max-w-[600px] lg:max-w-none min-w-0 flex flex-col gap-2.5">
                         ${menuItems.map(item => `
                             <div class="flex items-center gap-3 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_4px_14px_rgba(70,60,160,0.06)] pl-4 pr-4 py-3">
                                 <div class="w-[5px] self-stretch rounded-full shrink-0" style="background-color:${themeColor};"></div>
@@ -6085,80 +6085,80 @@ function renderUpboPage() {
                                 <button type="button" onclick="event.stopPropagation(); closeUpboFileMenu(); document.getElementById('rouletteFileInput').click();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-dice"></i> 룰렛 업로드</button>
                             </div>
                         </div>
-<input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
+                        <input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
                             
-                            <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
-                            <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
-                        </div>
+                        <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
+                        <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
                     </div>
-
-                    <!-- 메뉴 관리 -->
-                    <div class="mb-4 bg-white border border-[#ECEDFA] rounded-2xl p-4 shadow-sm">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-[16px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2"><i class="fi fi-rr-shop"></i> 메뉴 관리</h3>
-                            <button onclick="addUpboMenuItem()" class="px-3 py-1.5 bg-blue-50 text-blue-700 font-bold rounded-lg border-[1.5px] border-blue-200 shadow-sm text-[13px] hover:bg-blue-100 transition">+ 메뉴 추가</button>
-                        </div>
-                        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-[#ECEDFA]">
-                            <label class="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 cursor-pointer shrink-0 border border-gray-200 hover:brightness-95 transition">
-                                <img id="upboMenuImagePreview" src="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) || ''}" class="w-full h-full object-cover ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) ? '' : 'hidden'}">
-                                <div id="upboMenuImagePlaceholder" class="w-full h-full flex items-center justify-center text-gray-300 text-[18px] ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) ? 'hidden' : ''}"><i class="fi fi-rr-picture"></i></div>
-                                <input type="file" accept="image/*" class="hidden" onchange="uploadUpboMenuImage(this)">
-                            </label>
-                            <div class="flex-1 min-w-0">
-                                <div class="text-[13px] font-bold text-gray-400 mb-1.5">메뉴 전체에 사용할 대표 이미지를 등록해주세요.</div>
-                                <input type="text" id="upboMenuImageUrlInput" value="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) || ''}" placeholder="이미지 URL을 붙여넣거나, 왼쪽 썸네일을 눌러 업로드하세요" class="w-full text-[13px] font-bold text-[#5D4037] outline-none bg-[#FAFAFD] border border-[#ECEDFA] rounded-lg px-3 py-2 focus:border-[var(--theme-color)]" oninput="setUpboMenuImageUrl(this.value)">
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-[#ECEDFA]">
-                            <label class="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 cursor-pointer shrink-0 border border-gray-200 hover:brightness-95 transition">
-                                <img id="upboMenuListImagePreview" src="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) || ''}" class="w-full h-full object-cover ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) ? '' : 'hidden'}">
-                                <div id="upboMenuListImagePlaceholder" class="w-full h-full flex items-center justify-center text-gray-300 text-[18px] ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) ? 'hidden' : ''}"><i class="fi fi-rr-picture"></i></div>
-                                <input type="file" accept="image/*" class="hidden" onchange="uploadUpboMenuListImage(this)">
-                            </label>
-                            <div class="flex-1 min-w-0">
-                                <div class="text-[13px] font-bold text-gray-400 mb-1.5">메뉴판 이미지를 등록하면, 조회 화면 왼쪽에 아래 목록 대신 이 이미지 1장이 표시됩니다.</div>
-                                <input type="text" id="upboMenuListImageUrlInput" value="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) || ''}" placeholder="이미지 URL을 붙여넣거나, 왼쪽 썸네일을 눌러 업로드하세요" class="w-full text-[13px] font-bold text-[#5D4037] outline-none bg-[#FAFAFD] border border-[#ECEDFA] rounded-lg px-3 py-2 focus:border-[var(--theme-color)]" oninput="setUpboMenuListImageUrl(this.value)">
-                            </div>
-                        </div>
-                        <div id="upboMenuAdminList" class="flex flex-col gap-2"></div>
-                    </div>
-
-                    <!-- 일괄 처리 컨트롤 바 -->
-                    <div class="flex flex-wrap items-center gap-2 mb-4 bg-[#F7F7FC] p-3 rounded-xl border border-[#ECEDFA] shadow-sm">
-                        <span class="text-[14px] font-bold text-[#5D4037] ml-1">선택 항목:</span>
-                        <select id="batchStatusSelect" class="border-[2px] border-[#5D4037] rounded-lg p-1.5 text-[13px] outline-none font-bold text-[#5D4037] cursor-pointer">
-                            <option value="배송중">배송중</option>
-                            <option value="배송완료">배송완료</option>
-                        </select>
-                        <button onclick="changeStatusSelectedUpboRows()" class="px-3 py-1.5 bg-purple-50 text-purple-700 font-bold rounded-lg border-[1.5px] border-purple-200 shadow-sm text-[13px] hover:bg-purple-100 transition">일괄 상태 변경</button>
-                        <span class="text-gray-300 mx-1">|</span>
-                        <button onclick="deleteSelectedUpboRows()" class="px-3 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border-[1.5px] border-red-200 shadow-sm text-[13px] hover:bg-red-100 transition">선택 삭제</button>
-                    </div>
-
-                    <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border border-[#ECEDFA] rounded-2xl p-6 shadow-[0_8px_20px_rgba(70,60,160,0.08)]">
-                        <div>
-                            <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-box-open"></i> 업보정리 사용법</div>
-                            <ol class="flex flex-col gap-2">
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>데이터를 입력 후 저장하기를 누른다</li>
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>저장하면 상태와 방송국 바로가기 버튼이 생긴다</li>
-                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>시청자들이 조회창에서 본인이 구매한 것을 조회할 수 있습니다</li>
-                            </ol>
-                        </div>
-                    </div>
-                    <div class="overflow-x-auto lg:overflow-visible border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
-                        <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable">
-                        </table>
-                    </div>
-                    <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
                 </div>
-            `;
-        }
 
-        mainHtml += `</div>`;
-        content.innerHTML = mainHtml;
-        content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6 upbo-content-wrap';
+                <!-- 메뉴 관리 -->
+                <div class="mb-4 bg-white border border-[#ECEDFA] rounded-2xl p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-[16px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2"><i class="fi fi-rr-shop"></i> 메뉴 관리</h3>
+                        <button onclick="addUpboMenuItem()" class="px-3 py-1.5 bg-blue-50 text-blue-700 font-bold rounded-lg border-[1.5px] border-blue-200 shadow-sm text-[13px] hover:bg-blue-100 transition">+ 메뉴 추가</button>
+                    </div>
+                    <div class="flex items-center gap-3 mb-4 pb-4 border-b border-[#ECEDFA]">
+                        <label class="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 cursor-pointer shrink-0 border border-gray-200 hover:brightness-95 transition">
+                            <img id="upboMenuImagePreview" src="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) || ''}" class="w-full h-full object-cover ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) ? '' : 'hidden'}">
+                            <div id="upboMenuImagePlaceholder" class="w-full h-full flex items-center justify-center text-gray-300 text-[18px] ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) ? 'hidden' : ''}"><i class="fi fi-rr-picture"></i></div>
+                            <input type="file" accept="image/*" class="hidden" onchange="uploadUpboMenuImage(this)">
+                        </label>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-[13px] font-bold text-gray-400 mb-1.5">메뉴 전체에 사용할 대표 이미지를 등록해주세요.</div>
+                            <input type="text" id="upboMenuImageUrlInput" value="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) || ''}" placeholder="이미지 URL을 붙여넣거나, 왼쪽 썸네일을 눌러 업로드하세요" class="w-full text-[13px] font-bold text-[#5D4037] outline-none bg-[#FAFAFD] border border-[#ECEDFA] rounded-lg px-3 py-2 focus:border-[var(--theme-color)]" oninput="setUpboMenuImageUrl(this.value)">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 mb-4 pb-4 border-b border-[#ECEDFA]">
+                        <label class="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 cursor-pointer shrink-0 border border-gray-200 hover:brightness-95 transition">
+                            <img id="upboMenuListImagePreview" src="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) || ''}" class="w-full h-full object-cover ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) ? '' : 'hidden'}">
+                            <div id="upboMenuListImagePlaceholder" class="w-full h-full flex items-center justify-center text-gray-300 text-[18px] ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) ? 'hidden' : ''}"><i class="fi fi-rr-picture"></i></div>
+                            <input type="file" accept="image/*" class="hidden" onchange="uploadUpboMenuListImage(this)">
+                        </label>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-[13px] font-bold text-gray-400 mb-1.5">메뉴판 이미지를 등록하면, 조회 화면 왼쪽에 아래 목록 대신 이 이미지 1장이 표시됩니다.</div>
+                            <input type="text" id="upboMenuListImageUrlInput" value="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) || ''}" placeholder="이미지 URL을 붙여넣거나, 왼쪽 썸네일을 눌러 업로드하세요" class="w-full text-[13px] font-bold text-[#5D4037] outline-none bg-[#FAFAFD] border border-[#ECEDFA] rounded-lg px-3 py-2 focus:border-[var(--theme-color)]" oninput="setUpboMenuListImageUrl(this.value)">
+                        </div>
+                    </div>
+                    <div id="upboMenuAdminList" class="flex flex-col gap-2"></div>
+                </div>
 
-        if (isAdmin && upboViewMode === 'admin') { renderUpboAdminTable(); renderUpboMenuAdminList(); }
+                <!-- 일괄 처리 컨트롤 바 -->
+                <div class="flex flex-wrap items-center gap-2 mb-4 bg-[#F7F7FC] p-3 rounded-xl border border-[#ECEDFA] shadow-sm">
+                    <span class="text-[14px] font-bold text-[#5D4037] ml-1">선택 항목:</span>
+                    <select id="batchStatusSelect" class="border-[2px] border-[#5D4037] rounded-lg p-1.5 text-[13px] outline-none font-bold text-[#5D4037] cursor-pointer">
+                        <option value="배송중">배송중</option>
+                        <option value="배송완료">배송완료</option>
+                    </select>
+                    <button onclick="changeStatusSelectedUpboRows()" class="px-3 py-1.5 bg-purple-50 text-purple-700 font-bold rounded-lg border-[1.5px] border-purple-200 shadow-sm text-[13px] hover:bg-purple-100 transition">일괄 상태 변경</button>
+                    <span class="text-gray-300 mx-1">|</span>
+                    <button onclick="deleteSelectedUpboRows()" class="px-3 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border-[1.5px] border-red-200 shadow-sm text-[13px] hover:bg-red-100 transition">선택 삭제</button>
+                </div>
+
+                <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border border-[#ECEDFA] rounded-2xl p-6 shadow-[0_8px_20px_rgba(70,60,160,0.08)]">
+                    <div>
+                        <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-box-open"></i> 업보정리 사용법</div>
+                        <ol class="flex flex-col gap-2">
+                            <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>데이터를 입력 후 저장하기를 누른다</li>
+                            <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>저장하면 상태와 방송국 바로가기 버튼이 생긴다</li>
+                            <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>시청자들이 조회창에서 본인이 구매한 것을 조회할 수 있습니다</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="overflow-x-auto lg:overflow-visible border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
+                    <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable">
+                    </table>
+                </div>
+                <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
+            </div>
+        `;
+    }
+
+    mainHtml += `</div>`;
+    content.innerHTML = mainHtml;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6 upbo-content-wrap';
+
+    if (isAdmin && upboViewMode === 'admin') { renderUpboAdminTable(); renderUpboMenuAdminList(); }
 }
 
 function renderUpboAdminTable() {
@@ -6181,7 +6181,6 @@ function renderUpboAdminTable() {
         </th>`;
     });
 
-    // 👇 룰렛 열 추가된 부분 👇
     thead += `<th class="p-3 border-r border-gray-200 w-[120px] text-[#5D4037] font-bold text-center">룰렛</th>
               <th class="p-3 border-r border-gray-200 min-w-[110px] text-[#5D4037] font-bold text-center">요청사항</th>
               <th class="p-3 border-r border-gray-200 w-[80px] text-[#5D4037] font-bold text-center">상태</th>
@@ -6219,7 +6218,6 @@ function createUpboRowHtml(record, products) {
 
     const linkBtn = `<button type="button" class="bg-blue-50 border border-blue-200 text-blue-600 font-bold w-full py-1 rounded text-[12px] hover:bg-blue-100 transition whitespace-nowrap shadow-sm" onclick="const uid = this.closest('tr').querySelector('.upbo-uid').value.trim(); if(uid) { window.open('https://www.sooplive.com/station/' + uid, '_blank'); } else { alert('아이디를 먼저 입력해주세요.'); }">바로가기</button>`;
 
-    // 👇 룰렛 열이 textarea 로 포함된 부분 👇
     html += `<td class="p-2 border-r align-middle">
                 <textarea class="w-full outline-none bg-transparent text-center text-[13px] text-purple-600 font-bold upbo-roulette resize-none overflow-hidden block" style="min-height:24px; field-sizing: content;" rows="1" placeholder="-">${record.roulette || ''}</textarea>
              </td>
@@ -6230,7 +6228,6 @@ function createUpboRowHtml(record, products) {
              </tr>`;
     return html;
 }
-
 function syncUpboDomToState() {
     const table = document.getElementById('upboAdminTable');
     if(!table) return;
