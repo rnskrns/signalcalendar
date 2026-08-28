@@ -377,6 +377,41 @@ html.dark-mode .dday-hero-stat-label { color: var(--dday-stat-label) !important;
 
 .dday-hero-card-img .dday-hero-stat-label { color: #fecdd3 !important; }
 
+/* 디데이 카드 반짝이는 파티클 효과 - 카드 테마 색상(c1/c2)을 그대로 사용해 은은하게 떠오름 */
+.dday-hero-particles {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: inherit;
+}
+/* 파티클보다 실제 카드 콘텐츠(뱃지/제목/스탯 등)가 항상 위에 오도록 고정 */
+.dday-hero-card > *:not(.dday-hero-particles) {
+    position: relative;
+    z-index: 1;
+}
+.dday-particle {
+    position: absolute;
+    bottom: -14px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--dday-c1),0.95) 0%, rgba(var(--dday-c2),0.55) 55%, rgba(var(--dday-c2),0) 100%);
+    opacity: 0;
+    animation-name: ddayParticleFloat;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    will-change: transform, opacity;
+}
+@keyframes ddayParticleFloat {
+    0%   { transform: translate(0, 0) scale(0.7); opacity: 0; }
+    15%  { opacity: 1; }
+    80%  { opacity: 0.75; }
+    100% { transform: translate(var(--dday-drift, 12px), -170px) scale(1.1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dday-particle { animation: none; opacity: 0; }
+}
+
 /* 디데이 등록 폼: 카드 색상 선택 스와치 */
 .dday-color-swatch {
     width: 36px;

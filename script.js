@@ -727,6 +727,7 @@ window.toggleProfileDropdown = toggleProfileDropdown; window.openLinkModal = ope
 window.openManageModal = openManageModal; window.closeManageModal = closeManageModal; window.switchManageTab = switchManageTab;
 window.addUpLink = addUpLink; window.deleteUpLink = deleteUpLink;
 window.addDday = addDday; window.deleteDday = deleteDday; window.selectDdayColor = selectDdayColor;
+window.startEditDday = startEditDday; window.cancelEditDday = cancelEditDday;
 window.switchDdayImgTab = switchDdayImgTab; window.previewDdayImageFile = previewDdayImageFile; window.previewDdayImageUrl = previewDdayImageUrl;
 window.toggleUpPanel = toggleUpPanel; window.toggleMemoPanel = toggleMemoPanel; window.closeSidePanel = closeSidePanel;
 window.openMobileTabMenu = openMobileTabMenu; window.closeMobileTabMenu = closeMobileTabMenu;
@@ -759,6 +760,8 @@ window.previewPopupImgFile = previewPopupImgFile;
 
 // 업보정리 바인딩
 window.addUpboProduct = addUpboProduct; window.removeUpboProduct = removeUpboProduct; window.addUpboRow = addUpboRow; window.searchUpbo = searchUpbo; window.saveUpboData = saveUpboData; window.toggleUpboViewMode = toggleUpboViewMode;
+window.addUpboMenuItem = addUpboMenuItem; window.removeUpboMenuItem = removeUpboMenuItem; window.updateUpboMenuField = updateUpboMenuField; window.uploadUpboMenuImage = uploadUpboMenuImage; window.renderUpboMenuAdminList = renderUpboMenuAdminList; window.setUpboMenuImageUrl = setUpboMenuImageUrl; window.toggleUpboMenuPanel = toggleUpboMenuPanel;
+window.uploadUpboMenuListImage = uploadUpboMenuListImage; window.setUpboMenuListImageUrl = setUpboMenuListImageUrl;
 
 // 시그널 바인딩
 window.openSignalAddModal = openSignalAddModal; window.openSignalEditModal = openSignalEditModal; window.closeSignalAddModal = closeSignalAddModal;
@@ -1136,6 +1139,7 @@ let homeBoxShouldShow = false; // 유튜브/이미지 or 공지 중 하나라도
 let ddaysList = []; // 관리자가 등록한 기념일 목록 { id, title, date, timestamp, color, message }
 let ddayBgImageUrl = ''; // 홈탭 디데이 카드 배경 이미지
 let selectedDdayColor = 'pink'; // 디데이 등록 폼에서 현재 선택된 카드 색상
+let editingDdayId = null; // 현재 수정 중인 디데이 id (null이면 신규 등록 모드)
 
 // 디데이 카드 색상 테마 (핑크/노랑/블루/오렌지 중 선택)
 const DDAY_COLOR_THEMES = {
@@ -1230,7 +1234,7 @@ let upboViewMode = 'search'; // 'search' or 'admin'
 
 const tabToHash = { 
     '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
-    '롤링페이퍼': 'rolling', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
+    '롤링페이퍼': 'rolling', '업보정리': 'upbolist', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
     '노래책_달타': 'songbook_dalta', '노래책_다룽': 'songbook_darung', '노래책_최또': 'songbook_choitto', '노래책_카나시': 'songbook_kanashi',
     '시그널': 'signal',
     '클립': 'clip',
@@ -1238,7 +1242,7 @@ const tabToHash = {
 };
 const hashToTab = { 
     '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
-    '#rolling': '롤링페이퍼', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시',
+    '#rolling': '롤링페이퍼', '#upbolist': '업보정리', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시',
     '#songbook_dalta': '노래책_달타', '#songbook_darung': '노래책_다룽', '#songbook_choitto': '노래책_최또', '#songbook_kanashi': '노래책_카나시',
     '#signal': '시그널',
     '#clip': '클립',
@@ -1897,11 +1901,11 @@ function openManageModal(tab = 'link') {
     renderLinkManagePanel();
     renderUpLinkManagePanel();
     renderDdayManagePanel();
-    resetDdayImageForm();
-    selectDdayColor('pink');
+    cancelEditDday();
     renderInfoManagePanel();
     renderHomeManagePanel();
     if (typeof renderUpdateManagePanel === 'function') renderUpdateManagePanel();
+    if (typeof resetUpdateImageForm === 'function') resetUpdateImageForm();
     document.getElementById('manageModal').classList.replace('hidden', 'flex');
     switchManageTab(tab);
 
@@ -2826,7 +2830,7 @@ function renderHeaderTabs() {
                 mainLinkHtml = `
                     <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
-                    <a href="#" onclick="executeDesktopTabChange('업보정리_달타'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">업보정리</a>
+                    <a href="#" onclick="executeDesktopTabChange('업보정리'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">업보정리</a>
                     <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">사다리타기</a>
                 `;
             } else if (tab === '시그널') {
@@ -2866,7 +2870,7 @@ function renderHeaderTabs() {
     if (mobileNav) {
         let mHtml = '';
         ['홈', ...tabs].forEach(tab => {
-            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '사다리타기' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
+            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '업보선택' && tab === '더보기') || (currentPage === '사다리타기' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
             const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
             let contentHtml = '';
             
@@ -2923,7 +2927,7 @@ function openMobileTabMenu(tab) {
     if (tab === '더보기') {
         html += iconBtn("executeMobileTabChange('클립')", 'fi-rr-video-camera-alt', '클립', color);
         html += iconBtn("executeMobileTabChange('롤링페이퍼')", 'fi-rr-envelope', '롤링페이퍼', color);
-        html += iconBtn("executeMobileTabChange('업보정리_달타')", 'fi-rr-box-open', '업보정리', color);
+        html += iconBtn("executeMobileTabChange('업보정리')", 'fi-rr-box-open', '업보정리', color);
         html += iconBtn("executeMobileTabChange('사다리타기')", 'fi-rr-ladder', '사다리타기', color);
     } else {
         html += iconBtn(`executeMobileTabChange('${tab}')`, 'fi-rr-calendar', '일정표', color);
@@ -3601,6 +3605,20 @@ async function loadDdaysFromFirebase() {
     renderHomeDdayBox();
 }
 
+// 디데이 카드용 반짝이 파티클 span들을 랜덤 속성으로 생성 (위치/크기/속도/좌우 흔들림)
+function generateDdayParticles(count = 14) {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+        const size = (Math.random() * 4 + 3).toFixed(1);       // 3~7px
+        const left = (Math.random() * 96 + 2).toFixed(1);      // 2~98%
+        const duration = (Math.random() * 4 + 4).toFixed(2);   // 4~8s
+        const delay = (Math.random() * -8).toFixed(2);         // 음수 지연으로 진입 즉시 제각각 떠 있는 상태로 시작
+        const drift = (Math.random() * 40 - 20).toFixed(1);    // -20~20px 좌우 흔들림
+        html += `<span class="dday-particle" style="left:${left}%;width:${size}px;height:${size}px;animation-duration:${duration}s;animation-delay:${delay}s;--dday-drift:${drift}px;"></span>`;
+    }
+    return html;
+}
+
 // 홈탭 UP 해줘! 버튼 바로 위 박스 - D-30 이내(당일 포함)로 남은 기념일만 가까운 순으로 표시
 function renderHomeDdayBox() {
     const box = document.getElementById('homeDdayBox');
@@ -3633,6 +3651,7 @@ function renderHomeDdayBox() {
         const message = (d.message || '').trim() || '함께 손꼽아 기다려요!';
         return `
         <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''}" style="${themeVars}${bgImageStyle}">
+            <div class="dday-hero-particles">${generateDdayParticles()}</div>
             <span class="dday-hero-badge">${escapeHtml(dateLabel)} COUNTDOWN</span>
             <div class="dday-hero-title font-paperozi">${escapeHtml(d.title || '기념일')}까지</div>
             <div class="dday-hero-sub">${escapeHtml(message)}</div>
@@ -3739,6 +3758,7 @@ function renderDdayManagePanel() {
                 </div>
                 <div class="text-[11.5px] text-gray-400 font-bold mt-0.5">${d.date}${d.message ? ' · ' + escapeHtml(d.message) : ''}</div>
             </div>
+            <button onclick="startEditDday('${d.id}')" class="text-white bg-blue-500 w-6 h-6 rounded flex items-center justify-center hover:bg-blue-600 transition shrink-0"><i class="fi fi-rr-edit"></i></button>
             <button onclick="deleteDday('${d.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
         </div>`;
     }).join('');
@@ -3776,22 +3796,80 @@ async function addDday() {
             toast = null;
         }
 
-        const newDday = { title, date, color, message, image: imageUrl, timestamp: Date.now() };
-        const docRef = await addDoc(collection(db, 'ddays'), newDday);
-        ddaysList.push({ id: docRef.id, ...newDday });
-        alert('디데이가 추가되었습니다.');
-        titleInput.value = '';
-        dateInput.value = '';
-        if (messageInput) messageInput.value = '';
-        resetDdayImageForm();
-        selectDdayColor('pink');
+        if (editingDdayId) {
+            // 수정 모드: 기존 문서를 갱신
+            const updatedDday = { title, date, color, message, image: imageUrl };
+            await updateDoc(doc(db, 'ddays', editingDdayId), updatedDday);
+            const idx = ddaysList.findIndex(d => d.id === editingDdayId);
+            if (idx !== -1) ddaysList[idx] = { ...ddaysList[idx], ...updatedDday };
+            alert('디데이가 수정되었습니다.');
+        } else {
+            // 신규 등록 모드
+            const newDday = { title, date, color, message, image: imageUrl, timestamp: Date.now() };
+            const docRef = await addDoc(collection(db, 'ddays'), newDday);
+            ddaysList.push({ id: docRef.id, ...newDday });
+            alert('디데이가 추가되었습니다.');
+        }
+
+        cancelEditDday();
         renderDdayManagePanel();
         renderHomeDdayBox();
     } catch (e) {
-        console.error('디데이 추가 실패:', e);
-        alert('추가에 실패했습니다.');
+        console.error('디데이 저장 실패:', e);
+        alert(editingDdayId ? '수정에 실패했습니다.' : '추가에 실패했습니다.');
         if (toast) toast.remove();
     }
+}
+
+// 디데이 관리 목록에서 수정 버튼 클릭 시: 등록 폼에 기존 값을 채워넣고 수정 모드로 전환
+function startEditDday(ddayId) {
+    const d = ddaysList.find(x => x.id === ddayId);
+    if (!d) return;
+
+    editingDdayId = ddayId;
+
+    const titleInput = document.getElementById('ddayTitle');
+    const dateInput = document.getElementById('ddayDate');
+    const messageInput = document.getElementById('ddayMessage');
+    if (titleInput) titleInput.value = d.title || '';
+    if (dateInput) dateInput.value = d.date || '';
+    if (messageInput) messageInput.value = d.message || '';
+
+    resetDdayImageForm();
+    if (d.image) {
+        const urlInput = document.getElementById('ddayImageUrlText');
+        const preview = document.getElementById('ddayImagePreview');
+        if (urlInput) urlInput.value = d.image;
+        if (preview) { preview.src = d.image; preview.classList.remove('hidden'); }
+    }
+
+    selectDdayColor(DDAY_COLOR_THEMES[d.color] ? d.color : 'pink');
+
+    const submitBtn = document.getElementById('ddaySubmitBtn');
+    if (submitBtn) submitBtn.innerText = '수정 완료';
+    const cancelBtn = document.getElementById('ddayCancelEditBtn');
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+
+    const formSection = document.getElementById('manageTabPanel_dday');
+    if (formSection) formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// 수정 모드를 취소하고 등록 폼을 신규 등록 상태로 되돌린다
+function cancelEditDday() {
+    editingDdayId = null;
+    const titleInput = document.getElementById('ddayTitle');
+    const dateInput = document.getElementById('ddayDate');
+    const messageInput = document.getElementById('ddayMessage');
+    if (titleInput) titleInput.value = '';
+    if (dateInput) dateInput.value = '';
+    if (messageInput) messageInput.value = '';
+    resetDdayImageForm();
+    selectDdayColor('pink');
+
+    const submitBtn = document.getElementById('ddaySubmitBtn');
+    if (submitBtn) submitBtn.innerText = '디데이 추가';
+    const cancelBtn = document.getElementById('ddayCancelEditBtn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
 }
 
 async function deleteDday(ddayId) {
@@ -3799,6 +3877,7 @@ async function deleteDday(ddayId) {
     try {
         await deleteDoc(doc(db, 'ddays', ddayId));
         ddaysList = ddaysList.filter(d => d.id !== ddayId);
+        if (editingDdayId === ddayId) cancelEditDday();
         renderDdayManagePanel();
         renderHomeDdayBox();
     } catch (e) {
@@ -4825,11 +4904,12 @@ async function changeTab(tabName) {
     const _embedP = new URLSearchParams(window.location.search);
     if (_embedP.get('mode') === 'embed') return;
 
-    if (tabName.startsWith('업보정리')) {
+    if (tabName === '업보정리') {
+        currentPage = '업보선택';
+        window.location.hash = '#upbolist';
+    } else if (tabName.startsWith('업보정리_')) {
         currentPage = '업보정리';
-        if (tabName.includes('_')) {
-            upboCurrentMember = tabName.split('_')[1];
-        }
+        upboCurrentMember = tabName.split('_')[1];
         const m2e = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
         window.location.hash = '#list' + m2e[upboCurrentMember];
     } else if (tabName.startsWith('노래책')) {
@@ -5043,12 +5123,12 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '업보선택': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF' };
     const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
-    document.documentElement.style.setProperty('--theme-color', themeColors[activeThemeMember] || '#8B5CF6');
+    document.documentElement.style.setProperty('--theme-color', currentPage === '업보선택' ? '#8B5CF6' : (themeColors[activeThemeMember] || '#8B5CF6'));
     document.body.className = document.body.className.replace(/theme-\S+/g, '');
-    const themeClass = currentPage === '업보정리' ? 'rolling' : currentPage === '노래책' ? getThemeClassForMember(songbookMember) : getThemeClassForMember(activeThemeMember);
+    const themeClass = (currentPage === '업보정리' || currentPage === '업보선택') ? 'rolling' : currentPage === '노래책' ? getThemeClassForMember(songbookMember) : getThemeClassForMember(activeThemeMember);
     document.body.classList.add('theme-' + themeClass);
     
     const mBtnContainer = document.getElementById('mobileHeaderRightBtn');
@@ -5078,6 +5158,8 @@ function render() {
         window.renderClipPage();
     } else if (currentPage === '업보정리') {
         renderUpboPage();
+    } else if (currentPage === '업보선택') {
+        renderUpboSelectPage();
     } else if (currentPage === '노래책') {
         renderSongbook();
     } else if (currentPage === '시그널') {
@@ -5788,6 +5870,49 @@ function toggleUpboViewMode(mode) {
 }
 
 // =========================================================================
+// 업보정리 멤버 선택 화면 (#upbolist)
+// =========================================================================
+function renderUpboSelectPage() {
+    const content = document.getElementById('mainContent');
+    if (!content) return;
+
+    let cardsHtml = '';
+    members.forEach(m => {
+        const mColor = themeColors[m.name] || '#8B5CF6';
+        cardsHtml += `
+            <button onclick="changeTab('업보정리_${m.name}')" class="upbo-select-card group relative overflow-hidden rounded-[22px] shrink-0 hover:-translate-y-1.5 transition-all duration-200 flex flex-col" style="width: ${isMobile ? '150px' : '210px'}; height: ${isMobile ? '350px' : '520px'}; background: #fff; border: none; box-shadow: 0 4px 10px ${hexToRgba(mColor, 0.16)}, 0 1px 3px rgba(0,0,0,0.05);" onmouseover="this.style.boxShadow='0 7px 16px ${hexToRgba(mColor, 0.24)}, 0 2px 6px rgba(0,0,0,0.06)'" onmouseout="this.style.boxShadow='0 4px 10px ${hexToRgba(mColor, 0.16)}, 0 1px 3px rgba(0,0,0,0.05)'">
+                <div class="relative z-10 flex flex-col items-center ${isMobile ? 'pt-6 pb-4' : 'pt-9 pb-5'} shrink-0" style="background:#fff;">
+                    <div class="font-paperozi font-bold ${isMobile ? 'text-[16px]' : 'text-[20px]'} tracking-tight" style="color:${mColor};">${m.name}</div>
+                    <div class="mt-1.5 px-2.5 py-0.5 rounded-full font-bold ${isMobile ? 'text-[9px]' : 'text-[11px]'}" style="background: ${hexToRgba(mColor, 0.12)}; color: ${mColor};">업보 조회</div>
+                </div>
+                <div class="relative flex-1 w-full overflow-hidden" style="background: ${hexToRgba(mColor, 0.18)};">
+                    <img src="${m.img}" alt="${m.name}" class="absolute left-0 right-0 w-full object-cover object-top group-hover:scale-125 transition-transform duration-300" style="top: 14%; height: 86%; transform: scale(1.15); transform-origin: bottom;">
+                    <div class="absolute inset-x-0 top-0 h-8" style="background: linear-gradient(180deg, #fff 0%, transparent 100%);"></div>
+                </div>
+                <div class="absolute top-2.5 right-2.5 z-10 w-7 h-7 rounded-full bg-white/85 flex items-center justify-center shadow-sm">
+                    <i class="fi fi-rr-angle-small-right" style="color:${mColor};"></i>
+                </div>
+            </button>
+        `;
+    });
+
+    const mainHtml = `
+        <div class="big-white-box upbo-box relative mx-auto" style="min-height: ${isMobile ? '420px' : '520px'}; padding: ${isMobile ? '28px 16px' : '48px'}; width: 100%; max-width: 980px; box-sizing: border-box;">
+            <div class="text-center mb-8">
+                <h2 class="text-[26px] lg:text-3xl font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-box-open"></i> 업보정리</h2>
+                <p class="text-[14px] font-bold text-gray-400 mt-2">확인할 멤버를 선택해주세요</p>
+            </div>
+            <div class="flex ${isMobile ? 'flex-row flex-nowrap overflow-x-auto justify-start px-1 -mx-1' : 'flex-row flex-wrap justify-center'} items-start gap-4 md:gap-6">
+                ${cardsHtml}
+            </div>
+        </div>
+    `;
+
+    content.innerHTML = mainHtml;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-auto lg:mx-auto pb-6 upbo-content-wrap';
+}
+
+// =========================================================================
 // 업보정리 (구매내역/배송상태) 렌더링 함수들
 // =========================================================================
 function renderUpboPage() {
@@ -5806,31 +5931,58 @@ function renderUpboPage() {
     }
 
     const _isEmbed = new URLSearchParams(window.location.search).get('mode') === 'embed';
-    let tabsHtml = _isEmbed ? '' : `<div class="flex justify-start md:justify-center gap-2 mb-6 mt-2 overflow-x-auto whitespace-nowrap px-0 md:px-2 upbo-member-tabs">`;
-    if (!_isEmbed) {
-    ['달타', '다룽', '최또', '카나시'].forEach(m => {
-        const active = m === upboCurrentMember;
-        const mColor = themeColors[m];
-        tabsHtml += `<button onclick="changeTab('업보정리_${m}')" class="px-4 py-1.5 font-bold font-paperozi text-[14px] rounded-full border-2 transition-all shadow-sm" style="border-color:${mColor}; ${active ? `background-color:${mColor}; color:white;` : `background-color:white; color:${mColor};`}">${m}</button>`;
-    });
-    tabsHtml += `</div>`;
-    }
 
     let mainHtml = `<div class="big-white-box upbo-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; ${isMobile ? 'min-width: 0;' : ''} box-sizing: border-box;">`;
-    const titleText = (isAdmin && upboViewMode === 'admin') ? '업보 관리' : '업보 조회';
     mainHtml += `
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-[#ECEDFA]">
-            <div>
-                <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-box-open"></i> ${titleText}</h2>
-                <p class="text-[14px] font-bold text-gray-400 mt-1">${upboCurrentMember}님의 구매 내역과 배송 상태를 확인하세요.</p>
+        <div class="flex flex-col md:flex-row md:items-center justify-between w-full gap-4 mb-6 pb-5 border-b border-[#ECEDFA]">
+            <div class="flex justify-start">
+                ${_isEmbed ? '' : `<button onclick="changeTab('업보정리')" class="text-[20px] font-bold text-gray-400 hover:text-[#5D4037] transition-colors mb-1 inline-flex items-center gap-1"><i class="fi fi-rr-angle-small-left"></i> 멤버 목록으로</button>`}
             </div>
-            ${toggleBtnHtml}
+            <div class="flex justify-end md:ml-auto">
+                ${toggleBtnHtml}
+            </div>
         </div>`;
-    mainHtml += tabsHtml;
 
     if (upboViewMode === 'search' || !isAdmin) {
+        const menuData = upboData[upboCurrentMember] || {};
+        const menuItems = menuData.menu || [];
+        const menuImage = menuData.menuImage || '';
+        const menuListImage = menuData.menuListImage || '';
+        let menuHtml = '';
+        if (menuItems.length > 0 || menuListImage) {
+            menuHtml = `
+            <div class="w-full mx-auto mb-4">
+                <button type="button" onclick="toggleUpboMenuPanel()" class="flex items-center gap-1.5 px-1 py-1.5 mb-2 group">
+                    <div class="text-[18px] font-bold text-gray-400 flex items-center gap-1.5 group-hover:text-[#5D4037] transition-colors"><i class="fi fi-rr-shop"></i> 메뉴판</div>
+                    <i id="upboMenuPanelChevron" class="fi fi-rr-angle-small-down text-gray-400 group-hover:text-[#5D4037] transition-all duration-200"></i>
+                </button>
+                <div id="upboMenuPanelBody" class="flex items-start justify-center gap-4">
+                    ${menuListImage ? `
+                    <div class="h-[30rem] sm:h-[42rem] md:h-[48rem] w-auto max-w-full rounded-3xl bg-white shadow-[0_10px_28px_rgba(70,60,160,0.12)] p-2 shrink-0 flex items-center justify-center">
+                        <img src="${menuListImage}" class="h-full w-auto max-w-full object-contain rounded-2xl">
+                    </div>` : `
+                    <div class="w-1/2 min-w-0 flex flex-col gap-2.5">
+                        ${menuItems.map(item => `
+                            <div class="flex items-center gap-3 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_4px_14px_rgba(70,60,160,0.06)] pl-4 pr-4 py-3">
+                                <div class="w-[5px] self-stretch rounded-full shrink-0" style="background-color:${themeColor};"></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-[15px] font-bold text-[#3d2f2c] font-paperozi truncate">${item.name || '(이름 없음)'}</div>
+                                    <div class="text-[11px] font-bold text-gray-300 mt-0.5">메뉴</div>
+                                </div>
+                                ${item.price ? `<div class="text-[16px] font-extrabold shrink-0" style="color:${themeColor};">${item.price}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>`}
+                    ${menuImage ? `
+                    <div class="h-[30rem] sm:h-[42rem] md:h-[48rem] w-auto max-w-full rounded-3xl bg-white shadow-[0_10px_28px_rgba(70,60,160,0.12)] p-2 shrink-0 flex items-center justify-center">
+                        <img src="${menuImage}" class="h-full w-auto max-w-full object-contain rounded-2xl">
+                    </div>` : ''}
+                </div>
+            </div>`;
+        }
+        mainHtml += menuHtml;
         mainHtml += `
-            <div class="max-w-2xl mx-auto mb-10 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_10px_28px_rgba(70,60,160,0.08)] p-4 md:p-5">
+            <div class="w-full mx-auto mb-10 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_10px_28px_rgba(70,60,160,0.08)] p-4 md:p-5">
                 <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                     <input type="text" id="upboSearchInput" class="min-w-0 border-[1.5px] border-[#ECEDFA] bg-[#FAFAFD] rounded-xl p-4 text-[17px] font-bold outline-none focus:border-[var(--theme-color)]" placeholder="닉네임 또는 아이디를 입력하세요" onkeypress="if(event.key==='Enter') searchUpbo()">
                     <button onclick="searchUpbo()" class="px-5 md:px-6 py-4 text-white font-bold rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap text-[17px] font-paperozi" style="background-color:${themeColor};"><i class="fi fi-rr-search"></i><span class="hidden sm:inline"> 검색</span></button>
@@ -5865,6 +6017,37 @@ function renderUpboPage() {
                             <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
                             <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
                         </div>
+                    </div>
+
+                    <!-- 메뉴 관리 -->
+                    <div class="mb-4 bg-white border border-[#ECEDFA] rounded-2xl p-4 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-[16px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2"><i class="fi fi-rr-shop"></i> 메뉴 관리</h3>
+                            <button onclick="addUpboMenuItem()" class="px-3 py-1.5 bg-blue-50 text-blue-700 font-bold rounded-lg border-[1.5px] border-blue-200 shadow-sm text-[13px] hover:bg-blue-100 transition">+ 메뉴 추가</button>
+                        </div>
+                        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-[#ECEDFA]">
+                            <label class="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 cursor-pointer shrink-0 border border-gray-200 hover:brightness-95 transition">
+                                <img id="upboMenuImagePreview" src="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) || ''}" class="w-full h-full object-cover ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) ? '' : 'hidden'}">
+                                <div id="upboMenuImagePlaceholder" class="w-full h-full flex items-center justify-center text-gray-300 text-[18px] ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) ? 'hidden' : ''}"><i class="fi fi-rr-picture"></i></div>
+                                <input type="file" accept="image/*" class="hidden" onchange="uploadUpboMenuImage(this)">
+                            </label>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-[13px] font-bold text-gray-400 mb-1.5">메뉴 전체에 사용할 대표 이미지를 등록해주세요.</div>
+                                <input type="text" id="upboMenuImageUrlInput" value="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuImage) || ''}" placeholder="이미지 URL을 붙여넣거나, 왼쪽 썸네일을 눌러 업로드하세요" class="w-full text-[13px] font-bold text-[#5D4037] outline-none bg-[#FAFAFD] border border-[#ECEDFA] rounded-lg px-3 py-2 focus:border-[var(--theme-color)]" oninput="setUpboMenuImageUrl(this.value)">
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-[#ECEDFA]">
+                            <label class="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 cursor-pointer shrink-0 border border-gray-200 hover:brightness-95 transition">
+                                <img id="upboMenuListImagePreview" src="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) || ''}" class="w-full h-full object-cover ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) ? '' : 'hidden'}">
+                                <div id="upboMenuListImagePlaceholder" class="w-full h-full flex items-center justify-center text-gray-300 text-[18px] ${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) ? 'hidden' : ''}"><i class="fi fi-rr-picture"></i></div>
+                                <input type="file" accept="image/*" class="hidden" onchange="uploadUpboMenuListImage(this)">
+                            </label>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-[13px] font-bold text-gray-400 mb-1.5">메뉴판 이미지를 등록하면, 조회 화면 왼쪽에 아래 목록 대신 이 이미지 1장이 표시됩니다.</div>
+                                <input type="text" id="upboMenuListImageUrlInput" value="${(upboData[upboCurrentMember] && upboData[upboCurrentMember].menuListImage) || ''}" placeholder="이미지 URL을 붙여넣거나, 왼쪽 썸네일을 눌러 업로드하세요" class="w-full text-[13px] font-bold text-[#5D4037] outline-none bg-[#FAFAFD] border border-[#ECEDFA] rounded-lg px-3 py-2 focus:border-[var(--theme-color)]" oninput="setUpboMenuListImageUrl(this.value)">
+                            </div>
+                        </div>
+                        <div id="upboMenuAdminList" class="flex flex-col gap-2"></div>
                     </div>
 
                     <!-- 일괄 처리 컨트롤 바 -->
@@ -5912,7 +6095,7 @@ function renderUpboPage() {
         content.innerHTML = mainHtml;
         content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6 upbo-content-wrap';
 
-        if (isAdmin && upboViewMode === 'admin') renderUpboAdminTable();
+        if (isAdmin && upboViewMode === 'admin') { renderUpboAdminTable(); renderUpboMenuAdminList(); }
 }
 
 function renderUpboAdminTable() {
@@ -5977,7 +6160,7 @@ function createUpboRowHtml(record, products) {
     html += `<td class="p-2 border-r align-middle">
                 <textarea class="w-full outline-none bg-transparent text-center text-[13px] text-purple-600 font-bold upbo-roulette resize-none overflow-hidden block" style="min-height:24px; field-sizing: content;" rows="1" placeholder="-">${record.roulette || ''}</textarea>
              </td>
-             <td class="p-2 border-r"><input type="text" class="outline-none bg-transparent upbo-memo text-[13px] text-gray-600" style="min-width: 90px; width: ${(record.memo || '요청사항').length + 2}ch; field-sizing: content;" oninput="this.style.width = (this.value.length || this.placeholder.length) + 2 + 'ch';" value="${record.memo || ''}" placeholder="요청사항"></td>
+             <td class="p-2 border-r"><textarea class="w-full outline-none bg-transparent upbo-memo text-[13px] text-gray-600 resize-none overflow-hidden block" style="min-width: 90px; min-height:24px; field-sizing: content;" rows="1" placeholder="요청사항">${record.memo || ''}</textarea></td>
              <td class="p-2 border-r align-middle">${sel}</td>
              <td class="p-2 border-r text-center align-middle">${linkBtn}</td>
              <td class="p-2 text-center align-middle"><button onclick="this.closest('tr').remove()" class="text-gray-400 hover:text-red-500 transition text-lg"><i class="fi fi-br-cross-small"></i></button></td>
@@ -6055,6 +6238,135 @@ function removeUpboProduct(idx) {
     renderUpboAdminTable();
 }
 
+// ===== 업보 메뉴 관리 (대표 이미지 1개 + 품목명/가격 목록) =====
+function ensureUpboMenuArray() {
+    if (!upboData[upboCurrentMember]) upboData[upboCurrentMember] = { products: [], records: [], menu: [], menuImage: '', menuListImage: '' };
+    if (!upboData[upboCurrentMember].menu) upboData[upboCurrentMember].menu = [];
+    if (upboData[upboCurrentMember].menuImage === undefined) upboData[upboCurrentMember].menuImage = '';
+    if (upboData[upboCurrentMember].menuListImage === undefined) upboData[upboCurrentMember].menuListImage = '';
+    return upboData[upboCurrentMember].menu;
+}
+
+function addUpboMenuItem() {
+    const menu = ensureUpboMenuArray();
+    menu.push({ name: '', price: '' });
+    renderUpboMenuAdminList();
+}
+
+function removeUpboMenuItem(idx) {
+    const menu = ensureUpboMenuArray();
+    menu.splice(idx, 1);
+    renderUpboMenuAdminList();
+}
+
+function updateUpboMenuField(idx, field, value) {
+    const menu = ensureUpboMenuArray();
+    if (!menu[idx]) return;
+    menu[idx][field] = value;
+}
+
+async function uploadUpboMenuImage(inputEl) {
+    if (!inputEl.files || !inputEl.files[0]) return;
+    ensureUpboMenuArray();
+    try {
+        const url = await window.uploadImageToCloudinary(inputEl.files[0]);
+        if (url) {
+            upboData[upboCurrentMember].menuImage = url;
+            const previewImg = document.getElementById('upboMenuImagePreview');
+            const placeholder = document.getElementById('upboMenuImagePlaceholder');
+            const urlInput = document.getElementById('upboMenuImageUrlInput');
+            if (previewImg) { previewImg.src = url; previewImg.classList.remove('hidden'); }
+            if (placeholder) placeholder.classList.add('hidden');
+            if (urlInput) urlInput.value = url;
+        }
+    } catch (e) {
+        console.error(e);
+        alert('이미지 업로드에 실패했습니다.');
+    }
+}
+
+function setUpboMenuImageUrl(url) {
+    ensureUpboMenuArray();
+    upboData[upboCurrentMember].menuImage = url.trim();
+    const previewImg = document.getElementById('upboMenuImagePreview');
+    const placeholder = document.getElementById('upboMenuImagePlaceholder');
+    if (previewImg && placeholder) {
+        if (url.trim()) {
+            previewImg.src = url.trim();
+            previewImg.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        } else {
+            previewImg.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+        }
+    }
+}
+
+async function uploadUpboMenuListImage(inputEl) {
+    if (!inputEl.files || !inputEl.files[0]) return;
+    ensureUpboMenuArray();
+    try {
+        const url = await window.uploadImageToCloudinary(inputEl.files[0]);
+        if (url) {
+            upboData[upboCurrentMember].menuListImage = url;
+            const previewImg = document.getElementById('upboMenuListImagePreview');
+            const placeholder = document.getElementById('upboMenuListImagePlaceholder');
+            const urlInput = document.getElementById('upboMenuListImageUrlInput');
+            if (previewImg) { previewImg.src = url; previewImg.classList.remove('hidden'); }
+            if (placeholder) placeholder.classList.add('hidden');
+            if (urlInput) urlInput.value = url;
+        }
+    } catch (e) {
+        console.error(e);
+        alert('이미지 업로드에 실패했습니다.');
+    }
+}
+
+function setUpboMenuListImageUrl(url) {
+    ensureUpboMenuArray();
+    upboData[upboCurrentMember].menuListImage = url.trim();
+    const previewImg = document.getElementById('upboMenuListImagePreview');
+    const placeholder = document.getElementById('upboMenuListImagePlaceholder');
+    if (previewImg && placeholder) {
+        if (url.trim()) {
+            previewImg.src = url.trim();
+            previewImg.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+        } else {
+            previewImg.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+        }
+    }
+}
+
+function toggleUpboMenuPanel() {
+    const body = document.getElementById('upboMenuPanelBody');
+    const chevron = document.getElementById('upboMenuPanelChevron');
+    if (!body) return;
+    const isCollapsed = body.style.display === 'none';
+    body.style.display = isCollapsed ? 'flex' : 'none';
+    if (chevron) chevron.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
+
+function renderUpboMenuAdminList() {
+    const container = document.getElementById('upboMenuAdminList');
+    if (!container) return;
+    const menu = ensureUpboMenuArray();
+
+    if (menu.length === 0) {
+        container.innerHTML = `<div class="text-center text-[13px] font-bold text-gray-300 py-4">등록된 메뉴가 없습니다. "+ 메뉴 추가"를 눌러 등록해보세요.</div>`;
+        return;
+    }
+
+    container.innerHTML = menu.map((item, idx) => `
+        <div class="relative flex items-center gap-2 bg-[#FAFAFD] border border-[#ECEDFA] rounded-xl p-2.5 group">
+            <input type="text" value="${item.name || ''}" placeholder="품목명" class="flex-1 min-w-0 text-[14px] font-bold text-[#5D4037] outline-none bg-transparent border-b border-transparent focus:border-[#ECEDFA] px-1" oninput="updateUpboMenuField(${idx}, 'name', this.value)">
+            <input type="text" value="${item.price || ''}" placeholder="가격" class="w-28 text-[13px] text-gray-500 outline-none bg-transparent border-b border-transparent focus:border-[#ECEDFA] px-1" oninput="updateUpboMenuField(${idx}, 'price', this.value)">
+            <button onclick="removeUpboMenuItem(${idx})" class="text-red-400 hover:text-red-600 bg-white rounded-full w-6 h-6 flex items-center justify-center text-[12px] shadow-sm shrink-0 transition"><i class="fi fi-br-cross-small"></i></button>
+        </div>
+    `).join('');
+}
+
 
 async function saveUpboData() {
     syncUpboDomToState();
@@ -6111,12 +6423,12 @@ function searchUpbo() {
         return;
     }
 
-    let html = `<div class="space-y-6">`;
+    let html = `<div class="space-y-4">`;
     matches.forEach(r => {
         let itemsHtml = '';
         const pKeys = Object.keys(r.items || {});
         let totalItems = 0;
-        
+
         if(pKeys.length > 0) {
             pKeys.forEach(p => {
                 const v = r.items[p];
@@ -6126,55 +6438,53 @@ function searchUpbo() {
                     totalItems++;
                     const displayVal = isNum ? `${v} 개` : `${v}`;
                     itemsHtml += `
-                        <div class="flex justify-between items-center bg-white border-[2px] border-gray-100 p-4 rounded-xl shadow-sm hover:border-[#5D4037] transition">
-                            <span class="font-bold text-gray-700 text-[16px] shrink-0">${p}</span>
-                            <span class="font-black text-[16px] text-[#5D4037] bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 whitespace-pre-line text-right leading-snug break-words ml-2">${displayVal}</span>
+                        <div class="flex justify-between items-center py-3 border-b border-gray-100 last:border-b-0">
+                            <span class="font-bold text-gray-500 text-[20px] shrink-0">${p}</span>
+                            <span class="font-bold text-[20px] text-[#5D4037] text-right whitespace-pre-line leading-snug break-words ml-2">${displayVal}</span>
                         </div>`;
                 }
             });
         }
-        
+
         if (totalItems === 0 && !r.roulette && !r.memo) {
-            itemsHtml = `<div class="text-gray-400 font-bold text-center py-6 bg-gray-50 rounded-xl border border-dashed">주문된 상품이 없습니다.</div>`;
+            itemsHtml = `<div class="text-gray-400 font-bold text-center py-6">주문된 상품이 없습니다.</div>`;
         }
 
-        // 👇 룰렛 출력 부분: span 태그를 div 태그로 바꾸고 whitespace-pre-line 클래스를 줘서 줄바꿈 완벽 적용 👇
         if(r.roulette) {
             itemsHtml += `
-                <div class="flex justify-between items-center bg-purple-50 border-[2px] border-purple-200 p-4 rounded-xl shadow-sm">
-                    <span class="font-bold text-purple-700 text-[16px] shrink-0">🎲 룰렛 당첨</span>
-                    <div class="font-black text-[16px] text-purple-800 bg-white px-3 py-1.5 rounded-lg border border-purple-200 text-right leading-snug break-words ml-2 whitespace-pre-line">${r.roulette}</div>
+                <div class="flex justify-between items-center py-3 border-b border-gray-100 last:border-b-0">
+                    <span class="font-bold text-gray-500 text-[20px] shrink-0">🎲 룰렛 당첨</span>
+                    <div class="font-bold text-[20px] text-[#5D4037] text-right whitespace-pre-line leading-snug break-words ml-2">${r.roulette}</div>
                 </div>`;
         }
 
-        // 👇 요청사항 출력 부분 👇
         if(r.memo) {
             itemsHtml += `
-                <div class="flex justify-between items-center bg-blue-50 border-[2px] border-blue-200 p-4 rounded-xl shadow-sm">
-                    <span class="font-bold text-blue-700 text-[16px] shrink-0">📝 요청사항</span>
-                    <div class="font-black text-[16px] text-blue-800 bg-white px-3 py-1.5 rounded-lg border border-blue-200 text-right leading-snug break-words ml-2 whitespace-pre-line">${r.memo}</div>
+                <div class="flex justify-between items-start py-3 border-b border-gray-100 last:border-b-0">
+                    <span class="font-bold text-gray-500 text-[20px] shrink-0">📝 요청사항</span>
+                    <div class="font-bold text-[20px] text-[#5D4037] text-right whitespace-pre-line leading-snug break-words ml-2">${r.memo}</div>
                 </div>`;
         }
 
         const statusColorMap = {
-            '결제대기': 'bg-gray-100 text-gray-600 border-gray-300',
-            '결제완료': 'bg-blue-50 text-blue-600 border-blue-300',
-            '배송준비': 'bg-yellow-50 text-yellow-600 border-yellow-300',
-            '배송중': 'bg-purple-50 text-purple-600 border-purple-300',
-            '배송완료': 'bg-green-50 text-green-600 border-green-300'
+            '결제대기': 'bg-gray-50 text-gray-500 border-gray-200',
+            '결제완료': 'bg-blue-50 text-blue-600 border-blue-200',
+            '배송준비': 'bg-yellow-50 text-yellow-600 border-yellow-200',
+            '배송중': 'bg-purple-50 text-purple-600 border-purple-200',
+            '배송완료': 'bg-green-50 text-green-600 border-green-200'
         };
-        const sColor = statusColorMap[r.status] || 'bg-gray-100 text-gray-600 border-gray-300';
+        const sColor = statusColorMap[r.status] || 'bg-gray-50 text-gray-500 border-gray-200';
 
         html += `
-            <div class="bg-white border-[3px] border-[#5D4037] rounded-2xl p-6 shadow-[4px_4px_0px_0px_rgba(93,64,55,1)] relative overflow-hidden">
-                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-5 border-b-[2.5px] border-dashed border-gray-200 pb-4 gap-3">
-                    <div class="flex items-center gap-3">
-                        <span class="text-[24px] font-bold text-[#5D4037] font-paperozi">${r.nickname}</span>
-                        <span class="text-[15px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">ID: ${r.uid || '미기입'}</span>
+            <div class="bg-white border border-[#ECEDFA] rounded-2xl p-5 shadow-[0_4px_14px_rgba(70,60,160,0.06)]">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-3 pb-3 border-b border-gray-100 gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[23px] font-bold text-[#5D4037] font-paperozi">${r.nickname}</span>
+                        <span class="text-[18px] font-bold text-gray-400">ID: ${r.uid || '미기입'}</span>
                     </div>
-                    <span class="px-4 py-1.5 rounded-full font-bold text-[15px] border-[2px] w-max ${sColor} shadow-sm">${r.status}</span>
+                    <span class="px-3 py-1 rounded-full font-bold text-[17px] border w-max ${sColor}">${r.status}</span>
                 </div>
-                <div class="flex flex-col gap-3">
+                <div class="flex flex-col">
                     ${itemsHtml}
                 </div>
             </div>
@@ -7968,9 +8278,12 @@ async function initApp() {
         const currentHash = window.location.hash;
         if (currentHash && hashToTab[currentHash]) {
             let mapped = hashToTab[currentHash];
-            if (mapped.startsWith('업보정리')) {
+            if (mapped === '업보정리') {
+                currentPage = '업보선택';
+                initialTab = mapped;
+            } else if (mapped.startsWith('업보정리_')) {
                 currentPage = '업보정리';
-                if(mapped.includes('_')) upboCurrentMember = mapped.split('_')[1];
+                upboCurrentMember = mapped.split('_')[1];
                 initialTab = mapped;
             } else {
                 currentPage = mapped;
@@ -9605,6 +9918,10 @@ window.openUpdateModal = openUpdateModal;
 window.closeUpdateModal = closeUpdateModal;
 window.addUpdateLog = addUpdateLog;
 window.deleteUpdateLog = deleteUpdateLog;
+window.switchUpdateImgTab = switchUpdateImgTab;
+window.previewUpdateImageFile = previewUpdateImageFile;
+window.addUpdateImageUrl = addUpdateImageUrl;
+window.removeUpdateStagedImage = removeUpdateStagedImage;
 
 let updateLogsList = [];
 
@@ -9658,6 +9975,11 @@ function openUpdateModal() {
                 <div class="bg-white border-2 border-[#ECEDFA] p-5 rounded-xl shadow-sm mb-1">
                     <div class="text-[12.5px] text-[#FF5252] font-bold mb-1.5">${log.date}</div>
                     <div class="font-bold text-[18px] text-[#5D4037] mb-2 leading-snug">${escapeHtml(log.title)}</div>
+                    ${(() => {
+                        const imgs = (log.images && log.images.length > 0) ? log.images : (log.image ? [log.image] : []);
+                        if (imgs.length === 0) return '';
+                        return `<div class="flex flex-col gap-2 mb-3">${imgs.map(src => `<img src="${src}" loading="lazy" decoding="async" class="w-full rounded-xl border-2 border-gray-100">`).join('')}</div>`;
+                    })()}
                     ${log.content ? `<div class="text-[15px] font-medium text-gray-600 mb-4 whitespace-pre-wrap leading-relaxed">${escapeHtml(log.content)}</div>` : ''}
                     ${log.url ? `<button onclick="window.open('${log.url}', '_blank')" class="text-[14px] bg-[#FFF5F5] border border-[#FFE0E0] text-[#FF5252] font-bold px-4 py-2.5 rounded-xl hover:bg-[#FFE0E0] transition shadow-sm w-full text-center block mt-2">${displayBtnText}</button>` : ''}
                 </div>
@@ -9670,6 +9992,91 @@ function closeUpdateModal() {
     document.getElementById('updateModal').classList.replace('flex', 'hidden');
 }
 
+// 업데이트 등록 폼: 업데이트별 이미지 (링크 입력 또는 파일 업로드)
+function switchUpdateImgTab(tab) {
+    const urlSection = document.getElementById('updateImageUrlSection');
+    const fileSection = document.getElementById('updateImageFileSection');
+    const tabUrl = document.getElementById('updateImgTabUrl');
+    const tabFile = document.getElementById('updateImgTabFile');
+    if (!urlSection || !fileSection) return;
+    if (tab === 'url') {
+        urlSection.classList.remove('hidden');
+        fileSection.classList.add('hidden');
+        tabUrl.classList.add('bg-[#5D4037]', 'text-white');
+        tabUrl.classList.remove('bg-white', 'text-[#5D4037]');
+        tabFile.classList.add('bg-white', 'text-[#5D4037]');
+        tabFile.classList.remove('bg-[#5D4037]', 'text-white');
+    } else {
+        urlSection.classList.add('hidden');
+        fileSection.classList.remove('hidden');
+        tabFile.classList.add('bg-[#5D4037]', 'text-white');
+        tabFile.classList.remove('bg-white', 'text-[#5D4037]');
+        tabUrl.classList.add('bg-white', 'text-[#5D4037]');
+        tabUrl.classList.remove('bg-[#5D4037]', 'text-white');
+    }
+}
+
+// 등록 폼에 임시로 담긴 이미지 목록 (카페 게시물처럼 여러 장 등록 가능)
+// 각 항목: { source: 'url'|'file', url?: string, file?: File, previewSrc: string }
+let updateImagesStaged = [];
+
+function renderUpdateImagePreviewList() {
+    const listEl = document.getElementById('updateImagePreviewList');
+    if (!listEl) return;
+    if (updateImagesStaged.length === 0) {
+        listEl.innerHTML = '';
+        listEl.classList.add('hidden');
+        return;
+    }
+    listEl.classList.remove('hidden');
+    listEl.innerHTML = updateImagesStaged.map((img, idx) => `
+        <div class="relative w-[70px] h-[70px] shrink-0">
+            <img src="${img.previewSrc}" class="w-full h-full object-cover rounded-lg border-2 border-gray-200">
+            <button type="button" onclick="removeUpdateStagedImage(${idx})" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] leading-none shadow hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
+        </div>
+    `).join('');
+}
+
+function removeUpdateStagedImage(idx) {
+    updateImagesStaged.splice(idx, 1);
+    renderUpdateImagePreviewList();
+}
+
+function addUpdateImageUrl() {
+    const input = document.getElementById('updateImageUrlText');
+    if (!input) return;
+    const url = input.value.trim();
+    if (!url) return;
+    updateImagesStaged.push({ source: 'url', url, previewSrc: url });
+    input.value = '';
+    renderUpdateImagePreviewList();
+}
+
+function previewUpdateImageFile(input) {
+    const files = Array.from(input.files || []);
+    if (files.length === 0) return;
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            updateImagesStaged.push({ source: 'file', file, previewSrc: e.target.result });
+            renderUpdateImagePreviewList();
+        };
+        reader.readAsDataURL(file);
+    });
+    input.value = ''; // 같은 파일을 다시 선택할 수 있도록 초기화
+}
+
+// 업데이트 등록 폼의 이미지 입력 영역을 초기 상태로 되돌린다 (등록 완료 후 호출)
+function resetUpdateImageForm() {
+    const urlInput = document.getElementById('updateImageUrlText');
+    const fileInput = document.getElementById('updateImageFile');
+    if (urlInput) urlInput.value = '';
+    if (fileInput) fileInput.value = '';
+    updateImagesStaged = [];
+    renderUpdateImagePreviewList();
+    switchUpdateImgTab('url');
+}
+
 async function addUpdateLog() {
         const title = document.getElementById('updateTitle').value.trim();
         const content = document.getElementById('updateContent').value.trim();
@@ -9678,9 +10085,33 @@ async function addUpdateLog() {
         const date = getTodayYYYYMMDD();
         
         if (!title) return alert('업데이트 제목을 입력하세요.');
+
+        let toast = null;
         
         try {
-            const newLog = { title, content, url, btnText, date, timestamp: Date.now() };
+            const fileImages = updateImagesStaged.filter(img => img.source === 'file');
+            let images;
+
+            if (fileImages.length > 0) {
+                toast = document.createElement('div');
+                toast.innerText = '이미지를 업로드 중 입니다..⏳';
+                toast.className = 'fixed bottom-12 left-1/2 transform -translate-x-1/2 bg-[#5D4037] text-white px-6 py-3 rounded-xl shadow-2xl z-[9999] font-bold font-paperozi transition-opacity duration-300 opacity-0';
+                document.body.appendChild(toast);
+                requestAnimationFrame(() => toast.classList.remove('opacity-0'));
+
+                const uploadedUrls = await Promise.all(fileImages.map(img => window.uploadImageToCloudinary(img.file)));
+                let fi = 0;
+                images = updateImagesStaged.map(img => img.source === 'file' ? uploadedUrls[fi++] : img.url).filter(Boolean);
+
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+                toast = null;
+            } else {
+                images = updateImagesStaged.map(img => img.url).filter(Boolean);
+            }
+
+            // image 필드는 하위 호환용 (기존 코드/데이터가 image 단수 필드를 참조할 수 있으므로 첫 번째 이미지로 채워둠)
+            const newLog = { title, content, url, btnText, images, image: images[0] || '', date, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'updates'), newLog);
             updateLogsList.unshift({ id: docRef.id, ...newLog });
             
@@ -9688,11 +10119,15 @@ async function addUpdateLog() {
             document.getElementById('updateContent').value = '';
             document.getElementById('updateUrl').value = '';
             document.getElementById('updateBtnText').value = ''; // 초기화
+            resetUpdateImageForm();
             
             alert('업데이트 내역이 등록되었습니다.');
             renderUpdateManagePanel();
             checkUpdateBadge();
-        } catch(e) { console.error(e); }
+        } catch(e) {
+            console.error(e);
+            if (toast) toast.remove();
+        }
     }
 
 async function deleteUpdateLog(id) {
@@ -9718,14 +10153,23 @@ function renderUpdateManagePanel() {
         container.innerHTML = updateLogsList.map(log => {
             const displayBtnText = log.btnText ? escapeHtml(log.btnText) : '자세히 보기';
             return `
-            <div class="bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm flex flex-col gap-2">
-                <div class="flex justify-between items-center">
-                    <span class="text-[12px] font-bold text-[#FF5252]">${log.date}</span>
-                    <button onclick="deleteUpdateLog('${log.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
+            <div class="bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm flex gap-3">
+                ${(() => {
+                    const imgs = (log.images && log.images.length > 0) ? log.images : (log.image ? [log.image] : []);
+                    if (imgs.length === 0) return '';
+                    const shown = imgs.slice(0, 3);
+                    const extra = imgs.length - shown.length;
+                    return `<div class="flex gap-1 shrink-0">${shown.map(src => `<img src="${src}" class="w-14 h-14 rounded-lg object-cover border-2 border-gray-200">`).join('')}${extra > 0 ? `<div class="w-14 h-14 rounded-lg bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-[11px] font-bold text-gray-500 shrink-0">+${extra}</div>` : ''}</div>`;
+                })()}
+                <div class="min-w-0 flex-1 flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[12px] font-bold text-[#FF5252]">${log.date}</span>
+                        <button onclick="deleteUpdateLog('${log.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
+                    </div>
+                    <div class="font-bold text-[14px] text-[#5D4037]">${escapeHtml(log.title)}</div>
+                    ${log.content ? `<div class="text-[12px] text-gray-500 whitespace-pre-wrap font-medium">${escapeHtml(log.content)}</div>` : ''}
+                    ${log.url ? `<a href="${log.url}" target="_blank" class="text-[12px] text-blue-500 underline truncate block max-w-full">${log.url} (버튼명: ${displayBtnText})</a>` : ''}
                 </div>
-                <div class="font-bold text-[14px] text-[#5D4037]">${escapeHtml(log.title)}</div>
-                ${log.content ? `<div class="text-[12px] text-gray-500 whitespace-pre-wrap font-medium">${escapeHtml(log.content)}</div>` : ''}
-                ${log.url ? `<a href="${log.url}" target="_blank" class="text-[12px] text-blue-500 underline truncate block max-w-full">${log.url} (버튼명: ${displayBtnText})</a>` : ''}
             </div>
         `}).join('');
     }
