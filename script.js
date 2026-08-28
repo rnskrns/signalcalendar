@@ -3646,7 +3646,7 @@ function renderHomeDdayBox() {
         const cardImage = d.image || ddayBgImageUrl;
         
         const bgImageStyle = cardImage
-                ? `--dday-img: url('${cardImage}');`
+                ? `--dday-img: url('${cardImage}');--dday-img-pos: ${d.image ? (d.imagePos || '50% 50%') : '50% 50%'};`
                 : '';            
         const message = (d.message || '').trim() || '함께 손꼽아 기다려요!';
         return `
@@ -3673,6 +3673,73 @@ function renderHomeDdayBox() {
 }
 
 // 디데이 등록 폼: 디데이별 배경 이미지 (링크 입력 또는 파일 업로드)
+// 디데이 등록 폼: 이미지 미리보기에 표시되는 포커스 위치 (드래그로 조절, % 단위)
+let ddayImagePosX = 50;
+let ddayImagePosY = 50;
+let ddayImageDragActive = false;
+
+function setDdayImagePosition(x, y) {
+    x = Math.max(0, Math.min(100, x));
+    y = Math.max(0, Math.min(100, y));
+    ddayImagePosX = x;
+    ddayImagePosY = y;
+    const preview = document.getElementById('ddayImagePreview');
+    const dot = document.getElementById('ddayImagePreviewDot');
+    if (preview) preview.style.backgroundPosition = `${x}% ${y}%`;
+    if (dot) { dot.style.left = `${x}%`; dot.style.top = `${y}%`; }
+}
+
+function ddayImageEventToPercent(e, rect) {
+    const point = e.touches && e.touches.length > 0 ? e.touches[0] : e;
+    const x = ((point.clientX - rect.left) / rect.width) * 100;
+    const y = ((point.clientY - rect.top) / rect.height) * 100;
+    return { x, y };
+}
+
+// 미리보기 영역을 드래그(마우스/터치)하면 이미지의 포커스 위치가 실시간으로 바뀐다
+function initDdayImageDrag() {
+    const preview = document.getElementById('ddayImagePreview');
+    if (!preview || preview.dataset.dragBound) return;
+    preview.dataset.dragBound = '1';
+
+    const moveDrag = (e) => {
+        if (!ddayImageDragActive) return;
+        const rect = preview.getBoundingClientRect();
+        const { x, y } = ddayImageEventToPercent(e, rect);
+        setDdayImagePosition(x, y);
+        e.preventDefault();
+    };
+    const startDrag = (e) => {
+        ddayImageDragActive = true;
+        moveDrag(e);
+    };
+    const endDrag = () => { ddayImageDragActive = false; };
+
+    preview.addEventListener('mousedown', startDrag);
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('mouseup', endDrag);
+    preview.addEventListener('touchstart', startDrag, { passive: false });
+    window.addEventListener('touchmove', moveDrag, { passive: false });
+    window.addEventListener('touchend', endDrag);
+}
+
+// 미리보기에 이미지를 표시한다 (posX/posY 미지정 시 중앙(50,50)으로 초기화)
+function setDdayPreviewImage(url, posX = 50, posY = 50) {
+    const wrap = document.getElementById('ddayImagePreviewWrap');
+    const preview = document.getElementById('ddayImagePreview');
+    if (!preview) return;
+    if (url) {
+        preview.style.backgroundImage = `url('${url}')`;
+        if (wrap) wrap.classList.remove('hidden');
+        initDdayImageDrag();
+        setDdayImagePosition(posX, posY);
+    } else {
+        preview.style.backgroundImage = '';
+        if (wrap) wrap.classList.add('hidden');
+        setDdayImagePosition(50, 50);
+    }
+}
+
 function switchDdayImgTab(tab) {
     const urlSection = document.getElementById('ddayImageUrlSection');
     const fileSection = document.getElementById('ddayImageFileSection');
@@ -3701,28 +3768,23 @@ function previewDdayImageFile(input) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
-        const preview = document.getElementById('ddayImagePreview');
-        if (preview) { preview.src = e.target.result; preview.classList.remove('hidden'); }
+        setDdayPreviewImage(e.target.result, 50, 50);
     };
     reader.readAsDataURL(file);
 }
 
 function previewDdayImageUrl(input) {
     const url = input.value.trim();
-    const preview = document.getElementById('ddayImagePreview');
-    if (!preview) return;
-    if (url) { preview.src = url; preview.classList.remove('hidden'); }
-    else { preview.classList.add('hidden'); }
+    setDdayPreviewImage(url, 50, 50);
 }
 
 // 디데이 등록 폼의 이미지 입력 영역을 초기 상태로 되돌린다 (등록 완료 후 / 모달 오픈 시 호출)
 function resetDdayImageForm() {
     const urlInput = document.getElementById('ddayImageUrlText');
     const fileInput = document.getElementById('ddayImageFile');
-    const preview = document.getElementById('ddayImagePreview');
     if (urlInput) urlInput.value = '';
     if (fileInput) fileInput.value = '';
-    if (preview) { preview.src = ''; preview.classList.add('hidden'); }
+    setDdayPreviewImage('');
     switchDdayImgTab('url');
 }
 
@@ -3777,6 +3839,7 @@ async function addDday() {
     if (!title) return alert('기념일 제목을 입력하세요.');
 
     let imageUrl = document.getElementById('ddayImageUrlText') ? document.getElementById('ddayImageUrlText').value.trim() : '';
+    const imagePos = imageUrl ? `${Math.round(ddayImagePosX)}% ${Math.round(ddayImagePosY)}%` : '';
     const imageFileInput = document.getElementById('ddayImageFile');
     let toast = null;
 
@@ -3798,14 +3861,14 @@ async function addDday() {
 
         if (editingDdayId) {
             // 수정 모드: 기존 문서를 갱신
-            const updatedDday = { title, date, color, message, image: imageUrl };
+            const updatedDday = { title, date, color, message, image: imageUrl, imagePos };
             await updateDoc(doc(db, 'ddays', editingDdayId), updatedDday);
             const idx = ddaysList.findIndex(d => d.id === editingDdayId);
             if (idx !== -1) ddaysList[idx] = { ...ddaysList[idx], ...updatedDday };
             alert('디데이가 수정되었습니다.');
         } else {
             // 신규 등록 모드
-            const newDday = { title, date, color, message, image: imageUrl, timestamp: Date.now() };
+            const newDday = { title, date, color, message, image: imageUrl, imagePos, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'ddays'), newDday);
             ddaysList.push({ id: docRef.id, ...newDday });
             alert('디데이가 추가되었습니다.');
@@ -3838,9 +3901,13 @@ function startEditDday(ddayId) {
     resetDdayImageForm();
     if (d.image) {
         const urlInput = document.getElementById('ddayImageUrlText');
-        const preview = document.getElementById('ddayImagePreview');
         if (urlInput) urlInput.value = d.image;
-        if (preview) { preview.src = d.image; preview.classList.remove('hidden'); }
+        let px = 50, py = 50;
+        if (d.imagePos) {
+            const parts = d.imagePos.replace(/%/g, '').trim().split(/\s+/).map(Number);
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) { px = parts[0]; py = parts[1]; }
+        }
+        setDdayPreviewImage(d.image, px, py);
     }
 
     selectDdayColor(DDAY_COLOR_THEMES[d.color] ? d.color : 'pink');

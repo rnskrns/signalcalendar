@@ -335,7 +335,12 @@
                                 <div id="ddayImageFileSection" class="hidden">
                                     <input type="file" id="ddayImageFile" accept="image/*" onchange="previewDdayImageFile(this)" class="w-full text-sm text-gray-600 cursor-pointer font-bold border-2 border-dashed border-[#5D4037] rounded-lg p-2">
                                 </div>
-                                <img id="ddayImagePreview" src="" class="hidden w-full max-h-[140px] object-cover rounded-lg border-2 border-gray-200 mt-2">
+                                <div id="ddayImagePreviewWrap" class="hidden mt-2">
+                                    <div class="text-[11px] text-gray-400 font-bold mb-1">이미지를 드래그해서 카드에 보여줄 위치를 조절하세요</div>
+                                    <div id="ddayImagePreview" class="relative w-full h-[160px] rounded-lg border-2 border-gray-200 bg-gray-100 bg-cover bg-no-repeat cursor-move overflow-hidden select-none touch-none" style="background-position:50% 50%;">
+                                        <div id="ddayImagePreviewDot" class="absolute w-4 h-4 rounded-full bg-white border-2 border-[#5D4037] shadow pointer-events-none" style="left:50%; top:50%; transform:translate(-50%,-50%);"></div>
+                                    </div>
+                                </div>
                             </div>
                             <div>
                                 <div class="text-[12px] text-gray-500 font-bold mb-1.5">카드 색상</div>
