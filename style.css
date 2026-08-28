@@ -871,26 +871,6 @@ body {
 .detail-notebook-line:last-child {
     border-bottom: none;
 }
-/* embed 모드: 스크롤 제거 */
-/* embed 모드: 스크롤 제거 및 모바일 잘림 방지 */
-body.embed-mode {
-    overflow: hidden !important;
-}
-
-body.embed-mode .big-white-box {
-    overflow-y: auto;
-    overflow-x: hidden !important;
-    max-height: 100vh;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    min-width: 0 !important; /* 데스크탑 최소 너비(1500px) 방어선 무력화 */
-    width: 100% !important;  /* 모바일 화면에 맞게 너비 100% 강제 */
-}
-
-body.embed-mode .upbo-content-wrap {
-    min-width: 0 !important;
-    width: 100% !important;
-}
 
 /* 노래책 카드 그리드 */
 .song-card .song-art { transition: transform 0.2s ease, box-shadow 0.2s ease; }

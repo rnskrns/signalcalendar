@@ -1312,17 +1312,6 @@ function handleViewportChange() {
 window.addEventListener('resize', handleViewportChange);
 window.addEventListener('orientationchange', handleViewportChange);
 
-document.addEventListener("DOMContentLoaded", () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('mode') === 'embed') {
-        document.body.classList.add('embed-mode');
-        document.querySelectorAll('header').forEach(el => el.style.display = 'none');
-        const mobileNav = document.getElementById('mobileBottomNav');
-        if (mobileNav) mobileNav.style.display = 'none';
-        document.body.style.paddingTop = '0';
-        document.body.style.paddingBottom = '0';
-    }
-});
 
 const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6', '사다리타기': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
@@ -2799,7 +2788,6 @@ async function openRollingTopicFromPopup(id) {
 }
 
 function renderHeaderTabs() {
-    if (new URLSearchParams(window.location.search).get('mode') === 'embed') return;
     const desktopContainer = document.getElementById('headerNavTabs');
     const mobileNav = document.getElementById('mobileBottomNav');
     
@@ -4968,9 +4956,6 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
 }
 
 async function changeTab(tabName) {
-    const _embedP = new URLSearchParams(window.location.search);
-    if (_embedP.get('mode') === 'embed') return;
-
     if (tabName === '업보정리') {
         currentPage = '업보선택';
         window.location.hash = '#upbolist';
@@ -5997,13 +5982,11 @@ function renderUpboPage() {
         `;
     }
 
-    const _isEmbed = new URLSearchParams(window.location.search).get('mode') === 'embed';
-
     let mainHtml = `<div class="big-white-box upbo-box relative mx-auto" style="min-height: 800px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; ${isMobile ? 'min-width: 0;' : ''} box-sizing: border-box;">`;
     mainHtml += `
         <div class="flex flex-col md:flex-row md:items-center justify-between w-full gap-4 mb-6 pb-5 border-b border-[#ECEDFA]">
             <div class="flex justify-start">
-                ${_isEmbed ? '' : `<button onclick="changeTab('업보정리')" class="text-[20px] font-bold text-gray-400 hover:text-[#5D4037] transition-colors mb-1 inline-flex items-center gap-1"><i class="fi fi-rr-angle-small-left"></i> 멤버 목록으로</button>`}
+                <button onclick="changeTab('업보정리')" class="text-[20px] font-bold text-gray-400 hover:text-[#5D4037] transition-colors mb-1 inline-flex items-center gap-1"><i class="fi fi-rr-angle-small-left"></i> 멤버 목록으로</button>
             </div>
             <div class="flex justify-end md:ml-auto">
                 ${toggleBtnHtml}
@@ -6081,7 +6064,6 @@ function renderUpboPage() {
 <input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
                             
                             <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
-                            <button onclick="copyUpboEmbedCode()" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-share"></i> 퍼가기</button>
                             <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
                         </div>
                     </div>
@@ -6130,23 +6112,13 @@ function renderUpboPage() {
                     </div>
 
                     <div id="upboGuideBox" class="hidden mb-4 bg-[#FFFDF5] border border-[#ECEDFA] rounded-2xl p-6 shadow-[0_8px_20px_rgba(70,60,160,0.08)]">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div>
-                                <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-box-open"></i> 업보정리 사용법</div>
-                                <ol class="flex flex-col gap-2">
-                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>데이터를 입력 후 저장하기를 누른다</li>
-                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>저장하면 상태와 방송국 바로가기 버튼이 생긴다</li>
-                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>시청자들이 조회창에서 본인이 구매한 것을 조회할 수 있습니다</li>
-                                </ol>
-                            </div>
-                            <div>
-                                <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-share"></i> 퍼가기 사용법</div>
-                                <ol class="flex flex-col gap-2">
-                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>저장하기 옆 퍼가기 버튼을 눌러 복사합니다</li>
-                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>SOOP 게시글 쓰기 기본모드를 HTML모드로 바꾸고 붙여넣고 게시합니다</li>
-                                    <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>게시글에서 조회창이 나와서 바로 조회가 가능합니다</li>
-                                </ol>
-                            </div>
+                        <div>
+                            <div class="text-[17px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center gap-2"><i class="fi fi-rr-box-open"></i> 업보정리 사용법</div>
+                            <ol class="flex flex-col gap-2">
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">1</span>데이터를 입력 후 저장하기를 누른다</li>
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">2</span>저장하면 상태와 방송국 바로가기 버튼이 생긴다</li>
+                                <li class="flex gap-2 text-[14px] font-bold text-gray-700"><span class="shrink-0 w-[22px] h-[22px] bg-[#5D4037] text-white rounded-full flex items-center justify-center text-[11px]">3</span>시청자들이 조회창에서 본인이 구매한 것을 조회할 수 있습니다</li>
+                            </ol>
                         </div>
                     </div>
                     <div class="overflow-x-auto lg:overflow-visible border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
@@ -8331,43 +8303,29 @@ async function initApp() {
     
     // === 초기 탭 설정 분리 ===
     const today = getTodayYYYYMMDD();
-    const embedParams = new URLSearchParams(window.location.search);
-    const isEmbedMode = embedParams.get('mode') === 'embed';
     let initialTab = '홈';
 
-    if (isEmbedMode) {
-        const upboParam = embedParams.get('upbo');
-        upboCurrentMember = upboParam || '달타';
-        currentPage = '업보정리';
-        upboViewMode = 'search'; 
-        initialTab = '업보정리';
-    } else {
-        const currentHash = window.location.hash;
-        if (currentHash && hashToTab[currentHash]) {
-            let mapped = hashToTab[currentHash];
-            if (mapped === '업보정리') {
-                currentPage = '업보선택';
-                initialTab = mapped;
-            } else if (mapped.startsWith('업보정리_')) {
-                currentPage = '업보정리';
-                upboCurrentMember = mapped.split('_')[1];
-                initialTab = mapped;
-            } else {
-                currentPage = mapped;
-                initialTab = mapped;
-            }
+    const currentHash = window.location.hash;
+    if (currentHash && hashToTab[currentHash]) {
+        let mapped = hashToTab[currentHash];
+        if (mapped === '업보정리') {
+            currentPage = '업보선택';
+            initialTab = mapped;
+        } else if (mapped.startsWith('업보정리_')) {
+            currentPage = '업보정리';
+            upboCurrentMember = mapped.split('_')[1];
+            initialTab = mapped;
         } else {
-            currentPage = '홈';
-            initialTab = '홈';
+            currentPage = mapped;
+            initialTab = mapped;
         }
+    } else {
+        currentPage = '홈';
+        initialTab = '홈';
     }
 
     // === 필수 데이터 우선 로딩 (렌더링 최우선) ===
-    // 임베드(iframe) 모드는 항상 업보정리 위젯 하나만 보여주고 스케줄/롤링페이퍼/시그널 등은
-    // 전혀 쓰이지 않으므로, 그 무거운 컬렉션들을 아예 불러오지 않고 업보 데이터만 즉시 가져온다.
-    if (isEmbedMode) {
-        await loadUpboDataFromFirebase();
-    } else if (currentPage === '홈') {
+    if (currentPage === '홈') {
         // 홈은 모든 멤버의 일정이 필요하므로 전체를 불러온다.
         await loadSchedulesFromFirebase();
         await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
@@ -8383,30 +8341,22 @@ async function initApp() {
     setActiveSongs(songbookMember);
 
     // 필수 데이터로 초기 화면 렌더링
-    if (isEmbedMode) {
-        renderHeaderTabs();
-        render();
-    } else {
-        await changeTab(initialTab);
-    }
+    await changeTab(initialTab);
 
     // === 후순위 데이터 병렬 지연 로딩 ===
-    // 임베드 모드에서는 홈 배너/팝업/UP링크가 렌더링되지 않으므로 이 후순위 로딩 자체를 건너뛴다.
-    if (!isEmbedMode) {
-        Promise.all([
-            loadLinksFromFirebase(),
-            loadPopupImagesFromFirebase(),
-            currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve(),
-            currentPage !== '홈' ? loadDdaysFromFirebase() : Promise.resolve()
-        ]).then(() => {
-            // 백그라운드 로드가 끝나면 UI 실시간 갱신
-            renderHeaderTabs();
-            checkAndShowPopup(today);
-            if (currentPage === '홈') {
-                renderHomeYoutubeBox();
-            }
+    Promise.all([
+        loadLinksFromFirebase(),
+        loadPopupImagesFromFirebase(),
+        currentPage !== '홈' ? loadHomeSettingsFromFirebase() : Promise.resolve(),
+        currentPage !== '홈' ? loadDdaysFromFirebase() : Promise.resolve()
+    ]).then(() => {
+        // 백그라운드 로드가 끝나면 UI 실시간 갱신
+        renderHeaderTabs();
+        checkAndShowPopup(today);
+        if (currentPage === '홈') {
+            renderHomeYoutubeBox();
+        }
         }).catch(e => console.error("지연 로딩 에러:", e));
-    }
 }
 
 let editingUpLinkId = null;
@@ -9012,19 +8962,6 @@ function getLunarDate(y, m, d) {
     }
 }
 
-window.copyEmbedCode = function() {
-    const currentUrl = window.location.origin + window.location.pathname;
-    const embedUrl = `${currentUrl}?mode=embed#listdalta`;
-    
-    const iframeCode = `<iframe src="${embedUrl}" width="100%" height="700px" style="border: none;" sandbox="allow-scripts allow-same-origin"></iframe>`;
-    
-    navigator.clipboard.writeText(iframeCode).then(() => {
-        alert("게시글용 임베드 코드가 복사되었습니다!");
-    }).catch(err => {
-        console.error('복사 실패:', err);
-    });
-};
-
 window.toggleUpboGuide = function() {
     const box = document.getElementById('upboGuideBox');
     const btn = document.getElementById('upboGuideBtn');
@@ -9038,34 +8975,6 @@ window.toggleUpboGuide = function() {
         btn.classList.remove('bg-[#5D4037]', 'text-white');
         btn.classList.add('bg-white', 'text-[#5D4037]');
     }
-};
-
-window.copyUpboEmbedCode = function() {
-    const currentUrl = window.location.origin + window.location.pathname;
-    const memberParam = typeof upboCurrentMember !== 'undefined' && upboCurrentMember
-        ? `&upbo=${encodeURIComponent(upboCurrentMember)}`
-        : '&upbo=달타';
-    const embedUrl = `${currentUrl}?mode=embed${memberParam}`;
-
-    // 👇 aspect-ratio: 9 / 16 을 적용하고, max-width: 450px로 PC 환경에서의 최대 너비를 제한했습니다.
-    const iframeCode = `<iframe src="${embedUrl}" width="100%" height="800px" style="width: 100%; max-width: 450px; aspect-ratio: 9 / 16; border:none; border-radius:16px;" sandbox="allow-scripts allow-same-origin"></iframe>`;
-
-    navigator.clipboard.writeText(iframeCode).then(() => {
-        const btn = document.querySelector('button[onclick="copyUpboEmbedCode()"]');
-        if (btn) {
-            const original = btn.innerHTML;
-            btn.innerHTML = '<i class="fi fi-rr-check"></i> 복사완료!';
-            btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
-            btn.classList.remove('bg-white', 'text-[#5D4037]');
-            setTimeout(() => {
-                btn.innerHTML = original;
-                btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
-                btn.classList.add('bg-white', 'text-[#5D4037]');
-            }, 2000);
-        }
-    }).catch(() => {
-        prompt('아래 코드를 복사하세요:', iframeCode);
-    });
 };
 
 // =========================================================================
@@ -9992,6 +9901,7 @@ window.addUpdateTextBlock = addUpdateTextBlock;
 window.updateUpdateBlockText = updateUpdateBlockText;
 window.moveUpdateBlock = moveUpdateBlock;
 window.removeUpdateBlock = removeUpdateBlock;
+window.renderUpdateComposerPreview = renderUpdateComposerPreview;
 
 let updateLogsList = [];
 
@@ -10105,36 +10015,75 @@ function renderUpdateBlocksList() {
     if (updateBlocksStaged.length === 0) {
         listEl.innerHTML = '';
         listEl.classList.add('hidden');
+    } else {
+        listEl.classList.remove('hidden');
+        listEl.innerHTML = updateBlocksStaged.map((block, idx) => {
+            const orderBadge = `<div class="w-6 h-6 rounded-full bg-[#5D4037] text-white text-[11px] font-bold flex items-center justify-center shrink-0">${idx + 1}</div>`;
+            const moveBtns = `
+                <div class="flex flex-col gap-1 shrink-0">
+                    <button type="button" onclick="moveUpdateBlock(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="w-6 h-6 rounded bg-gray-100 text-gray-600 text-[11px] flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"><i class="fi fi-rr-angle-small-up"></i></button>
+                    <button type="button" onclick="moveUpdateBlock(${idx}, 1)" ${idx === updateBlocksStaged.length - 1 ? 'disabled' : ''} class="w-6 h-6 rounded bg-gray-100 text-gray-600 text-[11px] flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"><i class="fi fi-rr-angle-small-down"></i></button>
+                </div>`;
+            if (block.type === 'text') {
+                return `
+                <div class="flex gap-2 items-start bg-white border-2 border-gray-200 rounded-lg p-2">
+                    ${orderBadge}
+                    ${moveBtns}
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[10px] font-bold text-gray-400 mb-1">${idx + 1}번째 · 글</div>
+                        <textarea oninput="updateUpdateBlockText(${idx}, this.value)" placeholder="내용을 입력하세요" class="w-full border-2 border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-[#5D4037] resize-none h-20 font-medium">${escapeHtml(block.content || '')}</textarea>
+                    </div>
+                    <button type="button" onclick="removeUpdateBlock(${idx})" class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] shrink-0 hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
+                </div>`;
+            }
+            return `
+                <div class="flex gap-2 items-center bg-white border-2 border-gray-200 rounded-lg p-2">
+                    ${orderBadge}
+                    ${moveBtns}
+                    <div class="flex-1 min-w-0 flex items-center gap-2">
+                        <div class="text-[10px] font-bold text-gray-400 shrink-0">${idx + 1}번째<br>이미지</div>
+                        <img src="${block.previewSrc}" class="w-14 h-14 object-cover rounded-lg border-2 border-gray-200 shrink-0">
+                    </div>
+                    <button type="button" onclick="removeUpdateBlock(${idx})" class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] shrink-0 hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
+                </div>`;
+        }).join('');
+    }
+    renderUpdateComposerPreview();
+}
+
+// 등록 폼에 입력 중인 내용이 실제 게시글에서 어떻게 보일지 실시간으로 보여주는 미리보기
+function renderUpdateComposerPreview() {
+    const previewEl = document.getElementById('updateComposerPreview');
+    if (!previewEl) return;
+
+    const titleEl = document.getElementById('updateTitle');
+    const urlEl = document.getElementById('updateUrl');
+    const btnTextEl = document.getElementById('updateBtnText');
+    const title = titleEl ? titleEl.value.trim() : '';
+    const url = urlEl ? urlEl.value.trim() : '';
+    const btnText = btnTextEl ? btnTextEl.value.trim() : '';
+    const displayBtnText = btnText ? escapeHtml(btnText) : '자세히 보기';
+
+    if (!title && updateBlocksStaged.length === 0) {
+        previewEl.innerHTML = `<div class="text-center text-gray-400 font-bold py-10 text-[13px]">제목이나 내용을 입력하면<br>여기에 미리보기가 보여요</div>`;
         return;
     }
-    listEl.classList.remove('hidden');
-    listEl.innerHTML = updateBlocksStaged.map((block, idx) => {
-        const moveBtns = `
-            <div class="flex flex-col gap-1 shrink-0">
-                <button type="button" onclick="moveUpdateBlock(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="w-6 h-6 rounded bg-gray-100 text-gray-600 text-[11px] flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"><i class="fi fi-rr-angle-small-up"></i></button>
-                <button type="button" onclick="moveUpdateBlock(${idx}, 1)" ${idx === updateBlocksStaged.length - 1 ? 'disabled' : ''} class="w-6 h-6 rounded bg-gray-100 text-gray-600 text-[11px] flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"><i class="fi fi-rr-angle-small-down"></i></button>
-            </div>`;
-        if (block.type === 'text') {
-            return `
-            <div class="flex gap-2 items-start bg-white border-2 border-gray-200 rounded-lg p-2">
-                ${moveBtns}
-                <div class="flex-1 min-w-0">
-                    <div class="text-[10px] font-bold text-gray-400 mb-1">글</div>
-                    <textarea oninput="updateUpdateBlockText(${idx}, this.value)" placeholder="내용을 입력하세요" class="w-full border-2 border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-[#5D4037] resize-none h-20 font-medium">${escapeHtml(block.content || '')}</textarea>
-                </div>
-                <button type="button" onclick="removeUpdateBlock(${idx})" class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] shrink-0 hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
-            </div>`;
+
+    const blocksHtml = updateBlocksStaged.map((b, idx) => {
+        if (b.type === 'image') {
+            return `<div class="relative"><img src="${b.previewSrc}" class="w-full rounded-xl border-2 border-gray-100"><div class="absolute top-1 left-1 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">${idx + 1}</div></div>`;
         }
-        return `
-            <div class="flex gap-2 items-center bg-white border-2 border-gray-200 rounded-lg p-2">
-                ${moveBtns}
-                <div class="flex-1 min-w-0 flex items-center gap-2">
-                    <div class="text-[10px] font-bold text-gray-400 shrink-0">이미지</div>
-                    <img src="${block.previewSrc}" class="w-14 h-14 object-cover rounded-lg border-2 border-gray-200 shrink-0">
-                </div>
-                <button type="button" onclick="removeUpdateBlock(${idx})" class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] shrink-0 hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
-            </div>`;
+        if (!b.content || !b.content.trim()) return '';
+        return `<div class="text-[14px] font-medium text-gray-600 whitespace-pre-wrap leading-relaxed">${escapeHtml(b.content)}</div>`;
     }).join('');
+
+    previewEl.innerHTML = `
+        <div class="bg-white border-2 border-[#ECEDFA] p-4 rounded-xl shadow-sm">
+            <div class="text-[11px] text-[#FF5252] font-bold mb-1">${getTodayYYYYMMDD()}</div>
+            <div class="font-bold text-[16px] text-[#5D4037] mb-2 leading-snug">${title ? escapeHtml(title) : '<span class="text-gray-300">(제목 없음)</span>'}</div>
+            <div class="flex flex-col gap-3 mb-2">${blocksHtml}</div>
+            ${url ? `<div class="text-[13px] bg-[#FFF5F5] border border-[#FFE0E0] text-[#FF5252] font-bold px-3 py-2 rounded-xl w-full text-center mt-2">${displayBtnText}</div>` : ''}
+        </div>`;
 }
 
 function addUpdateTextBlock() {
@@ -10145,6 +10094,7 @@ function addUpdateTextBlock() {
 function updateUpdateBlockText(idx, value) {
     if (!updateBlocksStaged[idx]) return;
     updateBlocksStaged[idx].content = value;
+    renderUpdateComposerPreview();
 }
 
 function moveUpdateBlock(idx, dir) {
@@ -10193,7 +10143,6 @@ function resetUpdateImageForm() {
     renderUpdateBlocksList();
     switchUpdateImgTab('url');
 }
-
 async function addUpdateLog() {
         const title = document.getElementById('updateTitle').value.trim();
         const url = document.getElementById('updateUrl').value.trim();
