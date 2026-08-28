@@ -773,12 +773,15 @@ html.dark-mode .notif-avatar-badge { border-color: var(--card-bg-white); }
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 4px;
+    padding: 10px 16px;
     cursor: pointer;
     border-bottom: 1px solid #F0EEE7;
     transition: background 0.15s ease;
 }
 .notif-row:last-child { border-bottom: none; }
+/* ⭐ 패널이 rounded-2xl + overflow-hidden 이라 리스트 맨 아래(마지막) 행의 프사가
+   둥근 모서리에 걸려 잘려 보이는 문제 방지: 리스트 하단에 여유 패딩 확보 */
+#notifPanelList { padding-bottom: 6px; }
 .notif-row:hover { background: #FAF8F2; }
 html.dark-mode .notif-row { border-bottom-color: #2a2a2c; }
 html.dark-mode .notif-row:hover { background: #202022; }
