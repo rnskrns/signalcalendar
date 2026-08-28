@@ -378,7 +378,10 @@ function addExtNotification(payload) {
         member: payload.member || '',
         title: realTitle,
         url: payload.url || '',
-        icon: payload.icon || '',
+        // 확장 프로그램/외부 연동마다 필드 이름이 달라질 수 있어 프로필과 첨부
+        // 이미지를 모두 보존한다. 기존 icon 기반 알림도 그대로 호환된다.
+        icon: payload.icon || payload.avatar || payload.profileImage || payload.profile_image || payload.userThumb || payload.user_thumb || '',
+        thumbnail: payload.thumbnail || payload.thumb || payload.image || payload.imageUrl || payload.image_url || '',
         time: payload.time || Date.now(),
         read: false
     };
@@ -409,7 +412,8 @@ function renderNotifPanelList() {
     list.innerHTML = filtered.map(n => {
         const timeLabel = formatRelativeTime(new Date(n.time));
         const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
-        const avatarSrc = n.icon || fallbackAvatar;
+        const avatarSrc = n.icon || n.avatar || n.profileImage || n.profile_image || fallbackAvatar;
+        const thumbnailSrc = n.thumbnail || n.thumb || n.image || n.imageUrl || n.image_url || '';
         const title = String(n.title || '').replace(/"/g, '&quot;');
         const unreadDot = n.read ? '' : `<span class="notif-unread-dot" style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;flex-shrink:0;"></span>`;
         // 프사 오른쪽 아래에 라이브(SOOP)/카페 구분 뱃지를 붙임
@@ -422,7 +426,7 @@ function renderNotifPanelList() {
         return `
             <div class="notif-row" onclick="openNotifItem('${n.id}')">
                 <div class="notif-avatar-wrap">
-                    <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="notif-avatar" onerror="this.style.display='none'">
+                    <img src="${avatarSrc}" alt="${n.member || ''}" loading="lazy" decoding="async" class="notif-avatar" onerror="this.onerror=null;this.src='${fallbackAvatar}'">
                     ${kindBadge}
                 </div>
                 <div class="notif-col">
@@ -432,6 +436,7 @@ function renderNotifPanelList() {
                     </div>
                     ${timeLabel ? `<span class="notif-time">${timeLabel}</span>` : ''}
                 </div>
+                ${thumbnailSrc ? `<img src="${thumbnailSrc}" alt="" loading="lazy" decoding="async" class="notif-thumbnail" onerror="this.remove()">` : ''}
             </div>
         `;
     }).join('');

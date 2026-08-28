@@ -773,23 +773,34 @@ html.dark-mode .notif-avatar-badge { border-color: var(--card-bg-white); }
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 16px;
+    margin: 6px 8px;
+    padding: 9px 10px;
     cursor: pointer;
-    border-bottom: 1px solid #F0EEE7;
-    transition: background 0.15s ease;
+    border-radius: 10px;
+    background: #F6F6F8;
+    transition: background 0.15s ease, transform 0.15s ease;
 }
-.notif-row:last-child { border-bottom: none; }
+.notif-row:last-child { margin-bottom: 0; }
 /* ⭐ 패널이 rounded-2xl + overflow-hidden 이라 리스트 맨 아래(마지막) 행의 프사가
    둥근 모서리에 걸려 잘려 보이는 문제 방지: 리스트 하단에 여유 패딩 확보 */
 #notifPanelList { padding-bottom: 6px; }
-.notif-row:hover { background: #FAF8F2; }
-html.dark-mode .notif-row { border-bottom-color: #2a2a2c; }
-html.dark-mode .notif-row:hover { background: #202022; }
+.notif-row:hover { background: #EFEFF3; transform: translateY(-1px); }
+html.dark-mode .notif-row { background: #252527; }
+html.dark-mode .notif-row:hover { background: #303033; }
 
 .notif-avatar {
     width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
     box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     background-color: var(--card-bg-white);
+}
+
+.notif-thumbnail {
+    width: 90px;
+    height: 50px;
+    border-radius: 5px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #e5e5e7;
 }
 
 .notif-col { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 2px; }
