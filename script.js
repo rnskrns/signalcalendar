@@ -6072,8 +6072,15 @@ async function saveUpboData() {
     }
 }
 
+// 검색어/저장된 닉네임·아이디에서 영어, 숫자, 한글만 남기고 나머지(특수문자, 공백, 언더바 등)는 전부 제거한다.
+// 예) "김철수_", "_김철수", "김-철수" 는 모두 "김철수"로 정규화되어 서로 같은 값으로 취급된다.
+function normalizeUpboSearchText(str) {
+    return String(str || '').toLowerCase().replace(/[^a-z0-9가-힣]/gi, '');
+}
+
 function searchUpbo() {
-    const query = document.getElementById('upboSearchInput').value.trim().toLowerCase();
+    const rawQuery = document.getElementById('upboSearchInput').value.trim();
+    const query = normalizeUpboSearchText(rawQuery);
     const resultContainer = document.getElementById('upboSearchResult');
     
     if(!query) {
@@ -6090,8 +6097,8 @@ function searchUpbo() {
     const records = data.records || [];
 
     const matches = records.filter(r =>
-        (r.nickname && r.nickname.toLowerCase() === query) ||
-        (r.uid && r.uid.toLowerCase() === query)
+        (r.nickname && normalizeUpboSearchText(r.nickname) === query) ||
+        (r.uid && normalizeUpboSearchText(r.uid) === query)
     );
 
     if(matches.length === 0) {
