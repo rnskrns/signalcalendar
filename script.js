@@ -10031,7 +10031,7 @@ function renderUpdateBlocksList() {
                     ${moveBtns}
                     <div class="flex-1 min-w-0">
                         <div class="text-[10px] font-bold text-gray-400 mb-1">${idx + 1}번째 · 글</div>
-                        <textarea oninput="updateUpdateBlockText(${idx}, this.value)" placeholder="내용을 입력하세요" class="w-full border-2 border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-[#5D4037] resize-none h-20 font-medium">${escapeHtml(block.content || '')}</textarea>
+                        <textarea oninput="updateUpdateBlockText(${idx}, this.value)" placeholder="내용을 입력하세요" class="w-full border-2 border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-[#5D4037] resize-y h-28 font-medium">${escapeHtml(block.content || '')}</textarea>
                     </div>
                     <button type="button" onclick="removeUpdateBlock(${idx})" class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] shrink-0 hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
                 </div>`;
