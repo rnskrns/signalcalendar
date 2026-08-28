@@ -9988,7 +9988,10 @@ window.deleteUpdateLog = deleteUpdateLog;
 window.switchUpdateImgTab = switchUpdateImgTab;
 window.previewUpdateImageFile = previewUpdateImageFile;
 window.addUpdateImageUrl = addUpdateImageUrl;
-window.removeUpdateStagedImage = removeUpdateStagedImage;
+window.addUpdateTextBlock = addUpdateTextBlock;
+window.updateUpdateBlockText = updateUpdateBlockText;
+window.moveUpdateBlock = moveUpdateBlock;
+window.removeUpdateBlock = removeUpdateBlock;
 
 let updateLogsList = [];
 
@@ -10043,11 +10046,19 @@ function openUpdateModal() {
                     <div class="text-[12.5px] text-[#FF5252] font-bold mb-1.5">${log.date}</div>
                     <div class="font-bold text-[18px] text-[#5D4037] mb-2 leading-snug">${escapeHtml(log.title)}</div>
                     ${(() => {
+                        // 글/이미지를 등록한 순서 그대로 보여줌 (blocks가 있는 신규 데이터)
+                        if (log.blocks && log.blocks.length > 0) {
+                            return `<div class="flex flex-col gap-3 mb-3">${log.blocks.map(b => {
+                                if (b.type === 'image') return `<img src="${b.content}" loading="lazy" decoding="async" class="w-full rounded-xl border-2 border-gray-100">`;
+                                return `<div class="text-[15px] font-medium text-gray-600 whitespace-pre-wrap leading-relaxed">${escapeHtml(b.content)}</div>`;
+                            }).join('')}</div>`;
+                        }
+                        // 하위 호환: blocks가 없는 옛날 데이터는 기존처럼 이미지 → 텍스트 순으로 표시
                         const imgs = (log.images && log.images.length > 0) ? log.images : (log.image ? [log.image] : []);
-                        if (imgs.length === 0) return '';
-                        return `<div class="flex flex-col gap-2 mb-3">${imgs.map(src => `<img src="${src}" loading="lazy" decoding="async" class="w-full rounded-xl border-2 border-gray-100">`).join('')}</div>`;
+                        const imgsHtml = imgs.length > 0 ? `<div class="flex flex-col gap-2 mb-3">${imgs.map(src => `<img src="${src}" loading="lazy" decoding="async" class="w-full rounded-xl border-2 border-gray-100">`).join('')}</div>` : '';
+                        const contentHtml = log.content ? `<div class="text-[15px] font-medium text-gray-600 mb-4 whitespace-pre-wrap leading-relaxed">${escapeHtml(log.content)}</div>` : '';
+                        return imgsHtml + contentHtml;
                     })()}
-                    ${log.content ? `<div class="text-[15px] font-medium text-gray-600 mb-4 whitespace-pre-wrap leading-relaxed">${escapeHtml(log.content)}</div>` : ''}
                     ${log.url ? `<button onclick="window.open('${log.url}', '_blank')" class="text-[14px] bg-[#FFF5F5] border border-[#FFE0E0] text-[#FF5252] font-bold px-4 py-2.5 rounded-xl hover:bg-[#FFE0E0] transition shadow-sm w-full text-center block mt-2">${displayBtnText}</button>` : ''}
                 </div>
        `}).join('');
@@ -10083,30 +10094,69 @@ function switchUpdateImgTab(tab) {
     }
 }
 
-// 등록 폼에 임시로 담긴 이미지 목록 (카페 게시물처럼 여러 장 등록 가능)
-// 각 항목: { source: 'url'|'file', url?: string, file?: File, previewSrc: string }
-let updateImagesStaged = [];
+// 등록 폼에 임시로 담긴 "블록" 목록 (텍스트/이미지를 원하는 순서로 섞어서 등록 가능)
+// 텍스트 블록: { type: 'text', content: string }
+// 이미지 블록: { type: 'image', source: 'url'|'file', url?: string, file?: File, previewSrc: string }
+let updateBlocksStaged = [];
 
-function renderUpdateImagePreviewList() {
-    const listEl = document.getElementById('updateImagePreviewList');
+function renderUpdateBlocksList() {
+    const listEl = document.getElementById('updateBlocksList');
     if (!listEl) return;
-    if (updateImagesStaged.length === 0) {
+    if (updateBlocksStaged.length === 0) {
         listEl.innerHTML = '';
         listEl.classList.add('hidden');
         return;
     }
     listEl.classList.remove('hidden');
-    listEl.innerHTML = updateImagesStaged.map((img, idx) => `
-        <div class="relative w-[70px] h-[70px] shrink-0">
-            <img src="${img.previewSrc}" class="w-full h-full object-cover rounded-lg border-2 border-gray-200">
-            <button type="button" onclick="removeUpdateStagedImage(${idx})" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] leading-none shadow hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
-        </div>
-    `).join('');
+    listEl.innerHTML = updateBlocksStaged.map((block, idx) => {
+        const moveBtns = `
+            <div class="flex flex-col gap-1 shrink-0">
+                <button type="button" onclick="moveUpdateBlock(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="w-6 h-6 rounded bg-gray-100 text-gray-600 text-[11px] flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"><i class="fi fi-rr-angle-small-up"></i></button>
+                <button type="button" onclick="moveUpdateBlock(${idx}, 1)" ${idx === updateBlocksStaged.length - 1 ? 'disabled' : ''} class="w-6 h-6 rounded bg-gray-100 text-gray-600 text-[11px] flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"><i class="fi fi-rr-angle-small-down"></i></button>
+            </div>`;
+        if (block.type === 'text') {
+            return `
+            <div class="flex gap-2 items-start bg-white border-2 border-gray-200 rounded-lg p-2">
+                ${moveBtns}
+                <div class="flex-1 min-w-0">
+                    <div class="text-[10px] font-bold text-gray-400 mb-1">글</div>
+                    <textarea oninput="updateUpdateBlockText(${idx}, this.value)" placeholder="내용을 입력하세요" class="w-full border-2 border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-[#5D4037] resize-none h-20 font-medium">${escapeHtml(block.content || '')}</textarea>
+                </div>
+                <button type="button" onclick="removeUpdateBlock(${idx})" class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] shrink-0 hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
+            </div>`;
+        }
+        return `
+            <div class="flex gap-2 items-center bg-white border-2 border-gray-200 rounded-lg p-2">
+                ${moveBtns}
+                <div class="flex-1 min-w-0 flex items-center gap-2">
+                    <div class="text-[10px] font-bold text-gray-400 shrink-0">이미지</div>
+                    <img src="${block.previewSrc}" class="w-14 h-14 object-cover rounded-lg border-2 border-gray-200 shrink-0">
+                </div>
+                <button type="button" onclick="removeUpdateBlock(${idx})" class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-[11px] shrink-0 hover:bg-red-600 transition"><i class="fi fi-br-cross-small"></i></button>
+            </div>`;
+    }).join('');
 }
 
-function removeUpdateStagedImage(idx) {
-    updateImagesStaged.splice(idx, 1);
-    renderUpdateImagePreviewList();
+function addUpdateTextBlock() {
+    updateBlocksStaged.push({ type: 'text', content: '' });
+    renderUpdateBlocksList();
+}
+
+function updateUpdateBlockText(idx, value) {
+    if (!updateBlocksStaged[idx]) return;
+    updateBlocksStaged[idx].content = value;
+}
+
+function moveUpdateBlock(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= updateBlocksStaged.length) return;
+    [updateBlocksStaged[idx], updateBlocksStaged[newIdx]] = [updateBlocksStaged[newIdx], updateBlocksStaged[idx]];
+    renderUpdateBlocksList();
+}
+
+function removeUpdateBlock(idx) {
+    updateBlocksStaged.splice(idx, 1);
+    renderUpdateBlocksList();
 }
 
 function addUpdateImageUrl() {
@@ -10114,9 +10164,9 @@ function addUpdateImageUrl() {
     if (!input) return;
     const url = input.value.trim();
     if (!url) return;
-    updateImagesStaged.push({ source: 'url', url, previewSrc: url });
+    updateBlocksStaged.push({ type: 'image', source: 'url', url, previewSrc: url });
     input.value = '';
-    renderUpdateImagePreviewList();
+    renderUpdateBlocksList();
 }
 
 function previewUpdateImageFile(input) {
@@ -10125,39 +10175,40 @@ function previewUpdateImageFile(input) {
     files.forEach(file => {
         const reader = new FileReader();
         reader.onload = (e) => {
-            updateImagesStaged.push({ source: 'file', file, previewSrc: e.target.result });
-            renderUpdateImagePreviewList();
+            updateBlocksStaged.push({ type: 'image', source: 'file', file, previewSrc: e.target.result });
+            renderUpdateBlocksList();
         };
         reader.readAsDataURL(file);
     });
     input.value = ''; // 같은 파일을 다시 선택할 수 있도록 초기화
 }
 
-// 업데이트 등록 폼의 이미지 입력 영역을 초기 상태로 되돌린다 (등록 완료 후 호출)
+// 업데이트 등록 폼을 초기 상태로 되돌린다 (등록 완료 후 호출)
 function resetUpdateImageForm() {
     const urlInput = document.getElementById('updateImageUrlText');
     const fileInput = document.getElementById('updateImageFile');
     if (urlInput) urlInput.value = '';
     if (fileInput) fileInput.value = '';
-    updateImagesStaged = [];
-    renderUpdateImagePreviewList();
+    updateBlocksStaged = [];
+    renderUpdateBlocksList();
     switchUpdateImgTab('url');
 }
 
 async function addUpdateLog() {
         const title = document.getElementById('updateTitle').value.trim();
-        const content = document.getElementById('updateContent').value.trim();
         const url = document.getElementById('updateUrl').value.trim();
         const btnText = document.getElementById('updateBtnText').value.trim(); // 버튼명 추가
         const date = getTodayYYYYMMDD();
         
         if (!title) return alert('업데이트 제목을 입력하세요.');
 
+        // 빈 텍스트 블록은 제외하고 등록
+        const rawBlocks = updateBlocksStaged.filter(b => b.type !== 'text' || (b.content && b.content.trim()));
         let toast = null;
         
         try {
-            const fileImages = updateImagesStaged.filter(img => img.source === 'file');
-            let images;
+            const fileImages = rawBlocks.filter(b => b.type === 'image' && b.source === 'file');
+            let uploadedUrls = [];
 
             if (fileImages.length > 0) {
                 toast = document.createElement('div');
@@ -10166,24 +10217,30 @@ async function addUpdateLog() {
                 document.body.appendChild(toast);
                 requestAnimationFrame(() => toast.classList.remove('opacity-0'));
 
-                const uploadedUrls = await Promise.all(fileImages.map(img => window.uploadImageToCloudinary(img.file)));
-                let fi = 0;
-                images = updateImagesStaged.map(img => img.source === 'file' ? uploadedUrls[fi++] : img.url).filter(Boolean);
+                uploadedUrls = await Promise.all(fileImages.map(img => window.uploadImageToCloudinary(img.file)));
 
                 toast.classList.add('opacity-0');
                 setTimeout(() => toast.remove(), 300);
                 toast = null;
-            } else {
-                images = updateImagesStaged.map(img => img.url).filter(Boolean);
             }
 
-            // image 필드는 하위 호환용 (기존 코드/데이터가 image 단수 필드를 참조할 수 있으므로 첫 번째 이미지로 채워둠)
-            const newLog = { title, content, url, btnText, images, image: images[0] || '', date, timestamp: Date.now() };
+            // 등록 순서(글/이미지 배치 순서)를 그대로 보존해서 blocks 배열로 저장
+            let fi = 0;
+            const blocks = rawBlocks.map(b => {
+                if (b.type === 'text') return { type: 'text', content: b.content.trim() };
+                const imgUrl = b.source === 'file' ? uploadedUrls[fi++] : b.url;
+                return { type: 'image', content: imgUrl };
+            }).filter(b => b.type !== 'image' || b.content);
+
+            const images = blocks.filter(b => b.type === 'image').map(b => b.content);
+            const content = blocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
+
+            // content/images/image 필드는 하위 호환용 (기존 데이터나 코드가 참조할 수 있어 함께 채워둠)
+            const newLog = { title, blocks, content, url, btnText, images, image: images[0] || '', date, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'updates'), newLog);
             updateLogsList.unshift({ id: docRef.id, ...newLog });
             
             document.getElementById('updateTitle').value = '';
-            document.getElementById('updateContent').value = '';
             document.getElementById('updateUrl').value = '';
             document.getElementById('updateBtnText').value = ''; // 초기화
             resetUpdateImageForm();
@@ -10222,7 +10279,9 @@ function renderUpdateManagePanel() {
             return `
             <div class="bg-white border-2 border-gray-200 p-3 rounded-lg shadow-sm flex gap-3">
                 ${(() => {
-                    const imgs = (log.images && log.images.length > 0) ? log.images : (log.image ? [log.image] : []);
+                    const imgs = (log.blocks && log.blocks.length > 0)
+                        ? log.blocks.filter(b => b.type === 'image').map(b => b.content)
+                        : ((log.images && log.images.length > 0) ? log.images : (log.image ? [log.image] : []));
                     if (imgs.length === 0) return '';
                     const shown = imgs.slice(0, 3);
                     const extra = imgs.length - shown.length;
@@ -10234,6 +10293,7 @@ function renderUpdateManagePanel() {
                         <button onclick="deleteUpdateLog('${log.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
                     </div>
                     <div class="font-bold text-[14px] text-[#5D4037]">${escapeHtml(log.title)}</div>
+                    ${log.blocks && log.blocks.length > 0 ? `<div class="text-[11px] text-gray-400 font-bold">순서: ${log.blocks.map(b => b.type === 'image' ? '이미지' : '글').join(' → ')}</div>` : ''}
                     ${log.content ? `<div class="text-[12px] text-gray-500 whitespace-pre-wrap font-medium">${escapeHtml(log.content)}</div>` : ''}
                     ${log.url ? `<a href="${log.url}" target="_blank" class="text-[12px] text-blue-500 underline truncate block max-w-full">${log.url} (버튼명: ${displayBtnText})</a>` : ''}
                 </div>
