@@ -667,18 +667,19 @@ html.dark-mode .notif-row:hover { background: #202022; }
 }
 
 .notif-col { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 2px; }
-.notif-title-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.notif-title-row { display: flex; align-items: flex-start; gap: 5px; min-width: 0; }
 .notif-title {
     font-size: 13.5px;
     font-weight: 700;
     color: #3E2723;
     line-height: 1.35;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: visible;
+    white-space: normal;
+    word-break: break-word;
     flex: 1;
     min-width: 0;
 }
+.notif-title-row .notif-unread-dot { margin-top: 4px; }
 .notif-time { font-size: 11px; font-weight: 500; color: #9c9490; }
 html.dark-mode .notif-title { color: #f0ede8; }
 html.dark-mode .notif-time { color: #9a9a9a; }

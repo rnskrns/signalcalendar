@@ -281,6 +281,7 @@ window.addEventListener('message', (event) => {
         if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
         alert("SOOP 로그인이 되어있지 않거나 확장프로그램 통신에 실패했습니다.");
     } else if (event.data.type === 'SIGNAL_EXT_NOTIFICATION') {
+        console.log('[디버그] 확장프로그램 알림 payload 전체:', event.data.payload); // TODO: 확인 후 삭제
         // ⭐ 신규: 확장프로그램이 전달한 방송/카페 알림을 알림벨에 쌓음
         // 사이트에 로그인이 안 되어 있으면 바로 쌓지 않고 대기열에 저장해뒀다가, 로그인하면 한꺼번에 반영합니다.
         if (!currentUser) {
@@ -407,7 +408,7 @@ function renderNotifPanelList() {
         const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(n.member || 'S')}&background=random&color=fff&size=128&rounded=true&font-size=0.4`;
         const avatarSrc = n.icon || fallbackAvatar;
         const title = String(n.title || '').replace(/"/g, '&quot;');
-        const unreadDot = n.read ? '' : `<span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;flex-shrink:0;"></span>`;
+        const unreadDot = n.read ? '' : `<span class="notif-unread-dot" style="display:inline-block;width:6px;height:6px;border-radius:999px;background:#FF5252;flex-shrink:0;"></span>`;
         // 프사 오른쪽 아래에 라이브(SOOP)/카페 구분 뱃지를 붙임
         const kindBadge = n.kind === 'live'
             ? `<span class="notif-avatar-badge notif-avatar-badge-live" title="SOOP 방송"><i class="fi fi-rr-signal-stream"></i></span>`
