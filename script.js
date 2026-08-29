@@ -1808,6 +1808,8 @@ function refreshAuthUI() {
     const desktopContainer = document.getElementById('desktopAuthContainer');
     const mobileContainer = document.getElementById('mobileAuthContainer');
 
+    document.body.classList.toggle('admin-mode', !!(isAdmin && loggedInUser));
+
     if (isAdmin && loggedInUser) {
         if (desktopContainer) desktopContainer.innerHTML = renderAdminAuthHtml('desktop', loggedInUser);
         if (mobileContainer) mobileContainer.innerHTML = renderAdminAuthHtml('mobile', loggedInUser);
@@ -8299,9 +8301,16 @@ function openAllSchedulesModal(event, dateStr, member) {
 
 function closeDetailModal() { const modal = document.getElementById('scheduleDetailModal'); modal.classList.replace('flex', 'hidden'); modal.style.display = ''; }
 
-document.addEventListener('contextmenu', event => event.preventDefault());
-document.addEventListener('selectstart', event => event.preventDefault());
+document.addEventListener('contextmenu', event => {
+    if (typeof isAdmin !== 'undefined' && isAdmin) return;
+    event.preventDefault();
+});
+document.addEventListener('selectstart', event => {
+    if (typeof isAdmin !== 'undefined' && isAdmin) return;
+    event.preventDefault();
+});
 document.addEventListener('keydown', function(e) {
+    if (typeof isAdmin !== 'undefined' && isAdmin) return;
     if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'u')) {
         e.preventDefault();
     }

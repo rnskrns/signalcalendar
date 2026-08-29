@@ -870,6 +870,14 @@ body {
   user-select: none;
 }
 
+/* 관리자 로그인 시 우클릭/복사/붙여넣기(텍스트 선택) 허용 */
+body.admin-mode {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
 /* 롤링페이퍼 탭 배경 및 테마 박스설정 */
 .theme-rolling {
     background-color: var(--card-bg-white) !important;
