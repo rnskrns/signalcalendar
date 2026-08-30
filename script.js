@@ -1354,13 +1354,13 @@ const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최�
 
 const members = [
     { name: '달타', img: './images/profile1.png', link: '' },
-    { name: '다룽', img: './images/profile2.png', link: '' },
-    { name: '최또', img: './images/profile3.png', link: '' },
+    { name: '다룽', img: './images/profile2.webp', link: '' },
+    { name: '최또', img: './images/profile3.webp', link: '' },
     { name: '카나시', img: './images/profile4.png', link: '' }
 ];
 
 const memberCardImages = {
-    '달타': { bangon: './images/on1.webp', hubang: './images/off1.webp' },
+    '달타': { bangon: './images/on1.webp', hubang: './images/off1.png' },
     '다룽': { bangon: './images/on2.webp', hubang: './images/off2.webp' },
     '최또': { bangon: './images/on3.webp', hubang: './images/off3.webp' },
     '카나시': { bangon: './images/on4.webp', hubang: './images/off4.webp' }
