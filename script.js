@@ -1353,17 +1353,17 @@ const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또'
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
 const members = [
-    { name: '달타', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785928620/uodvkwj0qjdjin70rcxo.png', link: '' },
-    { name: '다룽', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1786035207/uldzdy1jbmbrf12tmlqu.webp', link: '' },
-    { name: '최또', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1786035206/e9tkogpiublhtgrktkp1.webp', link: '' },
-    { name: '카나시', img: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785928620/dn7ay5k3xy7im55zzo8f.png', link: '' }
+    { name: '달타', img: './images/profile1.png', link: '' },
+    { name: '다룽', img: './images/profile2.png', link: '' },
+    { name: '최또', img: './images/profile3.png', link: '' },
+    { name: '카나시', img: './images/profile4.png', link: '' }
 ];
 
 const memberCardImages = {
-    '달타': { bangon: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907571/uyoruoejz5n2mdr8jkjv.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1781258057/xdj7vmhrw19fuhg9wec6.png' },
-    '다룽': { bangon: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907639/vhnnhxhvbezj9wlbboom.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907567/hqvmc3qaqivbvhc8kcis.webp' },
-    '최또': { bangon: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907571/xkcrf3zuzanntotmit3h.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907568/yhn3y5kqxbw1r7cq5mkq.webp' },
-    '카나시': { bangon: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907570/bmqod03pxn9pqnivep0t.webp', hubang: 'https://res.cloudinary.com/dtlqzklk5/image/upload/v1785907568/yqi8wxpmvjyr8clpkoax.webp' }
+    '달타': { bangon: './images/on1.webp', hubang: './images/off1.webp' },
+    '다룽': { bangon: './images/on2.webp', hubang: './images/off2.webp' },
+    '최또': { bangon: './images/on3.webp', hubang: './images/off3.webp' },
+    '카나시': { bangon: './images/on4.webp', hubang: './images/off4.webp' }
 };
 
 // 멤버별 SOOP(아프리카TV) 아이디 매핑 - 라이브 여부 확인 및 방송 바로가기에 사용
