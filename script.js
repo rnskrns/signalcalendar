@@ -2736,21 +2736,21 @@ async function showUpPopup(today) {
     if (activeImg && activeImg.url) {
         popupImgHtml = `
             <div class="${leftWidthClass} shrink-0 flex items-center justify-center">
-                <img src="${activeImg.url}" alt="공지 이미지" loading="lazy" decoding="async" class="w-full h-auto max-h-[55vh] md:max-h-[65vh] object-contain rounded-2xl">
+                <img src="${activeImg.url}" alt="공지 이미지" loading="lazy" decoding="async" class="w-full h-auto max-h-[55vh] md:max-h-[65vh] object-contain rounded-2xl shadow-sm border border-gray-100">
             </div>
         `;
     }
 
     const sortedUpLinks = [...visibleUpLinks].sort(sortUpLinksComparator);
 
-    // UP 해줘! 팝업/패널과 동일한 카드(SOOP 게시글 댓글 순위 등)를 그대로 재사용
+    // 심플하고 세련된 UP 해줘! 섹션 (앞부분 아이콘 제거)
     const upSectionHtml = visibleUpLinks.length > 0 ? `
-        <div class="flex flex-col w-full">
-            <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
-                <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+        <div class="flex flex-col w-full mb-4">
+            <div class="text-[17px] font-bold text-gray-800 mb-4 pb-3 border-b border-gray-100 flex items-center shrink-0">
+                UP 해줘!
             </div>
-            <div id="upPopupUpCards" class="flex flex-col">
-                <div class="text-center text-gray-400 font-bold py-6 text-[13px]">불러오는 중...⏳</div>
+            <div id="upPopupUpCards" class="flex flex-col gap-3">
+                <div class="text-center text-gray-400 font-bold py-8 text-[13px] bg-gray-50 rounded-2xl">불러오는 중...⏳</div>
             </div>
         </div>
     ` : '';
@@ -2758,20 +2758,21 @@ async function showUpPopup(today) {
     const activeTopics = rollingTopics.filter(t => t.date >= today);
     let rollingHtml = activeTopics.map(topic => {
         return `
-        <div class="bg-white border-[2px] rounded-xl p-4 mb-3 cursor-pointer hover:bg-purple-50 flex flex-col gap-1 shrink-0" style="border-color:#8B5CF6" onclick="openRollingTopicFromPopup('${topic.id}')">
-            <div class="font-bold text-[15px] mb-2 text-gray-800 break-words leading-snug">${escapeHtml(topic.title)}</div>
-            <div class="flex justify-between items-end">
-                <span class="text-[12px] font-bold text-white px-2.5 py-1 rounded-md bg-[#8B5CF6]">진행중</span>
-                <span class="text-[12px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">마감: ${topic.date}</span>
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 mb-3 cursor-pointer hover:border-purple-300 hover:shadow-md transition-all flex flex-col gap-2 shrink-0 group" onclick="openRollingTopicFromPopup('${topic.id}')">
+            <div class="font-bold text-[16px] text-gray-800 break-words leading-snug group-hover:text-purple-600 transition-colors">${escapeHtml(topic.title)}</div>
+            <div class="flex justify-between items-center mt-2">
+                <span class="text-[11px] font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full">진행중</span>
+                <span class="text-[12px] font-bold text-gray-400">마감: ${topic.date}</span>
             </div>
         </div>
         `;
     }).join('');
 
+    // 심플하고 세련된 롤링페이퍼 섹션 (앞부분 아이콘 제거)
     const rollingSectionHtml = activeTopics.length > 0 ? `
         <div class="flex flex-col w-full">
-            <div class="text-[20px] font-bold text-[#5D4037] mb-4 border-b-2 border-dashed border-gray-300 pb-2 font-paperozi flex items-center gap-2 shrink-0">
-                <i class="fi fi-rr-envelope"></i> 롤링페이퍼
+            <div class="text-[17px] font-bold text-gray-800 mb-4 pb-3 border-b border-gray-100 flex items-center shrink-0 mt-2">
+                롤링페이퍼
             </div>
             <div class="flex flex-col">
                 ${rollingHtml}
@@ -2783,7 +2784,7 @@ async function showUpPopup(today) {
     if (hasTextContent) {
         rightColumnHtml = `
             <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full md:w-1/2 pr-2 modal-scroll">
-                <div class="flex flex-col gap-6 w-full">
+                <div class="flex flex-col w-full">
                     ${upSectionHtml}${rollingSectionHtml}
                 </div>
             </div>
@@ -2795,7 +2796,7 @@ async function showUpPopup(today) {
             ${popupImgHtml}${rightColumnHtml}
         </div>
     `;
-    document.getElementById('upPopupOverlay').classList.remove('hidden');
+    document.getElementById('upPopupOverlay').classList.replace('hidden', 'flex');
 
     if (visibleUpLinks.length > 0) {
         const cardsContainer = document.getElementById('upPopupUpCards');
@@ -2813,7 +2814,7 @@ function closeUpPopup(dismissMode = null) {
     } else if (dismissMode === 'week') {
         localStorage.setItem('upPopupClosedUntil', getDateAfterDaysYYYYMMDD(7));
     }
-    document.getElementById('upPopupOverlay').classList.add('hidden');
+    document.getElementById('upPopupOverlay').classList.replace('flex', 'hidden');
 }
 
 async function openRollingTopicFromPopup(id) {

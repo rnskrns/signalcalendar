@@ -227,19 +227,23 @@
         </div>
     </div>
 
-    <div id="upModeModalOverlay" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4" onclick="if(event.target === this) closeUpModeModal()">
-        <div class="modal-content bg-[#FFFDF5] rounded-2xl w-full max-w-[480px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[85vh] overflow-hidden" style="min-height: min(600px, 85vh); min-height: min(600px, 85svh);">
-            <div class="p-6 border-b border-[#ECEDFA] bg-white flex justify-between items-center shadow-sm shrink-0">
-                <div class="text-[22px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
-                    <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
+<!-- UP 팝업 (입장 시 알림) -->
+    <div id="upPopupOverlay" class="hidden fixed inset-0 bg-black/60 items-center justify-center z-[6000] p-4 lg:p-6 backdrop-blur-sm" onclick="if(event.target === this) closeUpPopup()">
+        <div id="upPopupBox" class="modal-content bg-white p-6 md:p-8 rounded-3xl w-full max-w-[1000px] shadow-2xl border border-gray-100 flex flex-col max-h-[90vh] transition-all relative" onclick="event.stopPropagation()">
+            
+            <!-- 본문 리스트 (위쪽 여백 없이 바로 시작됨, 우측 상단 X 닫기 버튼 제거됨) -->
+            <div id="upPopupList" class="flex-1 overflow-y-auto modal-scroll pr-2 flex flex-col gap-6"></div>
+            
+            <!-- 푸터 버튼 영역 -->
+            <div class="flex flex-col-reverse sm:flex-row items-center justify-between shrink-0 mt-6 pt-5 border-t border-gray-100 gap-4 sm:gap-0">
+                <div class="flex gap-2 sm:gap-3 w-full sm:w-auto">
+                    <button onclick="closeUpPopup('today')" class="flex-1 sm:flex-none bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-[13px] px-4 py-2.5 rounded-xl transition cursor-pointer text-center">오늘 하루 안 보기</button>
+                    <button onclick="closeUpPopup('week')" class="flex-1 sm:flex-none bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-[13px] px-4 py-2.5 rounded-xl transition cursor-pointer text-center">일주일간 안 보기</button>
                 </div>
-                <button onclick="closeUpModeModal()" class="text-3xl text-[#5D4037] hover:text-red-500 cursor-pointer"><i class="fi fi-rr-cross-small"></i></button>
+                <button onclick="closeUpPopup()" class="w-full sm:w-auto px-8 py-3 bg-gray-900 text-white rounded-xl font-bold text-[15px] hover:bg-black hover:shadow-lg transition-all cursor-pointer">확인</button>
             </div>
-            <div id="upModeModalBody" class="flex-1 p-5 bg-[#FFFDF5] overflow-y-auto modal-scroll"></div>
         </div>
-    </div>
-
-    <div id="updateModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4" onclick="if(event.target === this) closeUpdateModal()">
+    </div>    <div id="updateModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4" onclick="if(event.target === this) closeUpdateModal()">
     <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[500px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
         <div class="flex justify-between items-center mb-4 shrink-0">
             <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">업데이트 내역</h2>
