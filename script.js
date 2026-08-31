@@ -2836,7 +2836,7 @@ function renderHeaderTabs() {
     if (desktopContainer) {
         let html = `
             <div class="relative cursor-pointer hover:scale-105 mr-1" onclick="openUpdateModal()">
-                <img src="https://res.cloudinary.com/dtlqzklk5/image/upload/v1785906907/gbcyhj4y00hrunv0encx.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;">
+                <img src="./images/logo.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;">
                 <span id="desktopLogoNewBadge" class="hidden absolute -top-1 -right-2.5 bg-[#FF5252] text-white text-[9px] font-black px-1.5 py-[1px] rounded-full shadow-md font-paperozi tracking-wider z-10">NEW</span>
             </div>
             <button class="font-paperozi px-5 py-2.5 bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[#FF5252] hover:text-[#FF5252] transition-all duration-200 flex items-center justify-center" onclick="executeDesktopTabChange('홈')">
