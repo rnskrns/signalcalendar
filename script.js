@@ -1354,7 +1354,7 @@ window.addEventListener('resize', handleViewportChange);
 window.addEventListener('orientationchange', handleViewportChange);
 
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6', '사다리타기': '#8B5CF6', '파트분배기': '#8B5CF6' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '추가기능': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6', '사다리타기': '#8B5CF6', '파트분배기': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -2836,8 +2836,8 @@ function renderHeaderTabs() {
     const desktopContainer = document.getElementById('headerNavTabs');
     const mobileNav = document.getElementById('mobileBottomNav');
     
-    const tabs = ['달타', '다룽', '최또', '카나시', '시그널', '더보기'];
-    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '시그널': '#FF5252', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '업보정리': '#8B5CF6' };
+    const tabs = ['달타', '다룽', '최또', '카나시', '시그널', '추가기능'];
+    const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '시그널': '#FF5252', '추가기능': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '업보정리': '#8B5CF6' };
 
     if (desktopContainer) {
         let html = `
@@ -2857,7 +2857,7 @@ function renderHeaderTabs() {
             let btnContent = tab;
             let clickAction = `onclick="executeDesktopTabChange('${tab}')"`;
             
-            if (tab === '더보기') {
+            if (tab === '추가기능') {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
                 clickAction = ''; 
                 mainLinkHtml = `
@@ -2904,13 +2904,13 @@ function renderHeaderTabs() {
     if (mobileNav) {
         let mHtml = '';
         ['홈', ...tabs].forEach(tab => {
-            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '업보선택' && tab === '더보기') || (currentPage === '사다리타기' && tab === '더보기') || (currentPage === '파트분배기' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
+            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '추가기능') || (currentPage === '업보정리' && tab === '추가기능') || (currentPage === '업보선택' && tab === '추가기능') || (currentPage === '사다리타기' && tab === '추가기능') || (currentPage === '파트분배기' && tab === '추가기능') || (currentPage === '노래책' && songbookMember === tab);
             const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
             let contentHtml = '';
             
             if (tab === '홈') {
                 contentHtml = `<i class="fi fi-rr-home text-[24px] transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}"></i>`;
-            } else if (tab === '더보기') {
+            } else if (tab === '추가기능') {
                 contentHtml = `<i class="fi fi-rr-menu-dots text-[24px] mt-1 transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}"></i>`;
             } else {
                 contentHtml = `<span class="text-[16px] font-bold font-paperozi transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}">${tab}</span>`;
@@ -2931,7 +2931,7 @@ function openMobileTabMenu(tab) {
     if (tab === '시그널') { executeMobileTabChange('시그널'); return; }
     const overlay = document.getElementById('mobileTabMenuOverlay');
     const container = document.getElementById('mobileTabMenuContainer');
-    const color = themeColors[tab === '더보기' ? '롤링페이퍼' : tab];
+    const color = themeColors[tab === '추가기능' ? '롤링페이퍼' : tab];
 
     // 링크 타이틀/URL에 맞는 아이콘을 대략적으로 매칭 (SOOP/유튜브/카페 등)
     const iconForLink = (title, url) => {
@@ -2947,7 +2947,7 @@ function openMobileTabMenu(tab) {
 
     let html = `
         <div class="flex flex-col gap-3 relative">
-            <div class="text-center font-bold text-[18px] font-paperozi" style="color: ${color}">${tab === '더보기' ? '더보기' : tab + ' 메뉴'}</div>
+            <div class="text-center font-bold text-[18px] font-paperozi" style="color: ${color}">${tab === '추가기능' ? '추가기능' : tab + ' 메뉴'}</div>
             <div class="grid grid-cols-3 gap-3 justify-items-center">
     `;
 
@@ -2958,7 +2958,7 @@ function openMobileTabMenu(tab) {
             <span>${label}</span>
         </button>`;
 
-    if (tab === '더보기') {
+    if (tab === '추가기능') {
         html += iconBtn("executeMobileTabChange('클립')", 'fi-rr-video-camera-alt', '클립', color);
         html += iconBtn("executeMobileTabChange('롤링페이퍼')", 'fi-rr-envelope', '롤링페이퍼', color);
         html += iconBtn("executeMobileTabChange('업보정리')", 'fi-rr-box-open', '업보정리', color);
@@ -2994,7 +2994,7 @@ function closeMobileTabMenu() {
 }
 
 /* =========================================================
-   더보기 - 사다리타기
+   추가기능 - 사다리타기
    ========================================================= */
 let ladderCount = 4;
 let ladderNames = [];
@@ -3436,7 +3436,7 @@ async function openRollingTopicFromMenu(id) {
 }
 
 /* =========================================================
-   더보기 - 파트분배기
+   추가기능 - 파트분배기
    ========================================================= */
 let partDividerView = 'lobby';           // 'lobby' | 'room'
 let partDividerIsAdmin = false;          // 관리자 모드 여부
@@ -4540,20 +4540,59 @@ window.partDividerCloseMemberSelect = function() {
         partDividerMemberSelectDropdown.remove();
         partDividerMemberSelectDropdown = null;
     }
+};// 클릭 시 멤버 선택 드롭다운 메뉴 열기 (ALL 항목 추가)
+window.partDividerOpenMemberSelect = function(event, lineIdx) {
+    if (!partDividerIsAdmin || !partDividerCurrentLines || !partDividerMemberChipList || partDividerMemberChipList.length === 0) return;
+    event.stopPropagation(); // 클릭 이벤트 전파 방지
+
+    window.partDividerCloseMemberSelect(); // 기존에 열린 메뉴 닫기
+
+    partDividerMemberSelectDropdown = document.createElement('div');
+    partDividerMemberSelectDropdown.className = 'fixed bg-white border border-[#ECEDFA] rounded-xl shadow-lg flex flex-col z-[6000] overflow-hidden p-1';
+    partDividerMemberSelectDropdown.style.minWidth = '120px';
+    
+    // 마우스 클릭 위치 근처에 메뉴 띄우기
+    partDividerMemberSelectDropdown.style.left = `${event.clientX}px`;
+    partDividerMemberSelectDropdown.style.top = `${event.clientY + 15}px`;
+
+    let html = '';
+    
+    // ⭐ 1. 'ALL' (합창) 선택 버튼 추가
+    html += `
+        <button type="button" class="flex items-center gap-2 px-3 py-2 text-[13px] font-bold text-[#5D4037] hover:bg-[#F4EEFF] rounded-lg transition-colors cursor-pointer text-left w-full border-b border-gray-100 mb-1" onclick="partDividerChangeLineToAll(${lineIdx})">
+            <div class="w-6 h-6 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center text-[10px] font-black shrink-0">ALL</div>
+            <span class="truncate">전체 (합창)</span>
+        </button>
+    `;
+
+    // 2. 기존 멤버 목록 나열
+    partDividerMemberChipList.forEach((member, mIdx) => {
+        const imgSrc = member.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
+        html += `
+            <button type="button" class="flex items-center gap-2 px-3 py-2 text-[13px] font-bold text-[#5D4037] hover:bg-[#F4EEFF] rounded-lg transition-colors cursor-pointer text-left w-full" onclick="partDividerChangeLineMember(${lineIdx}, ${mIdx})">
+                <img src="${imgSrc}" class="w-6 h-6 rounded-full object-cover shrink-0 border border-gray-200" onerror="this.src='${PARTDIVIDER_DEFAULT_AVATAR}'">
+                <span class="truncate">${escapeHtml(member.name)}</span>
+            </button>
+        `;
+    });
+
+    partDividerMemberSelectDropdown.innerHTML = html;
+    document.body.appendChild(partDividerMemberSelectDropdown);
+
+    // 외부 화면을 클릭하면 메뉴가 닫히도록 리스너 추가
+    document.addEventListener('click', window.partDividerCloseMemberSelect, { once: true });
 };
 
-// 선택한 멤버로 교체 후 동기화
-window.partDividerChangeLineMember = function(lineIdx, memberIdx) {
+// ⭐ 새로 추가된 함수: 'ALL'을 선택했을 때 해당 줄의 파트를 합창으로 변경
+window.partDividerChangeLineToAll = function(lineIdx) {
     if (!partDividerIsAdmin || !partDividerCurrentLines) return;
 
     const currentLine = partDividerCurrentLines[lineIdx];
-    const nextMember = partDividerMemberChipList[memberIdx];
-    if (!nextMember) return;
-
-    // 해당 줄의 정보(이름, 사진, 색상) 교체
-    currentLine.member = nextMember.name;
-    currentLine.picUrl = nextMember.picUrl || null;
-    currentLine.color = partDividerSafeColor(nextMember.color);
+    
+    // ALL 파트 전용 정보 설정 (이름은 ALL, 프사는 기본 아바타, 색상은 보라색 계열 고정)
+    currentLine.member = 'ALL';
+    currentLine.picUrl = null;
+    currentLine.color = '#8B5CF6';
 
     // 관리자 화면 즉시 다시 그리기
     partDividerLastResultHtml = partDividerLinesToHtml(partDividerCurrentLines);
@@ -4563,7 +4602,7 @@ window.partDividerChangeLineMember = function(lineIdx, memberIdx) {
     // 참가자(시청자) 화면에도 변경된 사항을 실시간으로 쏘아줌
     if (partDividerJoinedRoomCode) {
         set(ref(partDividerDb, `syncroom/rooms/${partDividerJoinedRoomCode}/lines`), partDividerCurrentLines)
-            .catch(err => console.error('개별 파트 수정 실시간 반영 실패:', err));
+            .catch(err => console.error('ALL 파트 수정 실시간 반영 실패:', err));
     }
 };
 
