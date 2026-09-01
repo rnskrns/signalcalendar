@@ -3437,16 +3437,16 @@ async function openRollingTopicFromMenu(id) {
 
 /* =========================================================
    더보기 - 파트분배기
-   1단계: 기본 UI 뼈대 및 가사 분배 핵심 로직
-   2단계: 파이어베이스 실시간 데이터베이스(syncroom/rooms/{코드}) 연동
-   3단계: 스트리밍 보안/방 관리 - 초대 링크 자동 입장(코드 비노출), 방 4개 제한,
-          방장 퇴장 시 onDisconnect 자동 폭파, 뷰어 강제 퇴장 처리
-   4단계: 외부 LRCLIB API 제거, 크루 자체 가사 DB(syncroom/lyrics) Save & Load,
-          크루 멤버 프로필(memberDb - Firestore 'members' 컬렉션) 실시간 대조 및 프로필 사진 칩 표시
    ========================================================= */
 let partDividerView = 'lobby';           // 'lobby' | 'room'
 let partDividerIsAdmin = false;          // 관리자 모드 여부
 let partDividerRoomCode = '';            // 로비에서 입력한 방 코드
+let partDividerPendingAutoJoin = null;
+if (window.location.hash.startsWith('#partdivider?room=')) {
+    partDividerPendingAutoJoin = window.location.hash.split('?room=')[1];
+    // 탭 이동 시스템이 꼬이지 않도록 해시를 원래대로 덮어씌움
+    window.history.replaceState(null, '', '#partdivider'); 
+}
 let partDividerJoinedRoomCode = '';      // 실제로 입장한 방 코드(방 화면 헤더 표시용)
 let partDividerSearching = false;        // 가사 검색 중 여부
 let partDividerSyncing = false;          // 파이어베이스 전송 중 여부
@@ -3510,11 +3510,21 @@ async function partDividerDisarmOnDisconnect() {
 }
 
 // URL의 ?room= 파라미터만 제거 (해시/다른 쿼리는 유지)
+// ⭐ URL에 방 코드 추가 (#partdivider?room=123456)
+function partDividerSetRoomUrlParam(code) {
+    try {
+        window.history.replaceState(null, '', `#partdivider?room=${code}`);
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// ⭐ URL의 방 코드 파라미터 제거
 function partDividerRemoveRoomUrlParam() {
     try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('room');
-        window.history.replaceState({}, '', url.toString());
+        if (window.location.hash.startsWith('#partdivider')) {
+            window.history.replaceState(null, '', '#partdivider');
+        }
     } catch (err) {
         console.error(err);
     }
@@ -3530,6 +3540,18 @@ function partDividerDetachListener() {
 function renderPartDividerPage() {
     const content = document.getElementById('mainContent');
     if (!content) return;
+    if (partDividerView === 'lobby' && partDividerPendingAutoJoin) {
+        const code = partDividerPendingAutoJoin.toUpperCase();
+        partDividerPendingAutoJoin = null; // 한 번 실행 후 초기화
+        partDividerRoomCode = code;
+        
+        // 화면이 다 그려진 직후에 입장 함수를 자동으로 실행
+        setTimeout(() => {
+            const input = document.getElementById('partDividerRoomCodeInput');
+            if (input) input.value = code;
+            partDividerEnterRoom(isAdmin);
+        }, 50);
+    }
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
 
     const bodyHtml = partDividerView === 'room' ? getPartDividerRoomHtml() : getPartDividerLobbyHtml();
@@ -3578,11 +3600,12 @@ function getPartDividerLobbyHtml() {
     </div>`;
 }
 
-// 4자리 랜덤 영문(대문자)/숫자 방 코드 생성
+// 6자리 랜덤 숫자 방 코드 생성
 function generatePartDividerRoomCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
-    for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 6; i++) {
+        code += Math.floor(Math.random() * 10).toString();
+    }
     return code;
 }
 
@@ -3614,6 +3637,7 @@ async function partDividerCreateNewRoom() {
         partDividerJoinedRoomCode = code;
         partDividerIsAdmin = true;
         partDividerView = 'room';
+        partDividerSetRoomUrlParam(code);
         partDividerLastResultHtml = '';
         partDividerCurrentSongTitle = '';
         partDividerCurrentLines = null;
@@ -3650,6 +3674,7 @@ async function partDividerEnterAsAdmin(code) {
     partDividerJoinedRoomCode = code;
     partDividerIsAdmin = true;
     partDividerView = 'room';
+    partDividerSetRoomUrlParam(code);
     partDividerLastResultHtml = '';
     partDividerCurrentSongTitle = '';
     partDividerCurrentLines = null;
@@ -3668,7 +3693,7 @@ function partDividerCopyInviteLink() {
         return;
     }
     const baseUrl = window.location.origin + window.location.pathname;
-    const inviteUrl = `${baseUrl}?room=${encodeURIComponent(partDividerJoinedRoomCode)}`;
+    const inviteUrl = `${baseUrl}#partdivider?room=${partDividerJoinedRoomCode}`;
 
     if (!navigator.clipboard || !navigator.clipboard.writeText) {
         alert('이 브라우저에서는 클립보드 복사를 지원하지 않아요.');
@@ -3713,6 +3738,7 @@ async function partDividerEnterRoom(isAdmin) {
         partDividerJoinedRoomCode = code;
         partDividerIsAdmin = false;
         partDividerView = 'room';
+        partDividerSetRoomUrlParam(code);
         partDividerApplyRoomData(snapshot.val());
         renderPartDividerPage();
         partDividerAttachListener(code);
@@ -4460,6 +4486,7 @@ async function partDividerHandleUrlAutoJoin() {
         partDividerJoinedRoomCode = code;
         partDividerIsAdmin = false;
         partDividerView = 'room';
+        partDividerSetRoomUrlParam(code);
         partDividerApplyRoomData(snapshot.val());
         partDividerAttachListener(code);
         return true;
