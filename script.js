@@ -3604,6 +3604,9 @@ window.partDividerRenderRoomList = async function() {
     const container = document.getElementById('partDividerRoomListContainer');
     if (!container) return;
     
+    // ⭐ 프로필 사진 매핑 정보를 확실하게 먼저 불러옵니다.
+    await ensureMemberLoginImgMap();
+    
     try {
         const snapshot = await get(partDividerRoomsListRef());
         if (!snapshot.exists()) {
@@ -3623,8 +3626,13 @@ window.partDividerRenderRoomList = async function() {
             const title = room.songTitle || '새로운 분배 방';
             const time = new Date(room.createdAt || Date.now()).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
             
-            // 방장 프사 가져오기 (이전 데이터거나 프사가 없으면 기본 이미지 사용)
-            const hostImgSrc = room.hostImg || PARTDIVIDER_DEFAULT_AVATAR;
+            // ⭐ 프사 찾는 로직 강화 (방 저장 데이터 -> 관리자 DB -> 기본 멤버 이미지 순으로 탐색)
+            const hostName = room.hostName || '관리자';
+            const memberInfo = members.find(m => m.name === hostName);
+            let hostImgSrc = room.hostImg;
+            if (!hostImgSrc || hostImgSrc === PARTDIVIDER_DEFAULT_AVATAR) {
+                hostImgSrc = memberLoginImgMap[hostName] || (memberInfo ? memberInfo.img : PARTDIVIDER_DEFAULT_AVATAR);
+            }
             
             // 관리자일 경우 방 삭제 버튼 생성
             const deleteBtn = isAdmin ? `
@@ -3642,7 +3650,6 @@ window.partDividerRenderRoomList = async function() {
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
                     <div class="flex items-center gap-2">
                         <span class="text-[14px] font-bold text-[#5D4037] truncate">${escapeHtml(title)}</span>
-                        <!-- 기존 코드가 노출되던 부분 삭제됨 -->
                     </div>
                     <div class="text-[11.5px] font-bold text-gray-400 mt-1 flex items-center gap-1"><i class="fi fi-rr-time-fast"></i> ${time} 개설됨</div>
                 </div>
@@ -3664,14 +3671,9 @@ window.partDividerRenderRoomList = async function() {
 window.partDividerEnterRoomCode = function(code) {
     const input = document.getElementById('partDividerRoomCodeInput');
     if (input) input.value = code;
-    partDividerEnterRoom(isAdmin); // 관리자면 관리자 모드로, 뷰어면 뷰어 모드로 자동 입장
-};
-
-// 3. 방 목록 클릭 시 자동으로 코드를 넣고 입장
-window.partDividerEnterRoomCode = function(code) {
-    const input = document.getElementById('partDividerRoomCodeInput');
-    if (input) input.value = code;
-    partDividerEnterRoom(isAdmin); // 관리자면 관리자 모드로, 뷰어면 뷰어 모드로 자동 입장
+    // ⭐ 새로고침해도 방에 남아있도록 저장
+    try { localStorage.setItem('partDividerActiveRoom', code); } catch (e) {}
+    partDividerEnterRoom(isAdmin); 
 };
 
 // ⭐ 새로 추가된 함수: 목록에서 방 클릭 시 코드 입력 요구
@@ -3754,8 +3756,10 @@ async function partDividerCreateNewRoom() {
 
         // ⭐ 방 생성 즉시 초기 상태를 저장하여 시청자들이 에러 없이 바로 입장할 수 있게 함
         // 개설한 관리자의 이름과 프사 정보도 함께 저장합니다.
+        // 개설한 관리자의 이름과 프사 정보 셋팅 (로그인 정보나 기본 멤버 데이터에서 끌어옴)
         const hostName = (loggedInUser && loggedInUser.name) ? loggedInUser.name : '관리자';
-        const hostImg = (loggedInUser && loggedInUser.img) ? loggedInUser.img : PARTDIVIDER_DEFAULT_AVATAR;
+        const memberInfo = members.find(m => m.name === hostName);
+        const hostImg = (loggedInUser && loggedInUser.img) || memberLoginImgMap[hostName] || (memberInfo ? memberInfo.img : PARTDIVIDER_DEFAULT_AVATAR);
 
         await set(partDividerRoomRef(code), {
             songTitle: '',
@@ -3953,7 +3957,8 @@ function partDividerRenderViewerMemberChips() {
 
 async function partDividerExitRoom() {
     partDividerDetachListener();
-    // 방 폭파 코드 삭제: 관리자가 나가도 방은 그대로 유지됨
+    // ⭐ 나가기를 누르면 저장된 활성 방 정보 삭제
+    try { localStorage.removeItem('partDividerActiveRoom'); } catch (e) {}
     partDividerView = 'lobby';
     partDividerIsAdmin = false;
     partDividerJoinedRoomCode = '';
@@ -4671,13 +4676,19 @@ async function partDividerSyncToFirebase() {
 // (시청자 난입 방지용 초대 링크로 접속했을 때 사용)
 async function partDividerHandleUrlAutoJoin() {
     const params = new URLSearchParams(window.location.search);
-    const code = (params.get('room') || '').trim().toUpperCase();
+    let code = (params.get('room') || '').trim().toUpperCase();
+    
+    // ⭐ URL에 room 파라미터가 없더라도, 최근에 들어가 있던 방이 있다면 가져옴
+    if (!code) {
+        try { code = (localStorage.getItem('partDividerActiveRoom') || '').trim().toUpperCase(); } catch (e) {}
+    }
     if (!code) return false;
 
     try {
         const snapshot = await get(partDividerRoomRef(code));
         if (!snapshot.exists()) {
-            alert('입장하려는 방을 찾을 수 없어요. 링크를 다시 확인해주세요.');
+            // 방이 그사이에 삭제되었거나 없으면 저장된 기록도 삭제하고 로비에 머뭄
+            try { localStorage.removeItem('partDividerActiveRoom'); } catch (e) {}
             partDividerRemoveRoomUrlParam();
             return false;
         }
@@ -4685,7 +4696,8 @@ async function partDividerHandleUrlAutoJoin() {
         partDividerDetachListener();
         partDividerRoomCode = code;
         partDividerJoinedRoomCode = code;
-        partDividerIsAdmin = false;
+        // 새로고침 시 관리자 여부를 판별 (관리자 세션이 유지중이거나 권한이 있으면 관리자 모드 복원)
+        partDividerIsAdmin = !!(isAdmin); 
         partDividerView = 'room';
         partDividerSetRoomUrlParam(code);
         partDividerApplyRoomData(snapshot.val());
@@ -4693,7 +4705,7 @@ async function partDividerHandleUrlAutoJoin() {
         return true;
     } catch (err) {
         console.error(err);
-        alert('방 정보를 불러오는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+        try { localStorage.removeItem('partDividerActiveRoom'); } catch (e) {}
         partDividerRemoveRoomUrlParam();
         return false;
     }
