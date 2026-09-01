@@ -4064,6 +4064,35 @@ function partDividerRemoveMember(index) {
 function partDividerSetMemberColor(index, color) {
     if (!partDividerMemberChipList || index < 0 || index >= partDividerMemberChipList.length) return;
     partDividerMemberChipList[index].color = partDividerSafeColor(color);
+    partDividerRefreshDistributedColors();
+}
+
+// 색상 선택기에서 색이 바뀌면, 이미 화면에 분배되어 있는 결과에도 해당 멤버의 색을 즉시 반영한다.
+// (방을 개설해 이미 참가자들에게 전송까지 마친 상태라면, 색상 변경도 조용히 파이어베이스에 함께 반영해 뷰어 화면도 같이 갱신되게 한다.)
+function partDividerRefreshDistributedColors() {
+    if (!Array.isArray(partDividerCurrentLines) || partDividerCurrentLines.length === 0) return;
+
+    const colorByName = {};
+    partDividerMemberChipList.forEach(chip => { colorByName[chip.name] = partDividerSafeColor(chip.color); });
+
+    let changed = false;
+    partDividerCurrentLines.forEach(line => {
+        const newColor = colorByName[line.member];
+        if (newColor && line.color !== newColor) {
+            line.color = newColor;
+            changed = true;
+        }
+    });
+    if (!changed) return;
+
+    partDividerLastResultHtml = partDividerLinesToHtml(partDividerCurrentLines);
+    const resultBox = document.getElementById('partDividerResult');
+    if (resultBox) resultBox.innerHTML = partDividerLastResultHtml;
+
+    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
+        set(ref(partDividerDb, `syncroom/rooms/${partDividerJoinedRoomCode}/lines`), partDividerCurrentLines)
+            .catch(err => console.error('색상 변경 실시간 반영 실패:', err));
+    }
 }
 
 // 화면에 이미 그려진 칩들의 색상 선택기(input type=color) 값을 State(partDividerMemberChipList)로 다시 읽어들인다.
@@ -4078,6 +4107,7 @@ function partDividerSyncMemberColorsFromDom() {
         if (Number.isNaN(idx) || !colorInput || !partDividerMemberChipList[idx]) return;
         partDividerMemberChipList[idx].color = partDividerSafeColor(colorInput.value);
     });
+    partDividerRefreshDistributedColors();
 }
 
 
@@ -4211,10 +4241,11 @@ function partDividerLinesToHtml(paragraphs) {
     }).join('');
 }
 
-// 원본 가사를 연속된 빈 줄(문단 구분자) 기준으로 나눠, 멤버 칩 순서(State)만큼 모듈로 연산으로 문단 단위 순차 분배
-// (주의) 텍스트 칸의 내용이 아니라 드래그/셔플이 반영된 partDividerMemberChipList의 순서가 분배 기준이다.
-// 반환값: 분배에 성공했으면 true, 실패(가사/멤버 누락)했으면 false - [파트 분배 및 전송] 버튼에서 이 값을 보고 전송 여부를 결정한다.
 function partDividerDistribute() {
+    // ⭐ 추가: 색상 선택기를 열어둔 채로 바로 분배 버튼을 눌렀을 때, 
+    // 변경된 색상이 누락되는 것을 방지하기 위해 분배 직전에 강제 동기화
+    partDividerSyncMemberColorsFromDom();
+
     const lyricsArea = document.getElementById('partDividerLyricsTextarea');
     const resultBox = document.getElementById('partDividerResult');
 
