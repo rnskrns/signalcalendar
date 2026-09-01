@@ -4322,8 +4322,8 @@ async function partDividerAddMember() {
     const profiles = await partDividerLoadMemberProfiles();
     const picUrl = partDividerGetMemberProfilePic(profiles, name);
 
-    // 2. 멤버 리스트(State)에 push - 보라색이 제외된 랜덤 색상을 배정하여 겹침 방지
-    const color = partDividerGetRandomColor();
+    // 2. 멤버 리스트(State)에 push - 노랑, 파랑, 분홍, 주황, 빨강, 연보라 순서대로 고정 배정하여 겹침 방지
+    const color = partDividerGetNextColor(partDividerMemberChipList.length);
     partDividerMemberChipList.push({ name, picUrl, color });
 
     // 3. 칩 UI 즉시 렌더링
@@ -4332,6 +4332,14 @@ async function partDividerAddMember() {
     // 4. 입력칸 비우기 + 다음 입력을 바로 이어갈 수 있도록 포커스 유지
     nameInput.value = '';
     nameInput.focus();
+}
+
+    // 2. 멤버 리스트(State)에 push - 보라색이 제외된 랜덤 색상을 배정하여 겹침 방지
+// 노랑, 파랑, 분홍, 주황, 빨강, 연보라 순서대로 고정 배정하기 위한 팔레트
+const PARTDIVIDER_FIXED_PALETTE = ['#facc15', '#3b82f6', '#f472b6', '#fb923c', '#ef4444', '#a855f7'];
+
+function partDividerGetNextColor(currentIndex) {
+    return PARTDIVIDER_FIXED_PALETTE[currentIndex % PARTDIVIDER_FIXED_PALETTE.length];
 }
 
 // [X] 버튼에 연동 - 해당 인덱스의 멤버를 State와 화면에서 즉시 제거
@@ -4619,10 +4627,10 @@ window.partDividerChangeLineToAll = function(lineIdx) {
 
     const currentLine = partDividerCurrentLines[lineIdx];
     
-    // ALL 파트 전용 정보 설정 (이름은 ALL, 프사는 기본 아바타, 색상은 보라색 계열 고정)
+    // ALL 파트 전용 정보 설정 (이름은 ALL, 프사는 기본 아바타, 색상은 연두색 고정)
     currentLine.member = 'ALL';
     currentLine.picUrl = null;
-    currentLine.color = '#8B5CF6';
+    currentLine.color = '#22c55e'; // 연두색
 
     // 관리자 화면 즉시 다시 그리기
     partDividerLastResultHtml = partDividerLinesToHtml(partDividerCurrentLines);
