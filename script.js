@@ -3457,7 +3457,37 @@ let partDividerCurrentSongArtist = '';   // 현재(로컬에서) 분배된 가�
 let partDividerMemberProfiles = null;    // 크루 멤버 프로필 캐시: { 멤버이름: 'URL' | { profilePic: 'URL' } }
 let partDividerMemberProfilesLoading = null; // 프로필 로딩 중복 방지용 진행 중 Promise
 const PARTDIVIDER_DEFAULT_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='12' fill='%23E4D9FA'/%3E%3Ccircle cx='12' cy='9.5' r='4' fill='%23ffffff'/%3E%3Cpath d='M4 20c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5' fill='%23ffffff'/%3E%3C/svg%3E";
-const PARTDIVIDER_COLOR_PALETTE = ['#8b5cf6', '#f472b6', '#38bdf8', '#fbbf24', '#34d399', '#fb7185', '#a78bfa', '#f97316']; // 멤버 추가 시 순서대로 배정되는 기본 색상(가사 박스 배경 구분용) - 색상 선택기로 각자 자유롭게 바꿀 수 있음
+// 보라색 계열을 제외하고, 예쁜 색상을 랜덤으로 추출하는 함수 (기존 멤버들의 색상과 겹치지 않게 유도)
+function partDividerGetRandomColor() {
+    // 보라색(#8b5cf6, #a78bfa 등) 영역을 피해, 핑크/블루/그린/오렌지/옐로우/민트 계열 톤에서 랜덤 추출
+    const safeHues = [12, 35, 48, 145, 185, 205, 330, 350]; // 보라색 영역(250~300)을 제외한 Hue 값들
+    const randomHue = safeHues[Math.floor(Math.random() * safeHues.length)];
+    const randomSaturation = Math.floor(Math.random() * 25) + 75; // 75% ~ 99% (선명한 색감)
+    const randomLightness = Math.floor(Math.random() * 15) + 62;  // 62% ~ 76% (너무 어둡거나 밝지 않게)
+
+    // HSL을 HEX 코드로 변환하는 간단한 헬퍼
+    const h = randomHue;
+    const s = randomSaturation / 100;
+    const l = randomLightness / 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+
+    if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+    else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+    else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+    else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+    else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+    else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+
+    const toHex = (val) => {
+        const hex = Math.round((val + m) * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
 const PARTDIVIDER_DEFAULT_PARAGRAPH_COLOR = '#8b5cf6';
 // color 값이 브라우저 <input type="color">가 내놓는 '#rrggbb' 형식인지 검증하고, 아니면 기본색으로 대체 (인라인 스타일/색상 선택기 값에 그대로 꽂아 넣기 전 안전장치)
 // (주의) <input type="color">의 value는 스펙상 소문자 hex만 유효한 값으로 인정되어, 대문자 hex를 넣으면 브라우저가 값을 무시하고 검정(#000000)으로 되돌려버린다 - 그래서 항상 소문자로 통일해서 반환한다.
@@ -4292,8 +4322,8 @@ async function partDividerAddMember() {
     const profiles = await partDividerLoadMemberProfiles();
     const picUrl = partDividerGetMemberProfilePic(profiles, name);
 
-    // 2. 멤버 리스트(State)에 push - 가사 박스 구분용 기본 색상도 순서대로 배정 (색상 선택기로 나중에 바꿀 수 있음)
-    const color = PARTDIVIDER_COLOR_PALETTE[partDividerMemberChipList.length % PARTDIVIDER_COLOR_PALETTE.length];
+    // 2. 멤버 리스트(State)에 push - 보라색이 제외된 랜덤 색상을 배정하여 겹침 방지
+    const color = partDividerGetRandomColor();
     partDividerMemberChipList.push({ name, picUrl, color });
 
     // 3. 칩 UI 즉시 렌더링
