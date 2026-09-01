@@ -3604,7 +3604,7 @@ window.partDividerRenderRoomList = async function() {
     const container = document.getElementById('partDividerRoomListContainer');
     if (!container) return;
     
-    // ⭐ 프로필 사진 매핑 정보를 확실하게 먼저 불러옵니다.
+    // 프로필 사진 매핑 정보를 확실하게 먼저 불러옵니다.
     await ensureMemberLoginImgMap();
     
     try {
@@ -3623,11 +3623,11 @@ window.partDividerRenderRoomList = async function() {
         rooms.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         
         container.innerHTML = rooms.map(room => {
-            const title = room.songTitle || '새로운 분배 방';
-            const time = new Date(room.createdAt || Date.now()).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-            
-            // ⭐ 프사 찾는 로직 강화 (방 저장 데이터 -> 관리자 DB -> 기본 멤버 이미지 순으로 탐색)
+            // ⭐ 방 제목을 "만든 멤버 이름 + 님의 싱크룸"으로 설정
             const hostName = room.hostName || '관리자';
+            const roomTitle = `${hostName}님의 싱크룸`;
+            
+            // 프사 찾는 로직 (방 저장 데이터 -> 관리자 DB -> 기본 멤버 이미지 순)
             const memberInfo = members.find(m => m.name === hostName);
             let hostImgSrc = room.hostImg;
             if (!hostImgSrc || hostImgSrc === PARTDIVIDER_DEFAULT_AVATAR) {
@@ -3649,9 +3649,9 @@ window.partDividerRenderRoomList = async function() {
 
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
                     <div class="flex items-center gap-2">
-                        <span class="text-[14px] font-bold text-[#5D4037] truncate">${escapeHtml(title)}</span>
+                        <!-- ⭐ 제목만 깔끔하게 표시 (시간 영역 삭제됨) -->
+                        <span class="text-[14px] font-bold text-[#5D4037] truncate">${escapeHtml(roomTitle)}</span>
                     </div>
-                    <div class="text-[11.5px] font-bold text-gray-400 mt-1 flex items-center gap-1"><i class="fi fi-rr-time-fast"></i> ${time} 개설됨</div>
                 </div>
                 <div class="text-[#8B5CF6] bg-[#F4EEFF] rounded-lg px-3 py-1.5 text-[12px] font-bold shrink-0 transition">
                     입장
