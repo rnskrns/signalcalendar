@@ -3956,9 +3956,23 @@ function partDividerRenderViewerMemberChips() {
 }
 
 async function partDividerExitRoom() {
+    // ⭐ 관리자라면 [나가기]를 누를 때 방을 완전히 삭제(폭파)합니다.
+    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
+        if (!confirm("정말 나가시겠습니까?\n방장이 나가면 방이 닫히고 목록에서 사라집니다.")) {
+            return; // 취소를 누르면 나가지 않음
+        }
+        const code = partDividerJoinedRoomCode;
+        try {
+            await remove(partDividerRoomRef(code));
+        } catch (err) {
+            console.error('방 삭제 실패:', err);
+        }
+    }
+
     partDividerDetachListener();
-    // ⭐ 나가기를 누르면 저장된 활성 방 정보 삭제
+    // 저장된 활성 방 정보 삭제
     try { localStorage.removeItem('partDividerActiveRoom'); } catch (e) {}
+    
     partDividerView = 'lobby';
     partDividerIsAdmin = false;
     partDividerJoinedRoomCode = '';
