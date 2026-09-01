@@ -3482,17 +3482,27 @@ function partDividerRoomsListRef() {
     return ref(partDividerDb, 'syncroom/rooms');
 }
 
-function partDividerBeforeUnloadHandler() {
-    // 기능을 비워둡니다.
+function partDividerBeforeUnloadHandler(e) {
+    // 관리자로 방에 접속해 있을 때만 실수 방지용 경고창을 띄움
+    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
+        e.preventDefault(); 
+        // 구형 브라우저를 위해 문구를 넣지만, 최신 브라우저에서는 무시되고 기본 문구가 뜹니다.
+        e.returnValue = '정말 나가시겠습니까? 나가시면 방이 사라집니다.'; 
+    }
 }
 window.addEventListener('beforeunload', partDividerBeforeUnloadHandler);
 
 async function partDividerArmOnDisconnect(code) {
-    // 기능을 비워둡니다.
+    const roomRef = partDividerRoomRef(code);
+    partDividerOnDisconnectHandle = onDisconnect(roomRef);
+    await partDividerOnDisconnectHandle.remove();
 }
 
 async function partDividerDisarmOnDisconnect() {
-    // 기능을 비워둡니다.
+    if (partDividerOnDisconnectHandle) {
+        await partDividerOnDisconnectHandle.cancel();
+        partDividerOnDisconnectHandle = null;
+    }
 }
 
 // URL의 ?room= 파라미터만 제거 (해시/다른 쿼리는 유지)
