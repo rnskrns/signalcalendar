@@ -4333,15 +4333,20 @@ function partDividerShuffleMembers() {
 }
 
 // 분배된 문단 배열([{member, text, picUrl, color}, ...]) → 결과창 HTML로 변환 (관리자 로컬 분배 / 뷰어 실시간 수신 공용)
-// 가사 왼쪽에 해당 멤버의 프로필 사진 + 닉네임을 세로로 배치하고, 문단 배경은 멤버별로 고른 색상을 옅게 깔아 구분한다.
 function partDividerLinesToHtml(paragraphs) {
     if (!Array.isArray(paragraphs)) return '';
-    return paragraphs.map(item => {
+    return paragraphs.map((item, idx) => {
         const textHtml = escapeHtml(item.text || '').replace(/\n/g, '<br>');
         const imgSrc = item.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
         const color = partDividerSafeColor(item.color);
-        return `<div class="partdiv-paragraph" style="background:${color}26; border-left: 4px solid ${color};">
-            <div class="partdiv-paragraph-person">
+        
+        // 관리자일 때만 클릭해서 멤버를 바꿀 수 있도록 이벤트와 스타일 추가
+        const clickAttr = partDividerIsAdmin 
+            ? `onclick="partDividerOpenMemberSelect(event, ${idx})" style="cursor:pointer;" title="클릭해서 다른 멤버로 변경" class="partdiv-paragraph-person hover:opacity-60 transition-opacity"` 
+            : `class="partdiv-paragraph-person"`;
+
+        return `<div class="partdiv-paragraph" style="background:${color}26; border-left: 4px solid ${color}; transition: all 0.2s;">
+            <div ${clickAttr}>
                 <img src="${imgSrc}" class="partdiv-paragraph-avatar" alt="${escapeHtml(item.member)}" onerror="this.src='${PARTDIVIDER_DEFAULT_AVATAR}'">
                 <span class="partdiv-paragraph-name">${escapeHtml(item.member)}</span>
             </div>
@@ -4349,6 +4354,75 @@ function partDividerLinesToHtml(paragraphs) {
         </div>`;
     }).join('');
 }
+
+// 클릭한 가사 줄의 멤버를 다음 멤버로 순차 변경
+let partDividerMemberSelectDropdown = null;
+
+// 클릭 시 멤버 선택 드롭다운 메뉴 열기
+window.partDividerOpenMemberSelect = function(event, lineIdx) {
+    if (!partDividerIsAdmin || !partDividerCurrentLines || !partDividerMemberChipList || partDividerMemberChipList.length === 0) return;
+    event.stopPropagation(); // 클릭 이벤트 전파 방지
+
+    window.partDividerCloseMemberSelect(); // 기존에 열린 메뉴 닫기
+
+    partDividerMemberSelectDropdown = document.createElement('div');
+    partDividerMemberSelectDropdown.className = 'fixed bg-white border border-[#ECEDFA] rounded-xl shadow-lg flex flex-col z-[6000] overflow-hidden p-1';
+    partDividerMemberSelectDropdown.style.minWidth = '120px';
+    
+    // 마우스 클릭 위치 근처에 메뉴 띄우기
+    partDividerMemberSelectDropdown.style.left = `${event.clientX}px`;
+    partDividerMemberSelectDropdown.style.top = `${event.clientY + 15}px`;
+
+    let html = '';
+    partDividerMemberChipList.forEach((member, mIdx) => {
+        const imgSrc = member.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
+        html += `
+            <button type="button" class="flex items-center gap-2 px-3 py-2 text-[13px] font-bold text-[#5D4037] hover:bg-[#F4EEFF] rounded-lg transition-colors cursor-pointer text-left w-full" onclick="partDividerChangeLineMember(${lineIdx}, ${mIdx})">
+                <img src="${imgSrc}" class="w-6 h-6 rounded-full object-cover shrink-0 border border-gray-200" onerror="this.src='${PARTDIVIDER_DEFAULT_AVATAR}'">
+                <span class="truncate">${escapeHtml(member.name)}</span>
+            </button>
+        `;
+    });
+
+    partDividerMemberSelectDropdown.innerHTML = html;
+    document.body.appendChild(partDividerMemberSelectDropdown);
+
+    // 외부 화면을 클릭하면 메뉴가 닫히도록 리스너 추가
+    document.addEventListener('click', window.partDividerCloseMemberSelect, { once: true });
+};
+
+// 드롭다운 메뉴 닫기
+window.partDividerCloseMemberSelect = function() {
+    if (partDividerMemberSelectDropdown) {
+        partDividerMemberSelectDropdown.remove();
+        partDividerMemberSelectDropdown = null;
+    }
+};
+
+// 선택한 멤버로 교체 후 동기화
+window.partDividerChangeLineMember = function(lineIdx, memberIdx) {
+    if (!partDividerIsAdmin || !partDividerCurrentLines) return;
+
+    const currentLine = partDividerCurrentLines[lineIdx];
+    const nextMember = partDividerMemberChipList[memberIdx];
+    if (!nextMember) return;
+
+    // 해당 줄의 정보(이름, 사진, 색상) 교체
+    currentLine.member = nextMember.name;
+    currentLine.picUrl = nextMember.picUrl || null;
+    currentLine.color = partDividerSafeColor(nextMember.color);
+
+    // 관리자 화면 즉시 다시 그리기
+    partDividerLastResultHtml = partDividerLinesToHtml(partDividerCurrentLines);
+    const resultBox = document.getElementById('partDividerResult');
+    if (resultBox) resultBox.innerHTML = partDividerLastResultHtml;
+
+    // 참가자(시청자) 화면에도 변경된 사항을 실시간으로 쏘아줌
+    if (partDividerJoinedRoomCode) {
+        set(ref(partDividerDb, `syncroom/rooms/${partDividerJoinedRoomCode}/lines`), partDividerCurrentLines)
+            .catch(err => console.error('개별 파트 수정 실시간 반영 실패:', err));
+    }
+};
 
 function partDividerDistribute() {
     // ⭐ 추가: 색상 선택기를 열어둔 채로 바로 분배 버튼을 눌렀을 때, 
