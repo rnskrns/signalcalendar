@@ -3703,7 +3703,7 @@ function partDividerCopyRoomCode() {
         return;
     }
     navigator.clipboard.writeText(partDividerJoinedRoomCode)
-        .then(() => showToast('방 코드를 복사했어요: ' + partDividerJoinedRoomCode))
+        .then(() => showToast('방 코드를 복사했어요'))
         .catch(err => {
             console.error(err);
             alert('코드 복사에 실패했어요. 브라우저 권한을 확인해주세요.');
