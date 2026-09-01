@@ -1,6 +1,7 @@
 ﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getDatabase, ref, set, get, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 
 // =========================================================================
 // SOOP 확장프로그램 로그인 연동
@@ -1110,6 +1111,9 @@ const memberFirebaseConfig = {
 const memberApp = initializeApp(memberFirebaseConfig, "memberApp");
 const memberDb = getFirestore(memberApp);
 
+// 파트분배기(싱크룸) 전용 실시간 데이터베이스 - memberApp에 이미 설정된 databaseURL을 재사용
+const partDividerDb = getDatabase(memberApp);
+
 let scheduleList = []; 
 let memoList = { '달타':[], '다룽':[], '최또':[], '카나시':[] };
 let isAdmin = false;
@@ -1273,7 +1277,8 @@ const tabToHash = {
     '노래책_달타': 'songbook_dalta', '노래책_다룽': 'songbook_darung', '노래책_최또': 'songbook_choitto', '노래책_카나시': 'songbook_kanashi',
     '시그널': 'signal',
     '클립': 'clip',
-    '사다리타기': 'ladder'
+    '사다리타기': 'ladder',
+    '파트분배기': 'partdivider'
 };
 const hashToTab = { 
     '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
@@ -1281,7 +1286,8 @@ const hashToTab = {
     '#songbook_dalta': '노래책_달타', '#songbook_darung': '노래책_다룽', '#songbook_choitto': '노래책_최또', '#songbook_kanashi': '노래책_카나시',
     '#signal': '시그널',
     '#clip': '클립',
-    '#ladder': '사다리타기'
+    '#ladder': '사다리타기',
+    '#partdivider': '파트분배기'
 };
 
 // =========================================================================
@@ -1348,7 +1354,7 @@ window.addEventListener('resize', handleViewportChange);
 window.addEventListener('orientationchange', handleViewportChange);
 
 
-const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6', '사다리타기': '#8B5CF6' };
+const themeColors = { '홈': '#FF5252', '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#f745c1', '카나시': '#F57C00', '더보기': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '노래책': '#FBC02D', '시그널': '#FF5252', '클립': '#8B5CF6', '사다리타기': '#8B5CF6', '파트분배기': '#8B5CF6' };
 const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또': 'choiagainevent', '카나시': 'kanashievent' };
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
@@ -2858,7 +2864,8 @@ function renderHeaderTabs() {
                     <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
                     <a href="#" onclick="executeDesktopTabChange('업보정리'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">업보정리</a>
-                    <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">사다리타기</a>
+                    <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">사다리타기</a>
+                    <a href="#" onclick="executeDesktopTabChange('파트분배기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">파트분배기</a>
                 `;
             } else if (tab === '시그널') {
                 clickAction = `onclick="executeDesktopTabChange('시그널')"`;
@@ -2897,7 +2904,7 @@ function renderHeaderTabs() {
     if (mobileNav) {
         let mHtml = '';
         ['홈', ...tabs].forEach(tab => {
-            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '업보선택' && tab === '더보기') || (currentPage === '사다리타기' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
+            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '더보기') || (currentPage === '업보정리' && tab === '더보기') || (currentPage === '업보선택' && tab === '더보기') || (currentPage === '사다리타기' && tab === '더보기') || (currentPage === '파트분배기' && tab === '더보기') || (currentPage === '노래책' && songbookMember === tab);
             const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
             let contentHtml = '';
             
@@ -2956,6 +2963,7 @@ function openMobileTabMenu(tab) {
         html += iconBtn("executeMobileTabChange('롤링페이퍼')", 'fi-rr-envelope', '롤링페이퍼', color);
         html += iconBtn("executeMobileTabChange('업보정리')", 'fi-rr-box-open', '업보정리', color);
         html += iconBtn("executeMobileTabChange('사다리타기')", 'fi-rr-ladder', '사다리타기', color);
+        html += iconBtn("executeMobileTabChange('파트분배기')", 'fi-rr-microphone-alt', '파트분배기', color);
     } else {
         html += iconBtn(`executeMobileTabChange('${tab}')`, 'fi-rr-calendar', '일정표', color);
         html += iconBtn(`executeMobileTabChange('노래책_${tab}')`, 'fi-rr-music-alt', '노래책', color);
@@ -3426,6 +3434,950 @@ async function openRollingTopicFromMenu(id) {
     await ensureRollingEntriesLoaded(id);
     if (currentRollingTopic && currentRollingTopic.id === id) render();
 }
+
+/* =========================================================
+   더보기 - 파트분배기
+   1단계: 기본 UI 뼈대 및 가사 분배 핵심 로직
+   2단계: 파이어베이스 실시간 데이터베이스(syncroom/rooms/{코드}) 연동
+   3단계: 스트리밍 보안/방 관리 - 초대 링크 자동 입장(코드 비노출), 방 4개 제한,
+          방장 퇴장 시 onDisconnect 자동 폭파, 뷰어 강제 퇴장 처리
+   4단계: 외부 LRCLIB API 제거, 크루 자체 가사 DB(syncroom/lyrics) Save & Load,
+          크루 멤버 프로필(memberDb - Firestore 'members' 컬렉션) 실시간 대조 및 프로필 사진 칩 표시
+   ========================================================= */
+let partDividerView = 'lobby';           // 'lobby' | 'room'
+let partDividerIsAdmin = false;          // 관리자 모드 여부
+let partDividerRoomCode = '';            // 로비에서 입력한 방 코드
+let partDividerJoinedRoomCode = '';      // 실제로 입장한 방 코드(방 화면 헤더 표시용)
+let partDividerSearching = false;        // 가사 검색 중 여부
+let partDividerSyncing = false;          // 파이어베이스 전송 중 여부
+let partDividerJoining = false;          // 입장(코드 확인) 처리 중 여부
+let partDividerLastResultHtml = '';      // 마지막으로 화면에 표시된 결과 HTML(관리자/참가자 공용)
+let partDividerCurrentSongTitle = '';    // 현재(로컬에서) 분배된 곡 제목
+let partDividerCurrentSongArtist = '';   // 현재(로컬에서) 분배된 가수명 (크루 자체 가사 DB 키의 일부로 사용)
+let partDividerMemberProfiles = null;    // 크루 멤버 프로필 캐시: { 멤버이름: 'URL' | { profilePic: 'URL' } }
+let partDividerMemberProfilesLoading = null; // 프로필 로딩 중복 방지용 진행 중 Promise
+const PARTDIVIDER_DEFAULT_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='12' fill='%23E4D9FA'/%3E%3Ccircle cx='12' cy='9.5' r='4' fill='%23ffffff'/%3E%3Cpath d='M4 20c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5' fill='%23ffffff'/%3E%3C/svg%3E";
+const PARTDIVIDER_COLOR_PALETTE = ['#8b5cf6', '#f472b6', '#38bdf8', '#fbbf24', '#34d399', '#fb7185', '#a78bfa', '#f97316']; // 멤버 추가 시 순서대로 배정되는 기본 색상(가사 박스 배경 구분용) - 색상 선택기로 각자 자유롭게 바꿀 수 있음
+const PARTDIVIDER_DEFAULT_PARAGRAPH_COLOR = '#8b5cf6';
+// color 값이 브라우저 <input type="color">가 내놓는 '#rrggbb' 형식인지 검증하고, 아니면 기본색으로 대체 (인라인 스타일/색상 선택기 값에 그대로 꽂아 넣기 전 안전장치)
+// (주의) <input type="color">의 value는 스펙상 소문자 hex만 유효한 값으로 인정되어, 대문자 hex를 넣으면 브라우저가 값을 무시하고 검정(#000000)으로 되돌려버린다 - 그래서 항상 소문자로 통일해서 반환한다.
+function partDividerSafeColor(color) {
+    return (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) ? color.toLowerCase() : PARTDIVIDER_DEFAULT_PARAGRAPH_COLOR;
+}
+let partDividerCurrentLines = null;      // 현재(로컬에서) 분배된 가사 라인 배열 - 전송 버튼으로 저장할 데이터
+let partDividerUnsubscribe = null;       // 사용자(뷰어) 모드 onValue 리스너 해제 함수
+let partDividerOnDisconnectHandle = null; // 방장(관리자) onDisconnect 핸들 - 창을 닫으면 방 데이터를 자동 삭제
+let partDividerCreatingRoom = false;      // 방 생성(개수 체크 + 코드 발급) 처리 중 여부
+const PARTDIVIDER_MAX_ROOMS = 4;          // 동시에 열 수 있는 최대 방 개수 (스트리머 다중 방 남용 방지)
+let partDividerMemberChipList = [];       // 멤버 칩 상태(State) - [{ name, picUrl }, ...] 순서가 파트 분배 기준이 됨
+let partDividerChipDragSrcIndex = null;   // 드래그 앤 드롭 중인 칩의 원래 인덱스(드롭 시점에 사용)
+let partDividerSongLibrary = null;        // 크루 가사 DB(syncroom/lyrics) 전체 목록 캐시 - [{ key, artist, title, lyrics }, ...], 검색/선택 리스트용
+let partDividerSongLibraryLoading = null; // 노래 목록 로딩 중복 방지용 진행 중 Promise
+
+function partDividerRoomRef(code) {
+    return ref(partDividerDb, `syncroom/rooms/${code}`);
+}
+
+function partDividerRoomsListRef() {
+    return ref(partDividerDb, 'syncroom/rooms');
+}
+
+// 방장(관리자)이 창을 닫거나 새로고침할 때 새로고침 전에 최대한 방 데이터를 지워보는 보조 안전장치
+// (onDisconnect가 주 방어선이며, 이건 병행 처리용)
+function partDividerBeforeUnloadHandler() {
+    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
+        try { remove(partDividerRoomRef(partDividerJoinedRoomCode)); } catch (e) { /* 무시 - onDisconnect가 처리 */ }
+    }
+}
+window.addEventListener('beforeunload', partDividerBeforeUnloadHandler);
+
+// 관리자가 방을 생성/입장할 때 onDisconnect를 걸어, 연결이 끊기면(창 닫기/새로고침) 자동으로 방을 폭파시킴
+async function partDividerArmOnDisconnect(code) {
+    try {
+        partDividerOnDisconnectHandle = onDisconnect(partDividerRoomRef(code));
+        await partDividerOnDisconnectHandle.remove();
+    } catch (err) {
+        console.error('onDisconnect 설정 실패:', err);
+    }
+}
+
+// 관리자가 정상적으로 나가기/다른 방 생성 등으로 이탈할 때 예약해둔 onDisconnect를 취소
+async function partDividerDisarmOnDisconnect() {
+    if (partDividerOnDisconnectHandle) {
+        try { await partDividerOnDisconnectHandle.cancel(); } catch (e) { /* 무시 */ }
+        partDividerOnDisconnectHandle = null;
+    }
+}
+
+// URL의 ?room= 파라미터만 제거 (해시/다른 쿼리는 유지)
+function partDividerRemoveRoomUrlParam() {
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        window.history.replaceState({}, '', url.toString());
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function partDividerDetachListener() {
+    if (typeof partDividerUnsubscribe === 'function') {
+        partDividerUnsubscribe();
+    }
+    partDividerUnsubscribe = null;
+}
+
+function renderPartDividerPage() {
+    const content = document.getElementById('mainContent');
+    if (!content) return;
+    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+
+    const bodyHtml = partDividerView === 'room' ? getPartDividerRoomHtml() : getPartDividerLobbyHtml();
+
+    content.innerHTML = `<div class="big-white-box relative theme-rolling" style="min-height: 900px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">
+        <div class="mb-6 flex items-center gap-2">
+            <i class="fi fi-rr-microphone-alt text-[24px]" style="color:#8B5CF6;"></i>
+            <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi">파트분배기</h2>
+        </div>
+        <div id="partDividerRoot">${bodyHtml}</div>
+    </div>`;
+
+    if (partDividerView === 'room' && partDividerIsAdmin) {
+        partDividerInitSongLibrary();
+    }
+}
+
+// -------------------- 1. 로비(입장 대기실) --------------------
+function getPartDividerLobbyHtml() {
+    return `
+    <div class="lobby-section partdiv-lobby-card">
+        <div class="partdiv-lobby-icon"><i class="fi fi-rr-microphone-alt"></i></div>
+        <div class="partdiv-lobby-title">싱크룸 노래 파트 분배기</div>
+        <div class="partdiv-lobby-desc">방 코드를 입력해 입장하거나, 관리자 모드로 새 방을 만들어보세요.</div>
+        <input type="text" id="partDividerRoomCodeInput" class="partdiv-input" placeholder="방 코드 입력" value="${escapeHtml(partDividerRoomCode)}" onkeydown="if(event.key==='Enter') partDividerEnterRoom(false);">
+        <div class="partdiv-lobby-btn-row">
+            <button type="button" id="partDividerJoinBtn" class="partdiv-btn partdiv-btn-primary" onclick="partDividerEnterRoom(false)">
+                <i class="fi fi-rr-door-open"></i> 입장하기
+            </button>
+        </div>
+        <button type="button" class="partdiv-btn partdiv-btn-create" onclick="partDividerCreateNewRoom()">
+            <i class="fi fi-rr-add"></i> 새로운 방 생성
+        </button>
+    </div>`;
+}
+
+// 4자리 랜덤 영문(대문자)/숫자 방 코드 생성
+function generatePartDividerRoomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+}
+
+// 관리자: 새로운 방 생성 - 랜덤 코드를 만들어 즉시 관리자 모드로 입장
+// (중요) 시청자 난입 방지를 위해 화면에 방 코드를 노출하지 않고, 대신 초대 링크 복사 버튼을 제공한다.
+async function partDividerCreateNewRoom() {
+    if (partDividerCreatingRoom) return;
+    partDividerCreatingRoom = true;
+    try {
+        // 방 4개 제한 체크 - 생성 전에 현재 활성화된 방 개수를 먼저 확인
+        const roomsSnapshot = await get(partDividerRoomsListRef());
+        const activeRoomCount = roomsSnapshot.exists() ? Object.keys(roomsSnapshot.val()).length : 0;
+        if (activeRoomCount >= PARTDIVIDER_MAX_ROOMS) {
+            alert(`동시에 열 수 있는 방은 최대 ${PARTDIVIDER_MAX_ROOMS}개예요. 다른 방이 종료된 후 다시 시도해주세요.`);
+            return;
+        }
+
+        partDividerDetachListener();
+        await partDividerDisarmOnDisconnect();
+
+        const code = generatePartDividerRoomCode();
+        partDividerRoomCode = code;
+        partDividerJoinedRoomCode = code;
+        partDividerIsAdmin = true;
+        partDividerView = 'room';
+        partDividerLastResultHtml = '';
+        partDividerCurrentSongTitle = '';
+        partDividerCurrentLines = null;
+        partDividerMemberChipList = [];
+
+        renderPartDividerPage();
+        showToast('새 방이 생성되었어요! [초대 링크 복사]로 시청자를 자동 입장시켜보세요.');
+
+        // 방장(관리자)이 창을 닫거나 새로고침하면 방 데이터가 자동으로 삭제되도록 예약 (화면 렌더링을 막지 않도록 뒤에서 처리)
+        await partDividerArmOnDisconnect(code);
+    } catch (err) {
+        console.error(err);
+        alert('방 생성 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+        partDividerCreatingRoom = false;
+    }
+}
+
+// 관리자: 기존 코드를 직접 입력해 관리자 모드로 입장(쓰기 전용, 파이어베이스 읽기 없이 바로 진입)
+async function partDividerEnterAsAdmin(code) {
+    partDividerDetachListener();
+    await partDividerDisarmOnDisconnect();
+
+    partDividerRoomCode = code;
+    partDividerJoinedRoomCode = code;
+    partDividerIsAdmin = true;
+    partDividerView = 'room';
+    partDividerLastResultHtml = '';
+    partDividerCurrentSongTitle = '';
+    partDividerCurrentLines = null;
+    partDividerMemberChipList = [];
+
+    renderPartDividerPage();
+
+    // 기존 방으로 재입장한 경우에도 방장 접속 종료 시 자동 폭파되도록 동일하게 예약 (화면 렌더링을 막지 않도록 뒤에서 처리)
+    await partDividerArmOnDisconnect(code);
+}
+
+// 초대 링크 복사 - "현재주소?room=방코드" 형태로 클립보드에 복사 (방 코드는 화면에 텍스트로 노출하지 않음)
+function partDividerCopyInviteLink() {
+    if (!partDividerJoinedRoomCode) {
+        showToast('방 코드가 없어요.');
+        return;
+    }
+    const baseUrl = window.location.origin + window.location.pathname;
+    const inviteUrl = `${baseUrl}?room=${encodeURIComponent(partDividerJoinedRoomCode)}`;
+
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        alert('이 브라우저에서는 클립보드 복사를 지원하지 않아요.');
+        return;
+    }
+    navigator.clipboard.writeText(inviteUrl)
+        .then(() => showToast('초대 링크를 복사했어요.'))
+        .catch(err => {
+            console.error(err);
+            alert('링크 복사에 실패했어요. 브라우저 권한을 확인해주세요.');
+        });
+}
+
+// 사용자(뷰어): 코드를 입력해 입장 - 해당 방 데이터가 실제로 존재하는지 먼저 확인 후, 있으면 실시간 리스너를 붙임
+async function partDividerEnterRoom(isAdmin) {
+    const input = document.getElementById('partDividerRoomCodeInput');
+    const code = (input ? input.value : partDividerRoomCode || '').trim().toUpperCase();
+    if (!code) {
+        showToast('방 코드를 입력해주세요.');
+        return;
+    }
+    partDividerRoomCode = code;
+
+    if (isAdmin) {
+        partDividerEnterAsAdmin(code);
+        return;
+    }
+
+    if (partDividerJoining) return;
+    partDividerJoining = true;
+    const joinBtn = document.getElementById('partDividerJoinBtn');
+    if (joinBtn) { joinBtn.disabled = true; joinBtn.innerHTML = '<i class="fi fi-rr-spinner"></i> 확인중...'; }
+
+    try {
+        const snapshot = await get(partDividerRoomRef(code));
+        if (!snapshot.exists()) {
+            alert('존재하지 않는 방 코드예요. 코드를 다시 확인해주세요.');
+            return;
+        }
+
+        partDividerDetachListener();
+        partDividerJoinedRoomCode = code;
+        partDividerIsAdmin = false;
+        partDividerView = 'room';
+        partDividerApplyRoomData(snapshot.val());
+        renderPartDividerPage();
+        partDividerAttachListener(code);
+    } catch (err) {
+        console.error(err);
+        alert('방 정보를 불러오는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+        partDividerJoining = false;
+        if (joinBtn) { joinBtn.disabled = false; joinBtn.innerHTML = '<i class="fi fi-rr-door-open"></i> 입장하기'; }
+    }
+}
+
+// 사용자(뷰어): 실시간 리스너 부착 - 관리자가 새로 전송할 때마다 가사창을 자동 갱신
+// snapshot이 null(방 데이터 없음)이 되면 방장이 나가서 방이 폭파된 것 -> 강제로 로비로 복귀시킴
+function partDividerAttachListener(code) {
+    partDividerUnsubscribe = onValue(partDividerRoomRef(code), (snapshot) => {
+        if (!snapshot.exists() || snapshot.val() === null) {
+            partDividerHandleRoomClosedByHost();
+            return;
+        }
+        partDividerApplyRoomData(snapshot.val());
+        const resultBox = document.getElementById('partDividerResult');
+        if (resultBox) resultBox.innerHTML = partDividerLastResultHtml;
+        const titleEl = document.getElementById('partDividerSongTitleLabel');
+        if (titleEl) titleEl.textContent = partDividerCurrentSongTitle ? `· ${partDividerCurrentSongTitle}` : '';
+    });
+}
+
+// 뷰어(참가자) 전용: 방장이 퇴장(연결 종료/새로고침 등)하여 방이 폭파되었을 때 처리
+function partDividerHandleRoomClosedByHost() {
+    partDividerDetachListener();
+    partDividerView = 'lobby';
+    partDividerIsAdmin = false;
+    partDividerJoinedRoomCode = '';
+    partDividerRoomCode = '';
+    partDividerLastResultHtml = '';
+    partDividerCurrentSongTitle = '';
+    partDividerCurrentLines = null;
+    partDividerRemoveRoomUrlParam();
+    renderPartDividerPage();
+    alert('방장이 퇴장하여 방이 종료되었습니다.');
+}
+
+// 파이어베이스에서 받아온 방 데이터를 화면 상태(HTML)로 변환해 저장
+function partDividerApplyRoomData(data) {
+    const lines = Array.isArray(data && data.lines) ? data.lines : [];
+    partDividerCurrentSongTitle = (data && data.songTitle) || '';
+    partDividerCurrentLines = lines;
+    partDividerLastResultHtml = partDividerLinesToHtml(lines) || `<div class="partdiv-result-empty">아직 분배된 파트가 없어요.</div>`;
+}
+
+async function partDividerExitRoom() {
+    partDividerDetachListener();
+    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
+        // 방장이 직접 [나가기]를 누른 경우 - 예약된 onDisconnect를 취소하고 방을 즉시 폭파
+        const code = partDividerJoinedRoomCode;
+        await partDividerDisarmOnDisconnect();
+        try { await remove(partDividerRoomRef(code)); } catch (err) { console.error(err); }
+    }
+    partDividerView = 'lobby';
+    partDividerIsAdmin = false;
+    partDividerJoinedRoomCode = '';
+    partDividerRoomCode = '';
+    partDividerMemberChipList = [];
+    partDividerRemoveRoomUrlParam();
+    renderPartDividerPage();
+}
+
+// -------------------- 2. 메인 가사방 --------------------
+function getPartDividerRoomHtml() {
+    return `
+    <div class="room-section">
+        <div class="partdiv-room-header">
+            <div class="partdiv-room-header-actions">
+                ${partDividerIsAdmin ? `<button type="button" class="partdiv-btn partdiv-btn-invite" onclick="partDividerCopyInviteLink()"><i class="fi fi-rr-link"></i> 초대 링크 복사</button>` : ''}
+                <button type="button" class="partdiv-btn partdiv-btn-ghost" onclick="partDividerExitRoom()">
+                    <i class="fi fi-rr-arrow-left"></i> 나가기
+                </button>
+            </div>
+        </div>
+
+        ${partDividerIsAdmin ? `
+        <div class="partdiv-room-body">
+            ${getPartDividerAdminPanelHtml()}
+            <div class="partdiv-result-wrap">
+                <div class="partdiv-result-title"><i class="fi fi-rr-list-music"></i> 파트 분배 결과<span id="partDividerSongTitleLabel">${partDividerCurrentSongTitle ? ` · ${escapeHtml(partDividerCurrentSongTitle)}` : ''}</span></div>
+                <div id="partDividerResult" class="partdiv-result-box">${partDividerLastResultHtml || `<div class="partdiv-result-empty">가사와 멤버를 입력하고 [파트 분배 및 전송]을 눌러주세요.</div>`}</div>
+            </div>
+        </div>
+        ` : `
+        <div class="partdiv-result-wrap">
+            <div class="partdiv-result-title"><i class="fi fi-rr-list-music"></i> 파트 분배 결과<span id="partDividerSongTitleLabel">${partDividerCurrentSongTitle ? ` · ${escapeHtml(partDividerCurrentSongTitle)}` : ''}</span></div>
+            <div id="partDividerResult" class="partdiv-result-box">${partDividerLastResultHtml || `<div class="partdiv-result-empty">아직 분배된 파트가 없어요. 관리자가 분배를 완료하면 여기에 표시됩니다.</div>`}</div>
+        </div>
+        `}
+    </div>`;
+}
+
+function getPartDividerAdminPanelHtml() {
+    return `
+    <div class="admin-panel partdiv-admin-panel">
+        <div class="partdiv-panel-row">
+            <div class="partdiv-panel-block partdiv-panel-col">
+                <label class="partdiv-label">참여 멤버</label>
+                <div class="partdiv-add-member-row">
+                    <input type="text" id="partDividerMemberNameInput" class="partdiv-input" placeholder="멤버 이름 입력" onkeydown="if(event.key==='Enter'){ event.preventDefault(); partDividerAddMember(); }">
+                    <button type="button" class="partdiv-btn partdiv-btn-primary partdiv-add-member-btn" onclick="partDividerAddMember()">
+                        <i class="fi fi-rr-plus"></i> 추가
+                    </button>
+                </div>
+                <div id="partDividerMemberChips" class="partdiv-member-chips"></div>
+                <button type="button" class="partdiv-btn partdiv-btn-ghost partdiv-btn-shuffle" onclick="partDividerShuffleMembers()">
+                    <i class="fi fi-rr-shuffle"></i> 순서 섞기
+                </button>
+            </div>
+
+            <div class="partdiv-panel-block partdiv-panel-col">
+                <label class="partdiv-label">가사가 등록된 노래 <span class="partdiv-label-sub">(검색해서 바로 불러올 수 있어요)</span></label>
+                <input type="text" id="partDividerSongLibrarySearchInput" class="partdiv-input" placeholder="가수명 또는 노래 제목 검색" oninput="partDividerFilterSongLibrary()">
+                <div id="partDividerSongLibraryList" class="partdiv-song-library-list">
+                    <div class="partdiv-song-library-empty">불러오는 중...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="partdiv-panel-block">
+            <label class="partdiv-label">노래 가사 불러오기 <span class="partdiv-label-sub">(가수명 + 노래 제목으로 검색)</span></label>
+            <div class="partdiv-search-row">
+                <input type="text" id="partDividerSongArtistInput" class="partdiv-input" placeholder="가수명" value="${escapeHtml(partDividerCurrentSongArtist)}" onkeydown="if(event.key==='Enter'){ event.preventDefault(); partDividerLoadLyricsFromDb(); }">
+                <input type="text" id="partDividerSongTitleInput" class="partdiv-input" placeholder="노래 제목" value="${escapeHtml(partDividerCurrentSongTitle)}" onkeydown="if(event.key==='Enter'){ event.preventDefault(); partDividerLoadLyricsFromDb(); }">
+                <button type="button" id="partDividerLoadLyricsBtn" class="partdiv-btn partdiv-btn-primary partdiv-search-btn" onclick="partDividerLoadLyricsFromDb()">
+                    <i class="fi fi-rr-cloud-download"></i> 가사 불러오기
+                </button>
+            </div>
+        </div>
+
+        <div class="partdiv-panel-block">
+            <label class="partdiv-label">원본 가사</label>
+            <textarea id="partDividerLyricsTextarea" class="partdiv-textarea" rows="10" placeholder="가사를 직접 입력하거나 붙여넣으세요. [가사 불러오기]로 크루 DB에 저장된 가사를 불러올 수도 있어요."></textarea>
+        </div>
+
+        <div class="partdiv-lobby-btn-row">
+            <button type="button" id="partDividerDistributeSyncBtn" class="partdiv-btn partdiv-btn-distribute" onclick="partDividerDistributeAndSync()">
+                <i class="fi fi-rr-paper-plane"></i> 파트 분배 및 전송
+            </button>
+        </div>
+    </div>`;
+}
+
+// Firebase 경로에 안전하게 쓸 수 있도록 특수문자를 치환 ('.', '#', '$', '[', ']', '/' 는 RTDB 키에 사용 불가)
+function partDividerSanitizeKeyPart(str) {
+    return String(str || '').trim().replace(/[.#$\[\]\/]/g, '_');
+}
+
+function partDividerLyricsKey(artist, title) {
+    return `${partDividerSanitizeKeyPart(artist)}_${partDividerSanitizeKeyPart(title)}`;
+}
+
+// 크루 가사 DB(syncroom/lyrics)에 저장된 모든 곡 목록을 최초 1회만 불러와 캐싱 - 노래 검색/선택 리스트용
+function partDividerLoadSongLibrary() {
+    if (partDividerSongLibrary) return Promise.resolve(partDividerSongLibrary);
+    if (partDividerSongLibraryLoading) return partDividerSongLibraryLoading;
+
+    partDividerSongLibraryLoading = get(ref(partDividerDb, 'syncroom/lyrics'))
+        .then(snapshot => {
+            const list = [];
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnap => {
+                    const data = childSnap.val() || {};
+                    list.push({
+                        key: childSnap.key,
+                        artist: data.artist || '',
+                        title: data.title || '',
+                        lyrics: data.lyrics || ''
+                    });
+                });
+            }
+            list.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ko'));
+            partDividerSongLibrary = list;
+            return list;
+        })
+        .catch(err => {
+            console.error('크루 가사 DB 목록 로드 실패:', err);
+            partDividerSongLibrary = [];
+            return partDividerSongLibrary;
+        })
+        .finally(() => { partDividerSongLibraryLoading = null; });
+
+    return partDividerSongLibraryLoading;
+}
+
+// 방(관리자) 화면이 열릴 때 노래 목록을 불러와 리스트를 채워준다.
+function partDividerInitSongLibrary() {
+    partDividerLoadSongLibrary().then(list => partDividerRenderSongLibraryList(list));
+}
+
+// 노래 목록(검색 결과 포함)을 리스트 UI로 그린다.
+function partDividerRenderSongLibraryList(list) {
+    const box = document.getElementById('partDividerSongLibraryList');
+    if (!box) return;
+
+    if (!list || list.length === 0) {
+        box.innerHTML = `<div class="partdiv-song-library-empty">등록된 가사가 없어요.</div>`;
+        return;
+    }
+
+    box.innerHTML = list.map(song => `
+        <button type="button" class="partdiv-song-library-item" data-song-key="${escapeHtml(song.key)}">
+            <span class="partdiv-song-library-item-title">${escapeHtml(song.title)}</span>
+            <span class="partdiv-song-library-item-artist">${escapeHtml(song.artist)}</span>
+        </button>
+    `).join('');
+
+    box.querySelectorAll('.partdiv-song-library-item').forEach(btn => {
+        btn.addEventListener('click', () => partDividerSelectSongFromLibrary(btn.getAttribute('data-song-key')));
+    });
+}
+
+// 검색창 입력(oninput) 핸들러 - 가수명/제목에 검색어가 포함된 곡만 필터링해서 다시 그린다.
+async function partDividerFilterSongLibrary() {
+    const input = document.getElementById('partDividerSongLibrarySearchInput');
+    const keyword = (input ? input.value : '').trim().toLowerCase();
+    const list = await partDividerLoadSongLibrary();
+
+    const filtered = keyword
+        ? list.filter(song => song.title.toLowerCase().includes(keyword) || song.artist.toLowerCase().includes(keyword))
+        : list;
+
+    partDividerRenderSongLibraryList(filtered);
+}
+
+// 목록에서 곡 하나를 클릭했을 때 - 가수명/제목 입력칸과 원본 가사 textarea에 바로 채워준다.
+function partDividerSelectSongFromLibrary(key) {
+    const song = (partDividerSongLibrary || []).find(s => s.key === key);
+    if (!song) return;
+
+    const artistInput = document.getElementById('partDividerSongArtistInput');
+    const titleInput = document.getElementById('partDividerSongTitleInput');
+    const lyricsArea = document.getElementById('partDividerLyricsTextarea');
+
+    if (artistInput) artistInput.value = song.artist;
+    if (titleInput) titleInput.value = song.title;
+    if (lyricsArea) lyricsArea.value = song.lyrics;
+
+    showToast(`"${song.artist} - ${song.title}" 가사를 불러왔어요.`);
+}
+
+// 크루 자체 가사 DB(syncroom/lyrics/{가수명}_{노래제목})에서 가사를 조회해 원본 가사 textarea에 채워줌
+async function partDividerLoadLyricsFromDb() {
+    if (partDividerSearching) return;
+
+    const artistInput = document.getElementById('partDividerSongArtistInput');
+    const titleInput = document.getElementById('partDividerSongTitleInput');
+    const lyricsArea = document.getElementById('partDividerLyricsTextarea');
+
+    const artist = (artistInput ? artistInput.value : '').trim();
+    const title = (titleInput ? titleInput.value : '').trim();
+
+    if (!artist || !title) {
+        showToast('가수명과 노래 제목을 모두 입력해주세요.');
+        return;
+    }
+
+    const btn = document.getElementById('partDividerLoadLyricsBtn');
+    partDividerSearching = true;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fi fi-rr-spinner"></i> 불러오는 중...'; }
+
+    try {
+        const key = partDividerLyricsKey(artist, title);
+        const snapshot = await get(ref(partDividerDb, `syncroom/lyrics/${key}`));
+
+        if (!snapshot.exists()) {
+            alert('저장된 가사가 없습니다. 직접 입력해주세요.');
+            if (lyricsArea) lyricsArea.value = '';
+            return;
+        }
+
+        const data = snapshot.val();
+        if (lyricsArea) lyricsArea.value = (data && data.lyrics) || '';
+        showToast(`"${artist} - ${title}" 가사를 불러왔어요.`);
+    } catch (err) {
+        console.error(err);
+        showToast('가사를 불러오는 중 오류가 발생했어요.');
+    } finally {
+        partDividerSearching = false;
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fi fi-rr-cloud-download"></i> 가사 불러오기'; }
+    }
+}
+
+// 크루 멤버 프로필(이름 -> 프로필 사진 URL) 데이터를 최초 1회만 불러와 캐싱
+// (주의) 예전 코드는 존재하지 않는 Realtime Database 경로('crew/members')를 조회하고 있어 프사를 못 가져오는 버그가 있었다.
+// 실제 크루 멤버 프로필은 ① 기본 크루(하드코딩된 members 배열) + ② 멤버관리 화면에서 등록한 멤버(Firestore memberDb - 'members' 컬렉션) 두 곳에 있으므로 둘 다 합쳐서 조회한다.
+function partDividerLoadMemberProfiles() {
+    if (partDividerMemberProfiles) return Promise.resolve(partDividerMemberProfiles);
+    if (partDividerMemberProfilesLoading) return partDividerMemberProfilesLoading;
+
+    partDividerMemberProfilesLoading = getDocs(collection(memberDb, 'members'))
+        .then(snap => {
+            const profiles = {};
+
+            // 1) 기본 크루 멤버(달타/다룽/최또/카나시 등)를 먼저 채워둔다
+            members.forEach(m => { profiles[m.name] = m.img; });
+
+            // 2) 멤버관리(Firestore memberDb - 'members' 컬렉션)에서 등록한 멤버로 덮어쓰거나 추가한다
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                const name = data && data.name;
+                if (!name) return;
+                profiles[name] = (data.img && data.img.trim()) ? data.img : (profiles[name] || null);
+            });
+
+            partDividerMemberProfiles = profiles;
+            return profiles;
+        })
+        .catch(err => {
+            console.error('크루 멤버 프로필 로드 실패 (memberDb - members 컬렉션):', err);
+            // Firestore 조회가 실패해도 최소한 기본 크루 멤버 프로필은 보여준다
+            const fallback = {};
+            members.forEach(m => { fallback[m.name] = m.img; });
+            partDividerMemberProfiles = fallback;
+            return fallback;
+        })
+        .finally(() => { partDividerMemberProfilesLoading = null; });
+
+    return partDividerMemberProfilesLoading;
+}
+
+// 특정 멤버 이름에 매칭되는 프로필 사진 URL을 찾아 반환 (등록 안 되어 있으면 null)
+function partDividerGetMemberProfilePic(profiles, name) {
+    const raw = profiles ? profiles[name] : undefined;
+    if (!raw) return null;
+    if (typeof raw === 'string') return raw;
+    if (typeof raw === 'object' && raw.profilePic) return raw.profilePic;
+    return null;
+}
+
+// [추가] 버튼(또는 입력칸 Enter)에 연동 - 이름 한 명을 크루 멤버 DB와 대조해 멤버 칩 '상태(State)'에 push하고, 입력칸은 비워준다.
+async function partDividerAddMember() {
+    const nameInput = document.getElementById('partDividerMemberNameInput');
+    if (!nameInput) return;
+
+    const name = nameInput.value.trim();
+    if (!name) {
+        showToast('멤버 이름을 입력해주세요.');
+        return;
+    }
+
+    // 0. 다시 그리기 전에, 화면에 떠 있는 색상 선택기들의 값을 먼저 State에 반영 (직전에 고른 색이 날아가지 않도록)
+    partDividerSyncMemberColorsFromDom();
+
+    // 1. 파이어베이스 멤버 DB(프로필 사진 등)를 대조
+    const profiles = await partDividerLoadMemberProfiles();
+    const picUrl = partDividerGetMemberProfilePic(profiles, name);
+
+    // 2. 멤버 리스트(State)에 push - 가사 박스 구분용 기본 색상도 순서대로 배정 (색상 선택기로 나중에 바꿀 수 있음)
+    const color = PARTDIVIDER_COLOR_PALETTE[partDividerMemberChipList.length % PARTDIVIDER_COLOR_PALETTE.length];
+    partDividerMemberChipList.push({ name, picUrl, color });
+
+    // 3. 칩 UI 즉시 렌더링
+    partDividerRenderMemberChips();
+
+    // 4. 입력칸 비우기 + 다음 입력을 바로 이어갈 수 있도록 포커스 유지
+    nameInput.value = '';
+    nameInput.focus();
+}
+
+// [X] 버튼에 연동 - 해당 인덱스의 멤버를 State와 화면에서 즉시 제거
+function partDividerRemoveMember(index) {
+    if (!partDividerMemberChipList || index < 0 || index >= partDividerMemberChipList.length) return;
+    partDividerSyncMemberColorsFromDom(); // 다른 칩들이 직전에 고른 색을 유지한 채로 제거되도록 먼저 동기화
+    partDividerMemberChipList.splice(index, 1);
+    partDividerRenderMemberChips();
+}
+
+// 칩의 색상 선택기(input type=color)에 연동 - 해당 멤버의 가사 박스 배경색으로 쓰일 색상을 State에 저장
+function partDividerSetMemberColor(index, color) {
+    if (!partDividerMemberChipList || index < 0 || index >= partDividerMemberChipList.length) return;
+    partDividerMemberChipList[index].color = partDividerSafeColor(color);
+}
+
+// 화면에 이미 그려진 칩들의 색상 선택기(input type=color) 값을 State(partDividerMemberChipList)로 다시 읽어들인다.
+// (주의) 색상 선택기의 change 이벤트가 늦게 붙거나 놓치는 경우에 대비한 안전장치 - 칩 목록을 다시 그리기(re-render) 직전에 항상 먼저 호출해,
+// 사용자가 방금 고른 색이 재렌더링으로 날아가지 않도록 보장한다.
+function partDividerSyncMemberColorsFromDom() {
+    const chipsBox = document.getElementById('partDividerMemberChips');
+    if (!chipsBox || !partDividerMemberChipList) return;
+    chipsBox.querySelectorAll('.partdiv-member-chip').forEach(chipEl => {
+        const idx = parseInt(chipEl.getAttribute('data-index'), 10);
+        const colorInput = chipEl.querySelector('.partdiv-member-chip-color');
+        if (Number.isNaN(idx) || !colorInput || !partDividerMemberChipList[idx]) return;
+        partDividerMemberChipList[idx].color = partDividerSafeColor(colorInput.value);
+    });
+}
+
+
+
+// 멤버 칩 상태(partDividerMemberChipList)를 기준으로 칩 UI를 다시 그린다.
+// 각 칩에는 draggable 속성과 HTML5 Drag & Drop 이벤트 핸들러, 그리고 개별 삭제([X]) 버튼이 붙는다.
+function partDividerRenderMemberChips() {
+    const chipsBox = document.getElementById('partDividerMemberChips');
+    if (!chipsBox) return;
+
+    if (!partDividerMemberChipList || partDividerMemberChipList.length === 0) {
+        chipsBox.innerHTML = '';
+        return;
+    }
+
+    chipsBox.innerHTML = partDividerMemberChipList.map((chip, i) => {
+        const isRegistered = !!chip.picUrl;
+        const imgSrc = chip.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
+        const chipColor = partDividerSafeColor(chip.color);
+        return `<div class="partdiv-member-chip ${isRegistered ? '' : 'partdiv-member-chip-unregistered'}"
+            draggable="true" data-index="${i}"
+            ondragstart="partDividerChipDragStart(event, ${i})"
+            ondragover="partDividerChipDragOver(event, ${i})"
+            ondragleave="partDividerChipDragLeave(event)"
+            ondrop="partDividerChipDrop(event, ${i})"
+            ondragend="partDividerChipDragEnd(event)">
+            <div class="partdiv-member-chip-avatar-wrap">
+                <img src="${imgSrc}" class="partdiv-member-chip-avatar" alt="${escapeHtml(chip.name)}" onerror="this.src='${PARTDIVIDER_DEFAULT_AVATAR}'">
+                <button type="button" class="partdiv-member-chip-remove" title="삭제" draggable="false" onclick="event.stopPropagation(); partDividerRemoveMember(${i})">
+                    <i class="fi fi-rr-cross-small"></i>
+                </button>
+                <input type="color" class="partdiv-member-chip-color" draggable="false" value="${chipColor}" title="가사 박스 색상 선택" onclick="event.stopPropagation()" onchange="partDividerSetMemberColor(${i}, this.value)">
+            </div>
+            <span class="partdiv-member-chip-name">${escapeHtml(chip.name)}</span>
+        </div>`;
+    }).join('');
+
+    // HTML 속성만으로는 브라우저가 색상 선택기 초기값을 제대로 반영하지 못하는 경우가 있어, 렌더링 직후 값을 한 번 더 명시적으로 지정해준다.
+    chipsBox.querySelectorAll('.partdiv-member-chip-color').forEach((input, i) => {
+        const chip = partDividerMemberChipList[i];
+        if (chip) input.value = partDividerSafeColor(chip.color);
+    });
+}
+
+// 드래그 시작: 어떤 칩(인덱스)을 옮기는 중인지 기억해두고, 살짝 반투명 처리로 드래그 중임을 표시
+function partDividerChipDragStart(event, index) {
+    partDividerChipDragSrcIndex = index;
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        try { event.dataTransfer.setData('text/plain', String(index)); } catch (e) { /* 일부 브라우저 무시 */ }
+    }
+    if (event.currentTarget) event.currentTarget.classList.add('partdiv-member-chip-dragging');
+}
+
+// 다른 칩 위로 드래그해오면: 기본 동작(drop 막기)을 취소하고, 여기 놓일 수 있다는 걸 살짝 여백/스타일로 표시
+function partDividerChipDragOver(event, index) {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    if (partDividerChipDragSrcIndex === null || partDividerChipDragSrcIndex === index) return;
+    if (event.currentTarget) event.currentTarget.classList.add('partdiv-member-chip-dragover');
+}
+
+// 드래그가 벗어나면 드롭 위치 표시를 원상 복구
+function partDividerChipDragLeave(event) {
+    if (event.currentTarget) event.currentTarget.classList.remove('partdiv-member-chip-dragover');
+}
+
+// 실제로 놓였을 때: 내부 배열(State)에서 순서를 바꾸고, 칩 UI를 다시 렌더링(파트 분배 기준도 함께 갱신됨)
+function partDividerChipDrop(event, index) {
+    event.preventDefault();
+    if (event.currentTarget) event.currentTarget.classList.remove('partdiv-member-chip-dragover');
+
+    const srcIndex = partDividerChipDragSrcIndex;
+    partDividerChipDragSrcIndex = null;
+    if (srcIndex === null || srcIndex === undefined || srcIndex === index) return;
+
+    partDividerSyncMemberColorsFromDom(); // 순서를 바꾸기 전에 각 칩이 직전에 고른 색을 먼저 State에 반영
+
+    const list = partDividerMemberChipList.slice();
+    const [moved] = list.splice(srcIndex, 1);
+    let targetIndex = index;
+    if (srcIndex < targetIndex) targetIndex -= 1; // 원본을 제거하면서 뒤 인덱스들이 하나씩 당겨지는 것을 보정
+    list.splice(targetIndex, 0, moved);
+
+    partDividerMemberChipList = list;
+    partDividerRenderMemberChips();
+}
+
+// 드래그 종료(취소 포함): 남아있을 수 있는 드래그 관련 스타일을 모두 정리
+function partDividerChipDragEnd() {
+    partDividerChipDragSrcIndex = null;
+    document.querySelectorAll('.partdiv-member-chip-dragging, .partdiv-member-chip-dragover').forEach(el => {
+        el.classList.remove('partdiv-member-chip-dragging', 'partdiv-member-chip-dragover');
+    });
+}
+
+// [순서 섞기] 버튼: 멤버 칩 순서를 피셔-예이츠 셔플로 무작위로 섞고 다시 렌더링
+function partDividerShuffleMembers() {
+    if (!partDividerMemberChipList || partDividerMemberChipList.length < 2) {
+        showToast('섞을 멤버가 2명 이상 필요해요.');
+        return;
+    }
+
+    partDividerSyncMemberColorsFromDom(); // 순서를 섞기 전에 직전에 고른 색을 먼저 State에 반영
+
+    const arr = partDividerMemberChipList.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    partDividerMemberChipList = arr;
+    partDividerRenderMemberChips();
+    showToast('멤버 순서를 섞었어요!');
+}
+
+// 분배된 문단 배열([{member, text, picUrl, color}, ...]) → 결과창 HTML로 변환 (관리자 로컬 분배 / 뷰어 실시간 수신 공용)
+// 가사 왼쪽에 해당 멤버의 프로필 사진 + 닉네임을 세로로 배치하고, 문단 배경은 멤버별로 고른 색상을 옅게 깔아 구분한다.
+function partDividerLinesToHtml(paragraphs) {
+    if (!Array.isArray(paragraphs)) return '';
+    return paragraphs.map(item => {
+        const textHtml = escapeHtml(item.text || '').replace(/\n/g, '<br>');
+        const imgSrc = item.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
+        const color = partDividerSafeColor(item.color);
+        return `<div class="partdiv-paragraph" style="background:${color}26; border-left: 4px solid ${color};">
+            <div class="partdiv-paragraph-person">
+                <img src="${imgSrc}" class="partdiv-paragraph-avatar" alt="${escapeHtml(item.member)}" onerror="this.src='${PARTDIVIDER_DEFAULT_AVATAR}'">
+                <span class="partdiv-paragraph-name">${escapeHtml(item.member)}</span>
+            </div>
+            <div class="partdiv-paragraph-text">${textHtml}</div>
+        </div>`;
+    }).join('');
+}
+
+// 원본 가사를 연속된 빈 줄(문단 구분자) 기준으로 나눠, 멤버 칩 순서(State)만큼 모듈로 연산으로 문단 단위 순차 분배
+// (주의) 텍스트 칸의 내용이 아니라 드래그/셔플이 반영된 partDividerMemberChipList의 순서가 분배 기준이다.
+// 반환값: 분배에 성공했으면 true, 실패(가사/멤버 누락)했으면 false - [파트 분배 및 전송] 버튼에서 이 값을 보고 전송 여부를 결정한다.
+function partDividerDistribute() {
+    const lyricsArea = document.getElementById('partDividerLyricsTextarea');
+    const resultBox = document.getElementById('partDividerResult');
+
+    const lyrics = lyricsArea ? lyricsArea.value : '';
+
+    if (!lyrics.trim()) {
+        showToast('원본 가사를 입력하거나 검색해주세요.');
+        return false;
+    }
+    if (partDividerMemberChipList.length === 0) {
+        showToast('멤버를 한 명 이상 입력해주세요.');
+        return false;
+    }
+
+    // 연속된 빈 줄을 기준으로 가사를 문단 단위로 분리
+    const paragraphs = lyrics.split(/\n\s*\n/);
+    const resultParagraphs = [];
+    let memberIdx = 0;
+    paragraphs.forEach(paragraph => {
+        const text = paragraph.trim();
+        if (!text) return; // 빈 문단은 건너뜀
+        const chip = partDividerMemberChipList[memberIdx % partDividerMemberChipList.length];
+        memberIdx++;
+        resultParagraphs.push({ member: chip.name, text, picUrl: chip.picUrl || null, color: partDividerSafeColor(chip.color) });
+    });
+
+    partDividerCurrentLines = resultParagraphs;
+    partDividerLastResultHtml = partDividerLinesToHtml(resultParagraphs) || `<div class="partdiv-result-empty">분배할 가사가 없어요.</div>`;
+    if (resultBox) resultBox.innerHTML = partDividerLastResultHtml;
+
+    return true;
+}
+
+// [파트 분배 및 전송] 버튼: 먼저 문단 단위로 파트를 분배하고, 성공하면 곧바로 참가자들에게 실시간 전송한다.
+async function partDividerDistributeAndSync() {
+    const ok = partDividerDistribute();
+    if (!ok) return; // partDividerDistribute 내부에서 이미 사유를 토스트로 안내함
+    await partDividerSyncToFirebase();
+}
+
+// 관리자: 분배된 곡 제목/가사 + 가사 데이터를 syncroom/rooms/{방코드} 경로에 저장(set) → 뷰어의 onValue 리스너가 실시간으로 받음
+// 동시에 원본 가사를 syncroom/lyrics/{가수명}_{노래제목} 경로에 덮어써서 크루 자체 가사 DB에 영구 저장한다.
+async function partDividerSyncToFirebase() {
+    if (partDividerSyncing) return;
+    if (!partDividerCurrentLines) {
+        showToast('먼저 [파트 분배 및 전송]을 눌러 결과를 만들어주세요.');
+        return;
+    }
+    if (!partDividerJoinedRoomCode) {
+        showToast('방 코드가 없어요. 방을 다시 생성해주세요.');
+        return;
+    }
+
+    const artistInput = document.getElementById('partDividerSongArtistInput');
+    const titleInput = document.getElementById('partDividerSongTitleInput');
+    const lyricsArea = document.getElementById('partDividerLyricsTextarea');
+    const songArtist = (artistInput ? artistInput.value : partDividerCurrentSongArtist || '').trim();
+    const songTitle = (titleInput ? titleInput.value : partDividerCurrentSongTitle || '').trim();
+    partDividerCurrentSongArtist = songArtist;
+    partDividerCurrentSongTitle = songTitle;
+
+    const syncBtn = document.getElementById('partDividerDistributeSyncBtn');
+    partDividerSyncing = true;
+    if (syncBtn) { syncBtn.disabled = true; syncBtn.innerHTML = '<i class="fi fi-rr-spinner"></i> 전송중...'; }
+
+    try {
+        await set(partDividerRoomRef(partDividerJoinedRoomCode), {
+            songTitle: songTitle,
+            songArtist: songArtist,
+            lines: partDividerCurrentLines,
+            updatedAt: Date.now()
+        });
+
+        // 크루 자체 가사 DB에 원본 가사를 덮어쓰기 저장 - 다음에 같은 곡을 [가사 불러오기]로 재사용 가능
+        if (songArtist && songTitle && lyricsArea) {
+            try {
+                const key = partDividerLyricsKey(songArtist, songTitle);
+                await set(ref(partDividerDb, `syncroom/lyrics/${key}`), {
+                    artist: songArtist,
+                    title: songTitle,
+                    lyrics: lyricsArea.value,
+                    updatedAt: Date.now()
+                });
+
+                // 방금 저장한 곡을 캐싱된 노래 목록에도 반영해, 새로고침 없이 바로 검색 리스트에 나오게 한다.
+                if (partDividerSongLibrary) {
+                    const existing = partDividerSongLibrary.find(s => s.key === key);
+                    if (existing) {
+                        existing.artist = songArtist;
+                        existing.title = songTitle;
+                        existing.lyrics = lyricsArea.value;
+                    } else {
+                        partDividerSongLibrary.push({ key, artist: songArtist, title: songTitle, lyrics: lyricsArea.value });
+                        partDividerSongLibrary.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ko'));
+                    }
+                    partDividerFilterSongLibrary();
+                }
+            } catch (saveErr) {
+                console.error('크루 가사 DB 저장 실패:', saveErr);
+            }
+        }
+
+        // (중요) 시청자 난입 방지를 위해 토스트에 방 코드를 노출하지 않는다.
+        showToast('참가자들에게 실시간으로 전송하고, 크루 가사 DB에도 저장했어요!');
+    } catch (err) {
+        console.error(err);
+        showToast('전송 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+        partDividerSyncing = false;
+        if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = '<i class="fi fi-rr-paper-plane"></i> 파트 분배 및 전송'; }
+    }
+}
+
+// 페이지 최초 로드 시 ?room=코드 파라미터가 있으면 로비를 건너뛰고 바로 해당 방에 참가자로 자동 입장시킨다.
+// (시청자 난입 방지용 초대 링크로 접속했을 때 사용)
+async function partDividerHandleUrlAutoJoin() {
+    const params = new URLSearchParams(window.location.search);
+    const code = (params.get('room') || '').trim().toUpperCase();
+    if (!code) return false;
+
+    try {
+        const snapshot = await get(partDividerRoomRef(code));
+        if (!snapshot.exists()) {
+            alert('입장하려는 방을 찾을 수 없어요. 링크를 다시 확인해주세요.');
+            partDividerRemoveRoomUrlParam();
+            return false;
+        }
+
+        partDividerDetachListener();
+        partDividerRoomCode = code;
+        partDividerJoinedRoomCode = code;
+        partDividerIsAdmin = false;
+        partDividerView = 'room';
+        partDividerApplyRoomData(snapshot.val());
+        partDividerAttachListener(code);
+        return true;
+    } catch (err) {
+        console.error(err);
+        alert('방 정보를 불러오는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+        partDividerRemoveRoomUrlParam();
+        return false;
+    }
+}
+
+// 파트분배기 관련 함수들은 HTML onclick="..." 인라인 속성으로 호출된다.
+// script.js가 <script type="module">로 로드되면 모듈 최상위 선언은 window에 자동으로 노출되지 않으므로,
+// 인라인 이벤트 핸들러에서 안전하게 호출될 수 있도록 명시적으로 전역(window)에 노출한다.
+window.partDividerEnterRoom = partDividerEnterRoom;
+window.partDividerCreateNewRoom = partDividerCreateNewRoom;
+window.partDividerExitRoom = partDividerExitRoom;
+window.partDividerCopyInviteLink = partDividerCopyInviteLink;
+window.partDividerLoadLyricsFromDb = partDividerLoadLyricsFromDb;
+window.partDividerAddMember = partDividerAddMember;
+window.partDividerRemoveMember = partDividerRemoveMember;
+window.partDividerShuffleMembers = partDividerShuffleMembers;
+window.partDividerChipDragStart = partDividerChipDragStart;
+window.partDividerChipDragOver = partDividerChipDragOver;
+window.partDividerChipDragLeave = partDividerChipDragLeave;
+window.partDividerChipDrop = partDividerChipDrop;
+window.partDividerChipDragEnd = partDividerChipDragEnd;
+window.partDividerDistribute = partDividerDistribute;
+window.partDividerDistributeAndSync = partDividerDistributeAndSync;
+window.partDividerSyncToFirebase = partDividerSyncToFirebase;
 
 function executeDesktopTabChange(tab) { changeTab(tab); }
 function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }
@@ -5237,7 +6189,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
-    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '업보선택': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF' };
+    const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '업보선택': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF', '파트분배기': '#F3E8FF' };
     const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', currentPage === '업보선택' ? '#8B5CF6' : (themeColors[activeThemeMember] || '#8B5CF6'));
@@ -5280,6 +6232,8 @@ function render() {
         renderSignalPage();
     } else if (currentPage === '사다리타기') {
         renderLadderPage();
+    } else if (currentPage === '파트분배기') {
+        renderPartDividerPage();
     } else {
         if (isMobile) {
             if (currentPage === '홈') renderMobileHome(grouped);
@@ -8371,8 +9325,14 @@ async function initApp() {
     const today = getTodayYYYYMMDD();
     let initialTab = '홈';
 
+    // ?room=코드 초대 링크로 접속한 경우, 해시 라우팅보다 우선하여 파트분배기 방으로 바로 진입시킨다.
+    const partDividerInviteCode = new URLSearchParams(window.location.search).get('room');
+
     const currentHash = window.location.hash;
-    if (currentHash && hashToTab[currentHash]) {
+    if (partDividerInviteCode) {
+        currentPage = '파트분배기';
+        initialTab = '파트분배기';
+    } else if (currentHash && hashToTab[currentHash]) {
         let mapped = hashToTab[currentHash];
         if (mapped === '업보정리') {
             currentPage = '업보선택';
@@ -8408,6 +9368,12 @@ async function initApp() {
 
     // 필수 데이터로 초기 화면 렌더링
     await changeTab(initialTab);
+
+    // 파트분배기 초대 링크(?room=코드)로 접속한 경우 - 로비를 건너뛰고 방에 자동 입장시킨 뒤 다시 렌더링
+    if (partDividerInviteCode) {
+        await partDividerHandleUrlAutoJoin();
+        renderPartDividerPage();
+    }
 
     // === 후순위 데이터 병렬 지연 로딩 ===
     Promise.all([

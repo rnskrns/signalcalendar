@@ -1653,6 +1653,227 @@ html.dark-mode .ladder-rung { stroke: #4a4550; }
 html.dark-mode .ladder-reset-btn { color: #ff8a8a; border-color: #5a2f2f; }
 html.dark-mode .ladder-reset-btn:hover { background: #2e1f1f; }
 
+/* ===== 더보기 - 파트분배기 ===== */
+.partdiv-lobby-card {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    max-width: 420px; margin: 40px auto; text-align: center;
+    background: linear-gradient(180deg, #F4EEFF 0%, #FFFDF5 100%);
+    border: 1px solid #E4D9FA; border-radius: 24px;
+    padding: 40px 28px;
+}
+.partdiv-lobby-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: #8B5CF6; color: #fff; font-size: 26px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35);
+}
+.partdiv-lobby-title { font-family: 'Paperozi', sans-serif; font-weight: 900; font-size: 20px; color: #5D4037; }
+.partdiv-lobby-desc { font-size: 13px; font-weight: 700; color: #9a8f8f; line-height: 1.5; margin-bottom: 6px; }
+.partdiv-lobby-btn-row { display: flex; gap: 8px; width: 100%; margin-top: 6px; }
+.partdiv-lobby-btn-row .partdiv-btn { flex: 1; }
+
+.partdiv-input {
+    width: 100%; box-sizing: border-box; border: 1px solid #E4D9FA; background: #ffffff;
+    border-radius: 14px; padding: 12px 16px; font-size: 14px; font-weight: 700; color: #5D4037;
+    outline: none; transition: border-color 0.15s;
+}
+.partdiv-input:focus { border-color: #8B5CF6; }
+.partdiv-input::placeholder { color: #C9B8F2; }
+
+.partdiv-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: none; border-radius: 14px; padding: 12px 20px;
+    font-family: 'Paperozi', sans-serif; font-weight: 900; font-size: 14px;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
+}
+.partdiv-btn:active { transform: scale(0.97); }
+.partdiv-btn-primary { background: #8B5CF6; color: #fff; box-shadow: 0 3px 8px rgba(139, 92, 246, 0.35); }
+.partdiv-btn-primary:hover { background: #7C3AED; }
+.partdiv-btn-admin { background: #ffffff; color: #8B5CF6; border: 1px solid #E4D9FA; }
+.partdiv-btn-admin:hover { background: #F4EEFF; }
+.partdiv-btn-ghost { background: #ffffff; color: #5D4037; border: 1px solid #E4D9FA; padding: 9px 16px; font-size: 13px; }
+.partdiv-btn-ghost:hover { background: #F9F6FF; }
+.partdiv-btn-distribute { width: 100%; background: #8B5CF6; color: #fff; padding: 14px 20px; box-shadow: 0 3px 8px rgba(139, 92, 246, 0.35); }
+.partdiv-btn-distribute:hover { background: #7C3AED; }
+.partdiv-btn-create { width: 100%; background: #ffffff; color: #8B5CF6; border: 1.5px dashed #C9AFFB; margin-top: 10px; }
+.partdiv-btn-create:hover { background: #F4EEFF; }
+.partdiv-btn-sync { flex: 1; background: #5D4037; color: #fff; box-shadow: 0 3px 8px rgba(93, 64, 55, 0.3); }
+.partdiv-btn-sync:hover { background: #4a322a; }
+.partdiv-btn-sync:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+.partdiv-btn-sync:disabled:hover { background: #5D4037; }
+.partdiv-search-btn { white-space: nowrap; padding: 12px 18px; }
+.partdiv-search-btn:disabled { opacity: 0.6; cursor: default; }
+
+.partdiv-room-header {
+    display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 20px;
+    background: #F9F6FF; border: 1px solid #E4D9FA; border-radius: 16px; padding: 12px 16px;
+}
+.partdiv-room-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.partdiv-btn-invite { background: #8B5CF6; color: #fff; padding: 9px 16px; font-size: 13px; box-shadow: 0 3px 8px rgba(139, 92, 246, 0.3); }
+.partdiv-btn-invite:hover { background: #7C3AED; }
+
+.partdiv-admin-panel {
+    display: flex; flex-direction: column; gap: 18px;
+    background: #ffffff; border: 1px solid #E4D9FA; border-radius: 20px;
+    padding: 20px; margin-bottom: 24px;
+}
+.partdiv-panel-block { display: flex; flex-direction: column; gap: 8px; }
+.partdiv-panel-row { display: flex; flex-direction: column; gap: 20px; }
+.partdiv-panel-row > .partdiv-panel-col { min-width: 0; }
+
+.partdiv-song-library-list {
+    display: flex; flex-direction: column; gap: 6px;
+    max-height: 220px; overflow-y: auto;
+    border: 1px solid #E4D9FA; border-radius: 14px; padding: 8px;
+    background: #FBF9FF;
+}
+.partdiv-song-library-item {
+    display: flex; align-items: baseline; gap: 8px;
+    width: 100%; text-align: left; padding: 9px 12px;
+    background: #ffffff; border: 1px solid #E4D9FA; border-radius: 10px;
+    cursor: pointer; font-family: inherit; transition: background 0.15s, border-color 0.15s;
+}
+.partdiv-song-library-item:hover { background: #F4EEFF; border-color: #C9AFFB; }
+.partdiv-song-library-item:active { transform: scale(0.98); }
+.partdiv-song-library-item-title { font-weight: 800; font-size: 13.5px; color: #5D4037; }
+.partdiv-song-library-item-artist { font-weight: 600; font-size: 12px; color: #9a8f8f; }
+.partdiv-song-library-empty { color: #b3a8a8; font-weight: 700; font-size: 13px; text-align: center; padding: 20px 0; margin: auto; }
+.partdiv-label { font-family: 'Paperozi', sans-serif; font-weight: 900; font-size: 13.5px; color: #5D4037; }
+.partdiv-label-sub { font-weight: 700; font-size: 11.5px; color: #b3a8a8; margin-left: 2px; }
+.partdiv-search-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.partdiv-search-row .partdiv-input { flex: 1; min-width: 120px; }
+
+.partdiv-add-member-row { display: flex; gap: 8px; }
+.partdiv-add-member-row .partdiv-input { flex: 1; min-width: 0; }
+.partdiv-add-member-btn { white-space: nowrap; padding: 12px 18px; }
+
+.partdiv-textarea {
+    width: 100%; box-sizing: border-box; border: 1px solid #E4D9FA; background: #ffffff;
+    border-radius: 14px; padding: 12px 16px; font-size: 13.5px; font-weight: 600; color: #5D4037;
+    outline: none; resize: vertical; line-height: 1.6; font-family: inherit; transition: border-color 0.15s;
+}
+.partdiv-textarea:focus { border-color: #8B5CF6; }
+.partdiv-textarea::placeholder { color: #C9B8F2; }
+.partdiv-textarea-sm { resize: none; }
+
+.partdiv-result-wrap { display: flex; flex-direction: column; gap: 10px; }
+.partdiv-room-body { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.partdiv-room-body > .partdiv-admin-panel { flex: 3 1 280px; min-width: 260px; margin-bottom: 0; }
+.partdiv-room-body > .partdiv-result-wrap { flex: 7 1 380px; min-width: 300px; }
+.partdiv-result-title { display: flex; align-items: center; gap: 8px; font-family: 'Paperozi', sans-serif; font-weight: 900; font-size: 15px; color: #5D4037; }
+.partdiv-result-box {
+    background: linear-gradient(180deg, #F4EEFF 0%, #FFFDF5 100%);
+    border: 1px solid #E4D9FA; border-radius: 20px;
+    padding: 20px; min-height: 120px;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.partdiv-result-empty { color: #b3a8a8; font-weight: 700; font-size: 13.5px; text-align: center; margin: auto; padding: 20px 0; }
+.partdiv-paragraph {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 12px 16px; margin-bottom: 14px; border-radius: 14px;
+    transition: background 0.15s;
+}
+.partdiv-paragraph:last-child { margin-bottom: 0; }
+.partdiv-paragraph-person {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex-shrink: 0; width: 54px;
+}
+.partdiv-paragraph-avatar {
+    width: 44px; height: 44px; aspect-ratio: 1 / 1; border-radius: 50%; object-fit: cover;
+    background: #F4EEFF; border: 2px solid #ffffff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.partdiv-paragraph-name {
+    font-weight: 800; font-size: 11px; color: #5D4037; font-family: 'Paperozi', sans-serif;
+    text-align: center; line-height: 1.2; max-width: 54px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.partdiv-paragraph-text { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; color: #5D4037; line-height: 1.6; white-space: pre-wrap; padding-top: 6px; }
+
+.partdiv-member-chips { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 2px; }
+.partdiv-member-chip {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    width: 78px; background: #ffffff; border: 1px solid #E4D9FA; border-radius: 16px;
+    padding: 10px 6px 8px; cursor: grab;
+    transition: background 0.15s, margin-left 0.15s, opacity 0.15s, box-shadow 0.15s;
+}
+.partdiv-member-chip:active { cursor: grabbing; }
+.partdiv-member-chip-avatar-wrap { position: relative; width: 60px; height: 60px; flex-shrink: 0; }
+.partdiv-member-chip-avatar {
+    display: block; width: 60px; height: 60px; aspect-ratio: 1 / 1;
+    border-radius: 50%; object-fit: cover;
+    background: #F4EEFF; flex-shrink: 0;
+    pointer-events: none; /* 드래그 시 이미지 자체가 끌려가지 않도록 */
+}
+.partdiv-member-chip-name {
+    font-weight: 800; font-size: 12.5px; color: #5D4037; font-family: 'Paperozi', sans-serif;
+    text-align: center; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    pointer-events: none;
+}
+.partdiv-member-chip-unregistered .partdiv-member-chip-avatar { border: 2px dashed #C9AFFB; }
+.partdiv-member-chip-remove {
+    position: absolute; top: -4px; right: -4px; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; flex-shrink: 0;
+    border: 1px solid #E4D9FA; border-radius: 50%; background: #ffffff; color: #9a8f8f;
+    font-size: 10px; cursor: pointer; padding: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: background 0.15s, color 0.15s;
+}
+.partdiv-member-chip-remove:hover { background: #FCE4E4; color: #E4574A; }
+.partdiv-member-chip-color {
+    position: absolute; bottom: -4px; left: -4px; z-index: 1;
+    width: 18px; height: 18px; padding: 0; flex-shrink: 0;
+    border: 2px solid #ffffff; border-radius: 50%; background: none;
+    cursor: pointer; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.partdiv-member-chip-color::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+.partdiv-member-chip-color::-webkit-color-swatch { border: none; border-radius: 50%; }
+.partdiv-member-chip-color::-moz-color-swatch { border: none; border-radius: 50%; }
+/* 드래그 중인 칩: 반투명 처리로 어떤 칩을 옮기고 있는지 표시 */
+.partdiv-member-chip-dragging { opacity: 0.35; }
+/* 드래그해온 칩이 놓일 위치(드롭 타겟): 여백을 살짝 벌리고 보라색 포인트로 강조 */
+.partdiv-member-chip-dragover {
+    margin-left: 18px;
+    border-color: #8B5CF6;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25) inset;
+}
+.partdiv-btn-shuffle { align-self: flex-start; padding: 9px 16px; font-size: 13px; }
+
+html.dark-mode .partdiv-lobby-card,
+html.dark-mode .partdiv-room-header,
+html.dark-mode .partdiv-admin-panel,
+html.dark-mode .partdiv-result-box {
+    background: var(--card-bg-white);
+    border-color: var(--white-border);
+}
+html.dark-mode .partdiv-input,
+html.dark-mode .partdiv-textarea,
+html.dark-mode .partdiv-btn-admin,
+html.dark-mode .partdiv-btn-ghost {
+    background: var(--card-bg-cream);
+    border-color: var(--white-border);
+    color: #f1f1f1;
+}
+html.dark-mode .partdiv-lobby-title,
+html.dark-mode .partdiv-label,
+html.dark-mode .partdiv-result-title,
+html.dark-mode .partdiv-paragraph-text,
+html.dark-mode .partdiv-paragraph-name { color: #f1f1f1; }
+html.dark-mode .partdiv-paragraph-avatar { border-color: rgba(255, 255, 255, 0.25); }
+html.dark-mode .partdiv-member-chip {
+    background: var(--card-bg-cream);
+    border-color: var(--white-border);
+}
+html.dark-mode .partdiv-member-chip-name { color: #f1f1f1; }
+html.dark-mode .partdiv-member-chip-remove { background: rgba(255, 255, 255, 0.08); color: #bdb4b4; }
+html.dark-mode .partdiv-member-chip-remove:hover { background: rgba(228, 87, 74, 0.25); color: #ff8a80; }
+
+html.dark-mode .partdiv-song-library-list { background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.15); }
+html.dark-mode .partdiv-song-library-item { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.15); }
+html.dark-mode .partdiv-song-library-item:hover { background: rgba(139, 92, 246, 0.2); border-color: #8B5CF6; }
+html.dark-mode .partdiv-song-library-item-title { color: #f1f1f1; }
+html.dark-mode .partdiv-song-library-item-artist { color: #bdb4b4; }
+html.dark-mode .partdiv-song-library-empty { color: #bdb4b4; }
+
 /* 라이트 모드일 때 이미지 카드의 글씨색을 덮어쓰기 (뱃지는 제외) */
 html:not(.dark-mode) .dday-hero-card-img .dday-hero-stat-label,
 html:not(.dark-mode) .dday-hero-card-img .dday-hero-stat-num,
