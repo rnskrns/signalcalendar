@@ -4539,7 +4539,7 @@ function partDividerLinesToHtml(paragraphs) {
 // 클릭한 가사 줄의 멤버를 다음 멤버로 순차 변경
 let partDividerMemberSelectDropdown = null;
 
-// 클릭 시 멤버 선택 드롭다운 메뉴 열기
+// 클릭 시 멤버 선택 드롭다운 메뉴 열기 (ALL 항목 포함)
 window.partDividerOpenMemberSelect = function(event, lineIdx) {
     if (!partDividerIsAdmin || !partDividerCurrentLines || !partDividerMemberChipList || partDividerMemberChipList.length === 0) return;
     event.stopPropagation(); // 클릭 이벤트 전파 방지
@@ -4555,6 +4555,16 @@ window.partDividerOpenMemberSelect = function(event, lineIdx) {
     partDividerMemberSelectDropdown.style.top = `${event.clientY + 15}px`;
 
     let html = '';
+    
+    // 1. 'ALL' (합창) 선택 버튼 추가
+    html += `
+        <button type="button" class="flex items-center gap-2 px-3 py-2 text-[13px] font-bold text-[#5D4037] hover:bg-[#F4EEFF] rounded-lg transition-colors cursor-pointer text-left w-full border-b border-gray-100 mb-1" onclick="partDividerChangeLineToAll(${lineIdx})">
+            <div class="w-6 h-6 rounded-full bg-[#22c55e] text-white flex items-center justify-center text-[10px] font-black shrink-0">ALL</div>
+            <span class="truncate">전체 (합창)</span>
+        </button>
+    `;
+
+    // 2. 기존 멤버 목록 나열
     partDividerMemberChipList.forEach((member, mIdx) => {
         const imgSrc = member.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
         html += `
@@ -4578,47 +4588,59 @@ window.partDividerCloseMemberSelect = function() {
         partDividerMemberSelectDropdown.remove();
         partDividerMemberSelectDropdown = null;
     }
-};// 클릭 시 멤버 선택 드롭다운 메뉴 열기 (ALL 항목 추가)
-window.partDividerOpenMemberSelect = function(event, lineIdx) {
-    if (!partDividerIsAdmin || !partDividerCurrentLines || !partDividerMemberChipList || partDividerMemberChipList.length === 0) return;
-    event.stopPropagation(); // 클릭 이벤트 전파 방지
+};
 
-    window.partDividerCloseMemberSelect(); // 기존에 열린 메뉴 닫기
+// 'ALL'을 선택했을 때 해당 줄의 파트를 합창으로 변경 (연두색 고정)
+window.partDividerChangeLineToAll = function(lineIdx) {
+    if (!partDividerIsAdmin || !partDividerCurrentLines) return;
 
-    partDividerMemberSelectDropdown = document.createElement('div');
-    partDividerMemberSelectDropdown.className = 'fixed bg-white border border-[#ECEDFA] rounded-xl shadow-lg flex flex-col z-[6000] overflow-hidden p-1';
-    partDividerMemberSelectDropdown.style.minWidth = '120px';
+    const currentLine = partDividerCurrentLines[lineIdx];
     
-    // 마우스 클릭 위치 근처에 메뉴 띄우기
-    partDividerMemberSelectDropdown.style.left = `${event.clientX}px`;
-    partDividerMemberSelectDropdown.style.top = `${event.clientY + 15}px`;
+    // ALL 파트 전용 정보 설정 (이름은 ALL, 프사는 기본 아바타, 색상은 연두색 고정)
+    currentLine.member = 'ALL';
+    currentLine.picUrl = null;
+    currentLine.color = '#22c55e'; // 연두색 고정
 
-    let html = '';
-    
-    // ⭐ 1. 'ALL' (합창) 선택 버튼 추가
-    html += `
-        <button type="button" class="flex items-center gap-2 px-3 py-2 text-[13px] font-bold text-[#5D4037] hover:bg-[#F4EEFF] rounded-lg transition-colors cursor-pointer text-left w-full border-b border-gray-100 mb-1" onclick="partDividerChangeLineToAll(${lineIdx})">
-            <div class="w-6 h-6 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center text-[10px] font-black shrink-0">ALL</div>
-            <span class="truncate">전체 (합창)</span>
-        </button>
-    `;
+    // 관리자 화면 즉시 다시 그리기
+    partDividerLastResultHtml = partDividerLinesToHtml(partDividerCurrentLines);
+    const resultBox = document.getElementById('partDividerResult');
+    if (resultBox) resultBox.innerHTML = partDividerLastResultHtml;
 
-    // 2. 기존 멤버 목록 나열
-    partDividerMemberChipList.forEach((member, mIdx) => {
-        const imgSrc = member.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
-        html += `
-            <button type="button" class="flex items-center gap-2 px-3 py-2 text-[13px] font-bold text-[#5D4037] hover:bg-[#F4EEFF] rounded-lg transition-colors cursor-pointer text-left w-full" onclick="partDividerChangeLineMember(${lineIdx}, ${mIdx})">
-                <img src="${imgSrc}" class="w-6 h-6 rounded-full object-cover shrink-0 border border-gray-200" onerror="this.src='${PARTDIVIDER_DEFAULT_AVATAR}'">
-                <span class="truncate">${escapeHtml(member.name)}</span>
-            </button>
-        `;
-    });
+    // 참가자(시청자) 화면에도 변경된 사항을 실시간으로 전송
+    if (partDividerJoinedRoomCode) {
+        set(ref(partDividerDb, `syncroom/rooms/${partDividerJoinedRoomCode}/lines`), partDividerCurrentLines)
+            .catch(err => console.error('ALL 파트 수정 실시간 반영 실패:', err));
+    }
+};
 
-    partDividerMemberSelectDropdown.innerHTML = html;
-    document.body.appendChild(partDividerMemberSelectDropdown);
+// 개별 멤버로 변경할 때의 함수 (기존에 누락되었을 수 있어 함께 포함)
+window.partDividerChangeLineMember = function(lineIdx, memberIdx) {
+    if (!partDividerIsAdmin || !partDividerCurrentLines) return;
 
-    // 외부 화면을 클릭하면 메뉴가 닫히도록 리스너 추가
-    document.addEventListener('click', window.partDividerCloseMemberSelect, { once: true });
+    const currentLine = partDividerCurrentLines[lineIdx];
+    const nextMember = partDividerMemberChipList[memberIdx];
+    if (!nextMember) return;
+
+    currentLine.member = nextMember.name;
+    currentLine.picUrl = nextMember.picUrl || null;
+    currentLine.color = partDividerSafeColor(nextMember.color);
+
+    partDividerLastResultHtml = partDividerLinesToHtml(partDividerCurrentLines);
+    const resultBox = document.getElementById('partDividerResult');
+    if (resultBox) resultBox.innerHTML = partDividerLastResultHtml;
+
+    if (partDividerJoinedRoomCode) {
+        set(ref(partDividerDb, `syncroom/rooms/${partDividerJoinedRoomCode}/lines`), partDividerCurrentLines)
+            .catch(err => console.error('개별 파트 수정 실시간 반영 실패:', err));
+    }
+};
+
+// 드롭다운 메뉴 닫기
+window.partDividerCloseMemberSelect = function() {
+    if (partDividerMemberSelectDropdown) {
+        partDividerMemberSelectDropdown.remove();
+        partDividerMemberSelectDropdown = null;
+    }
 };
 
 // ⭐ 새로 추가된 함수: 'ALL'을 선택했을 때 해당 줄의 파트를 합창으로 변경
