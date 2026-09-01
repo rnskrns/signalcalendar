@@ -3483,26 +3483,16 @@ function partDividerRoomsListRef() {
 }
 
 function partDividerBeforeUnloadHandler(e) {
-    // 관리자로 방에 접속해 있을 때만 실수 방지용 경고창을 띄움
-    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
-        e.preventDefault(); 
-        // 구형 브라우저를 위해 문구를 넣지만, 최신 브라우저에서는 무시되고 기본 문구가 뜹니다.
-        e.returnValue = '정말 나가시겠습니까? 나가시면 방이 사라집니다.'; 
-    }
+    // 기능 제거 (새로고침 시 아무 경고 없이 정상 작동)
 }
 window.addEventListener('beforeunload', partDividerBeforeUnloadHandler);
 
 async function partDividerArmOnDisconnect(code) {
-    const roomRef = partDividerRoomRef(code);
-    partDividerOnDisconnectHandle = onDisconnect(roomRef);
-    await partDividerOnDisconnectHandle.remove();
+    // 기능 제거
 }
 
 async function partDividerDisarmOnDisconnect() {
-    if (partDividerOnDisconnectHandle) {
-        await partDividerOnDisconnectHandle.cancel();
-        partDividerOnDisconnectHandle = null;
-    }
+    // 기능 제거
 }
 
 // URL의 ?room= 파라미터만 제거 (해시/다른 쿼리는 유지)
@@ -3538,10 +3528,8 @@ function renderPartDividerPage() {
     if (!content) return;
     if (partDividerView === 'lobby' && partDividerPendingAutoJoin) {
         const code = partDividerPendingAutoJoin.toUpperCase();
-        partDividerPendingAutoJoin = null; // 한 번 실행 후 초기화
+        partDividerPendingAutoJoin = null; 
         partDividerRoomCode = code;
-        
-        // 화면이 다 그려진 직후에 입장 함수를 자동으로 실행
         setTimeout(() => {
             const input = document.getElementById('partDividerRoomCodeInput');
             if (input) input.value = code;
@@ -3564,16 +3552,19 @@ function renderPartDividerPage() {
         if (partDividerIsAdmin) {
             partDividerInitSongLibrary();
         } else {
-            partDividerRenderViewerMemberChips(); // 시청자 모드일 경우 초기 멤버 표시
+            partDividerRenderViewerMemberChips(); 
         }
+    } else if (partDividerView === 'lobby') {
+        // ⭐ 이 부분이 추가되었습니다. 로비일 때 방 목록을 불러옵니다.
+        partDividerRenderRoomList();
     }
 }
 
-// -------------------- 1. 로비(입장 대기실) --------------------
+// 1. 로비 화면 HTML 구성 (방 목록 영역 추가됨)
 function getPartDividerLobbyHtml() {
     const descText = isAdmin 
         ? "방 코드를 입력해 입장하거나, 새 방을 만들어보세요." 
-        : "전달받은 방 코드를 입력해 입장해주세요.";
+        : "개설된 방 목록에서 선택하거나 코드를 입력해 입장해주세요.";
 
     const createBtnHtml = isAdmin ? `
         <button type="button" class="partdiv-btn partdiv-btn-create" onclick="partDividerCreateNewRoom()">
@@ -3582,19 +3573,105 @@ function getPartDividerLobbyHtml() {
     ` : '';
 
     return `
-    <div class="lobby-section partdiv-lobby-card">
+    <div class="lobby-section partdiv-lobby-card" style="max-width: 500px;">
         <div class="partdiv-lobby-icon"><i class="fi fi-rr-microphone-alt"></i></div>
         <div class="partdiv-lobby-title">싱크룸 노래 파트 분배기</div>
         <div class="partdiv-lobby-desc">${descText}</div>
-        <input type="text" id="partDividerRoomCodeInput" class="partdiv-input" placeholder="방 코드 입력" value="${escapeHtml(partDividerRoomCode)}" onkeydown="if(event.key==='Enter') partDividerEnterRoom(false);">
-        <div class="partdiv-lobby-btn-row">
-            <button type="button" id="partDividerJoinBtn" class="partdiv-btn partdiv-btn-primary" onclick="partDividerEnterRoom(false)">
-                <i class="fi fi-rr-door-open"></i> 입장하기
+        
+        <div class="flex gap-2 w-full mt-2">
+            <input type="text" id="partDividerRoomCodeInput" class="partdiv-input" placeholder="방 코드 입력" value="${escapeHtml(partDividerRoomCode)}" onkeydown="if(event.key==='Enter') partDividerEnterRoom(false);">
+            <button type="button" id="partDividerJoinBtn" class="partdiv-btn partdiv-btn-primary shrink-0" onclick="partDividerEnterRoom(false)" style="white-space: nowrap;">
+                <i class="fi fi-rr-door-open"></i> 입장
             </button>
         </div>
         ${createBtnHtml}
+
+        <!-- ⭐ 새로 추가된 방 목록 영역 -->
+        <div class="w-full mt-8 border-t border-[#E4D9FA] pt-6 text-left">
+            <div class="text-[15px] font-bold text-[#5D4037] font-paperozi mb-3 flex items-center justify-between">
+                <span><i class="fi fi-rr-list"></i> 현재 개설된 방 목록</span>
+                <button onclick="partDividerRenderRoomList()" class="text-gray-400 hover:text-[#5D4037] transition cursor-pointer text-lg" title="새로고침"><i class="fi fi-rr-refresh"></i></button>
+            </div>
+            <div id="partDividerRoomListContainer" class="flex flex-col gap-2 max-h-[300px] overflow-y-auto modal-scroll pr-1">
+                <div class="text-center text-[13px] text-gray-400 font-bold py-4">목록을 불러오는 중...</div>
+            </div>
+        </div>
     </div>`;
 }
+
+// 2. 방 목록을 서버에서 불러와 화면에 그려주는 기능
+window.partDividerRenderRoomList = async function() {
+    const container = document.getElementById('partDividerRoomListContainer');
+    if (!container) return;
+    
+    try {
+        const snapshot = await get(partDividerRoomsListRef());
+        if (!snapshot.exists()) {
+            container.innerHTML = `<div class="text-center text-[13px] text-gray-400 font-bold py-8 bg-white border border-[#E4D9FA] rounded-xl shadow-sm">개설된 방이 없습니다.</div>`;
+            return;
+        }
+        
+        const rooms = [];
+        snapshot.forEach(child => {
+            rooms.push({ code: child.key, ...child.val() });
+        });
+        
+        // 최신순으로 정렬
+        rooms.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        
+        container.innerHTML = rooms.map(room => {
+            const title = room.songTitle || '새로운 분배 방';
+            const time = new Date(room.createdAt || Date.now()).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            
+            // 관리자일 경우 방 삭제 버튼 생성
+            const deleteBtn = isAdmin ? `
+                <button onclick="event.stopPropagation(); partDividerDeleteRoom('${room.code}')" class="text-red-400 hover:text-white bg-white hover:bg-red-500 border border-red-100 rounded-lg w-8 h-8 flex items-center justify-center shrink-0 transition shadow-sm ml-2" title="방 삭제">
+                    <i class="fi fi-br-cross-small text-lg"></i>
+                </button>
+            ` : '';
+            
+            return `
+            <div class="flex items-center bg-white border border-[#E4D9FA] rounded-xl p-3 cursor-pointer hover:border-[#8B5CF6] hover:shadow-md transition group" onclick="partDividerEnterRoomCode('${room.code}')">
+                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[14px] font-bold text-[#5D4037] truncate">${escapeHtml(title)}</span>
+                        <span class="text-[11px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">코드: ${room.code}</span>
+                    </div>
+                    <div class="text-[11.5px] font-bold text-gray-400 mt-1.5 flex items-center gap-1"><i class="fi fi-rr-time-fast"></i> ${time} 개설됨</div>
+                </div>
+                <div class="text-[#8B5CF6] bg-[#F4EEFF] rounded-lg px-3 py-1.5 text-[12px] font-bold shrink-0 transition">
+                    입장
+                </div>
+                ${deleteBtn}
+            </div>
+            `;
+        }).join('');
+        
+    } catch (err) {
+        console.error('방 목록 로드 에러:', err);
+        container.innerHTML = `<div class="text-center text-[13px] text-red-400 font-bold py-4">목록을 불러오지 못했습니다.</div>`;
+    }
+};
+
+// 3. 방 목록 클릭 시 자동으로 코드를 넣고 입장
+window.partDividerEnterRoomCode = function(code) {
+    const input = document.getElementById('partDividerRoomCodeInput');
+    if (input) input.value = code;
+    partDividerEnterRoom(isAdmin); // 관리자면 관리자 모드로, 뷰어면 뷰어 모드로 자동 입장
+};
+
+// 4. 관리자 전용: 방 목록에서 즉시 방 삭제 (폭파)
+window.partDividerDeleteRoom = async function(code) {
+    if (!confirm('정말 이 방을 삭제하시겠습니까?\n방 안의 모든 데이터가 사라지며 복구할 수 없습니다.')) return;
+    try {
+        await remove(partDividerRoomRef(code));
+        showToast('방이 삭제되었습니다.');
+        partDividerRenderRoomList(); // 삭제 후 목록 새로고침
+    } catch (err) {
+        console.error(err);
+        alert('방 삭제에 실패했습니다.');
+    }
+};
 
 // 6자리 랜덤 숫자 방 코드 생성
 function generatePartDividerRoomCode() {
@@ -3792,7 +3869,7 @@ function partDividerHandleRoomClosedByHost() {
     partDividerCurrentLines = null;
     partDividerRemoveRoomUrlParam();
     renderPartDividerPage();
-    alert('방장이 퇴장하여 방이 종료되었습니다.');
+    alert('관리자가 방을 삭제하여 로비로 이동합니다.'); // 문구 변경됨
 }
 
 // 파이어베이스에서 받아온 방 데이터를 화면 상태(HTML)로 변환해 저장
@@ -3834,12 +3911,7 @@ function partDividerRenderViewerMemberChips() {
 
 async function partDividerExitRoom() {
     partDividerDetachListener();
-    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
-        // 방장이 직접 [나가기]를 누른 경우 - 예약된 onDisconnect를 취소하고 방을 즉시 폭파
-        const code = partDividerJoinedRoomCode;
-        await partDividerDisarmOnDisconnect();
-        try { await remove(partDividerRoomRef(code)); } catch (err) { console.error(err); }
-    }
+    // 방 폭파 코드 삭제: 관리자가 나가도 방은 그대로 유지됨
     partDividerView = 'lobby';
     partDividerIsAdmin = false;
     partDividerJoinedRoomCode = '';
