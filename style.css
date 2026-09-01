@@ -1513,7 +1513,7 @@ html.dark-mode .clip-card.is-watched .clip-thumbnail {
     filter: brightness(0.5) saturate(0.7);
 }
 
-/* ===== 더보기 - 사다리타기 ===== */
+/* ===== 추가기능 - 사다리타기 ===== */
 .ladder-board {
     display: flex; flex-direction: column; align-items: center; gap: 18px;
     width: 100%; box-sizing: border-box;
@@ -1653,7 +1653,7 @@ html.dark-mode .ladder-rung { stroke: #4a4550; }
 html.dark-mode .ladder-reset-btn { color: #ff8a8a; border-color: #5a2f2f; }
 html.dark-mode .ladder-reset-btn:hover { background: #2e1f1f; }
 
-/* ===== 더보기 - 파트분배기 ===== */
+/* ===== 추가기능 - 파트분배기 ===== */
 .partdiv-lobby-card {
     display: flex; flex-direction: column; align-items: center; gap: 14px;
     max-width: 420px; margin: 40px auto; text-align: center;
