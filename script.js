@@ -3623,6 +3623,9 @@ window.partDividerRenderRoomList = async function() {
             const title = room.songTitle || '새로운 분배 방';
             const time = new Date(room.createdAt || Date.now()).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
             
+            // 방장 프사 가져오기 (이전 데이터거나 프사가 없으면 기본 이미지 사용)
+            const hostImgSrc = room.hostImg || PARTDIVIDER_DEFAULT_AVATAR;
+            
             // 관리자일 경우 방 삭제 버튼 생성
             const deleteBtn = isAdmin ? `
                 <button onclick="event.stopPropagation(); partDividerDeleteRoom('${room.code}')" class="text-red-400 hover:text-white bg-white hover:bg-red-500 border border-red-100 rounded-lg w-8 h-8 flex items-center justify-center shrink-0 transition shadow-sm ml-2" title="방 삭제">
@@ -3631,13 +3634,17 @@ window.partDividerRenderRoomList = async function() {
             ` : '';
             
             return `
-            <div class="flex items-center bg-white border border-[#E4D9FA] rounded-xl p-3 cursor-pointer hover:border-[#8B5CF6] hover:shadow-md transition group" onclick="partDividerEnterRoomCode('${room.code}')">
+            <div class="flex items-center bg-white border border-[#E4D9FA] rounded-xl p-3 cursor-pointer hover:border-[#8B5CF6] hover:shadow-md transition group" onclick="partDividerPromptRoomCode('${room.code}')">
+                
+                <!-- 방장 프사 영역 -->
+                <img src="${hostImgSrc}" class="w-10 h-10 rounded-full object-cover border border-gray-200 shrink-0 mr-3" onerror="this.src='${PARTDIVIDER_DEFAULT_AVATAR}'">
+
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
                     <div class="flex items-center gap-2">
                         <span class="text-[14px] font-bold text-[#5D4037] truncate">${escapeHtml(title)}</span>
-                        <span class="text-[11px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">코드: ${room.code}</span>
+                        <!-- 기존 코드가 노출되던 부분 삭제됨 -->
                     </div>
-                    <div class="text-[11.5px] font-bold text-gray-400 mt-1.5 flex items-center gap-1"><i class="fi fi-rr-time-fast"></i> ${time} 개설됨</div>
+                    <div class="text-[11.5px] font-bold text-gray-400 mt-1 flex items-center gap-1"><i class="fi fi-rr-time-fast"></i> ${time} 개설됨</div>
                 </div>
                 <div class="text-[#8B5CF6] bg-[#F4EEFF] rounded-lg px-3 py-1.5 text-[12px] font-bold shrink-0 transition">
                     입장
@@ -3658,6 +3665,35 @@ window.partDividerEnterRoomCode = function(code) {
     const input = document.getElementById('partDividerRoomCodeInput');
     if (input) input.value = code;
     partDividerEnterRoom(isAdmin); // 관리자면 관리자 모드로, 뷰어면 뷰어 모드로 자동 입장
+};
+
+// 3. 방 목록 클릭 시 자동으로 코드를 넣고 입장
+window.partDividerEnterRoomCode = function(code) {
+    const input = document.getElementById('partDividerRoomCodeInput');
+    if (input) input.value = code;
+    partDividerEnterRoom(isAdmin); // 관리자면 관리자 모드로, 뷰어면 뷰어 모드로 자동 입장
+};
+
+// ⭐ 새로 추가된 함수: 목록에서 방 클릭 시 코드 입력 요구
+window.partDividerPromptRoomCode = function(actualCode) {
+    // 관리자는 매번 코드 치기 번거로우므로 프리패스 입장
+    if (isAdmin) {
+        partDividerEnterRoomCode(actualCode);
+        return;
+    }
+
+    // 시청자(일반 유저)일 경우 방 코드를 묻는 창 띄우기
+    const inputCode = prompt("이 방에 입장하려면 6자리 방 코드를 입력해주세요.");
+    
+    // 취소를 누른 경우 그냥 종료
+    if (inputCode === null) return; 
+
+    // 입력한 코드가 방의 실제 코드와 일치하는지 확인
+    if (inputCode.trim() === actualCode) {
+        partDividerEnterRoomCode(actualCode);
+    } else {
+        alert("방 코드가 일치하지 않습니다. 코드를 다시 확인해주세요.");
+    }
 };
 
 // 4. 관리자 전용: 방 목록에서 즉시 방 삭제 (폭파)
@@ -3717,11 +3753,17 @@ async function partDividerCreateNewRoom() {
         partDividerMemberChipList = [];
 
         // ⭐ 방 생성 즉시 초기 상태를 저장하여 시청자들이 에러 없이 바로 입장할 수 있게 함
+        // 개설한 관리자의 이름과 프사 정보도 함께 저장합니다.
+        const hostName = (loggedInUser && loggedInUser.name) ? loggedInUser.name : '관리자';
+        const hostImg = (loggedInUser && loggedInUser.img) ? loggedInUser.img : PARTDIVIDER_DEFAULT_AVATAR;
+
         await set(partDividerRoomRef(code), {
             songTitle: '',
             songArtist: '',
             lines: [],
             members: [],
+            hostName: hostName,
+            hostImg: hostImg,
             createdAt: Date.now()
         });
 
