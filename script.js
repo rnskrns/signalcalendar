@@ -3482,31 +3482,17 @@ function partDividerRoomsListRef() {
     return ref(partDividerDb, 'syncroom/rooms');
 }
 
-// 방장(관리자)이 창을 닫거나 새로고침할 때 새로고침 전에 최대한 방 데이터를 지워보는 보조 안전장치
-// (onDisconnect가 주 방어선이며, 이건 병행 처리용)
 function partDividerBeforeUnloadHandler() {
-    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
-        try { remove(partDividerRoomRef(partDividerJoinedRoomCode)); } catch (e) { /* 무시 - onDisconnect가 처리 */ }
-    }
+    // 기능을 비워둡니다.
 }
 window.addEventListener('beforeunload', partDividerBeforeUnloadHandler);
 
-// 관리자가 방을 생성/입장할 때 onDisconnect를 걸어, 연결이 끊기면(창 닫기/새로고침) 자동으로 방을 폭파시킴
 async function partDividerArmOnDisconnect(code) {
-    try {
-        partDividerOnDisconnectHandle = onDisconnect(partDividerRoomRef(code));
-        await partDividerOnDisconnectHandle.remove();
-    } catch (err) {
-        console.error('onDisconnect 설정 실패:', err);
-    }
+    // 기능을 비워둡니다.
 }
 
-// 관리자가 정상적으로 나가기/다른 방 생성 등으로 이탈할 때 예약해둔 onDisconnect를 취소
 async function partDividerDisarmOnDisconnect() {
-    if (partDividerOnDisconnectHandle) {
-        try { await partDividerOnDisconnectHandle.cancel(); } catch (e) { /* 무시 */ }
-        partDividerOnDisconnectHandle = null;
-    }
+    // 기능을 비워둡니다.
 }
 
 // URL의 ?room= 파라미터만 제거 (해시/다른 쿼리는 유지)
@@ -3707,6 +3693,23 @@ function partDividerCopyInviteLink() {
         });
 }
 
+function partDividerCopyRoomCode() {
+    if (!partDividerJoinedRoomCode) {
+        showToast('방 코드가 없어요.');
+        return;
+    }
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        alert('이 브라우저에서는 클립보드 복사를 지원하지 않아요.');
+        return;
+    }
+    navigator.clipboard.writeText(partDividerJoinedRoomCode)
+        .then(() => showToast('방 코드를 복사했어요: ' + partDividerJoinedRoomCode))
+        .catch(err => {
+            console.error(err);
+            alert('코드 복사에 실패했어요. 브라우저 권한을 확인해주세요.');
+        });
+}
+
 // 사용자(뷰어): 코드를 입력해 입장 - 해당 방 데이터가 실제로 존재하는지 먼저 확인 후, 있으면 실시간 리스너를 붙임
 async function partDividerEnterRoom(isAdmin) {
     const input = document.getElementById('partDividerRoomCodeInput');
@@ -3842,7 +3845,10 @@ function getPartDividerRoomHtml() {
     <div class="room-section">
         <div class="partdiv-room-header">
             <div class="partdiv-room-header-actions">
-                ${partDividerIsAdmin ? `<button type="button" class="partdiv-btn partdiv-btn-invite" onclick="partDividerCopyInviteLink()"><i class="fi fi-rr-link"></i> 초대 링크 복사</button>` : ''}
+                ${partDividerIsAdmin ? `
+                <button type="button" class="partdiv-btn partdiv-btn-ghost" onclick="partDividerCopyRoomCode()"><i class="fi fi-rr-copy"></i> 코드 복사</button>
+                <button type="button" class="partdiv-btn partdiv-btn-invite" onclick="partDividerCopyInviteLink()"><i class="fi fi-rr-link"></i> 초대 링크 복사</button>
+                ` : ''}
                 <button type="button" class="partdiv-btn partdiv-btn-ghost" onclick="partDividerExitRoom()">
                     <i class="fi fi-rr-arrow-left"></i> 나가기
                 </button>
@@ -4505,6 +4511,7 @@ window.partDividerEnterRoom = partDividerEnterRoom;
 window.partDividerCreateNewRoom = partDividerCreateNewRoom;
 window.partDividerExitRoom = partDividerExitRoom;
 window.partDividerCopyInviteLink = partDividerCopyInviteLink;
+window.partDividerCopyRoomCode = partDividerCopyRoomCode;
 window.partDividerLoadLyricsFromDb = partDividerLoadLyricsFromDb;
 window.partDividerAddMember = partDividerAddMember;
 window.partDividerRemoveMember = partDividerRemoveMember;
