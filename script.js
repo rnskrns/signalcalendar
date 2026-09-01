@@ -3908,19 +3908,16 @@ function getPartDividerAdminPanelHtml() {
         </div>
 
         <div class="partdiv-panel-block">
-            <label class="partdiv-label">노래 가사 불러오기 <span class="partdiv-label-sub">(가수명 + 노래 제목으로 검색)</span></label>
+            <label class="partdiv-label">곡 정보 <span class="partdiv-label-sub">(위 목록에서 선택 시 자동 입력되며, 새 곡은 직접 입력하세요)</span></label>
             <div class="partdiv-search-row">
-                <input type="text" id="partDividerSongArtistInput" class="partdiv-input" placeholder="가수명" value="${escapeHtml(partDividerCurrentSongArtist)}" onkeydown="if(event.key==='Enter'){ event.preventDefault(); partDividerLoadLyricsFromDb(); }">
-                <input type="text" id="partDividerSongTitleInput" class="partdiv-input" placeholder="노래 제목" value="${escapeHtml(partDividerCurrentSongTitle)}" onkeydown="if(event.key==='Enter'){ event.preventDefault(); partDividerLoadLyricsFromDb(); }">
-                <button type="button" id="partDividerLoadLyricsBtn" class="partdiv-btn partdiv-btn-primary partdiv-search-btn" onclick="partDividerLoadLyricsFromDb()">
-                    <i class="fi fi-rr-cloud-download"></i> 가사 불러오기
-                </button>
+                <input type="text" id="partDividerSongArtistInput" class="partdiv-input" placeholder="가수명" value="${escapeHtml(partDividerCurrentSongArtist)}">
+                <input type="text" id="partDividerSongTitleInput" class="partdiv-input" placeholder="노래 제목" value="${escapeHtml(partDividerCurrentSongTitle)}">
             </div>
         </div>
 
         <div class="partdiv-panel-block">
             <label class="partdiv-label">원본 가사</label>
-            <textarea id="partDividerLyricsTextarea" class="partdiv-textarea" rows="10" placeholder="가사를 직접 입력하거나 붙여넣으세요. [가사 불러오기]로 크루 DB에 저장된 가사를 불러올 수도 있어요."></textarea>
+            <textarea id="partDividerLyricsTextarea" class="partdiv-textarea" rows="10" placeholder="가사를 직접 입력하거나 붙여넣으세요. 노래를 검색해 저장된 가사를 불러올 수도 있어요."></textarea>
         </div>
 
         <div class="partdiv-lobby-btn-row">
