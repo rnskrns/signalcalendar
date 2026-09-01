@@ -3542,27 +3542,39 @@ function renderPartDividerPage() {
         <div id="partDividerRoot">${bodyHtml}</div>
     </div>`;
 
-    if (partDividerView === 'room' && partDividerIsAdmin) {
-        partDividerInitSongLibrary();
+    if (partDividerView === 'room') {
+        if (partDividerIsAdmin) {
+            partDividerInitSongLibrary();
+        } else {
+            partDividerRenderViewerMemberChips(); // 시청자 모드일 경우 초기 멤버 표시
+        }
     }
 }
 
 // -------------------- 1. 로비(입장 대기실) --------------------
 function getPartDividerLobbyHtml() {
+    const descText = isAdmin 
+        ? "방 코드를 입력해 입장하거나, 새 방을 만들어보세요." 
+        : "전달받은 방 코드를 입력해 입장해주세요.";
+
+    const createBtnHtml = isAdmin ? `
+        <button type="button" class="partdiv-btn partdiv-btn-create" onclick="partDividerCreateNewRoom()">
+            <i class="fi fi-rr-add"></i> 새로운 방 생성
+        </button>
+    ` : '';
+
     return `
     <div class="lobby-section partdiv-lobby-card">
         <div class="partdiv-lobby-icon"><i class="fi fi-rr-microphone-alt"></i></div>
         <div class="partdiv-lobby-title">싱크룸 노래 파트 분배기</div>
-        <div class="partdiv-lobby-desc">방 코드를 입력해 입장하거나, 관리자 모드로 새 방을 만들어보세요.</div>
+        <div class="partdiv-lobby-desc">${descText}</div>
         <input type="text" id="partDividerRoomCodeInput" class="partdiv-input" placeholder="방 코드 입력" value="${escapeHtml(partDividerRoomCode)}" onkeydown="if(event.key==='Enter') partDividerEnterRoom(false);">
         <div class="partdiv-lobby-btn-row">
             <button type="button" id="partDividerJoinBtn" class="partdiv-btn partdiv-btn-primary" onclick="partDividerEnterRoom(false)">
                 <i class="fi fi-rr-door-open"></i> 입장하기
             </button>
         </div>
-        <button type="button" class="partdiv-btn partdiv-btn-create" onclick="partDividerCreateNewRoom()">
-            <i class="fi fi-rr-add"></i> 새로운 방 생성
-        </button>
+        ${createBtnHtml}
     </div>`;
 }
 
@@ -3577,6 +3589,12 @@ function generatePartDividerRoomCode() {
 // 관리자: 새로운 방 생성 - 랜덤 코드를 만들어 즉시 관리자 모드로 입장
 // (중요) 시청자 난입 방지를 위해 화면에 방 코드를 노출하지 않고, 대신 초대 링크 복사 버튼을 제공한다.
 async function partDividerCreateNewRoom() {
+    // ⭐ 추가: 관리자가 아니면 방 생성 기능 차단
+    if (!isAdmin) {
+        alert('관리자만 방을 생성할 수 있습니다.');
+        return;
+    }
+
     if (partDividerCreatingRoom) return;
     partDividerCreatingRoom = true;
     try {
@@ -3600,6 +3618,15 @@ async function partDividerCreateNewRoom() {
         partDividerCurrentSongTitle = '';
         partDividerCurrentLines = null;
         partDividerMemberChipList = [];
+
+        // ⭐ 방 생성 즉시 초기 상태를 저장하여 시청자들이 에러 없이 바로 입장할 수 있게 함
+        await set(partDividerRoomRef(code), {
+            songTitle: '',
+            songArtist: '',
+            lines: [],
+            members: [],
+            createdAt: Date.now()
+        });
 
         renderPartDividerPage();
         showToast('새 방이 생성되었어요! [초대 링크 복사]로 시청자를 자동 입장시켜보세요.');
@@ -3735,6 +3762,35 @@ function partDividerApplyRoomData(data) {
     partDividerCurrentSongTitle = (data && data.songTitle) || '';
     partDividerCurrentLines = lines;
     partDividerLastResultHtml = partDividerLinesToHtml(lines) || `<div class="partdiv-result-empty">아직 분배된 파트가 없어요.</div>`;
+
+    // ⭐ 뷰어 모드일 때 실시간으로 멤버 목록 반영
+    if (!partDividerIsAdmin) {
+        partDividerMemberChipList = Array.isArray(data && data.members) ? data.members : [];
+        partDividerRenderViewerMemberChips(); // 화면 즉시 갱신
+    }
+}
+
+function partDividerRenderViewerMemberChips() {
+    const chipsBox = document.getElementById('partDividerViewerMemberChips');
+    if (!chipsBox) return;
+
+    if (!partDividerMemberChipList || partDividerMemberChipList.length === 0) {
+        chipsBox.innerHTML = `<div class="text-[13px] font-bold text-gray-400 py-4">방장이 멤버를 추가하면 여기에 표시됩니다.</div>`;
+        return;
+    }
+
+    chipsBox.innerHTML = partDividerMemberChipList.map((chip, i) => {
+        const isRegistered = !!chip.picUrl;
+        const imgSrc = chip.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
+        const chipColor = partDividerSafeColor(chip.color);
+        return `<div class="partdiv-member-chip ${isRegistered ? '' : 'partdiv-member-chip-unregistered'}" style="cursor: default;">
+            <div class="partdiv-member-chip-avatar-wrap">
+                <img src="${imgSrc}" class="partdiv-member-chip-avatar" alt="${escapeHtml(chip.name)}" onerror="this.src='${PARTDIVIDER_DEFAULT_AVATAR}'">
+                <div class="partdiv-member-chip-color" style="background-color: ${chipColor}; pointer-events: none; border-color: #ffffff;"></div>
+            </div>
+            <span class="partdiv-member-chip-name">${escapeHtml(chip.name)}</span>
+        </div>`;
+    }).join('');
 }
 
 async function partDividerExitRoom() {
@@ -3776,9 +3832,17 @@ function getPartDividerRoomHtml() {
             </div>
         </div>
         ` : `
-        <div class="partdiv-result-wrap">
-            <div class="partdiv-result-title"><i class="fi fi-rr-list-music"></i> 파트 분배 결과<span id="partDividerSongTitleLabel">${partDividerCurrentSongTitle ? ` · ${escapeHtml(partDividerCurrentSongTitle)}` : ''}</span></div>
-            <div id="partDividerResult" class="partdiv-result-box">${partDividerLastResultHtml || `<div class="partdiv-result-empty">아직 분배된 파트가 없어요. 관리자가 분배를 완료하면 여기에 표시됩니다.</div>`}</div>
+        <div class="partdiv-room-body" style="flex-direction: column; gap: 24px;">
+            <div class="partdiv-admin-panel" style="width: 100%; margin-bottom: 0;">
+                <div class="partdiv-panel-block partdiv-panel-col">
+                    <label class="partdiv-label">현재 참여 멤버 <span class="partdiv-label-sub">(위 순서대로 파트가 분배돼요)</span></label>
+                    <div id="partDividerViewerMemberChips" class="partdiv-member-chips"></div>
+                </div>
+            </div>
+            <div class="partdiv-result-wrap" style="width: 100%;">
+                <div class="partdiv-result-title"><i class="fi fi-rr-list-music"></i> 파트 분배 결과<span id="partDividerSongTitleLabel">${partDividerCurrentSongTitle ? ` · ${escapeHtml(partDividerCurrentSongTitle)}` : ''}</span></div>
+                <div id="partDividerResult" class="partdiv-result-box">${partDividerLastResultHtml || `<div class="partdiv-result-empty">아직 분배된 파트가 없어요. 관리자가 분배를 완료하면 여기에 표시됩니다.</div>`}</div>
+            </div>
         </div>
         `}
     </div>`;
@@ -3879,7 +3943,8 @@ function partDividerLoadSongLibrary() {
 
 // 방(관리자) 화면이 열릴 때 노래 목록을 불러와 리스트를 채워준다.
 function partDividerInitSongLibrary() {
-    partDividerLoadSongLibrary().then(list => partDividerRenderSongLibraryList(list));
+    // 데이터를 캐싱만 해두고, 화면에는 빈 목록을 보냄
+    partDividerLoadSongLibrary().then(() => partDividerRenderSongLibraryList([]));
 }
 
 // 노래 목록(검색 결과 포함)을 리스트 UI로 그린다.
@@ -3888,7 +3953,14 @@ function partDividerRenderSongLibraryList(list) {
     if (!box) return;
 
     if (!list || list.length === 0) {
-        box.innerHTML = `<div class="partdiv-song-library-empty">등록된 가사가 없어요.</div>`;
+        const input = document.getElementById('partDividerSongLibrarySearchInput');
+        const keyword = (input ? input.value : '').trim();
+        
+        if (!keyword) {
+            box.innerHTML = `<div class="partdiv-song-library-empty">검색어를 입력해 주세요.</div>`;
+        } else {
+            box.innerHTML = `<div class="partdiv-song-library-empty">일치하는 가사가 없어요.</div>`;
+        }
         return;
     }
 
@@ -3907,12 +3979,20 @@ function partDividerRenderSongLibraryList(list) {
 // 검색창 입력(oninput) 핸들러 - 가수명/제목에 검색어가 포함된 곡만 필터링해서 다시 그린다.
 async function partDividerFilterSongLibrary() {
     const input = document.getElementById('partDividerSongLibrarySearchInput');
-    const keyword = (input ? input.value : '').trim().toLowerCase();
+    const keyword = (input ? input.value : '').trim().toLowerCase().replace(/\s+/g, '');
+    
+    // 검색어가 없으면 무조건 빈 배열을 넘겨 목록을 비움
+    if (!keyword) {
+        partDividerRenderSongLibraryList([]);
+        return;
+    }
+
     const list = await partDividerLoadSongLibrary();
 
-    const filtered = keyword
-        ? list.filter(song => song.title.toLowerCase().includes(keyword) || song.artist.toLowerCase().includes(keyword))
-        : list;
+    const filtered = list.filter(song => 
+        (song.title || '').toLowerCase().replace(/\s+/g, '').includes(keyword) || 
+        (song.artist || '').toLowerCase().replace(/\s+/g, '').includes(keyword)
+    );
 
     partDividerRenderSongLibraryList(filtered);
 }
@@ -4316,6 +4396,7 @@ async function partDividerSyncToFirebase() {
             songTitle: songTitle,
             songArtist: songArtist,
             lines: partDividerCurrentLines,
+            members: partDividerMemberChipList, // ⭐ 멤버도 함께 유지
             updatedAt: Date.now()
         });
 
@@ -4409,6 +4490,7 @@ window.partDividerChipDragEnd = partDividerChipDragEnd;
 window.partDividerDistribute = partDividerDistribute;
 window.partDividerDistributeAndSync = partDividerDistributeAndSync;
 window.partDividerSyncToFirebase = partDividerSyncToFirebase;
+window.partDividerFilterSongLibrary = partDividerFilterSongLibrary;
 
 function executeDesktopTabChange(tab) { changeTab(tab); }
 function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }
@@ -6353,6 +6435,13 @@ function isSongLiked(id) {
 }
 
 function getFilteredSongs() {
+    const q = (document.getElementById('songSearchInput')?.value || '').trim().toLowerCase().replace(/\s+/g, '');
+    
+    // 검색어도 없고 장르/가수 등 필터도 선택하지 않은 기본 상태라면 목록을 비움
+    if (!q && !songArtistFilter && !songGenreFilter && !songLikedOnlyFilter) {
+        return [];
+    }
+
     let list = songs.slice();
     if (songArtistFilter) list = list.filter(s => s.artist === songArtistFilter);
     if (songGenreFilter) list = list.filter(s => (s.genre || '미분류') === songGenreFilter);
@@ -6360,13 +6449,14 @@ function getFilteredSongs() {
         const liked = getLikedSongIds();
         list = list.filter(s => liked.has(s.id));
     }
-    const q = (document.getElementById('songSearchInput')?.value || '').trim().toLowerCase();
+    // 검색어의 띄어쓰기를 모두 제거
     if (q) {
         list = list.filter(s => {
-            const title = (s.title || '').toLowerCase();
-            const artist = (s.artist || '').toLowerCase();
+            // 원본 제목과 가수의 띄어쓰기도 모두 제거한 후 비교
+            const title = (s.title || '').toLowerCase().replace(/\s+/g, '');
+            const artist = (s.artist || '').toLowerCase().replace(/\s+/g, '');
             if (title.includes(q) || artist.includes(q)) return true;
-            const alias = (s.alias || '').toLowerCase();
+            const alias = (s.alias || '').toLowerCase().replace(/\s+/g, '');
             return alias.includes(q);
         });
     }
@@ -6444,7 +6534,12 @@ function renderSongList() {
     }
 
     if (list.length === 0) {
-        html += `<div class="col-span-full text-center text-gray-400 font-bold py-16">등록된 노래가 없습니다.</div>`;
+        const q = (document.getElementById('songSearchInput')?.value || '').trim();
+        if (!q && !songArtistFilter && !songGenreFilter && !songLikedOnlyFilter) {
+            html += `<div class="col-span-full text-center text-gray-400 font-bold py-16">검색어를 입력해 주세요.</div>`;
+        } else {
+            html += `<div class="col-span-full text-center text-gray-400 font-bold py-16">일치하는 노래가 없습니다.</div>`;
+        }
     } else {
         const liked = getLikedSongIds();
         list.forEach(song => {
@@ -6585,7 +6680,19 @@ function renderArtistSidePanel() {
     `;
 }
 
-window.filterSongList = function() { renderSongList(); };
+window.filterSongList = function() { 
+    const q = (document.getElementById('songSearchInput')?.value || '').trim();
+    
+    // 검색어 입력 시, 기존에 선택된 가수/장르/좋아요 필터를 초기화하여 무조건 검색되도록 처리
+    if (q && (songArtistFilter || songGenreFilter || songLikedOnlyFilter)) {
+        songArtistFilter = null;
+        songGenreFilter = null;
+        songLikedOnlyFilter = false;
+        renderGenreFilters();
+        renderArtistSidePanel();
+    }
+    renderSongList(); 
+};
 
 window.selectArtistFilterIdx = function(idx) {
     const artist = songArtistsCache[idx];
@@ -11432,6 +11539,13 @@ function renderUpdateManagePanel() {
 document.addEventListener('DOMContentLoaded', () => {
     loadUpdateLogsFromFirebase();
 });
+
+function partDividerSyncMembersToFirebase() {
+    if (partDividerIsAdmin && partDividerJoinedRoomCode) {
+        set(ref(partDividerDb, `syncroom/rooms/${partDividerJoinedRoomCode}/members`), partDividerMemberChipList)
+            .catch(err => console.error('멤버 동기화 실패:', err));
+    }
+}
 
 // 🚨 주의: 아래 코드가 반드시 위의 클립 코드들보다 "더 밑에(맨 끝에)" 있어야 합니다! 🚨
 initApp().finally(hidePageLoadingScreen);
