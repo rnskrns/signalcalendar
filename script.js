@@ -6298,6 +6298,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         hydrateScheduleCache(cached);
         renderHeaderTabs();
         render();
+        resetAutoRetry();
         return true;
     }
 
@@ -6307,6 +6308,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         hydrateScheduleCache(cached);
         renderHeaderTabs();
         render();
+        resetAutoRetry();
         return true;
     }
 
@@ -6316,6 +6318,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         hydrateScheduleCache(cached);
         renderHeaderTabs();
         render();
+        resetAutoRetry();
         return true;
     }
 
@@ -6429,9 +6432,11 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         saveScheduleCache();
         renderHeaderTabs(); 
         render();
+        resetAutoRetry();
         return true;
     } catch (e) {
         console.error("데이터 불러오기 실패:", e);
+        scheduleAutoRetry(() => loadSchedulesFromFirebase({ forceReload: true, member, members, useCacheOnly }));
         return false;
     }
 }
@@ -6674,41 +6679,52 @@ function render() {
     if (dBtnContainer) dBtnContainer.innerHTML = '';
     
     const content = document.getElementById('mainContent'); if(!content) return; content.innerHTML = '';
-    
-    const grouped = {};
-    scheduleList.forEach(sch => {
-        if(!sch.startDate || !sch.endDate) return;
-        let start = new Date(sch.startDate); let end = new Date(sch.endDate); start.setHours(0,0,0,0); end.setHours(0,0,0,0);
-        for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}-${sch.tabOrMember}`;
-            if(!grouped[key]) grouped[key] = []; grouped[key].push(sch);
-        }
-    });
 
-    if (currentPage === '롤링페이퍼') {
-        renderRollingPaper();
-    } else if (currentPage === '클립') {
-        window.renderClipPage();
-    } else if (currentPage === '업보정리') {
-        renderUpboPage();
-    } else if (currentPage === '업보선택') {
-        renderUpboSelectPage();
-    } else if (currentPage === '노래책') {
-        renderSongbook();
-    } else if (currentPage === '시그널') {
-        renderSignalPage();
-    } else if (currentPage === '사다리타기') {
-        renderLadderPage();
-    } else if (currentPage === '파트분배기') {
-        renderPartDividerPage();
-    } else {
-        if (isMobile) {
-            if (currentPage === '홈') renderMobileHome(grouped);
-            else renderMobileIndividual(grouped);
+    try {
+        const grouped = {};
+        scheduleList.forEach(sch => {
+            if(!sch.startDate || !sch.endDate) return;
+            let start = new Date(sch.startDate); let end = new Date(sch.endDate); start.setHours(0,0,0,0); end.setHours(0,0,0,0);
+            for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}-${sch.tabOrMember}`;
+                if(!grouped[key]) grouped[key] = []; grouped[key].push(sch);
+            }
+        });
+
+        if (currentPage === '롤링페이퍼') {
+            renderRollingPaper();
+        } else if (currentPage === '클립') {
+            window.renderClipPage();
+        } else if (currentPage === '업보정리') {
+            renderUpboPage();
+        } else if (currentPage === '업보선택') {
+            renderUpboSelectPage();
+        } else if (currentPage === '노래책') {
+            renderSongbook();
+        } else if (currentPage === '시그널') {
+            renderSignalPage();
+        } else if (currentPage === '사다리타기') {
+            renderLadderPage();
+        } else if (currentPage === '파트분배기') {
+            renderPartDividerPage();
         } else {
-            if (currentPage === '홈') renderDesktopHome(grouped);
-            else renderDesktopIndividual(grouped);
+            if (isMobile) {
+                if (currentPage === '홈') renderMobileHome(grouped);
+                else renderMobileIndividual(grouped);
+            } else {
+                if (currentPage === '홈') renderDesktopHome(grouped);
+                else renderDesktopIndividual(grouped);
+            }
         }
+        resetAutoRetry();
+    } catch (renderErr) {
+        console.error('화면 렌더링 실패:', renderErr);
+        content.innerHTML = `<div class="w-full flex flex-col items-center justify-center py-24 gap-2 text-[#5D4037]">
+            <div class="text-[16px] font-bold">화면을 불러오지 못했습니다.</div>
+            <div class="text-[13px] text-gray-400">잠시 후 자동으로 다시 시도합니다...</div>
+        </div>`;
+        scheduleAutoRetry(() => render());
+        return;
     }
 
     // 홈탭일 때만 라이브 방송 상태를 주기적으로 확인 (다른 탭에서는 불필요한 요청 중지)
@@ -7301,6 +7317,63 @@ window.saveSong = async function() {
     } catch (e) {
         console.error('노래 저장/수정 실패:', e);
         alert('저장에 실패했습니다.');
+    }
+};
+
+// =========================================================================
+// 데이터 로딩/렌더링 실패 시 안내 배너 + 자동 재시도
+// =========================================================================
+const autoRetryState = { count: 0, timer: null, maxRetries: 5, lastRetryFn: null };
+
+function showLoadErrorBanner(message, showManualRetry = false) {
+    let banner = document.getElementById('loadErrorBanner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'loadErrorBanner';
+        banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-[#5D4037] text-white text-[13px] font-bold px-5 py-3 rounded-full shadow-lg flex items-center gap-3 max-w-[90vw]';
+        banner.innerHTML = `<span id="loadErrorBannerText" class="whitespace-nowrap overflow-hidden text-ellipsis"></span><button id="loadErrorBannerRetryBtn" onclick="manualRetryLoad()" class="hidden shrink-0 bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition">지금 다시 시도</button>`;
+        document.body.appendChild(banner);
+    }
+    document.getElementById('loadErrorBannerText').textContent = message;
+    document.getElementById('loadErrorBannerRetryBtn').classList.toggle('hidden', !showManualRetry);
+    banner.classList.remove('hidden');
+}
+
+function hideLoadErrorBanner() {
+    const banner = document.getElementById('loadErrorBanner');
+    if (banner) banner.classList.add('hidden');
+}
+
+function resetAutoRetry() {
+    autoRetryState.count = 0;
+    if (autoRetryState.timer) { clearTimeout(autoRetryState.timer); autoRetryState.timer = null; }
+    autoRetryState.lastRetryFn = null;
+    hideLoadErrorBanner();
+}
+
+// 실패 시 호출: 배너를 띄우고, 잠시 후 retryFn을 자동으로 재실행한다 (최대 maxRetries회, 대기시간 점점 증가)
+function scheduleAutoRetry(retryFn) {
+    if (autoRetryState.timer) clearTimeout(autoRetryState.timer);
+    autoRetryState.lastRetryFn = retryFn;
+    autoRetryState.count++;
+
+    if (autoRetryState.count > autoRetryState.maxRetries) {
+        showLoadErrorBanner('일정을 불러오지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.', true);
+        return;
+    }
+
+    const delaySec = Math.min(3 * autoRetryState.count, 15);
+    showLoadErrorBanner(`일정을 불러오지 못했습니다. ${delaySec}초 후 자동으로 다시 시도합니다... (${autoRetryState.count}/${autoRetryState.maxRetries})`);
+    autoRetryState.timer = setTimeout(() => {
+        retryFn();
+    }, delaySec * 1000);
+}
+
+window.manualRetryLoad = function() {
+    autoRetryState.count = 0;
+    if (autoRetryState.lastRetryFn) {
+        showLoadErrorBanner('다시 시도하는 중...');
+        autoRetryState.lastRetryFn();
     }
 };
 
