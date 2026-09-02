@@ -4226,21 +4226,6 @@ function partDividerOpenBugsSearch() {
     openLyricsPopup(keyword);
 }
 
-// 곡정보(가수명/제목) 검색에서 "등록되지 않는 노래" 안내가 떴을 때 - 팝업창 열기
-function partDividerOpenBugsSearchFromInfo() {
-    const artistInput = document.getElementById('partDividerSongArtistInput');
-    const titleInput = document.getElementById('partDividerSongTitleInput');
-    const artist = (artistInput ? artistInput.value : '').trim();
-    const title = (titleInput ? titleInput.value : '').trim();
-    const keyword = `${artist} ${title}`.trim();
-    
-    if (!keyword) {
-        alert('가수명이나 노래 제목을 입력해주세요.');
-        return;
-    }
-    openLyricsPopup(keyword);
-}
-
 // 공통 가사 검색 팝업창 띄우기 함수
 function openLyricsPopup(keyword) {
     // 네이버 가사 검색으로 연결 (일본어, 영문 곡도 비교적 잘 나옵니다)
