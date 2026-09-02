@@ -6862,7 +6862,10 @@ function getFilteredSongs() {
     const q = (document.getElementById('songSearchInput')?.value || '').trim().toLowerCase().replace(/\s+/g, '');
     
     // 검색어도 없고 장르/가수 등 필터도 선택하지 않은 기본 상태라면 목록을 비움
-    
+    if (!q && !songArtistFilter && !songGenreFilter && !songLikedOnlyFilter) {
+        return [];
+    }
+
     let list = songs.slice();
     if (songArtistFilter) list = list.filter(s => s.artist === songArtistFilter);
     if (songGenreFilter) list = list.filter(s => (s.genre || '미분류') === songGenreFilter);
