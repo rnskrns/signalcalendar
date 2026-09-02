@@ -4085,6 +4085,9 @@ function getPartDividerAdminPanelHtml() {
             <div class="partdiv-search-row">
                 <input type="text" id="partDividerSongArtistInput" class="partdiv-input" placeholder="가수명" value="${escapeHtml(partDividerCurrentSongArtist)}">
                 <input type="text" id="partDividerSongTitleInput" class="partdiv-input" placeholder="노래 제목" value="${escapeHtml(partDividerCurrentSongTitle)}">
+                <button type="button" id="partDividerLoadLyricsBtn" class="partdiv-btn partdiv-btn-primary partdiv-song-info-search-btn" onclick="partDividerLoadLyricsFromDb()" title="입력한 가수명/제목으로 저장된 가사 검색">
+                    <i class="fi fi-rr-search"></i>
+                </button>
             </div>
         </div>
 
@@ -4249,15 +4252,18 @@ async function partDividerLoadLyricsFromDb() {
 
     const btn = document.getElementById('partDividerLoadLyricsBtn');
     partDividerSearching = true;
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fi fi-rr-spinner"></i> 불러오는 중...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fi fi-rr-spinner"></i>'; }
 
     try {
         const key = partDividerLyricsKey(artist, title);
         const snapshot = await get(ref(partDividerDb, `syncroom/lyrics/${key}`));
 
         if (!snapshot.exists()) {
-            alert('저장된 가사가 없습니다. 직접 입력해주세요.');
             if (lyricsArea) lyricsArea.value = '';
+            const goSearch = confirm('등록되지 않는 노래입니다.\n벅스에서 검색해 볼까요?');
+            if (goSearch) {
+                window.open(`https://music.bugs.co.kr/search/integrated?q=${encodeURIComponent(`${artist} ${title}`)}`, '_blank');
+            }
             return;
         }
 
@@ -4269,7 +4275,7 @@ async function partDividerLoadLyricsFromDb() {
         showToast('가사를 불러오는 중 오류가 발생했어요.');
     } finally {
         partDividerSearching = false;
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fi fi-rr-cloud-download"></i> 가사 불러오기'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fi fi-rr-search"></i>'; }
     }
 }
 
