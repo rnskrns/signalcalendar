@@ -4081,10 +4081,14 @@ function getPartDividerAdminPanelHtml() {
         </div>
 
         <div class="partdiv-panel-block">
-            <label class="partdiv-label">곡 정보 <span class="partdiv-label-sub">(위 목록에서 선택 시 자동 입력되며, 새 곡은 직접 입력하세요)</span></label>
+            <label class="partdiv-label">곡 정보 <span class="partdiv-label-sub">(가수와 제목 입력 후 Genius에서 가사를 자동으로 불러올 수 있어요)</span></label>
             <div class="partdiv-search-row">
                 <input type="text" id="partDividerSongArtistInput" class="partdiv-input" placeholder="가수명" value="${escapeHtml(partDividerCurrentSongArtist)}">
                 <input type="text" id="partDividerSongTitleInput" class="partdiv-input" placeholder="노래 제목" value="${escapeHtml(partDividerCurrentSongTitle)}">
+                <!-- Genius 검색 버튼 추가 -->
+                <button type="button" id="partDividerGeniusBtn" class="partdiv-btn partdiv-btn-primary partdiv-search-btn" onclick="fetchLyricsFromGenius()">
+                    <i class="fi fi-rr-search"></i> Genius 검색
+                </button>
             </div>
         </div>
 
@@ -4257,8 +4261,91 @@ async function partDividerLoadLyricsFromDb() {
     }
 }
 
-// 크루 멤버 프로필(이름 -> 프로필 사진 URL) 데이터를 최초 1회만 불러와 캐싱
-// (주의) 예전 코드는 존재하지 않는 Realtime Database 경로('crew/members')를 조회하고 있어 프사를 못 가져오는 버그가 있었다.
+// =========================================================================
+// Genius API 가사 불러오기 (토큰 발급 필요)
+// =========================================================================
+const GENIUS_ACCESS_TOKEN = '여기에_Genius_클라이언트_액세스_토큰을_입력하세요';
+
+async function fetchLyricsFromGenius() {
+    const artistInput = document.getElementById('partDividerSongArtistInput');
+    const titleInput = document.getElementById('partDividerSongTitleInput');
+    const lyricsArea = document.getElementById('partDividerLyricsTextarea');
+    const btn = document.getElementById('partDividerGeniusBtn');
+
+    const artist = (artistInput ? artistInput.value : '').trim();
+    const title = (titleInput ? titleInput.value : '').trim();
+
+    if (!title) {
+        showToast('노래 제목을 입력해주세요.');
+        return;
+    }
+
+    const query = artist ? `${artist} ${title}` : title;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fi fi-rr-spinner"></i> 검색 중...';
+    }
+
+    try {
+        const searchApiUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}`;
+        const proxiedSearchUrl = `https://corsproxy.io/?url=${encodeURIComponent(searchApiUrl)}`;
+
+        const searchRes = await fetch(proxiedSearchUrl, {
+            headers: {
+                'Authorization': `Bearer ${GENIUS_ACCESS_TOKEN}`
+            }
+        });
+
+        if (!searchRes.ok) throw new Error('Genius API 검색 실패');
+        const searchData = await searchRes.json();
+        const hits = searchData?.response?.hits || [];
+
+        if (hits.length === 0) {
+            alert('Genius에서 일치하는 노래를 찾지 못했습니다.');
+            return;
+        }
+
+        const songUrl = hits[0]?.result?.url;
+        if (!songUrl) throw new Error('가사 페이지 주소를 찾을 수 없습니다.');
+
+        const proxiedPageUrl = `https://corsproxy.io/?url=${encodeURIComponent(songUrl)}`;
+        const pageRes = await fetch(proxiedPageUrl);
+        if (!pageRes.ok) throw new Error('가사 페이지 로드 실패');
+
+        const htmlText = await pageRes.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, 'text/html');
+
+        const lyricsContainers = doc.querySelectorAll('div[class*="Lyrics__Container"], .lyrics');
+        if (!lyricsContainers || lyricsContainers.length === 0) {
+            alert('가사 텍스트를 추출할 수 없는 페이지 형태입니다. 직접 붙여넣어 주세요.');
+            return;
+        }
+
+        let parsedLyrics = '';
+        lyricsContainers.forEach(container => {
+            container.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+            parsedLyrics += container.textContent.trim() + '\n\n';
+        });
+
+        parsedLyrics = parsedLyrics.replace(/\n{3,}/g, '\n\n').trim();
+        if (lyricsArea) lyricsArea.value = parsedLyrics;
+
+        if (artistInput && !artistInput.value) artistInput.value = hits[0].result.primary_artist?.name || '';
+        if (titleInput && !titleInput.value) titleInput.value = hits[0].result.title || '';
+
+        showToast('Genius에서 가사를 성공적으로 불러왔어요!');
+    } catch (err) {
+        console.error('Genius 가사 불러오기 실패:', err);
+        showToast('가사를 가져오는 중 오류가 발생했습니다.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fi fi-rr-search"></i> Genius 검색';
+        }
+    }
+}
+
 // 실제 크루 멤버 프로필은 ① 기본 크루(하드코딩된 members 배열) + ② 멤버관리 화면에서 등록한 멤버(Firestore memberDb - 'members' 컬렉션) 두 곳에 있으므로 둘 다 합쳐서 조회한다.
 function partDividerLoadMemberProfiles() {
     if (partDividerMemberProfiles) return Promise.resolve(partDividerMemberProfiles);
@@ -4845,6 +4932,7 @@ window.partDividerDistribute = partDividerDistribute;
 window.partDividerDistributeAndSync = partDividerDistributeAndSync;
 window.partDividerSyncToFirebase = partDividerSyncToFirebase;
 window.partDividerFilterSongLibrary = partDividerFilterSongLibrary;
+window.fetchLyricsFromGenius = fetchLyricsFromGenius; // ⭐ 이 줄 추가
 
 function executeDesktopTabChange(tab) { changeTab(tab); }
 function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }
