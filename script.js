@@ -4085,7 +4085,7 @@ function getPartDividerAdminPanelHtml() {
             <div class="partdiv-search-row">
                 <input type="text" id="partDividerSongArtistInput" class="partdiv-input" placeholder="가수명" value="${escapeHtml(partDividerCurrentSongArtist)}">
                 <input type="text" id="partDividerSongTitleInput" class="partdiv-input" placeholder="노래 제목" value="${escapeHtml(partDividerCurrentSongTitle)}">
-                <!-- Genius 검색 버튼 추가 -->
+                <!-- 검색 버튼 추가 -->
                 <button type="button" id="partDividerGeniusBtn" class="partdiv-btn partdiv-btn-primary partdiv-search-btn" onclick="fetchLyricsFromGenius()">
                     <i class="fi fi-rr-search"></i> 검색
                 </button>
@@ -4264,7 +4264,6 @@ async function partDividerLoadLyricsFromDb() {
 // =========================================================================
 // Genius API 가사 불러오기 (Client Access Token 사용)
 // =========================================================================
-// 찾으신 토큰 적용 완료
 const GENIUS_ACCESS_TOKEN = 'ER1f1SlM7YV1CUskG3QHP49y-s9qtyGgtmdtgWZ-_mD3hNewPKxokfjz4NTcEORC';
 
 async function fetchLyricsFromGenius() {
@@ -4288,7 +4287,7 @@ async function fetchLyricsFromGenius() {
     }
 
     try {
-        // 1. 발급받은 토큰을 사용해 Genius 검색 API 호출 (allorigins 프록시로 CORS 우회)
+        // 1. 발급받은 토큰을 사용해 Genius 검색 API 호출 (안전한 allorigins 프록시 사용)
         const searchApiUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}&access_token=${GENIUS_ACCESS_TOKEN}`;
         const proxiedSearchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchApiUrl)}`;
 
@@ -4306,7 +4305,7 @@ async function fetchLyricsFromGenius() {
         const songUrl = hits[0]?.result?.url;
         if (!songUrl) throw new Error('가사 페이지 주소를 찾을 수 없습니다.');
 
-        // 2. 가사 페이지 로드 및 스크래핑
+        // 2. 가사 페이지 로드 및 스크래핑 (안전한 allorigins 프록시 사용)
         const proxiedPageUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(songUrl)}`;
         const pageRes = await fetch(proxiedPageUrl);
         if (!pageRes.ok) throw new Error('가사 페이지를 불러올 수 없습니다.');
@@ -4344,7 +4343,7 @@ async function fetchLyricsFromGenius() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fi fi-rr-search"></i> Genius 검색';
+            btn.innerHTML = '<i class="fi fi-rr-search"></i> 검색';
         }
     }
 }
