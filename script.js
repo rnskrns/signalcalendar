@@ -4262,7 +4262,7 @@ async function partDividerLoadLyricsFromDb() {
 }
 
 // =========================================================================
-// Genius API 가사 불러오기 (Client Access Token 사용)
+// Genius API 가사 불러오기 (CORS 에러 완벽 해결 및 2중 프록시 버전)
 // =========================================================================
 const GENIUS_ACCESS_TOKEN = 'ER1f1SlM7YV1CUskG3QHP49y-s9qtyGgtmdtgWZ-_mD3hNewPKxokfjz4NTcEORC';
 
@@ -4287,12 +4287,15 @@ async function fetchLyricsFromGenius() {
     }
 
     try {
-        // 1. 발급받은 토큰을 사용해 Genius 검색 API 호출 (안전한 allorigins 프록시 사용)
-        const searchApiUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}&access_token=${GENIUS_ACCESS_TOKEN}`;
-        const proxiedSearchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchApiUrl)}`;
+        // 1. Genius 검색 API 직접 호출 (프록시 불필요 - 속도 향상 및 에러 방지)
+        const searchApiUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}`;
+        const searchRes = await fetch(searchApiUrl, {
+            headers: {
+                'Authorization': `Bearer ${GENIUS_ACCESS_TOKEN}`
+            }
+        });
 
-        const searchRes = await fetch(proxiedSearchUrl);
-        if (!searchRes.ok) throw new Error('Genius API 검색 요청이 거부되었습니다.');
+        if (!searchRes.ok) throw new Error('Genius API 검색에 실패했습니다.');
         
         const searchData = await searchRes.json();
         const hits = searchData?.response?.hits || [];
@@ -4305,12 +4308,26 @@ async function fetchLyricsFromGenius() {
         const songUrl = hits[0]?.result?.url;
         if (!songUrl) throw new Error('가사 페이지 주소를 찾을 수 없습니다.');
 
-        // 2. 가사 페이지 로드 및 스크래핑 (안전한 allorigins 프록시 사용)
-        const proxiedPageUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(songUrl)}`;
-        const pageRes = await fetch(proxiedPageUrl);
-        if (!pageRes.ok) throw new Error('가사 페이지를 불러올 수 없습니다.');
+        // 2. 가사 페이지 스크래핑 (CORS 에러를 막기 위해 JSON 래핑 방식 사용 + 예비 서버 추가)
+        let htmlText = '';
+        try {
+            // 메인 프록시 시도 (allorigins.win/get)
+            const proxiedPageUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(songUrl)}`;
+            const pageRes = await fetch(proxiedPageUrl);
+            const pageData = await pageRes.json();
+            htmlText = pageData.contents;
+            if (!htmlText) throw new Error('내용 없음');
+        } catch (proxyErr) {
+            // 메인 프록시가 막혔을 경우 예비 프록시(codetabs)로 2차 시도
+            console.log('메인 프록시 지연, 예비 서버로 재시도합니다...');
+            const fallbackUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(songUrl)}`;
+            const fallbackRes = await fetch(fallbackUrl);
+            if (!fallbackRes.ok) throw new Error('모든 프록시 서버 통신에 실패했습니다.');
+            htmlText = await fallbackRes.text();
+        }
 
-        const htmlText = await pageRes.text();
+        if (!htmlText) throw new Error('가사 페이지 내용을 불러오지 못했습니다.');
+
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
 
