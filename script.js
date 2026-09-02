@@ -4254,6 +4254,20 @@ function openLyricsPopup(keyword) {
     window.open(url, 'LyricsPopup', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
 }
 
+// 공통 가사 검색 팝업창 띄우기 함수
+function openLyricsPopup(keyword) {
+    // 네이버 가사 검색으로 연결 (일본어, 영문 곡도 비교적 잘 나옵니다)
+    const url = `https://search.naver.com/search.naver?query=${encodeURIComponent(keyword + ' 가사')}`;
+    
+    const width = 500;
+    const height = 750;
+    const left = (window.screen.width / 2) - (width / 2);
+    const top = (window.screen.height / 2) - (height / 2);
+
+    // width, height 옵션을 주면 새 탭이 아닌 작은 팝업창으로 열립니다
+    window.open(url, 'LyricsPopup', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+}
+
 // 크루 자체 가사 DB(syncroom/lyrics/{가수명}_{노래제목})에서 가사를 조회해 원본 가사 textarea에 채워줌
 async function partDividerLoadLyricsFromDb() {
     if (partDividerSearching) return;
