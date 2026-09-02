@@ -4214,30 +4214,44 @@ async function partDividerFilterSongLibrary() {
     partDividerRenderSongLibraryList(filtered);
 }
 
-// 크루 가사 DB에 등록되지 않은 곡일 때 - 검색창에 입력한 키워드로 벅스 통합검색 결과를 새 탭으로 연다.
+// 크루 가사 DB에 등록되지 않은 곡일 때 - 검색창에 입력한 키워드로 팝업창 열기
 function partDividerOpenBugsSearch() {
     const input = document.getElementById('partDividerSongLibrarySearchInput');
     const keyword = (input ? input.value : '').trim();
-    if (!keyword) return;
-
-    const query = encodeURIComponent(keyword);
-    window.open(`https://music.bugs.co.kr/search/integrated?q=${query}`, '_blank');
+    if (!keyword) {
+        alert('검색어를 먼저 입력해주세요.');
+        return;
+    }
+    openLyricsPopup(keyword);
 }
 
-// 목록에서 곡 하나를 클릭했을 때 - 가수명/제목 입력칸과 원본 가사 textarea에 바로 채워준다.
-function partDividerSelectSongFromLibrary(key) {
-    const song = (partDividerSongLibrary || []).find(s => s.key === key);
-    if (!song) return;
-
+// 곡정보(가수명/제목) 검색에서 "등록되지 않는 노래" 안내가 떴을 때 - 팝업창 열기
+function partDividerOpenBugsSearchFromInfo() {
     const artistInput = document.getElementById('partDividerSongArtistInput');
     const titleInput = document.getElementById('partDividerSongTitleInput');
-    const lyricsArea = document.getElementById('partDividerLyricsTextarea');
+    const artist = (artistInput ? artistInput.value : '').trim();
+    const title = (titleInput ? titleInput.value : '').trim();
+    const keyword = `${artist} ${title}`.trim();
+    
+    if (!keyword) {
+        alert('가수명이나 노래 제목을 입력해주세요.');
+        return;
+    }
+    openLyricsPopup(keyword);
+}
 
-    if (artistInput) artistInput.value = song.artist;
-    if (titleInput) titleInput.value = song.title;
-    if (lyricsArea) lyricsArea.value = song.lyrics;
+// 공통 가사 검색 팝업창 띄우기 함수
+function openLyricsPopup(keyword) {
+    // 네이버 가사 검색으로 연결 (일본어, 영문 곡도 비교적 잘 나옵니다)
+    const url = `https://search.naver.com/search.naver?query=${encodeURIComponent(keyword + ' 가사')}`;
+    
+    const width = 500;
+    const height = 750;
+    const left = (window.screen.width / 2) - (width / 2);
+    const top = (window.screen.height / 2) - (height / 2);
 
-    showToast(`"${song.artist} - ${song.title}" 가사를 불러왔어요.`);
+    // width, height 옵션을 주면 새 탭이 아닌 작은 팝업창으로 열립니다
+    window.open(url, 'LyricsPopup', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
 }
 
 // 크루 자체 가사 DB(syncroom/lyrics/{가수명}_{노래제목})에서 가사를 조회해 원본 가사 textarea에 채워줌
