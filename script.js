@@ -4262,7 +4262,7 @@ async function partDividerLoadLyricsFromDb() {
 }
 
 // =========================================================================
-// Genius API 가사 불러오기 (CORS 에러 완벽 해결 및 2중 프록시 버전)
+// Genius API 가사 불러오기 (CORS 에러 완벽 차단 - 듀얼 프록시 방식)
 // =========================================================================
 const GENIUS_ACCESS_TOKEN = 'ER1f1SlM7YV1CUskG3QHP49y-s9qtyGgtmdtgWZ-_mD3hNewPKxokfjz4NTcEORC';
 
@@ -4286,18 +4286,38 @@ async function fetchLyricsFromGenius() {
         btn.innerHTML = '<i class="fi fi-rr-spinner"></i> 검색 중...';
     }
 
-    try {
-        // 1. Genius 검색 API 직접 호출 (프록시 불필요 - 속도 향상 및 에러 방지)
-        const searchApiUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}`;
-        const searchRes = await fetch(searchApiUrl, {
-            headers: {
-                'Authorization': `Bearer ${GENIUS_ACCESS_TOKEN}`
-            }
-        });
+    // [헬퍼 함수 1] JSON 데이터 전용 프록시 우회
+    async function fetchJsonWithProxy(url) {
+        try {
+            const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`);
+            if (res.ok) return await res.json();
+        } catch (e) {
+            console.log('1차 프록시 지연, 2차 프록시로 JSON 검색 시도...');
+        }
+        const res2 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        const data2 = await res2.json();
+        if (!data2.contents) throw new Error('프록시 응답 없음');
+        return JSON.parse(data2.contents);
+    }
 
-        if (!searchRes.ok) throw new Error('Genius API 검색에 실패했습니다.');
-        
-        const searchData = await searchRes.json();
+    // [헬퍼 함수 2] HTML 텍스트 전용 프록시 우회
+    async function fetchTextWithProxy(url) {
+        try {
+            const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`);
+            if (res.ok) return await res.text();
+        } catch (e) {
+            console.log('1차 프록시 지연, 2차 프록시로 웹페이지 로드 시도...');
+        }
+        const res2 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        const data2 = await res2.json();
+        if (!data2.contents) throw new Error('프록시 응답 없음');
+        return data2.contents;
+    }
+
+    try {
+        // 1. Genius 검색 API 호출 (토큰을 URL에 포함시키고 프록시로 우회)
+        const searchApiUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}&access_token=${GENIUS_ACCESS_TOKEN}`;
+        const searchData = await fetchJsonWithProxy(searchApiUrl);
         const hits = searchData?.response?.hits || [];
 
         if (hits.length === 0) {
@@ -4308,25 +4328,8 @@ async function fetchLyricsFromGenius() {
         const songUrl = hits[0]?.result?.url;
         if (!songUrl) throw new Error('가사 페이지 주소를 찾을 수 없습니다.');
 
-        // 2. 가사 페이지 스크래핑 (CORS 에러를 막기 위해 JSON 래핑 방식 사용 + 예비 서버 추가)
-        let htmlText = '';
-        try {
-            // 메인 프록시 시도 (allorigins.win/get)
-            const proxiedPageUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(songUrl)}`;
-            const pageRes = await fetch(proxiedPageUrl);
-            const pageData = await pageRes.json();
-            htmlText = pageData.contents;
-            if (!htmlText) throw new Error('내용 없음');
-        } catch (proxyErr) {
-            // 메인 프록시가 막혔을 경우 예비 프록시(codetabs)로 2차 시도
-            console.log('메인 프록시 지연, 예비 서버로 재시도합니다...');
-            const fallbackUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(songUrl)}`;
-            const fallbackRes = await fetch(fallbackUrl);
-            if (!fallbackRes.ok) throw new Error('모든 프록시 서버 통신에 실패했습니다.');
-            htmlText = await fallbackRes.text();
-        }
-
-        if (!htmlText) throw new Error('가사 페이지 내용을 불러오지 못했습니다.');
+        // 2. 가사 페이지 HTML 스크래핑 (프록시로 우회)
+        const htmlText = await fetchTextWithProxy(songUrl);
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
@@ -4334,7 +4337,7 @@ async function fetchLyricsFromGenius() {
         // 가사 텍스트가 담긴 요소 추출
         const lyricsContainers = doc.querySelectorAll('div[class*="Lyrics__Container"], .lyrics');
         if (!lyricsContainers || lyricsContainers.length === 0) {
-            alert('가사 텍스트를 추출할 수 없는 구조입니다. 직접 입력해주세요.');
+            alert('가사 텍스트를 추출할 수 없는 페이지 형태입니다. 직접 입력해주세요.');
             return;
         }
 
@@ -4356,7 +4359,7 @@ async function fetchLyricsFromGenius() {
         showToast('Genius에서 가사를 성공적으로 불러왔어요!');
     } catch (err) {
         console.error('Genius 가사 불러오기 실패 상세 로그:', err);
-        alert(`오류 발생: ${err.message}`);
+        alert('가사를 불러오는 중 네트워크 오류가 발생했습니다. (자세한 내용은 F12 개발자 도구 확인)');
     } finally {
         if (btn) {
             btn.disabled = false;
