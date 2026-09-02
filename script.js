@@ -4089,6 +4089,12 @@ function getPartDividerAdminPanelHtml() {
                     <i class="fi fi-rr-search"></i>
                 </button>
             </div>
+            <div id="partDividerSongInfoNotFound" class="partdiv-song-library-empty" style="display:none;">
+                <div>등록되지 않는 노래입니다.</div>
+                <button type="button" class="partdiv-song-library-bugs-btn" onclick="partDividerOpenBugsSearchFromInfo()">
+                    <i class="fi fi-rr-search"></i> 검색창으로 가기
+                </button>
+            </div>
         </div>
 
         <div class="partdiv-panel-block">
@@ -4241,9 +4247,12 @@ async function partDividerLoadLyricsFromDb() {
     const artistInput = document.getElementById('partDividerSongArtistInput');
     const titleInput = document.getElementById('partDividerSongTitleInput');
     const lyricsArea = document.getElementById('partDividerLyricsTextarea');
+    const notFoundBox = document.getElementById('partDividerSongInfoNotFound');
 
     const artist = (artistInput ? artistInput.value : '').trim();
     const title = (titleInput ? titleInput.value : '').trim();
+
+    if (notFoundBox) notFoundBox.style.display = 'none';
 
     if (!artist || !title) {
         showToast('가수명과 노래 제목을 모두 입력해주세요.');
@@ -4260,10 +4269,7 @@ async function partDividerLoadLyricsFromDb() {
 
         if (!snapshot.exists()) {
             if (lyricsArea) lyricsArea.value = '';
-            const goSearch = confirm('등록되지 않는 노래입니다.\n벅스에서 검색해 볼까요?');
-            if (goSearch) {
-                window.open(`https://music.bugs.co.kr/search/integrated?q=${encodeURIComponent(`${artist} ${title}`)}`, '_blank');
-            }
+            if (notFoundBox) notFoundBox.style.display = 'flex';
             return;
         }
 
@@ -4277,6 +4283,18 @@ async function partDividerLoadLyricsFromDb() {
         partDividerSearching = false;
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fi fi-rr-search"></i>'; }
     }
+}
+
+// 곡정보(가수명/제목) 검색에서 "등록되지 않는 노래" 안내가 떴을 때 - 입력된 가수명+제목으로 벅스 통합검색 결과를 새 탭으로 연다.
+function partDividerOpenBugsSearchFromInfo() {
+    const artistInput = document.getElementById('partDividerSongArtistInput');
+    const titleInput = document.getElementById('partDividerSongTitleInput');
+    const artist = (artistInput ? artistInput.value : '').trim();
+    const title = (titleInput ? titleInput.value : '').trim();
+    const keyword = `${artist} ${title}`.trim();
+    if (!keyword) return;
+
+    window.open(`https://music.bugs.co.kr/search/integrated?q=${encodeURIComponent(keyword)}`, '_blank');
 }
 
 // 크루 멤버 프로필(이름 -> 프로필 사진 URL) 데이터를 최초 1회만 불러와 캐싱
@@ -4867,6 +4885,8 @@ window.partDividerDistribute = partDividerDistribute;
 window.partDividerDistributeAndSync = partDividerDistributeAndSync;
 window.partDividerSyncToFirebase = partDividerSyncToFirebase;
 window.partDividerFilterSongLibrary = partDividerFilterSongLibrary;
+window.partDividerOpenBugsSearch = partDividerOpenBugsSearch;
+window.partDividerOpenBugsSearchFromInfo = partDividerOpenBugsSearchFromInfo;
 
 function executeDesktopTabChange(tab) { changeTab(tab); }
 function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }
