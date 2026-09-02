@@ -4081,13 +4081,13 @@ function getPartDividerAdminPanelHtml() {
         </div>
 
         <div class="partdiv-panel-block">
-            <label class="partdiv-label">곡 정보 <span class="partdiv-label-sub">(가수와 제목 입력 후 Genius에서 가사를 자동으로 불러올 수 있어요)</span></label>
+            <label class="partdiv-label">곡 정보 <span class="partdiv-label-sub">(가수와 제목 입력 후 가사를 자동으로 불러올 수 있어요)</span></label>
             <div class="partdiv-search-row">
                 <input type="text" id="partDividerSongArtistInput" class="partdiv-input" placeholder="가수명" value="${escapeHtml(partDividerCurrentSongArtist)}">
                 <input type="text" id="partDividerSongTitleInput" class="partdiv-input" placeholder="노래 제목" value="${escapeHtml(partDividerCurrentSongTitle)}">
                 <!-- Genius 검색 버튼 추가 -->
                 <button type="button" id="partDividerGeniusBtn" class="partdiv-btn partdiv-btn-primary partdiv-search-btn" onclick="fetchLyricsFromGenius()">
-                    <i class="fi fi-rr-search"></i> Genius 검색
+                    <i class="fi fi-rr-search"></i> 검색
                 </button>
             </div>
         </div>
@@ -4262,9 +4262,10 @@ async function partDividerLoadLyricsFromDb() {
 }
 
 // =========================================================================
-// Genius API 가사 불러오기 (토큰 발급 필요)
+// Genius API 가사 불러오기 (Client Access Token 사용)
 // =========================================================================
-const GENIUS_ACCESS_TOKEN = '여기에_Genius_클라이언트_액세스_토큰을_입력하세요';
+// 찾으신 토큰 적용 완료
+const GENIUS_ACCESS_TOKEN = 'ER1f1SlM7YV1CUskG3QHP49y-s9qtyGgtmdtgWZ-_mD3hNewPKxokfjz4NTcEORC';
 
 async function fetchLyricsFromGenius() {
     const artistInput = document.getElementById('partDividerSongArtistInput');
@@ -4287,16 +4288,13 @@ async function fetchLyricsFromGenius() {
     }
 
     try {
-        const searchApiUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}`;
-        const proxiedSearchUrl = `https://corsproxy.io/?url=${encodeURIComponent(searchApiUrl)}`;
+        // 1. 발급받은 토큰을 사용해 Genius 검색 API 호출 (allorigins 프록시로 CORS 우회)
+        const searchApiUrl = `https://api.genius.com/search?q=${encodeURIComponent(query)}&access_token=${GENIUS_ACCESS_TOKEN}`;
+        const proxiedSearchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchApiUrl)}`;
 
-        const searchRes = await fetch(proxiedSearchUrl, {
-            headers: {
-                'Authorization': `Bearer ${GENIUS_ACCESS_TOKEN}`
-            }
-        });
-
-        if (!searchRes.ok) throw new Error('Genius API 검색 실패');
+        const searchRes = await fetch(proxiedSearchUrl);
+        if (!searchRes.ok) throw new Error('Genius API 검색 요청이 거부되었습니다.');
+        
         const searchData = await searchRes.json();
         const hits = searchData?.response?.hits || [];
 
@@ -4308,36 +4306,41 @@ async function fetchLyricsFromGenius() {
         const songUrl = hits[0]?.result?.url;
         if (!songUrl) throw new Error('가사 페이지 주소를 찾을 수 없습니다.');
 
-        const proxiedPageUrl = `https://corsproxy.io/?url=${encodeURIComponent(songUrl)}`;
+        // 2. 가사 페이지 로드 및 스크래핑
+        const proxiedPageUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(songUrl)}`;
         const pageRes = await fetch(proxiedPageUrl);
-        if (!pageRes.ok) throw new Error('가사 페이지 로드 실패');
+        if (!pageRes.ok) throw new Error('가사 페이지를 불러올 수 없습니다.');
 
         const htmlText = await pageRes.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
 
+        // 가사 텍스트가 담긴 요소 추출
         const lyricsContainers = doc.querySelectorAll('div[class*="Lyrics__Container"], .lyrics');
         if (!lyricsContainers || lyricsContainers.length === 0) {
-            alert('가사 텍스트를 추출할 수 없는 페이지 형태입니다. 직접 붙여넣어 주세요.');
+            alert('가사 텍스트를 추출할 수 없는 구조입니다. 직접 입력해주세요.');
             return;
         }
 
         let parsedLyrics = '';
         lyricsContainers.forEach(container => {
+            // <br> 태그를 실제 줄바꿈 문자로 변경
             container.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
             parsedLyrics += container.textContent.trim() + '\n\n';
         });
 
+        // 연속된 3번 이상의 줄바꿈을 2번으로 정리
         parsedLyrics = parsedLyrics.replace(/\n{3,}/g, '\n\n').trim();
         if (lyricsArea) lyricsArea.value = parsedLyrics;
 
+        // 입력창이 비어있었다면 검색된 가수/제목으로 자동 채우기
         if (artistInput && !artistInput.value) artistInput.value = hits[0].result.primary_artist?.name || '';
         if (titleInput && !titleInput.value) titleInput.value = hits[0].result.title || '';
 
         showToast('Genius에서 가사를 성공적으로 불러왔어요!');
     } catch (err) {
-        console.error('Genius 가사 불러오기 실패:', err);
-        showToast('가사를 가져오는 중 오류가 발생했습니다.');
+        console.error('Genius 가사 불러오기 실패 상세 로그:', err);
+        alert(`오류 발생: ${err.message}`);
     } finally {
         if (btn) {
             btn.disabled = false;
