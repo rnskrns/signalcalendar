@@ -243,6 +243,15 @@
                 <button onclick="closeUpPopup()" class="w-full sm:w-auto px-8 py-3 bg-gray-900 text-white rounded-xl font-bold text-[15px] hover:bg-black hover:shadow-lg transition-all cursor-pointer">확인</button>
             </div>
         </div>
+    </div>    <div id="updateModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4" onclick="if(event.target === this) closeUpdateModal()">
+    <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[90%] max-w-[500px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-4 shrink-0">
+            <h2 class="text-2xl font-bold text-[#5D4037] font-paperozi">업데이트 내역</h2>
+            <button onclick="closeUpdateModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
+        </div>
+        <div id="updateListContainer" class="flex-1 overflow-y-auto modal-scroll pr-2 flex flex-col gap-3"></div>
+    </div>
+</div>
 
     <div id="manageModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-2 sm:p-4">
         <div class="modal-content bg-[#FFFDF5] rounded-2xl w-[98vw] sm:w-[57vw] max-w-[960px] shadow-xl border border-[#ECEDFA] flex flex-col h-[96vh] sm:h-[92vh] max-h-[96vh] overflow-hidden">
