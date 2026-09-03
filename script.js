@@ -4372,6 +4372,7 @@ window.partDividerOpenSongLibraryPopup = async function() {
     popup.classList.remove('hidden');
     partDividerResetPopupPositionIfNeeded();
     partDividerInitPopupDrag();
+    partDividerInitPopupResize();
 
     const searchInput = document.getElementById('partDividerSongLibrarySearchInput');
     if (searchInput) searchInput.value = '';
@@ -4454,6 +4455,58 @@ function partDividerInitPopupDrag() {
     };
     header.addEventListener('pointerup', stopDrag);
     header.addEventListener('pointercancel', stopDrag);
+}
+
+// 팝업 우하단 모서리를 드래그해서 창 크기를 키우거나 줄일 수 있게 한다 (Pointer Events, 최초 1회만 바인딩).
+function partDividerInitPopupResize() {
+    const popup = document.getElementById('partDividerSongLibraryPopup');
+    const handle = document.getElementById('partDividerSongLibraryPopupResizeHandle');
+    if (!popup || !handle || handle.dataset.resizeBound === '1') return;
+    handle.dataset.resizeBound = '1';
+
+    const MIN_WIDTH = 300;
+    const MIN_HEIGHT = 260;
+
+    let resizing = false;
+    let startX = 0, startY = 0, startWidth = 0, startHeight = 0;
+
+    handle.addEventListener('pointerdown', (e) => {
+        resizing = true;
+        const rect = popup.getBoundingClientRect();
+        startWidth = rect.width;
+        startHeight = rect.height;
+        startX = e.clientX;
+        startY = e.clientY;
+        // 리사이즈를 시작하면 기본 max-height 제한을 풀어서 원하는 만큼 키울 수 있게 한다.
+        popup.style.maxHeight = 'none';
+        popup.style.maxWidth = 'none';
+        popup.classList.add('partdiv-float-popup-resizing');
+        try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+        e.preventDefault();
+        e.stopPropagation();
+    });
+
+    handle.addEventListener('pointermove', (e) => {
+        if (!resizing) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const rect = popup.getBoundingClientRect();
+        const maxWidth = Math.max(MIN_WIDTH, window.innerWidth - rect.left - 8);
+        const maxHeight = Math.max(MIN_HEIGHT, window.innerHeight - rect.top - 8);
+        const newWidth = Math.min(Math.max(MIN_WIDTH, startWidth + dx), maxWidth);
+        const newHeight = Math.min(Math.max(MIN_HEIGHT, startHeight + dy), maxHeight);
+        popup.style.width = newWidth + 'px';
+        popup.style.height = newHeight + 'px';
+    });
+
+    const stopResize = (e) => {
+        if (!resizing) return;
+        resizing = false;
+        popup.classList.remove('partdiv-float-popup-resizing');
+        try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
+    };
+    handle.addEventListener('pointerup', stopResize);
+    handle.addEventListener('pointercancel', stopResize);
 }
 
 // 크루 자체 가사 DB(syncroom/lyrics/{가수명}_{노래제목})에서 가사를 조회해 원본 가사 textarea에 채워줌
