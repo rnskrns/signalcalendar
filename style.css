@@ -1729,19 +1729,68 @@ html.dark-mode .ladder-reset-btn:hover { background: #2e1f1f; }
     background: #FBF9FF;
 }
 .partdiv-song-library-item {
-    display: flex; align-items: baseline; gap: 8px;
+    display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0;
     width: 100%; text-align: left; padding: 9px 12px;
     background: #ffffff; border: 1px solid #E4D9FA; border-radius: 10px;
     cursor: pointer; font-family: inherit; transition: background 0.15s, border-color 0.15s;
 }
 .partdiv-song-library-item:hover { background: #F4EEFF; border-color: #C9AFFB; }
 .partdiv-song-library-item:active { transform: scale(0.98); }
-.partdiv-song-library-item-title { font-weight: 800; font-size: 13.5px; color: #5D4037; }
-.partdiv-song-library-item-artist { font-weight: 600; font-size: 12px; color: #9a8f8f; }
+.partdiv-song-library-item-title { font-weight: 800; font-size: 13.5px; color: #5D4037; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.partdiv-song-library-item-artist { font-weight: 600; font-size: 12px; color: #9a8f8f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .partdiv-song-library-empty { color: #b3a8a8; font-weight: 700; font-size: 13px; text-align: center; padding: 20px 0; margin: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .partdiv-song-library-bugs-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 10px; background: #8B5CF6; color: #fff; font-weight: 800; font-size: 12.5px; border: none; cursor: pointer; transition: filter 0.15s; }
 .partdiv-song-library-bugs-btn:hover { filter: brightness(1.08); }
 .partdiv-song-library-bugs-btn:active { transform: scale(0.97); }
+
+/* 목록 항목 한 줄(제목/가수 + 수정・삭제 버튼) */
+.partdiv-lib-item { display: flex; flex-direction: column; gap: 8px; }
+.partdiv-lib-item-row { display: flex; align-items: stretch; gap: 6px; }
+.partdiv-lib-item-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.partdiv-lib-item-btn {
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px; border: 1px solid #E4D9FA;
+    background: #ffffff; color: #8B5CF6; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.partdiv-lib-item-btn:hover { background: #F4EEFF; border-color: #C9AFFB; }
+.partdiv-lib-item-btn:active { transform: scale(0.94); }
+.partdiv-lib-item-btn-danger { color: #E4574A; }
+.partdiv-lib-item-btn-danger:hover { background: #FCE4E4; border-color: #F5B5AF; }
+.partdiv-lib-item-editing .partdiv-song-library-item { border-color: #8B5CF6; background: #F4EEFF; }
+.partdiv-lib-item-edit {
+    display: flex; flex-direction: column; gap: 8px;
+    background: #F9F6FF; border: 1px solid #E4D9FA; border-radius: 12px; padding: 10px;
+}
+.partdiv-lib-item-edit .partdiv-textarea-sm { min-height: 100px; }
+.partdiv-lib-item-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.partdiv-lib-item-edit-actions .partdiv-btn { padding: 8px 16px; font-size: 13px; }
+
+/* 등록된 노래 목록 - 움직일 수 있는 플로팅 팝업 */
+.partdiv-float-popup {
+    position: fixed; z-index: 5000;
+    display: flex; flex-direction: column;
+    max-height: min(560px, 82vh);
+    background: #FFFDF5; border: 1px solid #E4D9FA; border-radius: 20px;
+    box-shadow: 0 20px 50px -12px rgba(93, 64, 55, 0.35), 0 4px 16px rgba(93, 64, 55, 0.12);
+    overflow: hidden;
+}
+.partdiv-float-popup.hidden { display: none; }
+.partdiv-float-popup-dragging { user-select: none; box-shadow: 0 26px 60px -10px rgba(93, 64, 55, 0.45); }
+.partdiv-float-popup-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 14px 16px; background: #8B5CF6; color: #fff;
+    cursor: grab; touch-action: none; user-select: none; flex-shrink: 0;
+}
+.partdiv-float-popup-dragging .partdiv-float-popup-header { cursor: grabbing; }
+.partdiv-float-popup-header-title { display: flex; align-items: center; gap: 8px; font-family: 'Paperozi', sans-serif; font-weight: 900; font-size: 15px; }
+.partdiv-float-popup-close {
+    width: 30px; height: 30px; border-radius: 9px; border: none; flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.18); color: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; cursor: pointer; transition: background 0.15s;
+}
+.partdiv-float-popup-close:hover { background: rgba(255, 255, 255, 0.32); }
+.partdiv-float-popup-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; overflow: hidden; min-height: 0; }
+.partdiv-float-popup-list { flex: 1; min-height: 120px; max-height: none; }
 .partdiv-label { font-family: 'Paperozi', sans-serif; font-weight: 900; font-size: 13.5px; color: #5D4037; }
 .partdiv-label-sub { font-weight: 700; font-size: 11.5px; color: #b3a8a8; margin-left: 2px; }
 .partdiv-search-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1878,6 +1927,14 @@ html.dark-mode .partdiv-song-library-item-title { color: #f1f1f1; }
 html.dark-mode .partdiv-song-library-item-artist { color: #bdb4b4; }
 html.dark-mode .partdiv-song-library-empty { color: #bdb4b4; }
 html.dark-mode .partdiv-song-library-bugs-btn { background: #8B5CF6; color: #fff; }
+
+html.dark-mode .partdiv-lib-item-btn { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.15); color: #C9AFFB; }
+html.dark-mode .partdiv-lib-item-btn:hover { background: rgba(139, 92, 246, 0.2); border-color: #8B5CF6; }
+html.dark-mode .partdiv-lib-item-btn-danger { color: #ff8a80; }
+html.dark-mode .partdiv-lib-item-btn-danger:hover { background: rgba(228, 87, 74, 0.2); border-color: #E4574A; }
+html.dark-mode .partdiv-lib-item-edit { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.15); }
+html.dark-mode .partdiv-lib-item-editing .partdiv-song-library-item { background: rgba(139, 92, 246, 0.2); border-color: #8B5CF6; }
+html.dark-mode .partdiv-float-popup { background: #221f2b; border-color: rgba(255, 255, 255, 0.15); }
 
 /* 라이트 모드일 때 이미지 카드의 글씨색을 덮어쓰기 (뱃지는 제외) */
 html:not(.dark-mode) .dday-hero-card-img .dday-hero-stat-label,

@@ -4072,11 +4072,10 @@ function getPartDividerAdminPanelHtml() {
             </div>
 
             <div class="partdiv-panel-block partdiv-panel-col">
-                <label class="partdiv-label">가사가 등록된 노래 <span class="partdiv-label-sub">(검색해서 바로 불러올 수 있어요)</span></label>
-                <input type="text" id="partDividerSongLibrarySearchInput" class="partdiv-input" placeholder="가수명 또는 노래 제목 검색" oninput="partDividerFilterSongLibrary()">
-                <div id="partDividerSongLibraryList" class="partdiv-song-library-list">
-                    <div class="partdiv-song-library-empty">불러오는 중...</div>
-                </div>
+                <label class="partdiv-label">가사가 등록된 노래 <span class="partdiv-label-sub">(목록에서 바로 불러오거나 수정・삭제할 수 있어요)</span></label>
+                <button type="button" class="partdiv-btn partdiv-btn-admin" onclick="partDividerOpenSongLibraryPopup()">
+                    <i class="fi fi-rr-list-music"></i> 등록된 노래 보기
+                </button>
             </div>
         </div>
 
@@ -4152,13 +4151,14 @@ function partDividerLoadSongLibrary() {
     return partDividerSongLibraryLoading;
 }
 
-// 방(관리자) 화면이 열릴 때 노래 목록을 불러와 리스트를 채워준다.
+// 방(관리자) 화면이 열릴 때 노래 목록을 미리 캐싱해둔다 (팝업을 열자마자 바로 뜨도록).
 function partDividerInitSongLibrary() {
-    // 데이터를 캐싱만 해두고, 화면에는 빈 목록을 보냄
-    partDividerLoadSongLibrary().then(() => partDividerRenderSongLibraryList([]));
+    partDividerLoadSongLibrary();
 }
 
-// 노래 목록(검색 결과 포함)을 리스트 UI로 그린다.
+let partDividerLibraryEditingKey = null; // 팝업에서 현재 인라인 수정 중인 노래의 key (없으면 null)
+
+// 노래 목록(검색 결과 포함)을 팝업의 리스트 UI로 그린다. 기본값(검색어 없음)이면 전체 목록을 보여준다.
 function partDividerRenderSongLibraryList(list) {
     const box = document.getElementById('partDividerSongLibraryList');
     if (!box) return;
@@ -4166,51 +4166,101 @@ function partDividerRenderSongLibraryList(list) {
     if (!list || list.length === 0) {
         const input = document.getElementById('partDividerSongLibrarySearchInput');
         const keyword = (input ? input.value : '').trim();
-        
+
         if (!keyword) {
-            box.innerHTML = `<div class="partdiv-song-library-empty">검색어를 입력해 주세요.</div>`;
+            box.innerHTML = `<div class="partdiv-song-library-empty">등록된 노래가 없어요.</div>`;
         } else {
             box.innerHTML = `
                 <div class="partdiv-song-library-empty">
                     <div>등록되지 않는 노래입니다.</div>
-                    <button type="button" class="partdiv-song-library-bugs-btn" onclick="partDividerOpenBugsSearch()">
+                    <button type="button" class="partdiv-song-library-bugs-btn" data-action="bugs-search">
                         <i class="fi fi-rr-search"></i> 검색창으로 가기
                     </button>
                 </div>`;
+            const bugsBtn = box.querySelector('[data-action="bugs-search"]');
+            if (bugsBtn) bugsBtn.addEventListener('click', partDividerOpenBugsSearch);
         }
         return;
     }
 
-    box.innerHTML = list.map(song => `
-        <button type="button" class="partdiv-song-library-item" data-song-key="${escapeHtml(song.key)}">
-            <span class="partdiv-song-library-item-title">${escapeHtml(song.title)}</span>
-            <span class="partdiv-song-library-item-artist">${escapeHtml(song.artist)}</span>
-        </button>
-    `).join('');
+    box.innerHTML = list.map(song => {
+        const isEditing = partDividerLibraryEditingKey === song.key;
+        return `
+        <div class="partdiv-lib-item${isEditing ? ' partdiv-lib-item-editing' : ''}" data-song-key="${escapeHtml(song.key)}">
+            <div class="partdiv-lib-item-row">
+                <button type="button" class="partdiv-song-library-item" data-action="select">
+                    <span class="partdiv-song-library-item-title">${escapeHtml(song.title)}</span>
+                    <span class="partdiv-song-library-item-artist">${escapeHtml(song.artist)}</span>
+                </button>
+                <div class="partdiv-lib-item-actions">
+                    <button type="button" class="partdiv-lib-item-btn" data-action="edit" title="수정"><i class="fi fi-rr-pencil"></i></button>
+                    <button type="button" class="partdiv-lib-item-btn partdiv-lib-item-btn-danger" data-action="delete" title="삭제"><i class="fi fi-rr-trash"></i></button>
+                </div>
+            </div>
+            ${isEditing ? `
+            <div class="partdiv-lib-item-edit">
+                <div class="partdiv-search-row">
+                    <input type="text" class="partdiv-input" data-field="artist" placeholder="가수명" value="${escapeHtml(song.artist)}">
+                    <input type="text" class="partdiv-input" data-field="title" placeholder="노래 제목" value="${escapeHtml(song.title)}">
+                </div>
+                <textarea class="partdiv-textarea partdiv-textarea-sm" data-field="lyrics" rows="6" placeholder="가사">${escapeHtml(song.lyrics)}</textarea>
+                <div class="partdiv-lib-item-edit-actions">
+                    <button type="button" class="partdiv-btn partdiv-btn-ghost" data-action="cancel-edit">취소</button>
+                    <button type="button" class="partdiv-btn partdiv-btn-primary" data-action="save-edit">저장</button>
+                </div>
+            </div>` : ''}
+        </div>`;
+    }).join('');
 
-    box.querySelectorAll('.partdiv-song-library-item').forEach(btn => {
-        btn.addEventListener('click', () => partDividerSelectSongFromLibrary(btn.getAttribute('data-song-key')));
+    box.querySelectorAll('.partdiv-lib-item').forEach(itemEl => {
+        const key = itemEl.getAttribute('data-song-key');
+        const selectBtn = itemEl.querySelector('[data-action="select"]');
+        if (selectBtn) selectBtn.addEventListener('click', () => partDividerSelectSongFromLibrary(key));
+        const editBtn = itemEl.querySelector('[data-action="edit"]');
+        if (editBtn) editBtn.addEventListener('click', () => partDividerToggleEditSong(key));
+        const deleteBtn = itemEl.querySelector('[data-action="delete"]');
+        if (deleteBtn) deleteBtn.addEventListener('click', () => partDividerDeleteSongFromLibrary(key));
+        const cancelBtn = itemEl.querySelector('[data-action="cancel-edit"]');
+        if (cancelBtn) cancelBtn.addEventListener('click', () => partDividerToggleEditSong(null));
+        const saveBtn = itemEl.querySelector('[data-action="save-edit"]');
+        if (saveBtn) saveBtn.addEventListener('click', () => partDividerSaveEditedSong(key, itemEl));
     });
 }
 
-// 검색창 입력(oninput) 핸들러 - 가수명/제목에 검색어가 포함된 곡만 필터링해서 다시 그린다.
-async function partDividerFilterSongLibrary() {
+// 현재 검색어 상태를 기준으로 목록을 다시 그린다 (수정/삭제 후 갱신용).
+function partDividerRenderCurrentPopupList() {
     const input = document.getElementById('partDividerSongLibrarySearchInput');
     const keyword = (input ? input.value : '').trim().toLowerCase().replace(/\s+/g, '');
-    
-    // 검색어가 없으면 무조건 빈 배열을 넘겨 목록을 비움
+    const list = partDividerSongLibrary || [];
+
     if (!keyword) {
-        partDividerRenderSongLibraryList([]);
+        partDividerRenderSongLibraryList(list);
         return;
     }
 
-    const list = await partDividerLoadSongLibrary();
-
-    const filtered = list.filter(song => 
-        (song.title || '').toLowerCase().replace(/\s+/g, '').includes(keyword) || 
+    const filtered = list.filter(song =>
+        (song.title || '').toLowerCase().replace(/\s+/g, '').includes(keyword) ||
         (song.artist || '').toLowerCase().replace(/\s+/g, '').includes(keyword)
     );
+    partDividerRenderSongLibraryList(filtered);
+}
 
+// 검색창 입력(oninput) 핸들러 - 검색어가 없으면 전체 목록을, 있으면 필터링된 목록을 보여준다.
+async function partDividerFilterSongLibrary() {
+    partDividerLibraryEditingKey = null; // 검색어가 바뀌면 수정 중이던 항목은 닫는다
+    const list = await partDividerLoadSongLibrary();
+    const input = document.getElementById('partDividerSongLibrarySearchInput');
+    const keyword = (input ? input.value : '').trim().toLowerCase().replace(/\s+/g, '');
+
+    if (!keyword) {
+        partDividerRenderSongLibraryList(list);
+        return;
+    }
+
+    const filtered = list.filter(song =>
+        (song.title || '').toLowerCase().replace(/\s+/g, '').includes(keyword) ||
+        (song.artist || '').toLowerCase().replace(/\s+/g, '').includes(keyword)
+    );
     partDividerRenderSongLibraryList(filtered);
 }
 
@@ -4224,7 +4274,7 @@ function partDividerOpenBugsSearch() {
     window.open(`https://music.bugs.co.kr/search/integrated?q=${query}`, '_blank');
 }
 
-// 목록에서 곡 하나를 클릭했을 때 - 가수명/제목 입력칸과 원본 가사 textarea에 바로 채워준다.
+// 목록에서 곡 하나를 클릭했을 때 - 가수명/제목 입력칸과 원본 가사 textarea에 바로 채워주고 팝업을 닫는다.
 function partDividerSelectSongFromLibrary(key) {
     const song = (partDividerSongLibrary || []).find(s => s.key === key);
     if (!song) return;
@@ -4232,12 +4282,178 @@ function partDividerSelectSongFromLibrary(key) {
     const artistInput = document.getElementById('partDividerSongArtistInput');
     const titleInput = document.getElementById('partDividerSongTitleInput');
     const lyricsArea = document.getElementById('partDividerLyricsTextarea');
+    const notFoundBox = document.getElementById('partDividerSongInfoNotFound');
 
     if (artistInput) artistInput.value = song.artist;
     if (titleInput) titleInput.value = song.title;
     if (lyricsArea) lyricsArea.value = song.lyrics;
+    if (notFoundBox) notFoundBox.style.display = 'none';
 
+    partDividerCloseSongLibraryPopup();
     showToast(`"${song.artist} - ${song.title}" 가사를 불러왔어요.`);
+}
+
+// 목록의 [수정] 버튼 - 해당 곡의 인라인 수정 폼을 펼치거나(같은 항목을 다시 누르면) 접는다.
+function partDividerToggleEditSong(key) {
+    partDividerLibraryEditingKey = (key === null || partDividerLibraryEditingKey === key) ? null : key;
+    partDividerRenderCurrentPopupList();
+}
+
+// 인라인 수정 폼의 [저장] 버튼 - 가수명/제목/가사를 크루 가사 DB에 반영한다.
+// (가수명·제목이 바뀌면 저장 키(key)도 바뀌므로, 기존 키 데이터는 삭제하고 새 키로 저장한다.)
+async function partDividerSaveEditedSong(oldKey, itemEl) {
+    const artistInput = itemEl.querySelector('[data-field="artist"]');
+    const titleInput = itemEl.querySelector('[data-field="title"]');
+    const lyricsInput = itemEl.querySelector('[data-field="lyrics"]');
+
+    const artist = (artistInput ? artistInput.value : '').trim();
+    const title = (titleInput ? titleInput.value : '').trim();
+    const lyrics = lyricsInput ? lyricsInput.value : '';
+
+    if (!artist || !title) {
+        showToast('가수명과 노래 제목을 모두 입력해주세요.');
+        return;
+    }
+
+    const newKey = partDividerLyricsKey(artist, title);
+    const saveBtn = itemEl.querySelector('[data-action="save-edit"]');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '저장중...'; }
+
+    try {
+        if (newKey !== oldKey) {
+            await remove(ref(partDividerDb, `syncroom/lyrics/${oldKey}`));
+        }
+        await set(ref(partDividerDb, `syncroom/lyrics/${newKey}`), {
+            artist, title, lyrics, updatedAt: Date.now()
+        });
+
+        if (partDividerSongLibrary) {
+            partDividerSongLibrary = partDividerSongLibrary.filter(s => s.key !== oldKey);
+            partDividerSongLibrary.push({ key: newKey, artist, title, lyrics });
+            partDividerSongLibrary.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ko'));
+        }
+
+        partDividerLibraryEditingKey = null;
+        partDividerRenderCurrentPopupList();
+        showToast('노래 정보를 수정했어요.');
+    } catch (err) {
+        console.error('노래 수정 실패:', err);
+        showToast('수정 중 오류가 발생했어요.');
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '저장'; }
+    }
+}
+
+// 목록의 [삭제] 버튼 - 확인 후 크루 가사 DB에서 완전히 삭제한다.
+async function partDividerDeleteSongFromLibrary(key) {
+    const song = (partDividerSongLibrary || []).find(s => s.key === key);
+    const label = song ? `"${song.artist} - ${song.title}"` : '이 노래';
+    if (!confirm(`${label}를 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.`)) return;
+
+    try {
+        await remove(ref(partDividerDb, `syncroom/lyrics/${key}`));
+        if (partDividerSongLibrary) {
+            partDividerSongLibrary = partDividerSongLibrary.filter(s => s.key !== key);
+        }
+        if (partDividerLibraryEditingKey === key) partDividerLibraryEditingKey = null;
+        partDividerRenderCurrentPopupList();
+        showToast('노래를 삭제했어요.');
+    } catch (err) {
+        console.error('노래 삭제 실패:', err);
+        showToast('삭제 중 오류가 발생했어요.');
+    }
+}
+
+// [등록된 노래 보기] 버튼 - 움직일 수 있는 플로팅 팝업을 열고 전체 목록을 기본으로 보여준다.
+window.partDividerOpenSongLibraryPopup = async function() {
+    const popup = document.getElementById('partDividerSongLibraryPopup');
+    if (!popup) return;
+
+    partDividerLibraryEditingKey = null;
+    popup.classList.remove('hidden');
+    partDividerResetPopupPositionIfNeeded();
+    partDividerInitPopupDrag();
+
+    const searchInput = document.getElementById('partDividerSongLibrarySearchInput');
+    if (searchInput) searchInput.value = '';
+
+    const box = document.getElementById('partDividerSongLibraryList');
+    if (box && !partDividerSongLibrary) box.innerHTML = `<div class="partdiv-song-library-empty">불러오는 중...</div>`;
+
+    const list = await partDividerLoadSongLibrary();
+    partDividerRenderSongLibraryList(list);
+    if (searchInput) searchInput.focus();
+};
+
+// 팝업 닫기
+window.partDividerCloseSongLibraryPopup = function() {
+    const popup = document.getElementById('partDividerSongLibraryPopup');
+    if (popup) popup.classList.add('hidden');
+    partDividerLibraryEditingKey = null;
+};
+
+// 팝업을 처음 열 때 화면 중앙 근처에 위치시킨다 (이후에는 사용자가 옮긴 위치를 유지).
+function partDividerResetPopupPositionIfNeeded() {
+    const popup = document.getElementById('partDividerSongLibraryPopup');
+    if (!popup || popup.dataset.positioned === '1') return;
+    popup.dataset.positioned = '1';
+
+    const width = Math.min(420, window.innerWidth - 32);
+    const left = Math.max(16, (window.innerWidth - width) / 2);
+    const top = Math.max(16, window.innerHeight * 0.1);
+
+    popup.style.width = width + 'px';
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+    popup.style.right = 'auto';
+    popup.style.bottom = 'auto';
+}
+
+// 팝업 헤더를 드래그해서 창을 움직일 수 있게 한다 (Pointer Events, 최초 1회만 바인딩).
+function partDividerInitPopupDrag() {
+    const popup = document.getElementById('partDividerSongLibraryPopup');
+    const header = document.getElementById('partDividerSongLibraryPopupHeader');
+    if (!popup || !header || header.dataset.dragBound === '1') return;
+    header.dataset.dragBound = '1';
+
+    let dragging = false;
+    let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+    header.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.partdiv-float-popup-close')) return;
+        dragging = true;
+        const rect = popup.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop = rect.top;
+        startX = e.clientX;
+        startY = e.clientY;
+        popup.style.left = startLeft + 'px';
+        popup.style.top = startTop + 'px';
+        popup.style.right = 'auto';
+        popup.style.bottom = 'auto';
+        popup.classList.add('partdiv-float-popup-dragging');
+        try { header.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+
+    header.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const maxLeft = Math.max(8, window.innerWidth - popup.offsetWidth - 8);
+        const maxTop = Math.max(8, window.innerHeight - popup.offsetHeight - 8);
+        const newLeft = Math.min(Math.max(8, startLeft + dx), maxLeft);
+        const newTop = Math.min(Math.max(8, startTop + dy), maxTop);
+        popup.style.left = newLeft + 'px';
+        popup.style.top = newTop + 'px';
+    });
+
+    const stopDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        popup.classList.remove('partdiv-float-popup-dragging');
+        try { header.releasePointerCapture(e.pointerId); } catch (err) {}
+    };
+    header.addEventListener('pointerup', stopDrag);
+    header.addEventListener('pointercancel', stopDrag);
 }
 
 // 크루 자체 가사 DB(syncroom/lyrics/{가수명}_{노래제목})에서 가사를 조회해 원본 가사 textarea에 채워줌
@@ -4887,6 +5103,7 @@ window.partDividerSyncToFirebase = partDividerSyncToFirebase;
 window.partDividerFilterSongLibrary = partDividerFilterSongLibrary;
 window.partDividerOpenBugsSearch = partDividerOpenBugsSearch;
 window.partDividerOpenBugsSearchFromInfo = partDividerOpenBugsSearchFromInfo;
+// partDividerOpenSongLibraryPopup / partDividerCloseSongLibraryPopup 은 window.___ = function(){...} 형태로 이미 전역 등록됨
 
 function executeDesktopTabChange(tab) { changeTab(tab); }
 function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }

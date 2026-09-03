@@ -623,6 +623,20 @@
         </div>
     </div>
 
+    <!-- 파트분배기: 가사가 등록된 노래 목록 (움직일 수 있는 플로팅 팝업) -->
+    <div id="partDividerSongLibraryPopup" class="hidden partdiv-float-popup">
+        <div id="partDividerSongLibraryPopupHeader" class="partdiv-float-popup-header">
+            <div class="partdiv-float-popup-header-title"><i class="fi fi-rr-list-music"></i> 등록된 노래</div>
+            <button type="button" class="partdiv-float-popup-close" onclick="partDividerCloseSongLibraryPopup()" title="닫기"><i class="fi fi-br-cross-small"></i></button>
+        </div>
+        <div class="partdiv-float-popup-body">
+            <input type="text" id="partDividerSongLibrarySearchInput" class="partdiv-input" placeholder="가수명 또는 노래 제목 검색" oninput="partDividerFilterSongLibrary()">
+            <div id="partDividerSongLibraryList" class="partdiv-song-library-list partdiv-float-popup-list">
+                <div class="partdiv-song-library-empty">불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="script.js?v=20260829-44"></script>
 
 </body>
