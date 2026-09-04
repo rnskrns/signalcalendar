@@ -9130,15 +9130,15 @@ function openSignalDetailModal(id) {
 
     const signalVodUrls = getSignalVodUrls(record);
     const vodBtnHtml = signalVodUrls.length > 0 ? `
-        <div class="flex flex-col gap-2 mt-6">
+        <div class="flex flex-row flex-wrap justify-center gap-2 mt-6">
             ${signalVodUrls.map((vod, i) => {
                 // 선택된 멤버에 따라 테마 컬러 할당 (없으면 시그널 컬러)
                 const btnColor = themeColors[vod.member] || '#FF5252';
                 const labelText = vod.member === '시그널' ? '다시보기' : `${vod.member} 다시보기`;
                 
                 return `
-                <button onclick="openSmartLink('${vod.url}')" class="w-full py-4 text-white font-bold text-lg rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-0.5 transition font-paperozi flex items-center justify-center gap-2" style="background-color: ${btnColor};">
-                    <i class="fi fi-rr-play"></i> ${labelText}
+                <button onclick="openSmartLink('${vod.url}')" class="px-4 py-2.5 text-white font-bold text-[13px] rounded-lg shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-0.5 transition font-paperozi flex items-center justify-center gap-1.5 shrink-0" style="background-color: ${btnColor};">
+                    <i class="fi fi-rr-play text-[11px]"></i> ${labelText}
                 </button>`;
             }).join('')}
         </div>
