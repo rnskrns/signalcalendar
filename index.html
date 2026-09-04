@@ -623,6 +623,56 @@
         </div>
     </div>
 
+    <div id="signalDetailModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]"></div>
+
+    <div id="signalAddModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000] p-4">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-2xl w-[95%] max-w-[520px] shadow-xl border border-[#ECEDFA] flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4 shrink-0">
+                <h2 id="sgModalTitle" class="text-2xl font-bold text-[#5D4037] font-paperozi">시그널 추가</h2>
+                <button onclick="closeSignalAddModal()" class="text-3xl text-[#5D4037] hover:text-red-500 transition cursor-pointer"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto modal-scroll pr-1 flex flex-col gap-4">
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[13px] font-bold text-[#5D4037]">제목</label>
+                    <input type="text" id="sgTitle" placeholder="제목을 입력하세요" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[13px] font-bold text-[#5D4037]">날짜</label>
+                    <input type="date" id="sgDate" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[13px] font-bold text-[#5D4037]">멤버</label>
+                    <input type="text" id="sgMember" placeholder="예: 카나시, 다룽" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[13px] font-bold text-[#5D4037]">썸네일 이미지</label>
+                    <div class="flex bg-gray-100 p-1 rounded-xl gap-1">
+                        <button type="button" id="sgImgTabUrl" onclick="switchSignalImgTab('url')" class="flex-1 bg-[#5D4037] text-white py-2 rounded-lg font-bold text-sm transition">URL</button>
+                        <button type="button" id="sgImgTabFile" onclick="switchSignalImgTab('file')" class="flex-1 bg-white text-[#5D4037] py-2 rounded-lg font-bold text-sm transition">파일 업로드</button>
+                    </div>
+                    <div id="sgImageUrlSection">
+                        <input type="text" id="sgImageUrlText" placeholder="이미지 URL을 입력하세요" oninput="previewSignalImageUrl(this)" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none focus:border-[#FF5252] font-bold">
+                    </div>
+                    <div id="sgImageFileSection" class="hidden">
+                        <input type="file" id="sgImage" accept="image/*" onchange="previewSignalImageFile(this)" class="w-full border-2 border-[#5D4037] rounded-lg p-2.5 text-[14px] outline-none font-bold bg-white">
+                    </div>
+                    <img id="sgImagePreview" class="hidden w-full aspect-video object-cover rounded-lg border border-gray-200 mt-1">
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center">
+                        <label class="text-[13px] font-bold text-[#5D4037]">다시보기 링크</label>
+                        <button type="button" onclick="addSignalVodRow()" class="text-[12px] font-bold text-[#FF5252] hover:underline">+ 링크 추가</button>
+                    </div>
+                    <div id="sgVodUrlsContainer" class="flex flex-col gap-2"></div>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-4 shrink-0">
+                <button class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-300 transition cursor-pointer" onclick="closeSignalAddModal()">취소</button>
+                <button id="sgSaveBtn" class="flex-[1.5] bg-[#FF5252] text-white py-3 rounded-xl font-bold hover:brightness-110 transition cursor-pointer" onclick="saveSignalRecord()">저장</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 파트분배기: 가사가 등록된 노래 목록 (움직일 수 있는 플로팅 팝업) -->
     <div id="partDividerSongLibraryPopup" class="hidden partdiv-float-popup">
         <div id="partDividerSongLibraryPopupHeader" class="partdiv-float-popup-header">

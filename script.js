@@ -8832,7 +8832,7 @@ function renderSignalPage() {
         }).join(' ');
 
         html += `
-            <div class="rounded-2xl overflow-hidden bg-white shadow-md cursor-pointer hover:-translate-y-1 transition relative group flex flex-col" onclick="openSignalDetailModal('${record.id}')">
+            <div class="rounded-2xl overflow-hidden bg-white shadow-md cursor-pointer hover:-translate-y-1 transition relative group flex flex-col" onclick="openSignalDetailModal('${record.id}')" oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); openSignalEditModal('${record.id}'); }">
                 ${isAdmin ? `
                 <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
                     <button onclick="event.stopPropagation(); openSignalEditModal('${record.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
