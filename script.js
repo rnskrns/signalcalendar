@@ -9130,17 +9130,20 @@ function openSignalDetailModal(id) {
 
     const signalVodUrls = getSignalVodUrls(record);
     const vodBtnHtml = signalVodUrls.length > 0 ? `
-        <div class="flex flex-row flex-wrap justify-center gap-2 mt-6">
-            ${signalVodUrls.map((vod, i) => {
-                // 선택된 멤버에 따라 테마 컬러 할당 (없으면 시그널 컬러)
-                const btnColor = themeColors[vod.member] || '#FF5252';
-                const labelText = vod.member === '시그널' ? '다시보기' : `${vod.member} 다시보기`;
-                
-                return `
-                <button onclick="openSmartLink('${vod.url}')" class="px-4 py-2.5 text-white font-bold text-[13px] rounded-lg shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-0.5 transition font-paperozi flex items-center justify-center gap-1.5 shrink-0" style="background-color: ${btnColor};">
-                    <i class="fi fi-rr-play text-[11px]"></i> ${labelText}
-                </button>`;
-            }).join('')}
+        <div class="mt-6">
+            <div class="text-[13px] font-bold text-gray-400 mb-2 font-paperozi">다시보기</div>
+            <div class="flex flex-row flex-wrap gap-2">
+                ${signalVodUrls.map((vod, i) => {
+                    // 선택된 멤버에 따라 테마 컬러 할당 (없으면 시그널 컬러)
+                    const btnColor = themeColors[vod.member] || '#FF5252';
+                    const labelText = vod.member || '시그널';
+                    
+                    return `
+                    <button onclick="openSmartLink('${vod.url}')" class="flex-1 min-w-[70px] px-3 py-2.5 font-bold text-[13px] rounded-lg hover:brightness-95 hover:-translate-y-0.5 transition-all duration-200 font-paperozi flex items-center justify-center gap-1.5" style="background-color: ${hexToRgba(btnColor, 0.12)}; color: ${btnColor}; box-shadow: 0 2px 6px rgba(93,64,55,0.08);">
+                        <i class="fi fi-rr-play text-[10px]"></i> ${labelText}
+                    </button>`;
+                }).join('')}
+            </div>
         </div>
     ` : `
         <button disabled class="w-full mt-6 py-4 bg-gray-300 text-white font-bold text-lg rounded-xl cursor-not-allowed font-paperozi flex items-center justify-center gap-2">
