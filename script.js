@@ -10085,7 +10085,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
                     <span class="px-3 py-1 text-[11px] font-bold rounded-full shadow-sm" style="${broadStyle}">${broadText}</span>
                 </div>`;
             
-            let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" loading="lazy" decoding="async" class="w-full max-h-[260px] object-contain rounded-xl my-3 shadow-sm border border-gray-200">` : '';
+            let imgHtml = sch.imageUrl ? `<img src="${sch.imageUrl}" loading="lazy" decoding="async" class="w-full h-auto rounded-xl my-3 shadow-sm border border-gray-200">` : '';
 
             let memGroupHtml = '';
             if (sch.memberTag) {
