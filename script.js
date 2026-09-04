@@ -8827,6 +8827,12 @@ function renderSignalPage() {
     const content = document.getElementById('mainContent');
     const bgClass = isMobile ? 'p-4' : 'p-10';
 
+    // 캐시가 깨졌거나(네트워크 오류 등으로 목록은 비어있는데 "더 보기" 상태만 true로 남은 경우)
+    // 사용자가 직접 "더 보기"를 눌러야만 목록이 나타나는 문제를 막기 위해 자동으로 한 번 더 불러온다.
+    if (signalRecords.length === 0 && signalRecordsHasMore && !signalRecordsLoadingMore) {
+        setTimeout(() => loadMoreSignalRecords(), 0);
+    }
+
     const addBtnHtml = isAdmin ? `
         <button onclick="openSignalAddModal()" class="px-4 py-2.5 md:px-6 md:py-3 bg-[#FF5252] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[15px] md:text-lg shrink-0 flex items-center gap-1.5">
             <i class="fi fi-br-plus"></i> 추가
