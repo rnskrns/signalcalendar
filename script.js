@@ -9152,9 +9152,9 @@ function openSignalDetailModal(id) {
     `;
 
     const html = `
-        <div class="modal-content bg-white rounded-2xl w-[95%] max-w-[520px] shadow-xl border border-[#ECEDFA] relative flex flex-col max-h-[90vh] overflow-hidden">
+        <div class="modal-content bg-white rounded-2xl w-[95%] max-w-[520px] shadow-xl border border-[#ECEDFA] relative flex flex-col max-h-[90vh] overflow-hidden" onclick="event.stopPropagation()">
             ${adminBtnsHtml}
-            <button class="absolute top-4 right-4 text-2xl text-[#5D4037] hover:scale-110 transition cursor-pointer z-10 bg-white/90 w-9 h-9 rounded-full flex items-center justify-center shadow" onclick="closeSignalDetailModal()"><i class="fi fi-br-cross"></i></button>
+            <button class="absolute top-3 right-3 text-base text-white hover:scale-110 transition cursor-pointer z-10 w-6 h-6 rounded-full flex items-center justify-center" style="text-shadow: 0 1px 3px rgba(0,0,0,0.5);" onclick="closeSignalDetailModal()"><i class="fi fi-br-cross"></i></button>
             <div class="w-full aspect-video bg-gray-100 shrink-0">
                 <img src="${record.imageUrl || 'https://via.placeholder.com/600x450/ffdddd/FF5252?text=SIGNAL'}" class="w-full h-full object-cover" alt="${escapeHtml(record.title || '')}">
             </div>
