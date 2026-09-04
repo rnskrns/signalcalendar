@@ -636,12 +636,14 @@ window.handleScheduleImageUpload = async function(input) {
     const block = input.closest('.schedule-input-block');
     const previewContainer = block.querySelector('.sch-img-preview');
     const hiddenInput = block.querySelector('.sch-image-url');
+    const urlInput = block.querySelector('.sch-image-url-input');
     
     previewContainer.innerHTML = "<span class='text-sm text-blue-500 font-bold'>이미지 업로드 중...⏳</span>";
     
     const imageUrl = await window.uploadImageToCloudinary(file);
     if (imageUrl) {
         hiddenInput.value = imageUrl;
+        if (urlInput) urlInput.value = imageUrl;
         previewContainer.innerHTML = `<img src="${imageUrl}" loading="lazy" decoding="async" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2">`;
         const removeBtn = block.querySelector('.sch-img-remove-btn');
         if (removeBtn) removeBtn.classList.remove('hidden'); 
@@ -650,14 +652,33 @@ window.handleScheduleImageUpload = async function(input) {
     }
 };
 
+window.handleScheduleImageUrlInput = function(input) {
+    const block = input.closest('.schedule-input-block');
+    const previewContainer = block.querySelector('.sch-img-preview');
+    const hiddenInput = block.querySelector('.sch-image-url');
+    const removeBtn = block.querySelector('.sch-img-remove-btn');
+    const url = input.value.trim();
+
+    hiddenInput.value = url;
+    if (url) {
+        previewContainer.innerHTML = `<img src="${url}" loading="lazy" decoding="async" class="h-20 w-auto rounded-lg object-cover border-2 border-gray-200 mt-2" onerror="this.replaceWith(Object.assign(document.createElement('span'), {className:'text-sm text-red-500 font-bold', innerText:'이미지를 불러올 수 없어요'}))">`;
+        if (removeBtn) removeBtn.classList.remove('hidden');
+    } else {
+        previewContainer.innerHTML = '';
+        if (removeBtn) removeBtn.classList.add('hidden');
+    }
+};
+
 window.removeScheduleImage = function(btn) {
     const block = btn.closest('.schedule-input-block');
     const previewContainer = block.querySelector('.sch-img-preview');
     const hiddenInput = block.querySelector('.sch-image-url');
     const fileInput = block.querySelector('input[type="file"]');
+    const urlInput = block.querySelector('.sch-image-url-input');
     
     hiddenInput.value = ''; 
     fileInput.value = '';   
+    if (urlInput) urlInput.value = '';
     previewContainer.innerHTML = ''; 
     btn.classList.add('hidden'); 
 };
@@ -9828,7 +9849,8 @@ function getScheduleFormHTML(data, isDeletable = true) {
                         <input type="file" accept="image/*" class="flex-1 min-w-0 text-[13px] text-gray-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-gray-100 file:text-[#5D4037] hover:file:bg-gray-200 cursor-pointer transition-all" onchange="window.handleScheduleImageUpload(this)">
                         <button type="button" class="sch-img-remove-btn ${removeBtnClass} px-3 py-2.5 bg-red-50 text-red-500 border border-red-100 rounded-xl text-[13px] font-bold shadow-sm hover:bg-red-500 hover:text-white transition-all shrink-0" onclick="window.removeScheduleImage(this)">삭제</button>
                     </div>
-                    <input type="hidden" class="sch-image-url" value="${imageUrl}">
+                    <input type="text" class="sch-image-url-input ${inputBase} mt-2 text-[13px]" placeholder="또는 이미지 URL 붙여넣기" value="${escapeHtml(imageUrl)}" oninput="window.handleScheduleImageUrlInput(this)">
+                    <input type="hidden" class="sch-image-url" value="${escapeHtml(imageUrl)}">
                     <div class="sch-img-preview">${imageUrl ? `<img src="${imageUrl}" loading="lazy" decoding="async" class="h-24 w-auto rounded-xl object-cover border border-gray-200 mt-3 shadow-sm">` : ''}</div>
                 </div>
                 <div>
