@@ -1279,6 +1279,20 @@ function hydrateScheduleCache(cache) {
     signalRecordsHasMore = cache.signalRecordsHasMore !== false;
     // 업보관리 데이터는 로컬 캐시에 저장/복원하지 않는다. 항상 loadUpboDataFromFirebase()로 즉시 최신 데이터를 받아온다.
     loadedMemberPages = new Set(Array.isArray(cache.loadedMemberPages) ? cache.loadedMemberPages : []);
+
+    // 이전에 멤버관리(memberDb) 목록을 불러오다 실패해서 빈 배열([])로 캐시된 경우,
+    // 캐시가 만료(최대 7분)되기 전까지 계속 사진이 안 뜨는 문제가 생길 수 있다.
+    // 그래서 캐시를 그대로 사용하더라도 멤버 목록이 비어 있으면 조용히 한 번 더 불러와 복구한다.
+    if (customMembers.length === 0 && typeof loadCustomMembersFromFirebase === 'function') {
+        loadCustomMembersFromFirebase().then(ok => {
+            if (ok && customMembers.length > 0) {
+                saveScheduleCache();
+                if (typeof renderCustomMembersList === 'function') renderCustomMembersList();
+                render();
+            }
+        });
+    }
+
     return true;
 }
 
@@ -6620,6 +6634,51 @@ async function loadUpboDataFromFirebase() {
 }
 window.loadUpboDataFromFirebase = loadUpboDataFromFirebase;
 
+// 멤버관리(memberDb - members 컬렉션) 목록을 불러오는 전용 함수.
+// 네트워크 지연/타이밍 문제로 가끔 한 번에 실패하는 경우가 있어, 실패 시 짧은 간격으로 재시도하고
+// 그래도 실패하면 잠시 후 백그라운드에서 한 번 더 시도해 사진(프로필 이미지)이 자동으로 복구되게 한다.
+async function loadCustomMembersFromFirebase(retriesLeft = 2) {
+    try {
+        const smSnap = await getDocs(collection(memberDb, 'members'));
+        const loaded = [];
+        smSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            loaded.push({
+                id: docSnap.id,
+                nickname: data.name || '',
+                soopId: data.soopId || '',
+                imageUrl: data.img || 'https://via.placeholder.com/60',
+                isCrew: data.type === 'crew',
+                timestamp: data.timestamp || 0
+            });
+        });
+        customMembers = loaded;
+        return true;
+    } catch (memberErr) {
+        console.error('멤버관리 데이터 로드 실패 (memberDb - members 컬렉션):', memberErr);
+        if (retriesLeft > 0) {
+            await new Promise(res => setTimeout(res, 700));
+            return loadCustomMembersFromFirebase(retriesLeft - 1);
+        }
+        if (isAdmin && typeof showToast === 'function') {
+            showToast('멤버 목록을 불러오지 못했습니다. 잠시 후 자동으로 다시 시도합니다.');
+        }
+        // 즉시 재시도로도 실패한 경우, 5초 뒤 백그라운드에서 한 번 더 시도한다.
+        // 실패한 상태를 그대로 캐시에 저장해 두면(빈 목록) 다음 캐시 만료 전까지 계속 사진이 안 뜨게
+        // 되므로, 여기서 성공하면 캐시와 화면을 갱신해 자동으로 복구되도록 한다.
+        setTimeout(async () => {
+            const recovered = await loadCustomMembersFromFirebase(1);
+            if (recovered) {
+                saveScheduleCache();
+                if (typeof renderCustomMembersList === 'function') renderCustomMembersList();
+                render();
+            }
+        }, 5000);
+        return false;
+    }
+}
+window.loadCustomMembersFromFirebase = loadCustomMembersFromFirebase;
+
 async function loadSchedulesFromFirebase({ forceReload = false, member = null, members = null, useCacheOnly = false } = {}) {
     const cached = !forceReload ? readScheduleCache() : null;
     const allMemberKeys = Object.keys(collectionMap);
@@ -6720,27 +6779,9 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         }
 
         if (!cached) {
-            try {
-                const smSnap = await getDocs(collection(memberDb, 'members'));
-                customMembers = [];
-                smSnap.forEach(docSnap => {
-                    const data = docSnap.data();
-                    customMembers.push({
-                        id: docSnap.id,
-                        nickname: data.name || '',
-                        soopId: data.soopId || '',
-                        imageUrl: data.img || 'https://via.placeholder.com/60',
-                        isCrew: data.type === 'crew',
-                        timestamp: data.timestamp || 0
-                    });
-                });
-            } catch (memberErr) {
-                // 멤버관리 DB(memberDb)만 실패해도 스케줄 등 나머지 데이터 로드/렌더는 계속 진행되도록 별도로 처리
-                console.error('멤버관리 데이터 로드 실패 (memberDb - members 컬렉션):', memberErr);
-                if (isAdmin && typeof showToast === 'function') {
-                    showToast('멤버 목록을 불러오지 못했습니다. Firestore 권한(규칙)을 확인해주세요.');
-                }
-            }
+            // 멤버관리 DB(memberDb)만 실패해도 스케줄 등 나머지 데이터 로드/렌더는 계속 진행되도록
+            // 별도 함수(재시도 + 백그라운드 자동 복구 포함)로 분리 처리
+            await loadCustomMembersFromFirebase();
 
             const grpSnap = await getDocs(collection(db, 'memberGroups'));
             memberGroups = [];
@@ -10467,23 +10508,16 @@ window.openMemberManageModal = async function() {
 
     // 모달을 열 때마다 멤버관리 DB(memberDb)에서 최신 멤버 목록을 다시 불러온다.
     // (스케줄 캐시 로직 때문에 customMembers가 갱신되지 않고 비어 보이는 문제를 방지하기 위함)
-    try {
-        const smSnap = await getDocs(collection(memberDb, 'members'));
-        customMembers = [];
-        smSnap.forEach(docSnap => {
-            const data = docSnap.data();
-            customMembers.push({
-                id: docSnap.id,
-                nickname: data.name || '',
-                soopId: data.soopId || '',
-                imageUrl: data.img || 'https://via.placeholder.com/60',
-                isCrew: data.type === 'crew',
-                timestamp: data.timestamp || 0
-            });
-        });
-        saveScheduleCache();
-        if (memberListContainer) renderCustomMembersList();
+    // loadCustomMembersFromFirebase 내부에서 실패 시 자동 재시도 + 백그라운드 복구까지 처리한다.
+    const memberOk = await loadCustomMembersFromFirebase();
+    saveScheduleCache();
+    if (memberListContainer) renderCustomMembersList();
+    if (!memberOk) {
+        // 즉시 재시도로도 실패하면, loadCustomMembersFromFirebase가 5초 뒤 자동 재시도하면서
+        // 성공 시 render()까지 다시 호출해 화면(멤버 목록 포함)을 갱신해준다.
+    }
 
+    try {
         // 멤버 그룹은 멤버관리 전용 DB가 아닌 시그널 DB의 memberGroups 컬렉션에서 불러옵니다.
         const groupSnap = await getDocs(collection(db, 'memberGroups'));
         memberGroups = [];
@@ -10491,8 +10525,8 @@ window.openMemberManageModal = async function() {
         saveScheduleCache();
         renderMemberGroupsList();
     } catch (e) {
-        console.error('멤버 목록 새로고침 실패 (memberDb - members 컬렉션):', e);
-        showToast('멤버 목록을 불러오지 못했습니다. Firestore 권한(규칙)을 확인해주세요.');
+        console.error('멤버 그룹 새로고침 실패 (memberGroups 컬렉션):', e);
+        showToast('멤버 그룹을 불러오지 못했습니다. Firestore 권한(규칙)을 확인해주세요.');
     }
 };
 
