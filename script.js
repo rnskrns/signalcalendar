@@ -8734,7 +8734,7 @@ function openRollingDetailModal(index) {
         <button onclick="closeRollingDetailModal()" class="absolute top-5 right-5 md:top-8 md:right-8 text-3xl text-white hover:scale-110 transition cursor-pointer z-30" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-br-cross"></i></button>
         <button id="rollingPrevBtn" onclick="navigateRollingDetail(-1)" class="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-30" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-left"></i></button>
         <button id="rollingNextBtn" onclick="navigateRollingDetail(1)" class="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-30" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-right"></i></button>
-        <div id="rollingCounter" class="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/70 text-sm font-bold z-30" style="text-shadow:0 1px 3px rgba(0,0,0,0.5);"></div>
+        <div id="rollingCounter" class="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/70 text-lg md:text-xl font-bold z-30" style="text-shadow:0 1px 3px rgba(0,0,0,0.5);"></div>
     `;
     renderRollingDetailModal(0);
     modal.classList.replace('hidden', 'flex');
