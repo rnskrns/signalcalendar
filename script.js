@@ -8517,6 +8517,7 @@ function renderRollingPaper() {
                         <button onclick="event.stopPropagation(); deleteRollingEntry('${entry.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
                     </div>
                     ` : ''}
+                    <div class="absolute bottom-2 left-2 z-10 min-w-[26px] h-[26px] px-1.5 flex items-center justify-center rounded-full text-[13px] font-bold pointer-events-none" style="background: rgba(0,0,0,0.45); color: #ffffff;">${idx + 1}</div>
                     <div class="text-[16px] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words ${entry.imageUrl ? '' : 'dm-text-brown'}" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical; ${textStyle}">${escapeHtml(entry.content)}</div>
                     <div class="text-right text-[14px] font-bold mt-3 pt-2 border-t-2 border-dashed pointer-events-none shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>
                 </div>
