@@ -8450,7 +8450,7 @@ function renderRollingPaper() {
     const todayStr = getTodayYYYYMMDD();
 
     const addTopicBtnHtml = isAdmin ? `
-        <button onclick="openRollingTopicModal()" class="px-4 py-2.5 md:px-6 md:py-3 bg-[#8B5CF6] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[15px] md:text-lg shrink-0 flex items-center gap-1.5">
+        <button onclick="openRollingTopicModal()" class="px-4 py-2.5 md:px-6 md:py-3 bg-[#8B5CF6] text-white font-bold rounded-xl shadow-sm hover:brightness-110 transition font-paperozi text-[15px] md:text-lg shrink-0 flex items-center gap-1.5">
             <i class="fi fi-br-plus"></i> 주제 추가
         </button>
     ` : '';
@@ -8722,52 +8722,77 @@ async function deleteRollingEntry(id) {
     } catch(e) { console.error(e); }
 }
 
+// 롤링페이퍼 전체화면 상세보기: 카드를 클릭하면 전체화면으로 열리고,
+// 마우스 휠(위/아래)로 이전·다음 글로 넘어간다.
 function openRollingDetailModal(index) {
     currentEntryIndex = index;
-    const container = document.getElementById('rdSliderContainer');
-    
-    container.innerHTML = currentTopicEntries.map((entry, idx) => {
-        const bgStyle = entry.imageUrl 
-            ? `background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('${entry.imageUrl}'); background-size: cover; background-position: center; border: none;` 
-            : `background-color: var(--card-bg-cream); border: 0px;`; 
-        const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
-        const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #5D4037;`;
-        const pcBorder = entry.imageUrl ? '' : 'md:border-4 border-[#5D4037]';
-        
-        return `
-        <div class="snap-center shrink-0 w-full h-full md:h-[1000px] flex items-center justify-center md:my-auto px-0 md:px-4">
-            <div class="modal-content w-full h-full rounded-none md:rounded-3xl shadow-2xl flex flex-col p-6 pt-20 pb-8 md:p-12 relative overflow-hidden ${pcBorder}" style="${bgStyle}">
-                <div class="text-[20px] md:text-[24px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words px-4 md:px-0 drop-shadow-sm ${entry.imageUrl ? '' : 'dm-text-brown'}" style="${textStyle}">${escapeHtml(entry.content)}</div>
-                <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed px-4 md:px-0 drop-shadow-sm shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>
-            </div>
-        </div>`;
-    }).join('');
-
+    renderRollingDetailModal();
     document.getElementById('rollingDetailModal').classList.replace('hidden', 'flex');
-    
-    setTimeout(() => {
-        container.scrollLeft = index * container.clientWidth;
-    }, 10);
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', rollingDetailKeyHandler);
 }
+
+function renderRollingDetailModal() {
+    const modal = document.getElementById('rollingDetailModal');
+    const entry = currentTopicEntries[currentEntryIndex];
+    if (!modal || !entry) { closeRollingDetailModal(); return; }
+
+    const bgStyle = entry.imageUrl
+        ? `background-image: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('${entry.imageUrl}'); background-size: cover; background-position: center;`
+        : `background-color: var(--card-bg-cream);`;
+    const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
+    const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #5D4037;`;
+    const hasMultiple = currentTopicEntries.length > 1;
+
+    modal.innerHTML = `
+        <div class="w-full h-full flex items-center justify-center relative" style="${bgStyle} animation: fadeIn 0.2s ease-out;">
+            <button onclick="closeRollingDetailModal()" class="absolute top-5 right-5 md:top-8 md:right-8 text-3xl text-white hover:scale-110 transition cursor-pointer z-20" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-br-cross"></i></button>
+
+            ${hasMultiple ? `
+            <button onclick="navigateRollingDetail(-1)" class="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-20" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-left"></i></button>
+            <button onclick="navigateRollingDetail(1)" class="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-20" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-right"></i></button>
+            ` : ''}
+
+            <div class="w-full max-w-[720px] h-full md:h-auto md:max-h-[85vh] flex flex-col p-8 pt-24 pb-10 md:p-16 mx-4 overflow-hidden">
+                <div class="text-[20px] md:text-[26px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words drop-shadow-sm ${entry.imageUrl ? '' : 'dm-text-brown'}" style="${textStyle}">${escapeHtml(entry.content)}</div>
+                <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed drop-shadow-sm shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>
+            </div>
+
+            ${hasMultiple ? `<div class="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/70 text-sm font-bold z-20" style="text-shadow:0 1px 3px rgba(0,0,0,0.5);">${currentEntryIndex + 1} / ${currentTopicEntries.length}</div>` : ''}
+        </div>
+    `;
+}
+
 function navigateRollingDetail(direction) {
-    const container = document.getElementById('rdSliderContainer');
+    if (!currentTopicEntries || currentTopicEntries.length === 0) return;
     let newIndex = currentEntryIndex + direction;
-    
-    if(newIndex < 0) newIndex = currentTopicEntries.length - 1;
-    if(newIndex >= currentTopicEntries.length) newIndex = 0;
-    
+    if (newIndex < 0) newIndex = currentTopicEntries.length - 1;
+    if (newIndex >= currentTopicEntries.length) newIndex = 0;
     currentEntryIndex = newIndex;
-    container.scrollTo({ left: currentEntryIndex * container.clientWidth, behavior: 'smooth' });
+    renderRollingDetailModal();
 }
 
-function updateCurrentEntryIndex(container) {
-    if (container.clientWidth > 0) {
-        currentEntryIndex = Math.round(container.scrollLeft / container.clientWidth);
-    }
+function closeRollingDetailModal() {
+    document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden');
+    document.body.style.overflow = '';
+    document.removeEventListener('keydown', rollingDetailKeyHandler);
 }
-window.updateCurrentEntryIndex = updateCurrentEntryIndex;
 
-function closeRollingDetailModal() { document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden'); }
+function rollingDetailKeyHandler(e) {
+    if (e.key === 'Escape') closeRollingDetailModal();
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigateRollingDetail(1);
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navigateRollingDetail(-1);
+}
+
+// 휠 스크롤로 다음/이전 글 넘기기 (짧은 시간 내 연속 입력은 한 번만 반영)
+let rollingWheelBusy = false;
+document.getElementById('rollingDetailModal').addEventListener('wheel', function(e) {
+    e.preventDefault();
+    if (rollingWheelBusy || Math.abs(e.deltaY) < 4) return;
+    rollingWheelBusy = true;
+    navigateRollingDetail(e.deltaY > 0 ? 1 : -1);
+    setTimeout(() => { rollingWheelBusy = false; }, 350);
+}, { passive: false });
 
 // =========================================================================
 // 시그널 (지난 방송 아카이브) 렌더링 & 로직
