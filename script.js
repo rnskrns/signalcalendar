@@ -9778,7 +9778,7 @@ function toggleFields(modalId, radioName) {
     const isHubang = radio && radio.value === '휴방';
     modal.querySelectorAll('.optional-field').forEach(el => { el.style.display = isHubang ? 'none' : ''; });
     modal.querySelectorAll('.bangon-only-field').forEach(el => { el.style.display = isHubang ? 'none' : ''; });
-    modal.querySelectorAll('.hubang-only-field').forEach(el => { el.style.display = isHubang ? '' : 'none'; });
+    modal.querySelectorAll('.hubang-only-field').forEach(el => { el.classList.toggle('hidden', !isHubang); el.style.display = ''; });
 
     if (modalId === 'scheduleModal') {
         const globalTimeBlock = document.getElementById('globalTimeBlock');
