@@ -897,6 +897,37 @@ body.admin-mode {
     border-radius: 26px !important;
 }
 
+/* ===== 롤링페이퍼 전체화면 상세보기: 책장 넘기는 느낌의 모션 ===== */
+#rollingPageStage {
+    perspective: 1800px;
+}
+.rolling-page {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+@keyframes rollingPageOutNext {
+    from { transform: rotateY(0deg); opacity: 1; }
+    to   { transform: rotateY(-100deg); opacity: 0.25; }
+}
+@keyframes rollingPageInNext {
+    from { transform: rotateY(100deg); opacity: 0.25; }
+    to   { transform: rotateY(0deg); opacity: 1; }
+}
+@keyframes rollingPageOutPrev {
+    from { transform: rotateY(0deg); opacity: 1; }
+    to   { transform: rotateY(100deg); opacity: 0.25; }
+}
+@keyframes rollingPageInPrev {
+    from { transform: rotateY(-100deg); opacity: 0.25; }
+    to   { transform: rotateY(0deg); opacity: 1; }
+}
+.rolling-page-out-next { animation: rollingPageOutNext 0.42s cubic-bezier(.22,.61,.36,1) forwards; }
+.rolling-page-in-next  { animation: rollingPageInNext 0.42s cubic-bezier(.22,.61,.36,1) forwards; }
+.rolling-page-out-prev { animation: rollingPageOutPrev 0.42s cubic-bezier(.22,.61,.36,1) forwards; }
+.rolling-page-in-prev  { animation: rollingPageInPrev 0.42s cubic-bezier(.22,.61,.36,1) forwards; }
+
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

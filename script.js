@@ -8723,44 +8723,69 @@ async function deleteRollingEntry(id) {
 }
 
 // 롤링페이퍼 전체화면 상세보기: 카드를 클릭하면 전체화면으로 열리고,
-// 마우스 휠(위/아래)로 이전·다음 글로 넘어간다.
+// 마우스 휠(위/아래)로 이전·다음 글로 넘어간다 (책장을 넘기는 듯한 모션).
 function openRollingDetailModal(index) {
     currentEntryIndex = index;
-    renderRollingDetailModal();
-    document.getElementById('rollingDetailModal').classList.replace('hidden', 'flex');
+    const modal = document.getElementById('rollingDetailModal');
+    modal.innerHTML = `
+        <div id="rollingPageStage" class="w-full h-full relative overflow-hidden"></div>
+        <button onclick="closeRollingDetailModal()" class="absolute top-5 right-5 md:top-8 md:right-8 text-3xl text-white hover:scale-110 transition cursor-pointer z-30" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-br-cross"></i></button>
+        <button id="rollingPrevBtn" onclick="navigateRollingDetail(-1)" class="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-30" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-left"></i></button>
+        <button id="rollingNextBtn" onclick="navigateRollingDetail(1)" class="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-30" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-right"></i></button>
+        <div id="rollingCounter" class="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/70 text-sm font-bold z-30" style="text-shadow:0 1px 3px rgba(0,0,0,0.5);"></div>
+    `;
+    renderRollingDetailModal(0);
+    modal.classList.replace('hidden', 'flex');
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', rollingDetailKeyHandler);
 }
 
-function renderRollingDetailModal() {
-    const modal = document.getElementById('rollingDetailModal');
-    const entry = currentTopicEntries[currentEntryIndex];
-    if (!modal || !entry) { closeRollingDetailModal(); return; }
-
+// 항목 하나에 대한 "페이지" 내용(배경 + 본문 + 닉네임) 마크업
+function buildRollingPageHTML(entry) {
     const bgStyle = entry.imageUrl
         ? `background-image: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('${entry.imageUrl}'); background-size: cover; background-position: center;`
         : `background-color: var(--card-bg-cream);`;
     const textStyle = entry.imageUrl ? `color: #ffffff;` : `color: #5D4037;`;
     const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #5D4037;`;
-    const hasMultiple = currentTopicEntries.length > 1;
 
-    modal.innerHTML = `
-        <div class="w-full h-full flex items-center justify-center relative" style="${bgStyle} animation: fadeIn 0.2s ease-out;">
-            <button onclick="closeRollingDetailModal()" class="absolute top-5 right-5 md:top-8 md:right-8 text-3xl text-white hover:scale-110 transition cursor-pointer z-20" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-br-cross"></i></button>
-
-            ${hasMultiple ? `
-            <button onclick="navigateRollingDetail(-1)" class="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-20" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-left"></i></button>
-            <button onclick="navigateRollingDetail(1)" class="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-20" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-right"></i></button>
-            ` : ''}
-
+    return `
+        <div class="w-full h-full flex items-center justify-center" style="${bgStyle}">
             <div class="w-full max-w-[720px] h-full md:h-auto md:max-h-[85vh] flex flex-col p-8 pt-24 pb-10 md:p-16 mx-4 overflow-hidden">
                 <div class="text-[20px] md:text-[26px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words drop-shadow-sm ${entry.imageUrl ? '' : 'dm-text-brown'}" style="${textStyle}">${escapeHtml(entry.content)}</div>
                 <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed drop-shadow-sm shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>
             </div>
-
-            ${hasMultiple ? `<div class="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/70 text-sm font-bold z-20" style="text-shadow:0 1px 3px rgba(0,0,0,0.5);">${currentEntryIndex + 1} / ${currentTopicEntries.length}</div>` : ''}
         </div>
     `;
+}
+
+// direction: 0 = 첫 렌더(모션 없음), 1 = 다음 글(책장이 왼쪽으로 넘어감), -1 = 이전 글(오른쪽으로 넘어감)
+function renderRollingDetailModal(direction = 0) {
+    const stage = document.getElementById('rollingPageStage');
+    const entry = currentTopicEntries[currentEntryIndex];
+    if (!stage || !entry) { closeRollingDetailModal(); return; }
+
+    const oldPage = stage.querySelector('.rolling-page');
+
+    const newPage = document.createElement('div');
+    newPage.className = 'rolling-page';
+    newPage.innerHTML = buildRollingPageHTML(entry);
+    stage.appendChild(newPage);
+
+    if (oldPage && direction !== 0) {
+        oldPage.classList.add(direction > 0 ? 'rolling-page-out-next' : 'rolling-page-out-prev');
+        newPage.classList.add(direction > 0 ? 'rolling-page-in-next' : 'rolling-page-in-prev');
+        oldPage.addEventListener('animationend', () => oldPage.remove(), { once: true });
+    } else if (oldPage) {
+        oldPage.remove();
+    }
+
+    const hasMultiple = currentTopicEntries.length > 1;
+    const counter = document.getElementById('rollingCounter');
+    if (counter) counter.textContent = hasMultiple ? `${currentEntryIndex + 1} / ${currentTopicEntries.length}` : '';
+    const prevBtn = document.getElementById('rollingPrevBtn');
+    const nextBtn = document.getElementById('rollingNextBtn');
+    if (prevBtn) prevBtn.style.display = hasMultiple ? '' : 'none';
+    if (nextBtn) nextBtn.style.display = hasMultiple ? '' : 'none';
 }
 
 function navigateRollingDetail(direction) {
@@ -8769,7 +8794,7 @@ function navigateRollingDetail(direction) {
     if (newIndex < 0) newIndex = currentTopicEntries.length - 1;
     if (newIndex >= currentTopicEntries.length) newIndex = 0;
     currentEntryIndex = newIndex;
-    renderRollingDetailModal();
+    renderRollingDetailModal(direction > 0 ? 1 : -1);
 }
 
 function closeRollingDetailModal() {
@@ -8784,15 +8809,16 @@ function rollingDetailKeyHandler(e) {
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navigateRollingDetail(-1);
 }
 
-// 휠 스크롤로 다음/이전 글 넘기기 (짧은 시간 내 연속 입력은 한 번만 반영)
+// 휠 스크롤로 다음/이전 글 넘기기 (모션이 끝나기 전 중복 입력은 무시)
 let rollingWheelBusy = false;
 document.getElementById('rollingDetailModal').addEventListener('wheel', function(e) {
     e.preventDefault();
     if (rollingWheelBusy || Math.abs(e.deltaY) < 4) return;
     rollingWheelBusy = true;
     navigateRollingDetail(e.deltaY > 0 ? 1 : -1);
-    setTimeout(() => { rollingWheelBusy = false; }, 350);
+    setTimeout(() => { rollingWheelBusy = false; }, 430);
 }, { passive: false });
+
 
 // =========================================================================
 // 시그널 (지난 방송 아카이브) 렌더링 & 로직
