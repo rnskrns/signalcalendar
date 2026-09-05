@@ -609,8 +609,8 @@ updateNotifBadge();
 // =========================================================================
 // Cloudinary 설정 (Unsigned Upload)
 // =========================================================================
-const CLOUDINARY_CLOUD_NAME = 'dtlqzklk5';
-const CLOUDINARY_UPLOAD_PRESET = 'IMG_1234'; 
+const CLOUDINARY_CLOUD_NAME = 'c8az0ode';
+const CLOUDINARY_UPLOAD_PRESET = 'ml_default'; 
 
 window.uploadImageToCloudinary = async function(file) {
     if (!file) return null;
@@ -8484,7 +8484,8 @@ function renderRollingPaper() {
         if(rollingTopics.length === 0) html += `<div class="w-full text-center text-gray-400 font-bold py-16 text-lg">생성된 롤링페이퍼 주제가 없습니다.</div>`;
         html += `</div>`;
     } else {
-        currentTopicEntries = rollingEntries.filter(e => e.topicId === currentRollingTopic.id);
+        // 맨 밑(가장 먼저 작성된 글)이 1번째가 되도록 오래된 순으로 정렬
+        currentTopicEntries = rollingEntries.filter(e => e.topicId === currentRollingTopic.id).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         const isExpired = currentRollingTopic.date < todayStr;
         const actionBtn = isExpired 
             ? `<button class="px-6 py-3 bg-gray-400 text-white font-bold rounded-xl cursor-not-allowed font-paperozi text-lg shrink-0 shadow-[2px_2px_0px_0px_rgba(93,64,55,1)]" onclick="alert('이 롤링페이퍼는 마감되어 더 이상 작성할 수 없습니다.')"><i class="fi fi-rr-lock"></i> 마감됨</button>`
