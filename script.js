@@ -9284,7 +9284,7 @@ function renderMobileHome(grouped) {
         if (daySchedules.length > 0) {
             const isHubang = daySchedules.some(s => s.globalType === '휴방');
             const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
-            const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+            const sWithGlobal = daySchedules.find(s => s.globalStartTime);
             const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
 
             const bgColor = isHubang ? '#E5E7EB' : (memberColors[member.name] || '#FFFFFF');
@@ -9370,15 +9370,14 @@ function renderMobileIndividual(grouped) {
         let dayGlobalTime = '';
         let isDayHubang = false;
         if (daySchedules.length > 0) {
-            const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+            isDayHubang = daySchedules.some(s => s.globalType === '휴방');
+            const sWithGlobal = daySchedules.find(s => s.globalStartTime);
             if (sWithGlobal) {
                 dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
-            } else if (daySchedules.some(s => s.globalType === '휴방')) {
-                isDayHubang = true;
             }
         }
         const timeDisplayHtml = dayGlobalTime
-            ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white" style="color: ${isToday ? themeColor : '#5D4037'}">${dayGlobalTime}</span>`
+            ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white" style="color: ${isDayHubang ? '#6B7280' : (isToday ? themeColor : '#5D4037')}">${isDayHubang ? '휴방 ' : ''}${dayGlobalTime}</span>`
             : (isDayHubang ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white text-gray-400">휴방</span>` : '');
 
         if (!schedulesHtml) {
@@ -9437,7 +9436,7 @@ function renderDesktopHome(grouped) {
             if (wSchedules.length > 0) {
                 const isHubang = wSchedules.some(s => s.globalType === '휴방');
                 const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
-                const sWithGlobal = wSchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+                const sWithGlobal = wSchedules.find(s => s.globalStartTime);
                 const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
                 if (!isHubang) cardBg = softBg;
                 cardInnerHtml = `<img src="${imgSrc}" class="w-full h-full object-cover" alt="${isHubang ? '휴방' : '뱅온'}" loading="lazy" decoding="async">${dayGlobalTime ? `<div class="absolute bottom-1 right-1.5 text-[13px] font-black tracking-tight" style="color:#3E2723; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;">${dayGlobalTime}</div>` : ''}`;
@@ -9525,15 +9524,14 @@ function renderDesktopIndividual(grouped) {
             let dayGlobalTime = '';
             let isDayHubang = false;
             if (daySchedules.length > 0) {
-                const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
+                isDayHubang = daySchedules.some(s => s.globalType === '휴방');
+                const sWithGlobal = daySchedules.find(s => s.globalStartTime);
                 if (sWithGlobal) {
                     dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
-                } else if (daySchedules.some(s => s.globalType === '휴방')) {
-                    isDayHubang = true;
                 }
             }
             const timeDisplayHtml = dayGlobalTime
-                ? `<span class="text-[13px] font-bold text-[#5D4037]">${dayGlobalTime}</span>`
+                ? `<span class="text-[13px] font-bold" style="color: ${isDayHubang ? '#9CA3AF' : '#5D4037'}">${isDayHubang ? '휴방 ' : ''}${dayGlobalTime}</span>`
                 : (isDayHubang ? `<span class="text-[13px] font-bold text-gray-400">휴방</span>` : '');
             const dateClass = isToday ? "today-highlight text-white w-7 h-7 inline-flex items-center justify-center rounded-md" : "";
             const displayDay = `<span class="${dateClass}">${day}</span>`;            
@@ -9632,7 +9630,7 @@ async function saveSchedule() {
     const colName = collectionMap[memberTab];
     
     let globalStartTime = '';
-    if (globalType === '뱅온') {
+    {
         const ampm = document.getElementById('globalAmpmBtn') ? document.getElementById('globalAmpmBtn').innerText : '오후';
         const hh = document.getElementById('globalHh') ? document.getElementById('globalHh').value : '';
         const mm = document.getElementById('globalMm') ? document.getElementById('globalMm').value : '';
@@ -9712,7 +9710,7 @@ async function saveEditedSchedule() {
     const mm = block.querySelector('.sch-mm').value;
     const broad = isHubang ? '' : block.querySelector('.sch-broad').value; 
     const mem = isHubang ? '' : block.querySelector('.sch-mem').value.trim();
-    const timeStr = isHubang ? '' : buildTimeStr(ampm, hh, mm); 
+    const timeStr = buildTimeStr(ampm, hh, mm); 
     const desc = block.querySelector('.sch-desc').value.trim();
     const imageUrl = block.querySelector('.sch-image-url') ? block.querySelector('.sch-image-url').value : '';
     
@@ -9761,11 +9759,16 @@ function toggleFields(modalId, radioName) {
     
     const isHubang = radio && radio.value === '휴방';
     modal.querySelectorAll('.optional-field').forEach(el => { el.style.display = isHubang ? 'none' : ''; });
+    modal.querySelectorAll('.time-field').forEach(el => { el.classList.toggle('col-span-2', isHubang); });
 
     if (modalId === 'scheduleModal') {
         const globalTimeBlock = document.getElementById('globalTimeBlock');
         if (globalTimeBlock) {
-            globalTimeBlock.style.display = isHubang ? 'none' : 'block';
+            globalTimeBlock.style.display = 'block';
+        }
+        const globalTimeLabel = document.getElementById('globalTimeLabel');
+        if (globalTimeLabel) {
+            globalTimeLabel.innerText = isHubang ? '휴방 시간' : '뱅온 시간';
         }
     }
 }
@@ -9871,7 +9874,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
             </div>
 
             <div class="grid grid-cols-2 gap-4 mb-5">
-                <div class="optional-field">
+                <div class="time-field">
                     <label class="${labelBase}">시간 (선택)</label>
                     <div class="flex items-center justify-between border border-gray-200 rounded-xl p-2 bg-[#FAFAFD] focus-within:bg-white focus-within:border-[var(--theme-color)] focus-within:ring-2 focus-within:ring-[var(--theme-color)]/10 transition-all">
                         <button type="button" class="sch-ampm ampm-btn px-3 py-1.5 font-bold text-gray-500 hover:text-[#5D4037] bg-white rounded-lg shadow-sm border border-gray-100 text-[13px] transition-all" onclick="toggleAmpm(this)">${ampm}</button>
@@ -9954,7 +9957,7 @@ function openScheduleModal(year, month, day, member) {
         globalMm.value = '';
         globalAmpm.innerText = '오후';
 
-        const sWithGlobal = targets.find(s => s.globalStartTime && s.globalType === '뱅온');
+        const sWithGlobal = targets.find(s => s.globalStartTime);
         if (sWithGlobal && sWithGlobal.globalStartTime) {
             let [h, m] = sWithGlobal.globalStartTime.split(':');
             h = parseInt(h, 10);
