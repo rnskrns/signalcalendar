@@ -3598,7 +3598,11 @@ function renderPartDividerPage() {
         setTimeout(() => {
             const input = document.getElementById('partDividerRoomCodeInput');
             if (input) input.value = code;
-            partDividerEnterRoom(isAdmin);
+            // ⭐ 초대 링크(?room=코드)는 시청자용 입장 경로이므로, 로그인한 계정이 관리자여도
+            // 항상 "시청자로 참가"로 처리한다. 그렇지 않으면 관리자가 무효/오래된 초대 링크를
+            // 열기만 해도 방 존재 확인 없이 곧장 방장 모드로 들어가버려서, 그 상태로 아무 동작
+            // (분배 전송 등)만 해도 존재하지 않던 코드로 관리자의 새 방이 의도치 않게 생성된다.
+            partDividerEnterRoom(false);
         }, 50);
     }
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
@@ -3849,8 +3853,23 @@ async function partDividerCreateNewRoom() {
     }
 }
 
-// 관리자: 기존 코드를 직접 입력해 관리자 모드로 입장(쓰기 전용, 파이어베이스 읽기 없이 바로 진입)
+// 관리자: 기존 코드를 직접 입력해 관리자 모드로 입장(방이 실제로 존재하는 경우에만 허용)
 async function partDividerEnterAsAdmin(code) {
+    // ⭐ 존재하지 않는 코드로도 관리자 모드에 들어가지면, 이후 아무 동작(분배 전송 등)만 해도
+    // Firebase set()이 해당 경로를 새로 만들어버려 "만든 적 없는 관리자의 방"이 생겨버린다.
+    // 그래서 관리자 모드로 진입하기 전에 방이 실제로 있는지 반드시 먼저 확인한다.
+    try {
+        const snapshot = await get(partDividerRoomRef(code));
+        if (!snapshot.exists()) {
+            alert('존재하지 않는 방 코드예요. 코드를 다시 확인해주세요.');
+            return;
+        }
+    } catch (err) {
+        console.error(err);
+        alert('방 정보를 불러오는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+
     partDividerDetachListener();
     await partDividerDisarmOnDisconnect();
 
@@ -6980,8 +6999,8 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
         bgColor = '#c8f0f5'; 
         finalTextColor = '#0891b2';
     } else if (isBibangSchedule) {
-        bgColor = '#E5E7EB'; 
-        finalTextColor = '#6B7280';
+        bgColor = '#D2C9CA'; 
+        finalTextColor = '#4A3B36';
     }
 
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
@@ -10196,7 +10215,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             } else if (broadText === '시네티') {
                 broadStyle = 'background-color: #9333ea; color: #ffffff;'; 
             } else if (broadText === '비방일정') {
-                broadStyle = 'background-color: #6B7280; color: #ffffff;'; 
+                broadStyle = 'background-color: #BDB76B; color: #ffffff;'; 
             } else {
                 broadStyle = `background-color: ${themeColor}; color: #ffffff;`;
             }
