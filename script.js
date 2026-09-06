@@ -11623,6 +11623,7 @@ window.processRouletteFile = async function(input) {
 let currentClipStreamer = '최또';
 let currentClipPage = 1;          
 let currentClipCursor = null;
+let hasMoreClips = true;
 let currentClipLoadedCount = 0;
 let isClipLoading = false;        
 let currentClipRequestId = 0;
@@ -11667,7 +11668,10 @@ window.setupClipInfiniteScroll = function() {
 
     const sentinel = document.getElementById('clipInfiniteSentinel');
     const loadingStatus = document.getElementById('clipInfiniteLoading');
-    if (!sentinel || !currentClipCursor) {
+    // 커서 기반 API는 currentClipCursor로, 페이지 기반 API는 hasMoreClips로 다음 페이지 존재 여부를 판단한다.
+    // 커서 값이 없다는 이유만으로 관찰을 중단하면(= 페이지 기반 API인 경우) 스크롤을 내려도
+    // 추가 로드가 영영 발생하지 않으므로, hasMoreClips가 true인 동안은 계속 관찰한다.
+    if (!sentinel || !hasMoreClips) {
         if (loadingStatus) loadingStatus.classList.add('hidden');
         return;
     }
@@ -11726,6 +11730,7 @@ window.changeClipStreamerNative = function(streamerName) {
     currentClipStreamer = streamerName;
     currentClipPage = 1; 
     currentClipCursor = null;
+    hasMoreClips = true;
     currentClipLoadedCount = 0;
     
     document.querySelectorAll('.clip-streamer-btn').forEach(btn => {
@@ -11807,11 +11812,15 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 
         if (!isLoadMore && clips.length === 0) {
             container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">검색된 VOD가 없습니다.</div>`;
+            hasMoreClips = false;
             isClipLoading = false;
             return;
         }
         // 빈 다음 페이지는 더 이상 자동 요청하지 않는다.
-        if (isLoadMore && clips.length === 0) currentClipCursor = null;
+        if (isLoadMore && clips.length === 0) {
+            currentClipCursor = null;
+            hasMoreClips = false;
+        }
 
         let html = '';
         clips.forEach(clip => {
@@ -11906,6 +11915,7 @@ window.renderClipPage = function() {
     currentClipStreamer = '최또';
     currentClipPage = 1;
     currentClipCursor = null;
+    hasMoreClips = true;
     currentClipLoadedCount = 0;
     
     let html = `
