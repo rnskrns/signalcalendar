@@ -11681,6 +11681,13 @@ window.markClipWatched = function(card) {
     card.classList.add('is-watched');
 };
 
+// "더보기" 버튼 클릭 핸들러. script.js가 모듈로 로드되어 currentClipStreamer 같은
+// 최상위 변수는 전역(window)에서 직접 보이지 않으므로, 인라인 onclick에서는
+// 이 래퍼 함수를 통해 호출한다.
+window.loadMoreClips = function() {
+    window.fetchStreamerClips(currentClipStreamer, true);
+};
+
 // 더보기 버튼의 표시 여부와 문구를 현재 상태에 맞게 갱신한다.
 window.updateClipLoadMoreBtn = function() {
     const loadMoreBtn = document.getElementById('clipLoadMoreBtn');
@@ -11945,7 +11952,7 @@ window.renderClipPage = function() {
         </div>
         
         <div class="w-full py-8 text-center">
-            <button type="button" id="clipLoadMoreBtn" onclick="window.fetchStreamerClips(currentClipStreamer, true)" class="hidden bg-white border border-gray-200 text-gray-700 font-bold text-[14px] px-8 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition shadow-sm">더보기</button>
+            <button type="button" id="clipLoadMoreBtn" onclick="window.loadMoreClips()" class="hidden bg-white border border-gray-200 text-gray-700 font-bold text-[14px] px-8 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition shadow-sm">더보기</button>
         </div>
     </div>`;
     
