@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // 클라이언트에서 넘겨주는 검색어(streamer)와 무한 스크롤용 커서(cursor)를 받습니다.
   const { streamer, cursor } = req.query;
 
   if (!streamer) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -11,7 +10,6 @@ export default async function handler(req, res) {
     '카나시': 'kjhh0029'
   };
   
-  // 영문 ID로 검색 요청이 들어올 경우를 대비한 역방향 매핑
   const bjIdToNameMap = Object.fromEntries(
     Object.entries(originalBjIdMap).map(([name, id]) => [id, name])
   );
@@ -19,19 +17,16 @@ export default async function handler(req, res) {
   const streamerName = originalBjIdMap[streamer] ? streamer : (bjIdToNameMap[streamer] || streamer);
   const originalBjId = originalBjIdMap[streamerName];
 
-  // SOOP VOD API 파라미터 조립 (limit: 24개 고정)
   const apiParams = new URLSearchParams({
     q: streamerName,
     limit: '24'
   });
 
-  // 스트리머 본인의 원본 영상을 제외하기 위한 필터링 조건 추가
   if (originalBjId) {
     apiParams.set('originalBjId', originalBjId);
     apiParams.set('excludeOriginal', 'true');
   }
 
-  // 프론트엔드에서 넘겨받은 다음 페이지 커서가 존재하면 파라미터에 추가
   if (cursor) {
     apiParams.set('cursor', cursor);
   }
@@ -50,40 +45,40 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    // API 응답에서 아이템 배열과 다음 페이지를 위한 커서 값 추출
+    // API 응답 데이터 추출
     const rawItems = data.vods || data.items || data.data || (Array.isArray(data) ? data : []);
     const nextCursor = data.nextCursor || data.cursor || null;
 
-    // 프론트엔드 형식에 맞게 데이터 매핑 및 썸네일 보정
+    // 실제 원본 데이터 구조에 맞게 매핑
     const clips = rawItems.map(item => {
-      // 1. SOOP API의 다양한 썸네일 속성명 후보들 확인
-      let thumb = item.thumb || item.thumbnail || item.thumb_path || item.thumb_file || item.file_name || item.image || '';
-      
-      // 2. 주소가 '//stimg...' 처럼 프로토콜 없이 오면 'https:' 붙여주기
-      if (thumb && thumb.startsWith('//')) {
+      // 1. 썸네일 URL 'http' -> 'https' 강제 변환 (Mixed Content 차단 방지)
+      let thumb = item.thumbnailUrl || '';
+      if (thumb.startsWith('http://')) {
+        thumb = thumb.replace('http://', 'https://');
+      } else if (thumb.startsWith('//')) {
         thumb = 'https:' + thumb;
-      } else if (thumb && thumb.startsWith('/')) {
-        thumb = 'https://vod.soopup.live' + thumb;
       }
 
+      // 2. durationMs (밀리초) -> 초 단위로 변환
+      const durationSeconds = item.durationMs ? Math.floor(item.durationMs / 1000) : 0;
+
       return {
-        titleNo: item.titleNo || item.id,
-        url: `https://vod.sooplive.com/player/${item.titleNo || item.id}`,
+        titleNo: item.titleNo,
+        url: item.url || `https://vod.sooplive.com/player/${item.titleNo}`,
         title: item.title || '',
-        thumbnailUrl: thumb, // 보정된 썸네일 주소 적용
+        thumbnailUrl: thumb,
         type: item.type || 'VOD',
-        duration: item.duration || 0,
-        stationNick: item.user_nick || item.stationNick || item.userNick || '',
-        viewCount: item.view_cnt || item.views || item.viewCount || 0,
-        regDate: item.reg_date || item.date || item.regDate || ''
+        duration: durationSeconds,
+        stationNick: item.stationNick || '',
+        viewCount: item.viewCount || 0,
+        regDate: item.regDate || ''
       };
     });
 
-    // 매핑된 데이터와 커서 상태 반환
     return res.status(200).json({
       items: clips,
       nextCursor: nextCursor,
-      hasMore: !!nextCursor && clips.length > 0 // 커서가 있고 로드된 영상이 1개라도 있으면 true
+      hasMore: !!nextCursor && clips.length > 0
     });
 
   } catch (error) {
