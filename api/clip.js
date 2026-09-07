@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     apiParams.set('excludeOriginal', 'true');
   }
 
-  // 더보기를 통해 넘겨받은 다음 페이지 커서가 존재하면 파라미터에 추가
+  // 프론트엔드에서 넘겨받은 다음 페이지 커서가 존재하면 파라미터에 추가
   if (cursor) {
     apiParams.set('cursor', cursor);
   }
@@ -51,22 +51,33 @@ export default async function handler(req, res) {
     const data = await response.json();
     
     // API 응답에서 아이템 배열과 다음 페이지를 위한 커서 값 추출
-    // (api 구조가 data.vods, data.items, data.data 등일 수 있으므로 방어적으로 탐색)
     const rawItems = data.vods || data.items || data.data || (Array.isArray(data) ? data : []);
     const nextCursor = data.nextCursor || data.cursor || null;
 
-    // 프론트엔드 형식에 맞게 데이터 매핑
-    const clips = rawItems.map(item => ({
-      titleNo: item.titleNo || item.id,
-      url: `https://vod.sooplive.com/player/${item.titleNo || item.id}`,
-      title: item.title || '',
-      thumbnailUrl: item.thumbnail || item.thumb || '',
-      type: item.type || 'VOD',
-      duration: item.duration || 0,
-      stationNick: item.user_nick || item.stationNick || item.userNick || '',
-      viewCount: item.view_cnt || item.views || item.viewCount || 0,
-      regDate: item.reg_date || item.date || item.regDate || ''
-    }));
+    // 프론트엔드 형식에 맞게 데이터 매핑 및 썸네일 보정
+    const clips = rawItems.map(item => {
+      // 1. SOOP API의 다양한 썸네일 속성명 후보들 확인
+      let thumb = item.thumb || item.thumbnail || item.thumb_path || item.thumb_file || item.file_name || item.image || '';
+      
+      // 2. 주소가 '//stimg...' 처럼 프로토콜 없이 오면 'https:' 붙여주기
+      if (thumb && thumb.startsWith('//')) {
+        thumb = 'https:' + thumb;
+      } else if (thumb && thumb.startsWith('/')) {
+        thumb = 'https://vod.soopup.live' + thumb;
+      }
+
+      return {
+        titleNo: item.titleNo || item.id,
+        url: `https://vod.sooplive.com/player/${item.titleNo || item.id}`,
+        title: item.title || '',
+        thumbnailUrl: thumb, // 보정된 썸네일 주소 적용
+        type: item.type || 'VOD',
+        duration: item.duration || 0,
+        stationNick: item.user_nick || item.stationNick || item.userNick || '',
+        viewCount: item.view_cnt || item.views || item.viewCount || 0,
+        regDate: item.reg_date || item.date || item.regDate || ''
+      };
+    });
 
     // 매핑된 데이터와 커서 상태 반환
     return res.status(200).json({
