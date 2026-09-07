@@ -11647,7 +11647,6 @@ let currentClipLoadedCount = 0;
 let isClipLoading = false;        
 let currentClipRequestId = 0;
 let clipAbortController = null;
-let clipInfiniteObserver = null;
 const watchedClipStorageKey = 'signal_watched_clip_urls';
 let watchedClipUrls = null;
 
@@ -11682,26 +11681,16 @@ window.markClipWatched = function(card) {
     card.classList.add('is-watched');
 };
 
-window.setupClipInfiniteScroll = function() {
-    if (clipInfiniteObserver) clipInfiniteObserver.disconnect();
-
-    const sentinel = document.getElementById('clipInfiniteSentinel');
-    const loadingStatus = document.getElementById('clipInfiniteLoading');
-    // 커서 기반 API는 currentClipCursor로, 페이지 기반 API는 hasMoreClips로 다음 페이지 존재 여부를 판단한다.
-    // 커서 값이 없다는 이유만으로 관찰을 중단하면(= 페이지 기반 API인 경우) 스크롤을 내려도
-    // 추가 로드가 영영 발생하지 않으므로, hasMoreClips가 true인 동안은 계속 관찰한다.
-    if (!sentinel || !hasMoreClips) {
-        if (loadingStatus) loadingStatus.classList.add('hidden');
-        return;
+// 더보기 버튼의 표시 여부와 문구를 현재 상태에 맞게 갱신한다.
+window.updateClipLoadMoreBtn = function() {
+    const loadMoreBtn = document.getElementById('clipLoadMoreBtn');
+    if (!loadMoreBtn) return;
+    if (hasMoreClips) {
+        loadMoreBtn.innerText = '더보기';
+        loadMoreBtn.classList.remove('hidden');
+    } else {
+        loadMoreBtn.classList.add('hidden');
     }
-
-    clipInfiniteObserver = new IntersectionObserver(entries => {
-        if (!entries[0].isIntersecting || isClipLoading) return;
-        clipInfiniteObserver.unobserve(sentinel);
-        if (loadingStatus) loadingStatus.classList.remove('hidden');
-        window.fetchStreamerClips(currentClipStreamer, true);
-    }, { rootMargin: '500px 0px' });
-    clipInfiniteObserver.observe(sentinel);
 };
 
 window.closeClipPreview = function() {
@@ -11745,7 +11734,6 @@ window.openClipPreview = function(event, clipUrl, clipTitle) {
 };
 
 window.changeClipStreamerNative = function(streamerName) {
-    if (clipInfiniteObserver) clipInfiniteObserver.disconnect();
     currentClipStreamer = streamerName;
     currentClipPage = 1; 
     currentClipCursor = null;
@@ -11833,6 +11821,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
             container.innerHTML = `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-[16px]">검색된 VOD가 없습니다.</div>`;
             hasMoreClips = false;
             isClipLoading = false;
+            window.updateClipLoadMoreBtn();
             return;
         }
         // 빈 다음 페이지는 더 이상 자동 요청하지 않는다.
@@ -11919,9 +11908,7 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
         if (requestId === currentClipRequestId) {
             isClipLoading = false;
             clipAbortController = null;
-            const loadingStatus = document.getElementById('clipInfiniteLoading');
-            if (loadingStatus) loadingStatus.classList.add('hidden');
-            window.setupClipInfiniteScroll();
+            window.updateClipLoadMoreBtn();
         }
     }
 };
@@ -11930,7 +11917,6 @@ window.renderClipPage = function() {
     const content = document.getElementById('mainContent');
     const isMobile = window.innerWidth <= 1050;
     // 탭에 들어올 때는 최또 검색 결과부터 바로 보여준다.
-    if (clipInfiniteObserver) clipInfiniteObserver.disconnect();
     currentClipStreamer = '최또';
     currentClipPage = 1;
     currentClipCursor = null;
@@ -11959,8 +11945,7 @@ window.renderClipPage = function() {
         </div>
         
         <div class="w-full py-8 text-center">
-            <span id="clipInfiniteLoading" class="hidden text-[13px] font-bold text-gray-400">클립을 더 불러오는 중…</span>
-            <div id="clipInfiniteSentinel" class="h-px w-full"></div>
+            <button type="button" id="clipLoadMoreBtn" onclick="window.fetchStreamerClips(currentClipStreamer, true)" class="hidden bg-white border border-gray-200 text-gray-700 font-bold text-[14px] px-8 py-3 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition shadow-sm">더보기</button>
         </div>
     </div>`;
     
