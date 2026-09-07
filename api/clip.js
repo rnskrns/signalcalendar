@@ -19,15 +19,17 @@ export default async function handler(req, res) {
   const originalBjId = originalBjIdMap[streamerName];
 
   // /api/vods는 originalBjId/excludeOriginal을 지원하지 않아 400을 반환하지만,
-  // 실제 검색 페이지(vod.soopup.live/?q=...)는 서버에서 완성된 HTML로 같은 필터를 지원한다.
-  // 문서화된 JSON API가 없으므로 이 페이지 HTML을 직접 파싱한다.
-  const pageParams = new URLSearchParams({ q: streamerName });
+const pageParams = new URLSearchParams({ q: streamerName });
   if (originalBjId) {
     pageParams.set('originalBjId', originalBjId);
     pageParams.set('excludeOriginal', 'true');
   }
-  // 이 페이지는 커서/페이지 기반 API를 노출하지 않고 "더 보기" 버튼으로 클라이언트 측에서
-  // 추가 로드하는 방식으로 보인다. 서버 사이드에서는 1페이지(최초 24개)만 안정적으로 가져올 수 있다.
+  
+  // ✅ 클라이언트에서 넘겨준 page 파라미터를 URL에 포함시킵니다.
+  if (page && Number(page) > 1) {
+    pageParams.set('page', String(page));
+  }
+
   const pageUrl = `https://vod.soopup.live/?${pageParams.toString()}`;
 
   try {
@@ -130,8 +132,12 @@ export default async function handler(req, res) {
       });
     });
 
-    return res.status(200).json({ items: clips, page: Number(page) || 1, hasMore: false });
-  } catch (error) {
+return res.status(200).json({ 
+        items: clips, 
+        page: Number(page) || 1, 
+        hasMore: clips.length > 0 
+    });
+    } catch (error) {
     return res.status(502).json({ error: 'VOD 검색 결과를 가져오지 못했습니다.' });
   }
 }
