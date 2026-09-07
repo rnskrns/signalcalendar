@@ -132,11 +132,11 @@ const pageParams = new URLSearchParams({ q: streamerName });
       });
     });
 
-return res.status(200).json({ 
-        items: clips, 
-        page: Number(page) || 1, 
-        hasMore: clips.length > 0 
-    });
+    return res.status(200).json({ 
+            items: clips, 
+            page: Number(page) || 1, 
+            hasMore: clips.length > 0 
+        });
     } catch (error) {
     return res.status(502).json({ error: 'VOD 검색 결과를 가져오지 못했습니다.' });
   }
