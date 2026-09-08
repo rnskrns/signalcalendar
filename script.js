@@ -2807,12 +2807,14 @@ async function showUpPopup(today) {
         </div>
     ` : '';
 
-    // 이미지 배경 없이 테마 색상만 넣은, 가로로 긴 디데이 카드 (왼쪽 제목 / 오른쪽 남은 일수)
+    // 이미지·그라데이션 없이 밝은 테마 색상 단색 배경 + 반짝이는 파티클 효과를 넣은, 가로로 긴 디데이 카드 (왼쪽 제목 / 오른쪽 남은 일수)
     let ddayHtml = activeDdays.map(d => {
         const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
         const dLabel = d.daysLeft === 0 ? 'D-DAY' : `D-${d.daysLeft}`;
+        const themeVars = `--dday-c1:${theme.c1};--dday-c2:${theme.c2};`;
         return `
-        <div class="rounded-2xl p-5 mb-3 cursor-pointer shrink-0 flex items-center justify-between gap-4 hover:brightness-105 hover:shadow-md transition-all" style="background: linear-gradient(135deg, rgb(${theme.c1}), rgb(${theme.c2}));" onclick="openDdayFromPopup(${JSON.stringify(d.rollingSeq || null)})">
+        <div class="dday-hero-card cursor-pointer mb-3 shrink-0 flex items-center justify-between gap-4 hover:brightness-105 hover:shadow-md transition-all" style="${themeVars}background:${theme.swatch};" onclick="openDdayFromPopup(${JSON.stringify(d.rollingSeq || null)})">
+            <div class="dday-hero-particles">${generateDdayParticles(10, false)}</div>
             <div class="font-bold text-[16px] text-white break-words leading-snug">${escapeHtml(d.title || '기념일')}</div>
             <div class="text-[15px] font-extrabold text-white shrink-0 bg-white/20 px-3 py-1.5 rounded-full">${dLabel}</div>
         </div>
