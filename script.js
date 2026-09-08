@@ -2862,6 +2862,9 @@ async function openRollingTopicFromPopup(id) {
     closeUpPopup(true); 
     if (currentPage !== '롤링페이퍼') changeTab('롤링페이퍼');
     currentRollingTopic = rollingTopics.find(t => t.id === id);
+    if (currentRollingTopic && currentRollingTopic.seq) {
+        window.history.replaceState(null, '', `#rolling?seq=${currentRollingTopic.seq}`);
+    }
     render();
     await ensureRollingEntriesLoaded(id);
     if (currentRollingTopic && currentRollingTopic.id === id) render();
@@ -3465,6 +3468,11 @@ async function openRollingTopicFromMenu(id) {
     closeMobileTabMenu();
     if (currentPage !== '롤링페이퍼') changeTab('롤링페이퍼');
     currentRollingTopic = rollingTopics.find(t => t.id === id);
+    
+    if (currentRollingTopic && currentRollingTopic.seq) {
+        window.history.replaceState(null, '', `#rolling?seq=${currentRollingTopic.seq}`);
+    }
+
     render();
     await ensureRollingEntriesLoaded(id);
     if (currentRollingTopic && currentRollingTopic.id === id) render();
@@ -3476,11 +3484,12 @@ async function openRollingTopicFromMenu(id) {
 let partDividerView = 'lobby';           // 'lobby' | 'room'
 let partDividerIsAdmin = false;          // 관리자 모드 여부
 let partDividerRoomCode = '';            // 로비에서 입력한 방 코드
-let partDividerPendingAutoJoin = null;
-if (window.location.hash.startsWith('#partdivider?room=')) {
-    partDividerPendingAutoJoin = window.location.hash.split('?room=')[1];
-    // 탭 이동 시스템이 꼬이지 않도록 해시를 원래대로 덮어씌움
-    window.history.replaceState(null, '', '#partdivider'); 
+// ⭐ 신규: 롤링페이퍼 특정 번호(seq)로 바로가기 파라미터 감지
+let rollingPendingAutoJoinSeq = null;
+if (window.location.hash.startsWith('#rolling?seq=')) {
+    rollingPendingAutoJoinSeq = parseInt(window.location.hash.split('?seq=')[1], 10);
+    // 탭 시스템이 꼬이지 않도록 주소창을 기본 해시로 덮어씌움
+    window.history.replaceState(null, '', '#rolling'); 
 }
 let partDividerJoinedRoomCode = '';      // 실제로 입장한 방 코드(방 화면 헤더 표시용)
 let partDividerSearching = false;        // 가사 검색 중 여부
@@ -5481,7 +5490,7 @@ function renderHomeDdayBox() {
                 : '';            
         const message = (d.message || '').trim() || '';
         return `
-        <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''}" style="${themeVars}${bgImageStyle}">
+        <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''} cursor-pointer" style="${themeVars}${bgImageStyle}" onclick="location.href='https://signalcalendar.vercel.app/#rolling'">
             ${(cardImage && !isToday) ? '<div class="dday-hero-img-overlay"></div>' : ''}
             ${!isToday ? '<div class="dday-hero-water"></div>' : ''}
             <div class="dday-hero-particles">${generateDdayParticles(particleCount, isToday)}</div>
@@ -6825,6 +6834,17 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         saveScheduleCache();
         renderHeaderTabs(); 
         render();
+
+        if (rollingPendingAutoJoinSeq !== null && rollingTopics.length > 0) {
+            const targetTopic = rollingTopics.find(t => t.seq === rollingPendingAutoJoinSeq);
+            if (targetTopic) {
+                rollingPendingAutoJoinSeq = null; // 1회 실행 후 초기화
+                setTimeout(() => {
+                    openRollingTopicFromMenu(targetTopic.id);
+                }, 100);
+            }
+        }
+
         resetAutoRetry();
         return true;
     } catch (e) {
@@ -8602,9 +8622,16 @@ async function saveRollingTopic() {
     const title = document.getElementById('rtTitle').value.trim();
     const date = document.getElementById('rtDate').value;
     if(!title) return alert("주제를 입력해주세요.");
-    
+    const maxSeq = rollingTopics.reduce((max, t) => Math.max(max, t.seq || 0), 0);
+    const newSeq = maxSeq + 1;
+
     try {
-        const newTopic = { title, date, timestamp: Date.now() };
+        const newTopic = {
+                title: title,
+                date: date,
+                seq: newSeq,
+                timestamp: Date.now()
+            };
         const docRef = await addDoc(collection(db, 'rollingTopics'), newTopic);
         rollingTopics.push({ id: docRef.id, ...newTopic });
         sortRollingTopics();
