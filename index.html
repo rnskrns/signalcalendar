@@ -320,6 +320,10 @@
                             <input type="date" id="ddayDate" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                             <input type="text" id="ddayMessage" placeholder="(선택) 미입력시 빈칸으로 표시 됩니다." class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                             <div>
+                                <div class="text-[12px] text-gray-500 font-bold mb-1.5">연결할 롤링페이퍼 번호 (선택, 미입력 시 카드 클릭 시 목록으로 이동)</div>
+                                <input type="number" min="1" id="ddayRollingSeq" placeholder="예: 1  (비워두면 롤링페이퍼 목록으로 이동)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                            </div>
+                            <div>
                                 <div class="text-[12px] text-gray-500 font-bold mb-1.5">배경 이미지 (선택, 미등록 시 카드 색상으로 표시)</div>
                                 <div class="flex gap-2 mb-2">
                                     <button type="button" id="ddayImgTabUrl" onclick="switchDdayImgTab('url')" class="flex-1 py-2 text-sm font-bold rounded-lg border-2 border-[#5D4037] bg-[#5D4037] text-white transition">링크 입력</button>

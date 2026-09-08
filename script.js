@@ -5490,7 +5490,7 @@ function renderHomeDdayBox() {
                 : '';            
         const message = (d.message || '').trim() || '';
         return `
-        <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''} cursor-pointer" style="${themeVars}${bgImageStyle}" onclick="changeTab('롤링페이퍼')">
+        <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''} cursor-pointer" style="${themeVars}${bgImageStyle}" onclick="goToDdayRolling(${JSON.stringify(d.rollingSeq || null)})">
             ${(cardImage && !isToday) ? '<div class="dday-hero-img-overlay"></div>' : ''}
             ${!isToday ? '<div class="dday-hero-water"></div>' : ''}
             <div class="dday-hero-particles">${generateDdayParticles(particleCount, isToday)}</div>
@@ -5674,9 +5674,12 @@ async function addDday() {
     const titleInput = document.getElementById('ddayTitle');
     const dateInput = document.getElementById('ddayDate');
     const messageInput = document.getElementById('ddayMessage');
+    const rollingSeqInput = document.getElementById('ddayRollingSeq');
     const title = titleInput.value.trim();
     const date = dateInput.value;
     const message = messageInput ? messageInput.value.trim() : '';
+    const rollingSeqRaw = rollingSeqInput ? rollingSeqInput.value.trim() : '';
+    const rollingSeq = rollingSeqRaw ? parseInt(rollingSeqRaw, 10) : null;
     const color = DDAY_COLOR_THEMES[selectedDdayColor] ? selectedDdayColor : 'pink';
 
     if (!date) return alert('날짜를 선택하세요.');
@@ -5705,14 +5708,14 @@ async function addDday() {
 
         if (editingDdayId) {
             // 수정 모드: 기존 문서를 갱신
-            const updatedDday = { title, date, color, message, image: imageUrl, imagePos };
+            const updatedDday = { title, date, color, message, image: imageUrl, imagePos, rollingSeq };
             await updateDoc(doc(db, 'ddays', editingDdayId), updatedDday);
             const idx = ddaysList.findIndex(d => d.id === editingDdayId);
             if (idx !== -1) ddaysList[idx] = { ...ddaysList[idx], ...updatedDday };
             alert('디데이가 수정되었습니다.');
         } else {
             // 신규 등록 모드
-            const newDday = { title, date, color, message, image: imageUrl, imagePos, timestamp: Date.now() };
+            const newDday = { title, date, color, message, image: imageUrl, imagePos, rollingSeq, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'ddays'), newDday);
             ddaysList.push({ id: docRef.id, ...newDday });
             alert('디데이가 추가되었습니다.');
@@ -5738,9 +5741,11 @@ function startEditDday(ddayId) {
     const titleInput = document.getElementById('ddayTitle');
     const dateInput = document.getElementById('ddayDate');
     const messageInput = document.getElementById('ddayMessage');
+    const rollingSeqInput = document.getElementById('ddayRollingSeq');
     if (titleInput) titleInput.value = d.title || '';
     if (dateInput) dateInput.value = d.date || '';
     if (messageInput) messageInput.value = d.message || '';
+    if (rollingSeqInput) rollingSeqInput.value = d.rollingSeq || '';
 
     resetDdayImageForm();
     if (d.image) {
@@ -5771,9 +5776,11 @@ function cancelEditDday() {
     const titleInput = document.getElementById('ddayTitle');
     const dateInput = document.getElementById('ddayDate');
     const messageInput = document.getElementById('ddayMessage');
+    const rollingSeqInput = document.getElementById('ddayRollingSeq');
     if (titleInput) titleInput.value = '';
     if (dateInput) dateInput.value = '';
     if (messageInput) messageInput.value = '';
+    if (rollingSeqInput) rollingSeqInput.value = '';
     resetDdayImageForm();
     selectDdayColor('pink');
 
@@ -8670,6 +8677,19 @@ async function ensureRollingEntriesLoaded(topicId) {
     } catch (e) {
         console.error('롤링페이퍼 항목 로드 에러:', e);
     }
+}
+
+// 홈탭 디데이 카드 클릭 시: 등록된 롤링페이퍼 번호(seq)가 있으면 해당 주제로 바로 진입하고, 없으면 목록으로 이동
+async function goToDdayRolling(seq) {
+    await changeTab('롤링페이퍼');
+    if (!seq) return;
+    const topic = rollingTopics.find(t => t.seq === Number(seq));
+    if (!topic) return;
+    currentRollingTopic = topic;
+    window.history.replaceState(null, '', `#rolling?seq=${topic.seq}`);
+    render();
+    await ensureRollingEntriesLoaded(topic.id);
+    if (currentRollingTopic && currentRollingTopic.id === topic.id) render();
 }
 
 async function openRollingTopic(id) {
