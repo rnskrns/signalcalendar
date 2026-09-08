@@ -806,6 +806,7 @@ window.openRollingEntryModal = openRollingEntryModal; window.closeRollingEntryMo
 window.saveRollingEntry = saveRollingEntry; window.deleteRollingEntry = deleteRollingEntry; window.openRollingDetailModal = openRollingDetailModal;
 window.closeRollingDetailModal = closeRollingDetailModal; window.navigateRollingDetail = navigateRollingDetail; window.openRollingTopicFromMenu = openRollingTopicFromMenu;
 window.openRollingTopicFromPopup = openRollingTopicFromPopup;
+window.openDdayFromPopup = openDdayFromPopup;
 
 window.openInfoModal = openInfoModal; window.closeInfoModal = closeInfoModal; window.updateUserInfo = updateUserInfo;
 window.moveScheduleBlock = moveScheduleBlock;
@@ -2735,9 +2736,17 @@ async function loadLinksFromFirebase() {
     } catch(e) { console.error("링크 로드 실패:", e); }
 }
 
+// 입장 팝업에 띄울 디데이 목록 - 홈탭 디데이 박스와 동일하게 D-30~D-day 범위만, 가까운 순 정렬
+function getPopupDdayItems(today) {
+    return ddaysList
+        .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.date, today) }))
+        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 30)
+        .sort((a, b) => a.daysLeft - b.daysLeft);
+}
+
 async function checkAndShowPopup(today) {
     const closedUntil = localStorage.getItem('upPopupClosedUntil');
-    const activeTopics = rollingTopics.filter(t => t.date >= today);
+    const activeDdays = getPopupDdayItems(today);
     const visibleUpLinks = getVisibleUpLinks();
     
     const hasValidImage = popupImagesList.some(img => 
@@ -2745,7 +2754,7 @@ async function checkAndShowPopup(today) {
         (!img.deadline || img.deadline >= today)
     );
     
-    if ((!closedUntil || closedUntil < today) && (visibleUpLinks.length > 0 || activeTopics.length > 0 || hasValidImage)) {
+    if ((!closedUntil || closedUntil < today) && (visibleUpLinks.length > 0 || activeDdays.length > 0 || hasValidImage)) {
         if (visibleUpLinks.length > 0) await ensureMemberLoginImgMap();
         await showUpPopup(today);
     }
@@ -2756,7 +2765,8 @@ async function showUpPopup(today) {
     if(!list) return;
 
     const visibleUpLinks = getVisibleUpLinks();
-    const hasTextContent = (visibleUpLinks.length > 0 || rollingTopics.filter(t => t.date >= today).length > 0);
+    const activeDdays = getPopupDdayItems(today);
+    const hasTextContent = (visibleUpLinks.length > 0 || activeDdays.length > 0);
 
     let popupImgHtml = '';
     const activeImg = popupImagesList.find(img => (!img.startDate || img.startDate <= today) && (!img.deadline || img.deadline >= today));
@@ -2797,27 +2807,26 @@ async function showUpPopup(today) {
         </div>
     ` : '';
 
-    const activeTopics = rollingTopics.filter(t => t.date >= today);
-    let rollingHtml = activeTopics.map(topic => {
+    // 이미지 배경 없이 테마 색상만 넣은, 가로로 긴 디데이 카드 (왼쪽 제목 / 오른쪽 남은 일수)
+    let ddayHtml = activeDdays.map(d => {
+        const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
+        const dLabel = d.daysLeft === 0 ? 'D-DAY' : `D-${d.daysLeft}`;
         return `
-        <div class="bg-white border border-gray-100 rounded-2xl p-5 mb-3 cursor-pointer hover:border-purple-300 hover:shadow-md transition-all flex flex-col gap-2 shrink-0 group" onclick="openRollingTopicFromPopup('${topic.id}')">
-            <div class="font-bold text-[16px] text-gray-800 break-words leading-snug group-hover:text-purple-600 transition-colors">${escapeHtml(topic.title)}</div>
-            <div class="flex justify-between items-center mt-2">
-                <span class="text-[11px] font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full">진행중</span>
-                <span class="text-[12px] font-bold text-gray-400">마감: ${topic.date}</span>
-            </div>
+        <div class="rounded-2xl p-5 mb-3 cursor-pointer shrink-0 flex items-center justify-between gap-4 hover:brightness-105 hover:shadow-md transition-all" style="background: linear-gradient(135deg, rgb(${theme.c1}), rgb(${theme.c2}));" onclick="openDdayFromPopup(${JSON.stringify(d.rollingSeq || null)})">
+            <div class="font-bold text-[16px] text-white break-words leading-snug">${escapeHtml(d.title || '기념일')}</div>
+            <div class="text-[15px] font-extrabold text-white shrink-0 bg-white/20 px-3 py-1.5 rounded-full">${dLabel}</div>
         </div>
         `;
     }).join('');
 
-    // 심플하고 세련된 롤링페이퍼 섹션 (앞부분 아이콘 제거)
-    const rollingSectionHtml = activeTopics.length > 0 ? `
+    // 심플하고 세련된 디데이 섹션 (앞부분 아이콘 제거)
+    const ddaySectionHtml = activeDdays.length > 0 ? `
         <div class="flex flex-col w-full">
             <div class="text-[17px] font-bold text-gray-800 mb-4 pb-3 border-b border-gray-100 flex items-center shrink-0 mt-2">
-                롤링페이퍼
+                디데이
             </div>
             <div class="flex flex-col">
-                ${rollingHtml}
+                ${ddayHtml}
             </div>
         </div>
     ` : '';
@@ -2827,7 +2836,7 @@ async function showUpPopup(today) {
         rightColumnHtml = `
             <div class="flex-1 flex flex-col overflow-y-auto max-h-[65vh] w-full md:w-1/2 pr-2 modal-scroll">
                 <div class="flex flex-col w-full">
-                    ${upSectionHtml}${rollingSectionHtml}
+                    ${upSectionHtml}${ddaySectionHtml}
                 </div>
             </div>
         `;
@@ -2857,6 +2866,11 @@ function closeUpPopup(dismissMode = null) {
         localStorage.setItem('upPopupClosedUntil', getDateAfterDaysYYYYMMDD(7));
     }
     document.getElementById('upPopupOverlay').classList.replace('flex', 'hidden');
+}
+
+async function openDdayFromPopup(seq) {
+    closeUpPopup(true);
+    await goToDdayRolling(seq);
 }
 
 async function openRollingTopicFromPopup(id) {
