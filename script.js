@@ -2807,29 +2807,34 @@ async function showUpPopup(today) {
         </div>
     ` : '';
 
-// 이미지·그라데이션 없이 밝은 테마 색상 단색 배경 + 반짝이는 파티클 효과를 넣은, 가로로 긴 디데이 카드
+// 이미지·그라데이션 없이 밝은 테마 색상 단색 배경 + 반짝이는 파티클 효과를 넣은 디데이 카드
     let ddayHtml = activeDdays.map(d => {
         const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
         const dLabel = d.daysLeft === 0 ? 'D-DAY' : `D-${d.daysLeft}`;
         const message = (d.message || '').trim(); // 저장된 서브 멘트 가져오기
         
-        // 배경이 단색이므로 파티클이 눈에 잘 띄도록 파티클 색상을 흰색(255, 255, 255)으로 설정
         const themeVars = `--dday-c1: 255, 255, 255; --dday-c2: 255, 255, 255; --dday-particle-opacity: 0.6;`;
         
         return `
-        <div class="dday-hero-card cursor-pointer mb-3 shrink-0 flex items-center justify-between gap-4 hover:brightness-105 hover:shadow-md transition-all" style="${themeVars} background: ${theme.swatch} !important;" onclick="openDdayFromPopup(${JSON.stringify(d.rollingSeq || null)})">
+        <!-- 전체 카드를 가로 배치로 변경 -->
+        <div class="dday-hero-card cursor-pointer mb-3 shrink-0 flex items-center justify-between gap-4 hover:brightness-105 hover:shadow-md transition-all" style="${themeVars} background: ${theme.swatch} !important; min-height: 85px;" onclick="openDdayFromPopup(${JSON.stringify(d.rollingSeq || null)})">
             <div class="dday-hero-particles">${generateDdayParticles(15, false)}</div>
-            <!-- 제목과 서브 멘트를 세로로 묶어주는 영역 -->
+            
+            <!-- 왼쪽: 제목과 서브 멘트를 세로(flex-col)로 묶음 -->
             <div class="flex flex-col gap-1 relative z-10 flex-1 min-w-0">
                 <div class="font-bold text-[16px] text-white break-words leading-snug" style="text-shadow: 0 2px 5px rgba(0,0,0,0.35);">${escapeHtml(d.title || '기념일')}</div>
-                ${message ? `<div class="text-[12.5px] font-bold text-white/90 truncate leading-snug" style="text-shadow: 0 1px 3px rgba(0,0,0,0.25);">${escapeHtml(message)}</div>` : ''}
+                ${message ? `
+                <div class="text-[16.5px] font-bold text-white/95 truncate leading-snug" style="text-shadow: 0 1px 3px rgba(0,0,0,0.25);">
+                    ${escapeHtml(message)}
+                </div>` : ''}
             </div>
-            <!-- 남은 일수 뱃지 -->
+            
+            <!-- 오른쪽: 남은 일수 뱃지 -->
             <div class="text-[15px] font-extrabold text-white shrink-0 bg-white/30 px-3 py-1.5 rounded-full relative z-10" style="text-shadow: 0 1px 3px rgba(0,0,0,0.2);">${dLabel}</div>
         </div>
         `;
     }).join('');
-    
+        
     // 심플하고 세련된 디데이 섹션 (앞부분 아이콘 제거)
    const ddaySectionHtml = activeDdays.length > 0 ? `
         <div class="flex flex-col w-full mt-2">
@@ -5513,16 +5518,21 @@ const rowsHtml = items.map(d => {
             ${(cardImage && !isToday) ? '<div class="dday-hero-img-overlay"></div>' : ''}
             ${!isToday ? '<div class="dday-hero-water"></div>' : ''}
             <div class="dday-hero-particles">${generateDdayParticles(particleCount, isToday)}</div>
-            <div class="dday-hero-text relative z-10">
-                <!-- 상단 날짜 뱃지 (그림자 추가) -->
-                <span class="dday-hero-badge" style="text-shadow: 0 1px 2px rgba(0,0,0,0.15);">${escapeHtml(dateLabel)} COUNTDOWN</span>
-                <!-- 기념일 제목 (흰색 글씨 + 뚜렷한 그림자) -->
-                <div class="dday-hero-title font-paperozi" style="color: #ffffff !important; text-shadow: 0 2px 5px rgba(0,0,0,0.4);">${escapeHtml(d.title || '기념일')}까지</div>
-                <!-- 서브 멘트 (흰색 글씨 + 부드러운 그림자) -->
-                <div class="dday-hero-sub" style="color: rgba(255,255,255,0.95) !important; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">${escapeHtml(message)}</div>
-                <div class="dday-hero-stat-row">
-                    <div class="dday-hero-stat">
-                        <!-- 숫자와 라벨을 요청하신 쿨톤과 어울리는 레몬 옐로우(#fef08a)로 변경하고 그림자 추가 -->
+            
+            <!-- 컨텐츠 영역을 flex-col로 만들어 상/하단 분리 -->
+            <div class="dday-hero-text relative z-10 flex flex-col h-full min-h-[110px]">
+                <div>
+                    <span class="dday-hero-badge" style="text-shadow: 0 1px 2px rgba(0,0,0,0.15);">${escapeHtml(dateLabel)} COUNTDOWN</span>
+                    <div class="dday-hero-title font-paperozi" style="color: #ffffff !important; text-shadow: 0 2px 5px rgba(0,0,0,0.4);">${escapeHtml(d.title || '기념일')}까지</div>
+                </div>
+                
+                <!-- 하단 행: 왼쪽 서브 멘트 / 오른쪽 디데이 숫자 -->
+                <div class="dday-hero-stat-row w-full mt-auto" style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 12px;">
+                    <!-- font-size: 20px; 를 추가하여 글씨 크기를 7px 더 키웠습니다 -->
+                    <div class="dday-hero-sub mb-1 pr-2" style="font-size: 20px; color: rgba(255,255,255,0.95) !important; text-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-top: 0; text-align: left; word-break: keep-all; max-width: 65%;">
+                        ${escapeHtml(message)}
+                    </div>
+                    <div class="dday-hero-stat shrink-0">
                         <div class="dday-hero-stat-num" style="color: #fef08a !important; text-shadow: 0 2px 4px rgba(0,0,0,0.25);">${isToday ? 'D-DAY' : d.daysLeft}</div>
                         ${isToday ? '' : '<div class="dday-hero-stat-label" style="color: #fef08a !important; text-shadow: 0 1px 2px rgba(0,0,0,0.25);">DAYS</div>'}
                     </div>
@@ -5531,7 +5541,7 @@ const rowsHtml = items.map(d => {
         </div>
         `;
     }).join('');
-    
+
     box.classList.remove('home-dday-box-bg');
     box.style.backgroundImage = '';
     box.innerHTML = rowsHtml;
