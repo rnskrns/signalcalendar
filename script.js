@@ -5490,7 +5490,7 @@ function renderHomeDdayBox() {
                 : '';            
         const message = (d.message || '').trim() || '';
         return `
-        <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''} cursor-pointer" style="${themeVars}${bgImageStyle}" onclick="location.href='https://signalcalendar.vercel.app/#rolling'">
+        <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''} cursor-pointer" style="${themeVars}${bgImageStyle}" onclick="changeTab('롤링페이퍼')">
             ${(cardImage && !isToday) ? '<div class="dday-hero-img-overlay"></div>' : ''}
             ${!isToday ? '<div class="dday-hero-water"></div>' : ''}
             <div class="dday-hero-particles">${generateDdayParticles(particleCount, isToday)}</div>
@@ -8674,11 +8674,14 @@ async function ensureRollingEntriesLoaded(topicId) {
 
 async function openRollingTopic(id) {
     currentRollingTopic = rollingTopics.find(t => t.id === id);
+    if (currentRollingTopic && currentRollingTopic.seq) {
+        window.history.replaceState(null, '', `#rolling?seq=${currentRollingTopic.seq}`);
+    }
     render();
     await ensureRollingEntriesLoaded(id);
     if (currentRollingTopic && currentRollingTopic.id === id) render();
 }
-function closeRollingTopic() { currentRollingTopic = null; render(); }
+function closeRollingTopic() { currentRollingTopic = null; window.history.replaceState(null, '', '#rolling'); render(); }
 
 function openRollingEntryModal() {
     if (currentRollingTopic && currentRollingTopic.date < getTodayYYYYMMDD()) {
