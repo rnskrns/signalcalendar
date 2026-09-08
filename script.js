@@ -1205,10 +1205,10 @@ let editingDdayId = null; // 현재 수정 중인 디데이 id (null이면 신�
 
 // 디데이 카드 색상 테마 (핑크/노랑/블루/오렌지 중 선택)
 const DDAY_COLOR_THEMES = {
-    pink:   { swatch: '#f472b6', c1: '236,72,153', c2: '99,102,241',  badgeBg: 'rgba(244,114,182,0.12)', badgeBorder: 'rgba(244,114,182,0.45)', badgeText: '#f9a8d4', statG1: '244,63,94',  statG2: '219,39,119', statBorder: 'rgba(244,63,94,0.55)',  statShadow: 'rgba(244,63,94,0.6)',  statLabel: '#fecdd3' },
-    yellow: { swatch: '#facc15', c1: '250,204,21', c2: '234,88,12',   badgeBg: 'rgba(250,204,21,0.14)',  badgeBorder: 'rgba(250,204,21,0.45)',  badgeText: '#fde68a', statG1: '250,204,21', statG2: '217,119,6', statBorder: 'rgba(250,204,21,0.55)', statShadow: 'rgba(250,204,21,0.5)', statLabel: '#fef3c7' },
-    blue:   { swatch: '#3b82f6', c1: '59,130,246', c2: '14,165,233',  badgeBg: 'rgba(96,165,250,0.14)',  badgeBorder: 'rgba(96,165,250,0.45)',  badgeText: '#bfdbfe', statG1: '59,130,246', statG2: '37,99,235', statBorder: 'rgba(59,130,246,0.55)', statShadow: 'rgba(59,130,246,0.55)', statLabel: '#dbeafe' },
-    orange: { swatch: '#fb923c', c1: '251,146,60', c2: '234,88,12',   badgeBg: 'rgba(251,146,60,0.14)',  badgeBorder: 'rgba(251,146,60,0.45)',  badgeText: '#fed7aa', statG1: '251,146,60', statG2: '234,88,12', statBorder: 'rgba(251,146,60,0.55)', statShadow: 'rgba(251,146,60,0.55)', statLabel: '#ffedd5' }
+    pink:   { swatch: '#FFA1C5', c1: '255,161,197', c2: '210,165,245', badgeBg: 'rgba(255,161,197,0.15)', badgeBorder: 'rgba(255,161,197,0.45)', badgeText: '#ff8fb8', statG1: '255,140,180', statG2: '255,110,160', statBorder: 'rgba(255,140,180,0.5)', statShadow: 'rgba(255,140,180,0.4)', statLabel: '#ff8fb8' },
+    yellow: { swatch: '#FDF08A', c1: '253,240,138', c2: '250,215,130', badgeBg: 'rgba(253,240,138,0.2)', badgeBorder: 'rgba(253,240,138,0.5)', badgeText: '#eab308', statG1: '250,204,21', statG2: '234,179,8', statBorder: 'rgba(250,204,21,0.5)', statShadow: 'rgba(250,204,21,0.3)', statLabel: '#fef08a' },
+    blue:   { swatch: '#9AC4F8', c1: '154,196,248', c2: '130,170,240', badgeBg: 'rgba(154,196,248,0.15)', badgeBorder: 'rgba(154,196,248,0.45)', badgeText: '#60a5fa', statG1: '96,165,250', statG2: '59,130,246', statBorder: 'rgba(96,165,250,0.5)', statShadow: 'rgba(96,165,250,0.4)', statLabel: '#bfdbfe' },
+    orange: { swatch: '#FFC2B4', c1: '255,194,180', c2: '255,170,160', badgeBg: 'rgba(255,194,180,0.15)', badgeBorder: 'rgba(255,194,180,0.45)', badgeText: '#fb923c', statG1: '251,146,60', statG2: '249,115,22', statBorder: 'rgba(251,146,60,0.5)', statShadow: 'rgba(251,146,60,0.4)', statLabel: '#fed7aa' }
 };
 
 function selectDdayColor(color) {
@@ -2807,26 +2807,32 @@ async function showUpPopup(today) {
         </div>
     ` : '';
 
-    // 이미지·그라데이션 없이 밝은 테마 색상 단색 배경 + 반짝이는 파티클 효과를 넣은, 가로로 긴 디데이 카드 (왼쪽 제목 / 오른쪽 남은 일수)
+// 이미지·그라데이션 없이 밝은 테마 색상 단색 배경 + 반짝이는 파티클 효과를 넣은, 가로로 긴 디데이 카드
     let ddayHtml = activeDdays.map(d => {
         const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
         const dLabel = d.daysLeft === 0 ? 'D-DAY' : `D-${d.daysLeft}`;
-        const themeVars = `--dday-c1:${theme.c1};--dday-c2:${theme.c2};`;
+        const message = (d.message || '').trim(); // 저장된 서브 멘트 가져오기
+        
+        // 배경이 단색이므로 파티클이 눈에 잘 띄도록 파티클 색상을 흰색(255, 255, 255)으로 설정
+        const themeVars = `--dday-c1: 255, 255, 255; --dday-c2: 255, 255, 255; --dday-particle-opacity: 0.6;`;
+        
         return `
-        <div class="dday-hero-card cursor-pointer mb-3 shrink-0 flex items-center justify-between gap-4 hover:brightness-105 hover:shadow-md transition-all" style="${themeVars}background:${theme.swatch};" onclick="openDdayFromPopup(${JSON.stringify(d.rollingSeq || null)})">
-            <div class="dday-hero-particles">${generateDdayParticles(10, false)}</div>
-            <div class="font-bold text-[16px] text-white break-words leading-snug">${escapeHtml(d.title || '기념일')}</div>
-            <div class="text-[15px] font-extrabold text-white shrink-0 bg-white/20 px-3 py-1.5 rounded-full">${dLabel}</div>
+        <div class="dday-hero-card cursor-pointer mb-3 shrink-0 flex items-center justify-between gap-4 hover:brightness-105 hover:shadow-md transition-all" style="${themeVars} background: ${theme.swatch} !important;" onclick="openDdayFromPopup(${JSON.stringify(d.rollingSeq || null)})">
+            <div class="dday-hero-particles">${generateDdayParticles(15, false)}</div>
+            <!-- 제목과 서브 멘트를 세로로 묶어주는 영역 -->
+            <div class="flex flex-col gap-1 relative z-10 flex-1 min-w-0">
+                <div class="font-bold text-[16px] text-white break-words leading-snug" style="text-shadow: 0 2px 5px rgba(0,0,0,0.35);">${escapeHtml(d.title || '기념일')}</div>
+                ${message ? `<div class="text-[12.5px] font-bold text-white/90 truncate leading-snug" style="text-shadow: 0 1px 3px rgba(0,0,0,0.25);">${escapeHtml(message)}</div>` : ''}
+            </div>
+            <!-- 남은 일수 뱃지 -->
+            <div class="text-[15px] font-extrabold text-white shrink-0 bg-white/30 px-3 py-1.5 rounded-full relative z-10" style="text-shadow: 0 1px 3px rgba(0,0,0,0.2);">${dLabel}</div>
         </div>
         `;
     }).join('');
-
+    
     // 심플하고 세련된 디데이 섹션 (앞부분 아이콘 제거)
-    const ddaySectionHtml = activeDdays.length > 0 ? `
-        <div class="flex flex-col w-full">
-            <div class="text-[17px] font-bold text-gray-800 mb-4 pb-3 border-b border-gray-100 flex items-center shrink-0 mt-2">
-                디데이
-            </div>
+   const ddaySectionHtml = activeDdays.length > 0 ? `
+        <div class="flex flex-col w-full mt-2">
             <div class="flex flex-col">
                 ${ddayHtml}
             </div>
@@ -5443,28 +5449,23 @@ async function loadDdaysFromFirebase() {
     renderHomeDdayBox();
 }
 
-// 디데이 카드용 반짝이 파티클 span들을 랜덤 속성으로 생성 (위치/크기/속도/좌우 흔들림)
+// 디데이 카드용 반짝이 파티클 span들을 랜덤 속성으로 생성 (별이 빛나는 느낌으로 통일)
 function generateDdayParticles(count = 14, isToday = false) {
     let html = '';
     for (let i = 0; i < count; i++) {
-        if (isToday) {
-            const size = (Math.random() * 14 + 8).toFixed(1);
-            const left = (Math.random() * 96 + 2).toFixed(1);
-            const top = (Math.random() * 90 + 5).toFixed(1);
-            const duration = (Math.random() * 2.5 + 1.5).toFixed(2);
-            const delay = (Math.random() * -8).toFixed(2);
-            const colorPick = Math.random();
-            const starColor = colorPick > 0.6 ? '#FFFFFF' : (colorPick > 0.3 ? 'rgb(var(--dday-c1))' : 'rgb(var(--dday-c2))');
-            
-            html += `<span class="dday-star-particle" style="left:${left}%; top:${top}%; width:${size}px; height:${size}px; --star-duration:${duration}s; --star-delay:${delay}s; background:${starColor};"></span>`;
-        } else {
-            const size = (Math.random() * 4 + 3).toFixed(1);
-            const left = (Math.random() * 96 + 2).toFixed(1);
-            const duration = (Math.random() * 4 + 4).toFixed(2);
-            const delay = (Math.random() * -8).toFixed(2);
-            const drift = (Math.random() * 40 - 20).toFixed(1);
-            html += `<span class="dday-particle" style="left:${left}%; bottom:-14px; width:${size}px; height:${size}px; animation-duration:${duration}s; animation-delay:${delay}s; --dday-drift:${drift}px;"></span>`;
-        }
+        // 크기, 위치, 반짝이는 속도를 모두 랜덤으로 주어 자연스럽게 반짝이도록 설정
+        const size = (Math.random() * 10 + 6).toFixed(1); // 6px ~ 16px 크기
+        const left = (Math.random() * 96 + 2).toFixed(1); // 가로 랜덤 위치
+        const top = (Math.random() * 80 + 10).toFixed(1); // 세로 랜덤 위치
+        const duration = (Math.random() * 2.5 + 1.5).toFixed(2); // 반짝이는 주기 (1.5초 ~ 4초)
+        const delay = (Math.random() * -8).toFixed(2); // 애니메이션 시작 타이밍을 엇갈리게
+        
+        // 별 색상은 60% 확률로 깨끗한 흰색, 40% 확률로 은은한 테마색으로 설정하여 더 예쁘게
+        const colorPick = Math.random();
+        const starColor = colorPick > 0.4 ? '#FFFFFF' : 'rgb(var(--dday-c1))';
+        
+        // 제자리에서 회전하며 반짝이는 dday-star-particle 적용
+        html += `<span class="dday-star-particle" style="left:${left}%; top:${top}%; width:${size}px; height:${size}px; --star-duration:${duration}s; --star-delay:${delay}s; background:${starColor};"></span>`;
     }
     return html;
 }
@@ -5488,7 +5489,7 @@ function renderHomeDdayBox() {
         return false;
     }
 
-    const rowsHtml = items.map(d => {
+const rowsHtml = items.map(d => {
         const dateLabel = (d.date || '').replaceAll('-', '.');
         const isToday = d.daysLeft === 0;
         const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
@@ -5506,26 +5507,31 @@ function renderHomeDdayBox() {
                 ? `--dday-img: url('${cardImage}');--dday-img-pos: ${d.image ? (d.imagePos || '50% 50%') : '50% 50%'};`
                 : '';            
         const message = (d.message || '').trim() || '';
+        
         return `
         <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''} cursor-pointer" style="${themeVars}${bgImageStyle}" onclick="goToDdayRolling(${JSON.stringify(d.rollingSeq || null)})">
             ${(cardImage && !isToday) ? '<div class="dday-hero-img-overlay"></div>' : ''}
             ${!isToday ? '<div class="dday-hero-water"></div>' : ''}
             <div class="dday-hero-particles">${generateDdayParticles(particleCount, isToday)}</div>
-            <div class="dday-hero-text">
-                <span class="dday-hero-badge">${escapeHtml(dateLabel)} COUNTDOWN</span>
-                <div class="dday-hero-title font-paperozi">${escapeHtml(d.title || '기념일')}까지</div>
-                <div class="dday-hero-sub">${escapeHtml(message)}</div>
+            <div class="dday-hero-text relative z-10">
+                <!-- 상단 날짜 뱃지 (그림자 추가) -->
+                <span class="dday-hero-badge" style="text-shadow: 0 1px 2px rgba(0,0,0,0.15);">${escapeHtml(dateLabel)} COUNTDOWN</span>
+                <!-- 기념일 제목 (흰색 글씨 + 뚜렷한 그림자) -->
+                <div class="dday-hero-title font-paperozi" style="color: #ffffff !important; text-shadow: 0 2px 5px rgba(0,0,0,0.4);">${escapeHtml(d.title || '기념일')}까지</div>
+                <!-- 서브 멘트 (흰색 글씨 + 부드러운 그림자) -->
+                <div class="dday-hero-sub" style="color: rgba(255,255,255,0.95) !important; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">${escapeHtml(message)}</div>
                 <div class="dday-hero-stat-row">
                     <div class="dday-hero-stat">
-                        <div class="dday-hero-stat-num">${isToday ? 'D-DAY' : d.daysLeft}</div>
-                        ${isToday ? '' : '<div class="dday-hero-stat-label">DAYS</div>'}
+                        <!-- 숫자와 라벨을 요청하신 쿨톤과 어울리는 레몬 옐로우(#fef08a)로 변경하고 그림자 추가 -->
+                        <div class="dday-hero-stat-num" style="color: #fef08a !important; text-shadow: 0 2px 4px rgba(0,0,0,0.25);">${isToday ? 'D-DAY' : d.daysLeft}</div>
+                        ${isToday ? '' : '<div class="dday-hero-stat-label" style="color: #fef08a !important; text-shadow: 0 1px 2px rgba(0,0,0,0.25);">DAYS</div>'}
                     </div>
                 </div>
             </div>
         </div>
-    `;
+        `;
     }).join('');
-
+    
     box.classList.remove('home-dday-box-bg');
     box.style.backgroundImage = '';
     box.innerHTML = rowsHtml;
