@@ -5479,7 +5479,7 @@ function renderHomeDdayBox() {
         const bgImageStyle = cardImage
                 ? `--dday-img: url('${cardImage}');--dday-img-pos: ${d.image ? (d.imagePos || '50% 50%') : '50% 50%'};`
                 : '';            
-        const message = (d.message || '').trim() || '함께 손꼽아 기다려요!';
+        const message = (d.message || '').trim() || '';
         return `
         <div class="dday-hero-card${cardImage ? ' dday-hero-card-img' : ''}" style="${themeVars}${bgImageStyle}">
             ${(cardImage && !isToday) ? '<div class="dday-hero-img-overlay"></div>' : ''}
