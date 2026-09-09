@@ -2818,7 +2818,7 @@ async function showUpPopup(today) {
         return `
         <!-- 전체 카드를 가로 배치로 변경 -->
         <div class="dday-hero-card cursor-pointer mb-3 shrink-0 flex items-center justify-between gap-4 hover:brightness-105 hover:shadow-md transition-all" style="${themeVars} background: ${theme.swatch} !important; min-height: 85px;" onclick="openDdayFromPopup(${JSON.stringify(d.rollingSeq || null)})">
-            <div class="dday-hero-particles">${generateDdayParticles(15, false)}</div>
+            <div class="dday-hero-particles">${generateDdayParticles(15, true)}</div>
             
             <!-- 왼쪽: 제목과 서브 멘트를 세로(flex-col)로 묶음 -->
             <div class="flex flex-col gap-1 relative z-10 flex-1 min-w-0">
@@ -5454,10 +5454,19 @@ async function loadDdaysFromFirebase() {
     renderHomeDdayBox();
 }
 
-// 디데이 카드용 반짝이 파티클 span들을 랜덤 속성으로 생성 (별이 빛나는 느낌으로 통일)
+// 홈 카드는 당일 별 반짝임, D-1~D-30에는 떠오르는 물방울을 표시한다.
 function generateDdayParticles(count = 14, isToday = false) {
     let html = '';
     for (let i = 0; i < count; i++) {
+        if (!isToday) {
+            const size = (Math.random() * 8 + 5).toFixed(1);
+            const left = (Math.random() * 92 + 4).toFixed(1);
+            const duration = (Math.random() * 4 + 5).toFixed(2);
+            const delay = (-Math.random() * Number(duration)).toFixed(2);
+            const drift = (Math.random() * 36 - 18).toFixed(1);
+            html += `<span class="dday-bubble-track" style="left:${left}%; --bubble-size:${size}px; --bubble-duration:${duration}s; --bubble-delay:${delay}s; --bubble-drift:${drift}px;"><span class="dday-bubble-particle"></span></span>`;
+            continue;
+        }
         // 크기, 위치, 반짝이는 속도를 모두 랜덤으로 주어 자연스럽게 반짝이도록 설정
         const size = (Math.random() * 10 + 6).toFixed(1); // 6px ~ 16px 크기
         const left = (Math.random() * 96 + 2).toFixed(1); // 가로 랜덤 위치
