@@ -3512,6 +3512,7 @@ async function openRollingTopicFromMenu(id) {
 let partDividerView = 'lobby';           // 'lobby' | 'room'
 let partDividerIsAdmin = false;          // 관리자 모드 여부
 let partDividerRoomCode = '';            // 로비에서 입력한 방 코드
+let partDividerPendingAutoJoin = null;    // 초대 링크로 들어왔을 때 렌더 후 자동 입장할 방 코드
 // ⭐ 신규: 롤링페이퍼 특정 번호(seq)로 바로가기 파라미터 감지
 let rollingPendingAutoJoinSeq = null;
 if (window.location.hash.startsWith('#rolling?seq=')) {
@@ -3655,9 +3656,8 @@ function renderPartDividerPage() {
     </div>`;
 
     if (partDividerView === 'room') {
-        if (partDividerIsAdmin) {
-            partDividerInitSongLibrary();
-        } else {
+        partDividerInitSongLibrary();
+        if (!partDividerIsAdmin) {
             partDividerRenderViewerMemberChips(); 
         }
     } else if (partDividerView === 'lobby') {
@@ -4128,14 +4128,20 @@ function getPartDividerRoomHtml() {
             </div>
         </div>
         ` : `
-        <div class="partdiv-room-body" style="flex-direction: column; gap: 24px;">
-            <div class="partdiv-admin-panel" style="width: 100%; margin-bottom: 0;">
+        <div class="partdiv-room-body partdiv-viewer-room-body">
+            <div class="partdiv-admin-panel partdiv-viewer-side-panel">
                 <div class="partdiv-panel-block partdiv-panel-col">
                     <label class="partdiv-label">현재 참여 멤버 <span class="partdiv-label-sub">(위 순서대로 파트가 분배돼요)</span></label>
                     <div id="partDividerViewerMemberChips" class="partdiv-member-chips"></div>
                 </div>
+                <div class="partdiv-panel-block partdiv-panel-col">
+                    <label class="partdiv-label">가사가 등록된 노래 <span class="partdiv-label-sub">(읽기 전용)</span></label>
+                    <div id="partDividerViewerSongLibraryList" class="partdiv-song-library-list partdiv-viewer-song-library-list">
+                        <div class="partdiv-song-library-empty">불러오는 중...</div>
+                    </div>
+                </div>
             </div>
-            <div class="partdiv-result-wrap" style="width: 100%;">
+            <div class="partdiv-result-wrap">
                 <div class="partdiv-result-title"><i class="fi fi-rr-list-music"></i> 파트 분배 결과<span id="partDividerSongTitleLabel">${partDividerCurrentSongTitle ? ` · ${escapeHtml(partDividerCurrentSongTitle)}` : ''}</span></div>
                 <div id="partDividerResult" class="partdiv-result-box">${partDividerLastResultHtml || `<div class="partdiv-result-empty">아직 분배된 파트가 없어요. 관리자가 분배를 완료하면 여기에 표시됩니다.</div>`}</div>
             </div>
@@ -4244,7 +4250,23 @@ function partDividerLoadSongLibrary() {
 
 // 방(관리자) 화면이 열릴 때 노래 목록을 미리 캐싱해둔다 (팝업을 열자마자 바로 뜨도록).
 function partDividerInitSongLibrary() {
-    partDividerLoadSongLibrary();
+    partDividerLoadSongLibrary().then(list => {
+        if (!partDividerIsAdmin) partDividerRenderViewerSongLibrary(list);
+    });
+}
+
+function partDividerRenderViewerSongLibrary(list) {
+    const box = document.getElementById('partDividerViewerSongLibraryList');
+    if (!box) return;
+    if (!list || list.length === 0) {
+        box.innerHTML = `<div class="partdiv-song-library-empty">등록된 노래가 없어요.</div>`;
+        return;
+    }
+    box.innerHTML = list.map(song => `
+        <div class="partdiv-song-library-item partdiv-viewer-song-item">
+            <span class="partdiv-song-library-item-title">${escapeHtml(song.title)}</span>
+            <span class="partdiv-song-library-item-artist">${escapeHtml(song.artist)}</span>
+        </div>`).join('');
 }
 
 let partDividerLibraryEditingKey = null; // 팝업에서 현재 인라인 수정 중인 노래의 key (없으면 null)
@@ -4283,10 +4305,10 @@ function partDividerRenderSongLibraryList(list) {
                     <span class="partdiv-song-library-item-title">${escapeHtml(song.title)}</span>
                     <span class="partdiv-song-library-item-artist">${escapeHtml(song.artist)}</span>
                 </button>
-                <div class="partdiv-lib-item-actions">
+                ${partDividerIsAdmin ? `<div class="partdiv-lib-item-actions">
                     <button type="button" class="partdiv-lib-item-btn" data-action="edit" title="수정"><i class="fi fi-rr-pencil"></i></button>
                     <button type="button" class="partdiv-lib-item-btn partdiv-lib-item-btn-danger" data-action="delete" title="삭제"><i class="fi fi-rr-trash"></i></button>
-                </div>
+                </div>` : ''}
             </div>
             ${isEditing ? `
             <div class="partdiv-lib-item-edit">
@@ -4306,7 +4328,7 @@ function partDividerRenderSongLibraryList(list) {
     box.querySelectorAll('.partdiv-lib-item').forEach(itemEl => {
         const key = itemEl.getAttribute('data-song-key');
         const selectBtn = itemEl.querySelector('[data-action="select"]');
-        if (selectBtn) selectBtn.addEventListener('click', () => partDividerSelectSongFromLibrary(key));
+        if (selectBtn && partDividerIsAdmin) selectBtn.addEventListener('click', () => partDividerSelectSongFromLibrary(key));
         const editBtn = itemEl.querySelector('[data-action="edit"]');
         if (editBtn) editBtn.addEventListener('click', () => partDividerToggleEditSong(key));
         const deleteBtn = itemEl.querySelector('[data-action="delete"]');
@@ -4921,9 +4943,10 @@ function partDividerLinesToHtml(paragraphs) {
         const imgSrc = item.picUrl || PARTDIVIDER_DEFAULT_AVATAR;
         const color = partDividerSafeColor(item.color);
         
-        // 관리자일 때만 클릭해서 멤버를 바꿀 수 있도록 이벤트와 스타일 추가
-        const clickAttr = partDividerIsAdmin 
-            ? `onclick="partDividerOpenMemberSelect(event, ${idx})" style="cursor:pointer;" title="클릭해서 다른 멤버로 변경" class="partdiv-paragraph-person hover:opacity-60 transition-opacity"` 
+        // 방에 입장한 사람은 관리자 여부와 관계없이 결과의 파트 멤버를 변경할 수 있다.
+        const canChangeMember = !!partDividerJoinedRoomCode && partDividerMemberChipList.length > 0;
+        const clickAttr = canChangeMember
+            ? `onclick="partDividerOpenMemberSelect(event, ${idx})" style="cursor:pointer;" title="클릭해서 다른 멤버로 변경" class="partdiv-paragraph-person hover:opacity-60 transition-opacity"`
             : `class="partdiv-paragraph-person"`;
 
         return `<div class="partdiv-paragraph" style="background:${color}26; border-left: 4px solid ${color}; transition: all 0.2s;">
@@ -4941,7 +4964,7 @@ let partDividerMemberSelectDropdown = null;
 
 // 클릭 시 멤버 선택 드롭다운 메뉴 열기 (ALL 항목 포함)
 window.partDividerOpenMemberSelect = function(event, lineIdx) {
-    if (!partDividerIsAdmin || !partDividerCurrentLines || !partDividerMemberChipList || partDividerMemberChipList.length === 0) return;
+    if (!partDividerJoinedRoomCode || !partDividerCurrentLines || !partDividerMemberChipList || partDividerMemberChipList.length === 0) return;
     event.stopPropagation(); // 클릭 이벤트 전파 방지
 
     window.partDividerCloseMemberSelect(); // 기존에 열린 메뉴 닫기
@@ -4992,7 +5015,7 @@ window.partDividerCloseMemberSelect = function() {
 
 // 'ALL'을 선택했을 때 해당 줄의 파트를 합창으로 변경 (연두색 고정)
 window.partDividerChangeLineToAll = function(lineIdx) {
-    if (!partDividerIsAdmin || !partDividerCurrentLines) return;
+    if (!partDividerJoinedRoomCode || !partDividerCurrentLines) return;
 
     const currentLine = partDividerCurrentLines[lineIdx];
     
@@ -5015,7 +5038,7 @@ window.partDividerChangeLineToAll = function(lineIdx) {
 
 // 개별 멤버로 변경할 때의 함수 (기존에 누락되었을 수 있어 함께 포함)
 window.partDividerChangeLineMember = function(lineIdx, memberIdx) {
-    if (!partDividerIsAdmin || !partDividerCurrentLines) return;
+    if (!partDividerJoinedRoomCode || !partDividerCurrentLines) return;
 
     const currentLine = partDividerCurrentLines[lineIdx];
     const nextMember = partDividerMemberChipList[memberIdx];
@@ -5045,7 +5068,7 @@ window.partDividerCloseMemberSelect = function() {
 
 // ⭐ 새로 추가된 함수: 'ALL'을 선택했을 때 해당 줄의 파트를 합창으로 변경
 window.partDividerChangeLineToAll = function(lineIdx) {
-    if (!partDividerIsAdmin || !partDividerCurrentLines) return;
+    if (!partDividerJoinedRoomCode || !partDividerCurrentLines) return;
 
     const currentLine = partDividerCurrentLines[lineIdx];
     

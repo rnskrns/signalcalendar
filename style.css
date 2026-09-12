@@ -1891,6 +1891,12 @@ html.dark-mode .partdiv-float-popup-resize-handle:hover::before { border-color: 
 .partdiv-room-body { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
 .partdiv-room-body > .partdiv-admin-panel { flex: 3 1 280px; min-width: 260px; margin-bottom: 0; }
 .partdiv-room-body > .partdiv-result-wrap { flex: 7 1 380px; min-width: 300px; }
+.partdiv-viewer-room-body { flex-wrap: nowrap; }
+.partdiv-viewer-room-body > .partdiv-viewer-side-panel { flex: 0 0 300px; width: 300px; }
+.partdiv-viewer-room-body > .partdiv-result-wrap { flex: 1 1 auto; min-width: 0; }
+.partdiv-viewer-song-library-list { max-height: 320px; }
+.partdiv-viewer-song-item { cursor: default; flex: 0 0 auto; }
+.partdiv-viewer-song-item:active { transform: none; }
 .partdiv-result-title { display: flex; align-items: center; gap: 8px; font-family: 'Paperozi', sans-serif; font-weight: 900; font-size: 15px; color: #5D4037; }
 .partdiv-result-box {
     background: linear-gradient(180deg, #F4EEFF 0%, #FFFDF5 100%);
@@ -1965,6 +1971,12 @@ html.dark-mode .partdiv-float-popup-resize-handle:hover::before { border-color: 
     margin-left: 18px;
     border-color: #8B5CF6;
     box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25) inset;
+}
+
+@media (max-width: 800px) {
+    .partdiv-viewer-room-body { flex-wrap: wrap; }
+    .partdiv-viewer-room-body > .partdiv-viewer-side-panel,
+    .partdiv-viewer-room-body > .partdiv-result-wrap { flex: 1 1 100%; width: 100%; min-width: 0; }
 }
 .partdiv-btn-shuffle { align-self: flex-start; padding: 9px 16px; font-size: 13px; }
 
