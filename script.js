@@ -4135,7 +4135,8 @@ function getPartDividerRoomHtml() {
                     <div id="partDividerViewerMemberChips" class="partdiv-member-chips"></div>
                 </div>
                 <div class="partdiv-panel-block partdiv-panel-col">
-                    <label class="partdiv-label">가사가 등록된 노래 <span class="partdiv-label-sub">(읽기 전용)</span></label>
+                    <label class="partdiv-label">가사가 등록된 노래</label>
+                    <input type="text" id="partDividerViewerSongSearchInput" class="partdiv-input" placeholder="가수명 또는 노래 제목 검색" oninput="partDividerFilterViewerSongLibrary()">
                     <div id="partDividerViewerSongLibraryList" class="partdiv-song-library-list partdiv-viewer-song-library-list">
                         <div class="partdiv-song-library-empty">불러오는 중...</div>
                     </div>
@@ -4268,6 +4269,21 @@ function partDividerRenderViewerSongLibrary(list) {
             <span class="partdiv-song-library-item-artist">${escapeHtml(song.artist)}</span>
         </div>`).join('');
 }
+
+window.partDividerFilterViewerSongLibrary = function() {
+    const input = document.getElementById('partDividerViewerSongSearchInput');
+    const keyword = (input ? input.value : '').trim().toLowerCase().replace(/\s+/g, '');
+    const list = partDividerSongLibrary || [];
+    if (!keyword) {
+        partDividerRenderViewerSongLibrary(list);
+        return;
+    }
+    const filtered = list.filter(song =>
+        (song.title || '').toLowerCase().replace(/\s+/g, '').includes(keyword) ||
+        (song.artist || '').toLowerCase().replace(/\s+/g, '').includes(keyword)
+    );
+    partDividerRenderViewerSongLibrary(filtered);
+};
 
 let partDividerLibraryEditingKey = null; // 팝업에서 현재 인라인 수정 중인 노래의 key (없으면 null)
 
