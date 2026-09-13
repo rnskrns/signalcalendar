@@ -2455,28 +2455,31 @@ async function fetchAndRenderAllNotices() {
         const rawTitle = extractText(post.titleName || post.title);
         let postTitle = rawTitle || '제목 없음';
         if (postTitle.length > 40) postTitle = postTitle.slice(0, 40) + '…';
-        postTitle = postTitle.replace(/"/g, '&quot;');
+        postTitle = escapeHtml(postTitle);
 
         // 내용: content.textContent(순수 텍스트) 우선, 없으면 content.summary로 대체
         const rawBody = extractText(post.content?.textContent || post.content?.summary || post.contents || post.content || post.body);
         let postBody = rawBody;
         if (postBody.length > 60) postBody = postBody.slice(0, 60) + '…';
-        postBody = postBody.replace(/"/g, '&quot;');
+        postBody = escapeHtml(postBody);
 
         // 닉네임: user_nick 계열 필드 우선, 없으면 스트리머 이름으로 대체
         const nickname = extractText(post.user_nick || post.userNick || post.nick || post.nickname || post.writer?.nick) || board.name;
+        const safeNickname = escapeHtml(nickname);
 
         // 프로필 이미지: API가 직접 내려주면 그 값을 쓰고, 없으면 SOOP CDN 규칙(LOGO/{앞2글자}/{아이디}/m/{아이디}.webp)으로 유추
         const profileImg = extractText(post.profile_image || post.profileImage || post.thumb || post.thumbnail || post.user_thumb || post.userThumb)
             || `https://stimg.sooplive.com/LOGO/${board.userId.slice(0, 2)}/${board.userId}/m/${board.userId}.webp`;
+        const safeProfileImg = escapeHtml(profileImg);
+        const postUrl = `https://sooplive.com/station/${encodeURIComponent(board.userId)}/post/${encodeURIComponent(postNo ?? '')}`;
 
         const timeLabel = formatRelativeTime(date);
 
         const rowHtml = `
-            <div class="kakao-msg-row" onclick="window.open('https://sooplive.com/station/${board.userId}/post/${postNo}', '_blank')">
-                <img src="${profileImg}" alt="${nickname}" loading="lazy" decoding="async" class="kakao-avatar" style="background-color:${board.color};" onerror="this.style.display='none'">
+            <div class="kakao-msg-row" data-post-url="${escapeHtml(postUrl)}" onclick="window.open(this.dataset.postUrl, '_blank')">
+                <img src="${safeProfileImg}" alt="${safeNickname}" loading="lazy" decoding="async" class="kakao-avatar" style="background-color:${board.color};" onerror="this.style.display='none'">
                 <div class="kakao-msg-col">
-                    <span class="kakao-nick" style="color:#000000;">${nickname}</span>
+                    <span class="kakao-nick" style="color:#000000;">${safeNickname}</span>
                     <div class="kakao-bubble-row">
                         <div class="kakao-bubble">
                             <div class="kakao-bubble-title">${postTitle}</div>
