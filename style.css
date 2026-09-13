@@ -769,7 +769,15 @@ html.dark-mode .dday-hero-water {
         radial-gradient(circle at 80% 70%, rgba(255,255,255,0.12) 0, transparent 45%);
     border-radius: 18px;
 }
-.kakao-msg-row { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; transition: transform 0.15s ease; }
+.kakao-msg-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex-shrink: 0;
+    min-width: 0;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
 .kakao-msg-row:hover { transform: translateY(-1px); }
 .kakao-avatar {
     width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
