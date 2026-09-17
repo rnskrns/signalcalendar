@@ -230,6 +230,93 @@ body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); t
 .app-icon-btn-sm:hover { transform: translateY(-2px); box-shadow: 0 8px 14px -6px rgba(70,60,160,0.3); border-color: currentColor; }
 .app-icon-btn-sm i { font-size: 18px; }
 
+/* 개인 월간 일정 오른쪽의 멤버별 바로가기 메뉴 */
+.member-quick-menu {
+    width: 104px;
+    padding: 18px;
+    border: 1.5px solid #ECEDFA;
+    border-radius: 26px;
+    background: var(--card-bg-cream, #FFFDF5);
+    box-shadow: 0 18px 38px -24px rgba(70, 60, 160, 0.35);
+}
+.member-quick-menu.is-songbook-menu {
+    margin-left: -32px;
+}
+.member-quick-menu-title {
+    margin: 0 2px 12px;
+    color: #5D4037;
+    font-family: 'Paperozi', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+}
+.member-quick-menu-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 9px;
+}
+.member-quick-menu-btn {
+    min-width: 0;
+    width: 68px;
+    height: 68px;
+    aspect-ratio: 1 / 1;
+    padding: 8px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1.5px solid #ECEDFA;
+    border-radius: 18px;
+    background: #fff;
+    color: #5D4037;
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, color .16s ease;
+}
+.member-quick-menu-btn:hover,
+.member-quick-menu-btn.is-current {
+    color: var(--member-accent);
+    border-color: var(--member-accent);
+    box-shadow: 0 9px 18px -10px rgba(70, 60, 160, 0.38);
+    transform: translateY(-2px);
+}
+.member-quick-menu-btn i { font-size: 24px; }
+.member-quick-profile-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    object-fit: cover;
+    border-radius: 16px;
+}
+.member-quick-menu-btn.has-profile-image {
+    padding: 0;
+    overflow: hidden;
+}
+.member-quick-menu-btn .member-quick-emoji {
+    font-size: 24px;
+    line-height: 1;
+}
+.member-quick-menu-btn span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'Paperozi', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.dark-mode .member-quick-menu {
+    background: var(--card-bg-cream);
+    border-color: var(--dm-border);
+}
+.dark-mode .member-quick-menu-title { color: var(--dm-text); }
+.dark-mode .member-quick-menu-btn {
+    background: var(--dm-card);
+    color: var(--dm-text);
+    border-color: var(--dm-border);
+}
+
 /* 홈탭: UP 해줘! 패널 - 홈탭의 다른 카드들(home-member-card 등)과 동일한 톤으로 통일 */
 .home-up-panel {
     background: var(--card-bg-white);
@@ -1057,6 +1144,79 @@ body.admin-mode {
 /* 노래책 카드 그리드 */
 .song-card .song-art { transition: transform 0.2s ease, box-shadow 0.2s ease; }
 .song-card:hover .song-art { transform: translateY(-3px); box-shadow: 0 8px 16px rgba(0,0,0,0.12); border-color: var(--songbook-accent, #FBC02D); }
+
+/* 노래 목록과 가수 목록을 일정표/메모처럼 하나의 컨테이너 안에 배치 */
+.songbook-content-layout {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+}
+.songbook-song-column {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 32px;
+}
+.songbook-artist-column {
+    flex: 0 0 280px;
+    width: 280px;
+    min-width: 0;
+    padding-left: 28px;
+    border-left: 2px dashed #E5E7EB;
+}
+.songbook-artist-heading {
+    height: 58px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 18px;
+    border: 1.5px solid #ECEDFA;
+    border-radius: 20px;
+    background: var(--card-bg-cream, #FFFDF5);
+    color: #5D4037;
+    font-family: 'Paperozi', sans-serif;
+    font-size: 19px;
+    font-weight: 700;
+    box-shadow: 0 10px 24px -16px rgba(70,60,160,.2);
+}
+.songbook-artist-list {
+    max-height: 760px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+@media (max-width: 1050px) {
+    .songbook-content-layout { flex-direction: column; }
+    .songbook-song-column { padding-right: 0; order: 2; }
+    .songbook-artist-column {
+        order: 1;
+        width: 100%;
+        flex-basis: auto;
+        padding: 0 0 20px;
+        margin-bottom: 20px;
+        border-left: 0;
+        border-bottom: 2px dashed #E5E7EB;
+    }
+    .songbook-artist-heading { height: 52px; margin-bottom: 10px; }
+    .songbook-artist-list {
+        display: flex;
+        gap: 8px;
+        max-height: none;
+        overflow-x: auto;
+        padding: 0 0 5px;
+    }
+    .songbook-artist-list > button {
+        width: auto !important;
+        min-width: max-content;
+        margin-bottom: 0 !important;
+    }
+}
+html.dark-mode .songbook-artist-column { border-color: var(--dm-border); }
+html.dark-mode .songbook-artist-heading {
+    background: var(--card-bg-cream);
+    color: var(--dm-text);
+    border-color: var(--dm-border);
+}
 
 /* 노래 추가 팝업 - 커스텀 장르 드롭다운 */
 .song-genre-dropdown {

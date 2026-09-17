@@ -2928,7 +2928,7 @@ function renderHeaderTabs() {
             
             if (tab === '추가기능') {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
-                clickAction = ''; 
+                clickAction = `onclick="toggleDesktopExtraMenu(event)"`; 
                 mainLinkHtml = `
                     <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
@@ -2947,7 +2947,7 @@ function renderHeaderTabs() {
                 `).join('');
             }
             
-            if (tab === '시그널') {
+            if (tab === '시그널' || ['달타', '다룽', '최또', '카나시'].includes(tab)) {
                 html += `
                     <div class="relative flex items-center">
                         <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
@@ -2955,9 +2955,9 @@ function renderHeaderTabs() {
                 `;
             } else {
                 html += `
-                    <div class="relative group flex items-center">
+                    <div id="desktopExtraMenuWrap" class="relative group flex items-center">
                         <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
-                        <div class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
+                        <div id="desktopExtraMenu" class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
                             <div class="bg-white flex flex-col shadow-xl rounded-2xl border border-[#ECEDFA] overflow-hidden py-1" style="box-shadow: 0 20px 45px -20px rgba(70,60,160,0.22);">
                                 ${mainLinkHtml}${dropdownHtml}
                             </div>
@@ -5291,8 +5291,27 @@ window.partDividerOpenBugsSearch = partDividerOpenBugsSearch;
 window.partDividerOpenBugsSearchFromInfo = partDividerOpenBugsSearchFromInfo;
 // partDividerOpenSongLibraryPopup / partDividerCloseSongLibraryPopup 은 window.___ = function(){...} 형태로 이미 전역 등록됨
 
-function executeDesktopTabChange(tab) { changeTab(tab); }
+function executeDesktopTabChange(tab) {
+    const menu = document.getElementById('desktopExtraMenu');
+    if (menu) menu.classList.add('hidden');
+    changeTab(tab);
+}
 function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }
+
+window.toggleDesktopExtraMenu = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const menu = document.getElementById('desktopExtraMenu');
+    if (menu) menu.classList.toggle('hidden');
+};
+
+document.addEventListener('click', function(event) {
+    const wrap = document.getElementById('desktopExtraMenuWrap');
+    const menu = document.getElementById('desktopExtraMenu');
+    if (wrap && menu && !wrap.contains(event.target)) menu.classList.add('hidden');
+});
 
 function toggleProfileDropdown(menuId) {
     const menu = document.getElementById(menuId);
@@ -6725,6 +6744,23 @@ function sortRollingTopics() {
     });
 }
 
+// 롤링페이퍼 주제는 일정 캐시 상태와 관계없이 탭 진입 시 최신 목록을 다시 확인한다.
+// 빈 주제 목록이 캐시에 남아 실제 등록된 주제가 보이지 않는 문제를 방지한다.
+async function loadRollingTopicsFromFirebase() {
+    try {
+        const topicSnap = await getDocs(collection(db, 'rollingTopics'));
+        const freshTopics = [];
+        topicSnap.forEach(docSnap => freshTopics.push({ id: docSnap.id, ...docSnap.data() }));
+        rollingTopics = freshTopics;
+        sortRollingTopics();
+        saveScheduleCache();
+        return true;
+    } catch (e) {
+        console.error('롤링페이퍼 주제 로드 에러:', e);
+        return false;
+    }
+}
+
 // 업보관리 데이터는 로컬(세션 캐시)에 저장하지 않고, 호출될 때마다 Firebase에서 즉시 최신 데이터를 가져온다.
 async function loadUpboDataFromFirebase() {
     try {
@@ -6969,11 +7005,8 @@ async function changeTab(tabName) {
     }
 
     if (currentPage === '노래책') {
-        if (!isMobile) {
-            sidePanelMode = 'ARTIST'; openSidePanel('ARTIST');
-        } else {
-            sidePanelMode = null; closeSidePanel(true);
-        }
+        // 가수 목록은 노래책 메인 컨테이너 안에 내장되어 있으므로 별도 사이드 패널을 열지 않는다.
+        sidePanelMode = null; closeSidePanel(true);
     } else if (!isMobile) {
         // 데스크톱에서는 메모보드가 캘린더 컨테이너 안에 상시 내장되어 렌더링되므로 사이드 패널은 항상 닫아둔다.
         closeSidePanel(true);
@@ -6994,6 +7027,9 @@ async function changeTab(tabName) {
         if (!isMobile) {
             await loadScript('https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js');
         }
+    } else if (currentPage === '롤링페이퍼') {
+        await loadSchedulesFromFirebase({ useCacheOnly: true });
+        await loadRollingTopicsFromFirebase();
     } else if (currentPage === '업보정리') {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
         // 업보관리 데이터는 로컬에 기억해두지 않고 탭에 들어올 때마다 항상 최신 데이터를 즉시 불러온다.
@@ -7180,7 +7216,11 @@ function render() {
     // 모바일에서는 상단바 우측 영역에, 데스크톱은 각 캘린더 컨테이너 내부에서 렌더링.
     const isMemberPage = ['달타', '다룽', '최또', '카나시'].includes(currentPage);
     if (mBtnContainer) mBtnContainer.innerHTML = (isMobile && isMemberPage) ? buildMemoCinetiButtonsHtml('mobileHeader') : '';
-    if (dBtnContainer) dBtnContainer.innerHTML = '';
+    if (dBtnContainer) {
+        if (!isMobile && isMemberPage) dBtnContainer.innerHTML = buildMemberQuickMenuHtml(currentPage, 'schedule');
+        else if (!isMobile && currentPage === '노래책') dBtnContainer.innerHTML = buildMemberQuickMenuHtml(songbookMember, 'songbook');
+        else dBtnContainer.innerHTML = '';
+    }
     
     const content = document.getElementById('mainContent'); if(!content) return; content.innerHTML = '';
 
@@ -7247,6 +7287,72 @@ function render() {
 
 function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function buildMemberQuickMenuHtml(member, activeMenu = 'schedule') {
+    const memberColor = themeColors[member] || '#5D4037';
+    const memberShortcutImages = {
+        '달타': {
+            soop: 'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg',
+            youtube: 'https://yt3.googleusercontent.com/piKeoG3xgvjHLCZ4v1F1HICAFyw_ZUQCmZIafxwhscyoOgWGBkaClFUb3yzkJgQgrUJHoyHKaeM=s160-c-k-c0x00ffffff-no-rj'
+        },
+        '다룽': {
+            soop: 'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg',
+            youtube: 'https://yt3.googleusercontent.com/KgozNFawpfBUpcSFTNzghY2X1GedO0cSxK4HHYN6KBJuL-66tXZWRgJs2T2702VdcM7WwREoJQ=s160-c-k-c0x00ffffff-no-rj'
+        },
+        '최또': {
+            soop: 'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg',
+            youtube: 'https://yt3.googleusercontent.com/zGIeGPyPIEKZCdIgfhNV9lIvXYlEBR0JrKCFi3xfzzZE-VJLrKADyJGqMPZBdm7XUPY6_UtJLHI=s160-c-k-c0x00ffffff-no-rj'
+        },
+        '카나시': {
+            soop: 'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg',
+            youtube: 'https://yt3.googleusercontent.com/nh2HvXjlsujdmD2hcLMWSf__nh9vDTA0KGUFmTk-3JMZyBuTzM1bTQCtDcLa2tZj5jetFpZ4=s160-c-k-c0x00ffffff-no-rj'
+        }
+    };
+    const shortcutImages = memberShortcutImages[member] || {};
+    const iconForLink = (title, url) => {
+        const lowerTitle = String(title || '').toLowerCase();
+        const lowerUrl = String(url || '').toLowerCase();
+        if (lowerTitle.includes('soop') || lowerUrl.includes('sooplive')) return '';
+        if (lowerTitle.includes('유튜브') || lowerTitle.includes('youtube') || lowerUrl.includes('youtube')) return 'fi-brands-youtube';
+        if (lowerUrl.includes('cafe.naver.com')) return '';
+        return 'fi-rr-link';
+    };
+
+    const shortcutHtml = (dynamicLinks[member] || []).map(link => {
+        const lowerTitle = String(link.title || '').toLowerCase();
+        const lowerUrl = String(link.url || '').toLowerCase();
+        const isSoop = lowerTitle.includes('soop') || lowerUrl.includes('sooplive');
+        const isYoutube = lowerTitle.includes('유튜브') || lowerTitle.includes('youtube') || lowerUrl.includes('youtube');
+        const isNotice = lowerUrl.includes('cafe.naver.com');
+        const iconClass = iconForLink(link.title, link.url);
+        const visualHtml = isSoop
+            ? `<img src="${shortcutImages.soop || ''}" alt="" class="member-quick-profile-image">`
+            : (isYoutube
+                ? `<img src="${shortcutImages.youtube || ''}" alt="" class="member-quick-profile-image">`
+            : (isNotice
+                ? `<span class="member-quick-emoji">${escapeHtml(link.title)}</span>`
+                : (iconClass ? `<i class="fi ${iconClass}"></i>` : '')));
+        return `
+            <button type="button" class="member-quick-menu-btn ${(isSoop || isYoutube) ? 'has-profile-image' : ''}" style="--member-accent: ${memberColor};" onclick="openSmartLink('${link.url}')" title="${escapeHtml(link.title)}" aria-label="${escapeHtml(link.title)}">
+                ${visualHtml}
+            </button>
+        `;
+    }).join('');
+
+    return `
+        <div class="member-quick-menu ${activeMenu === 'songbook' ? 'is-songbook-menu' : ''}" style="--member-accent: ${memberColor};">
+            <div class="member-quick-menu-grid">
+                <button type="button" class="member-quick-menu-btn ${activeMenu === 'schedule' ? 'is-current' : ''}" style="--member-accent: ${memberColor};" onclick="executeDesktopTabChange('${member}')" title="일정표" aria-label="일정표">
+                    <i class="fi fi-rr-calendar"></i>
+                </button>
+                <button type="button" class="member-quick-menu-btn ${activeMenu === 'songbook' ? 'is-current' : ''}" style="--member-accent: ${memberColor};" onclick="executeDesktopTabChange('노래책_${member}')" title="노래책" aria-label="노래책">
+                    <i class="fi fi-rr-music-alt"></i>
+                </button>
+                ${shortcutHtml}
+            </div>
+        </div>
+    `;
 }
 
 function buildMemoCinetiButtonsHtml(variant) {
@@ -7373,12 +7479,20 @@ function renderSongbook() {
             </h2>
             ${isAdmin ? `<button onclick="openSongAddModal()" class="px-5 py-2.5 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-105 hover:-translate-y-0.5 transition font-paperozi text-[15px] flex items-center gap-2 cursor-pointer" style="background-color:${theme.color}; border-color:${theme.color};"><i class="fi fi-br-plus"></i> 노래 추가</button>` : ''}
         </div>
-        <div class="w-full mb-4 relative">
-            <i class="fi fi-rr-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            <input type="text" id="songSearchInput" oninput="filterSongList()" placeholder="노래 제목 또는 가수 검색" class="w-full pl-11 pr-4 py-3 border-2 border-[#5D4037] rounded-xl outline-none text-[15px] font-bold transition" style="focus-border-color:${theme.color};">
+        <div class="songbook-content-layout">
+            <div class="songbook-song-column">
+                <div class="w-full mb-4 relative">
+                    <i class="fi fi-rr-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="songSearchInput" oninput="filterSongList()" placeholder="노래 제목 또는 가수 검색" class="w-full pl-11 pr-4 py-3 border-2 border-[#5D4037] rounded-xl outline-none text-[15px] font-bold transition" style="focus-border-color:${theme.color};">
+                </div>
+                <div class="w-full flex flex-wrap gap-2 mb-6" id="genreFilterContainer"></div>
+                <div class="w-full grid gap-x-4 gap-y-7" style="grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));" id="songListContainer"></div>
+            </div>
+            <aside class="songbook-artist-column">
+                <div class="songbook-artist-heading"><i class="fi fi-rr-microphone"></i> 가수 목록</div>
+                <div id="songArtistContainer" class="songbook-artist-list modal-scroll"></div>
+            </aside>
         </div>
-        <div class="w-full flex flex-wrap gap-2 mb-6" id="genreFilterContainer"></div>
-        <div class="w-full grid gap-x-4 gap-y-7" style="grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));" id="songListContainer"></div>
     </div>`;
 
     content.innerHTML = html;
@@ -7520,8 +7634,8 @@ window.toggleLikeSong = async function(id) {
 };
 
 function renderArtistSidePanel() {
-    const panel = document.getElementById('sideExpansionPanel');
-    if (!panel || sidePanelMode !== 'ARTIST') return;
+    const panel = document.getElementById('songArtistContainer');
+    if (!panel) return;
 
     const artists = getArtistCounts();
     const theme = getSongbookTheme(songbookMember);
@@ -7538,16 +7652,7 @@ function renderArtistSidePanel() {
     });
     if (artists.length === 0) listHtml += `<div class="text-center text-gray-400 font-bold py-16 text-[14px]">등록된 가수가 없습니다.</div>`;
 
-    panel.innerHTML = `
-        <div class="p-6 bg-white/15 backdrop-blur-lg flex items-center shadow-sm z-10 shrink-0">
-            <div class="text-[22px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
-                <i class="fi fi-rr-microphone"></i> 가수 목록
-            </div>
-        </div>
-        <div class="flex-1 p-5 bg-white overflow-y-auto modal-scroll w-full">
-            ${listHtml}
-        </div>
-    `;
+    panel.innerHTML = listHtml;
 }
 
 window.filterSongList = function() { 
@@ -10349,7 +10454,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             } else if (broadText === '시네티') {
                 broadStyle = 'background-color: #9333ea; color: #ffffff;'; 
             } else if (broadText === '비방일정') {
-                broadStyle = 'background-color: #BDB76B; color: #ffffff;'; 
+                broadStyle = 'background-color: #D2C9CA; color: #4A3B36;'; 
             } else {
                 broadStyle = `background-color: ${themeColor}; color: #ffffff;`;
             }
@@ -10543,6 +10648,7 @@ async function initApp() {
         // 그 외 탭(업보정리/롤링페이퍼/노래책/시그널/클립 등)은 멤버별 일정 컬렉션이 필요 없으므로,
         // 멤버 목록·그룹·롤링 주제 등 공통 데이터만 가볍게 불러온다.
         await loadSchedulesFromFirebase({ members: [] });
+        if (currentPage === '롤링페이퍼') await loadRollingTopicsFromFirebase();
     }
     setActiveSongs(songbookMember);
 
