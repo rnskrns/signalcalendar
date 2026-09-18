@@ -1197,17 +1197,24 @@ body.admin-mode {
         border-left: 0;
         border-bottom: 2px dashed #E5E7EB;
     }
-    .songbook-artist-heading { height: 52px; margin-bottom: 10px; }
+    .songbook-artist-heading { width:100%; height:52px; margin-bottom:10px; justify-content:flex-start; }
+    .songbook-artist-heading > span { flex:1; text-align:left; }
+    .songbook-artist-toggle-icon { margin-left:auto; transition:transform .2s ease; }
+    .songbook-artist-column.mobile-collapsed { padding-bottom:0; margin-bottom:14px; border-bottom:0; }
+    .songbook-artist-column.mobile-collapsed .songbook-artist-heading { margin-bottom:0; }
+    .songbook-artist-column.mobile-collapsed .songbook-artist-list { display:none; }
+    .songbook-artist-column:not(.mobile-collapsed) .songbook-artist-toggle-icon { transform:rotate(180deg); }
     .songbook-artist-list {
-        display: flex;
-        gap: 8px;
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
         max-height: none;
-        overflow-x: auto;
-        padding: 0 0 5px;
+        overflow:visible;
+        padding:0 0 5px;
     }
     .songbook-artist-list > button {
-        width: auto !important;
-        min-width: max-content;
+        width:100% !important;
+        min-width:0;
         margin-bottom: 0 !important;
     }
 }
@@ -2228,7 +2235,8 @@ html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
     .mobile-story-name { width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:700 12px/1.2 'Paperozi',sans-serif; }
     .mobile-feed-datebar { height:49px; display:grid; grid-template-columns:48px 1fr 48px; align-items:center; background:#fff; border-bottom:1px solid #ececec; position:sticky; top:60px; z-index:20; }
     .mobile-feed-datebar button { height:100%; font-size:23px; }
-    .mobile-feed-datebar div { display:flex; align-items:center; justify-content:center; gap:7px; color:#222; font-size:15px; cursor:pointer; }
+    .mobile-feed-date-trigger { display:flex; align-items:center; justify-content:center; gap:7px; color:#222; font-size:15px !important; cursor:pointer; border:0; background:transparent; padding:0 8px; }
+    .mobile-feed-date-trigger i { font-size:11px; }
     .mobile-schedule-feed { background:#fff; }
     .mobile-feed-post { background:#fff; border-bottom:8px solid #f5f5f5; color:#161616; }
     .mobile-feed-author { height:58px; padding:8px 13px; display:flex; align-items:center; gap:10px; cursor:pointer; }
@@ -2282,7 +2290,7 @@ html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
     .mobile-feed-caption p { margin-top:3px; white-space:pre-line; color:#424242; }
     .mobile-feed-caption span { display:block; margin-top:6px; color:#999; font-size:11px; }
     #mobileBottomNav { height:64px !important; padding-bottom:max(5px,env(safe-area-inset-bottom)) !important; justify-content:stretch !important; }
-    .mobile-main-nav-btn { width:25%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2px; color:#8d8d8d; }
+    .mobile-main-nav-btn { width:20%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2px; color:#8d8d8d; }
     .mobile-main-nav-btn i { font-size:22px; line-height:1; }
     .mobile-main-nav-btn > span { display:none; }
     .mobile-main-nav-btn.is-active { color:#111; }
@@ -2408,6 +2416,17 @@ html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
     .member-profile-week-nav { height:44px; display:grid; grid-template-columns:44px 1fr 44px; align-items:center; border-bottom:1px solid #eee; }
     .member-profile-week-nav button { height:100%; display:grid; place-items:center; font-size:21px; }
     .member-profile-week-nav strong { text-align:center; font-size:12px; cursor:pointer; }
+    .member-profile-week-nav .member-profile-week-trigger { display:flex; align-items:center; justify-content:center; gap:6px; padding:0 8px; font-size:12px; }
+    .member-profile-week-trigger > i { font-size:9px; }
+    #datePickerGrid .date-picker-week-selected { position:relative; z-index:1; border-radius:0; background:#ff6f6f; box-shadow:0 3px 8px rgba(255,82,82,.2); font-weight:800; }
+    #datePickerGrid .date-picker-week-selected.is-week-start { border-radius:999px 0 0 999px; }
+    #datePickerGrid .date-picker-week-selected.is-week-end { border-radius:0 999px 999px 0; }
+    #datePickerGrid .date-picker-week-selected.is-week-start.is-week-end { border-radius:999px; }
+    #datePickerGrid .date-picker-day.is-week-hover { border-radius:0; background:#ffe0e0; color:#b63d3d; font-weight:800; }
+    #datePickerGrid .date-picker-day.is-week-hover.is-hover-start { border-radius:999px 0 0 999px; }
+    #datePickerGrid .date-picker-day.is-week-hover.is-hover-end { border-radius:0 999px 999px 0; }
+    #datePickerGrid .date-picker-day.is-week-hover.is-hover-start.is-hover-end { border-radius:999px; }
+    #datePickerGrid .date-picker-week-selected.is-week-hover { background:#ff6f6f; color:#fff; }
     .member-profile-feed-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2px; background:#fff; }
     .member-profile-feed-item { position:relative; aspect-ratio:1/1; overflow:hidden; background:color-mix(in srgb,var(--profile-theme) 13%,#fff); color:#fff; text-align:left; }
     .member-profile-feed-item > img { width:100%; height:100%; object-fit:cover; }
@@ -2473,7 +2492,7 @@ html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
     html.dark-mode .member-inline-memo-card > p { color:#eeeaf0; }
     html.dark-mode body.mobile-home-page, html.dark-mode .mobile-story-strip, html.dark-mode .mobile-feed-datebar, html.dark-mode .mobile-schedule-feed, html.dark-mode .mobile-feed-post, html.dark-mode .mobile-feed-author { background:#151319 !important; color:#f5f5f5; }
     html.dark-mode body.mobile-member-page { background:#151319 !important; }
-    html.dark-mode .mobile-story-name, html.dark-mode .mobile-feed-datebar div { color:#f5f5f5; }
+    html.dark-mode .mobile-story-name, html.dark-mode .mobile-feed-date-trigger { color:#f5f5f5; }
     html.dark-mode .mobile-feed-post { border-bottom-color:#27232c; }
     html.dark-mode .mobile-feed-caption p { color:#d6d1d8; }
 }

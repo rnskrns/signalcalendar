@@ -48,7 +48,7 @@
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-brands/css/uicons-brands.css'>
-    <link rel="stylesheet" href="style.css?v=20260918-61">
+    <link rel="stylesheet" href="style.css?v=20260918-67">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <!-- 외부 리소스 렌더링 사전 연결 -->
@@ -115,18 +115,16 @@
         </div>
     </header>
 
-    <header class="fixed top-0 left-0 w-full h-[60px] bg-white shadow-sm z-[1000] flex lg:hidden justify-between items-center px-3">
-        <div class="relative flex items-center shrink-0 cursor-pointer" onclick="openUpdateModal()">
+    <header class="mobile-main-header fixed top-0 left-0 w-full h-[60px] bg-white shadow-sm z-[1000] flex lg:hidden items-center px-3">
+        <div class="mobile-header-social flex items-center gap-1.5 shrink-0">
+            <a href="https://cafe.naver.com/restormy" target="_blank" class="w-[32px] h-[32px] bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm"><img src="./images/cafe.png" class="w-[18px] h-[18px] object-contain"></a>
+            <a href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" class="w-[32px] h-[32px] bg-[#FF0000] text-white rounded-lg flex items-center justify-center shadow-sm text-lg"><i class="fi fi-brands-youtube mt-0.5"></i></a>
+        </div>
+        <div class="mobile-header-logo absolute left-1/2 -translate-x-1/2 flex items-center cursor-pointer" onclick="openUpdateModal()">
             <img src="./images/logo.webp" class="h-[30px]">
             <span id="mobileLogoNewBadge" class="hidden absolute -top-1.5 -right-3.5 bg-[#FF5252] text-white text-[9px] font-black px-1.5 py-[1px] rounded-full shadow-md z-10 font-paperozi tracking-wider">NEW</span>
         </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-            <a href="https://cafe.naver.com/restormy" target="_blank" class="w-[32px] h-[32px] bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm">
-                <img src="./images/cafe.png" class="w-[18px] h-[18px] object-contain">
-            </a>
-            <a href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" class="w-[32px] h-[32px] bg-[#FF0000] text-white rounded-lg flex items-center justify-center shadow-sm text-lg">
-                <i class="fi fi-brands-youtube mt-0.5"></i>
-            </a>
+        <div class="mobile-header-actions ml-auto flex items-center gap-1.5 shrink-0">
             <div id="mobileAuthContainer" class="shrink-0 relative">
                 <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="handleAdminClick()">로그인</button>
             </div>
@@ -138,7 +136,7 @@
                 <i class="fi fi-rr-sun fi-sun"></i>
                 <i class="fi fi-rr-moon fi-moon"></i>
             </button>
-            <div id="mobileHeaderRightBtn" class="shrink-0"></div>
+            <div id="mobileHeaderRightBtn" class="hidden"></div>
         </div>
     </header>
 
@@ -198,10 +196,6 @@
 
             <div id="homeYoutubeBox" class="hidden absolute top-[0px] left-0 z-0 lg:flex flex-col w-full gap-4">
                 <div id="homeDdayBox" class="hidden w-full flex flex-col gap-4"></div>
-
-                <button type="button" id="homeUpPanelBtn" onclick="openUpModeModal()" class="hidden home-up-panel w-full py-3.5 flex items-center justify-center gap-2 text-[16px] font-bold text-[#5D4037] font-paperozi cursor-pointer transition hover:brightness-95">
-                    <i class="fi fi-rr-arrow-up-right"></i> UP 해줘!
-                </button>
 
                 <div class="relative bg-white rounded-[26px] shadow-sm overflow-hidden w-full">
                     <a href="https://linksalad.net/WutRq7GW3X" target="_blank" rel="noopener" class="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 bg-[#FF0000] text-white text-[13px] font-bold px-3 py-1.5 rounded-full shadow-md hover:brightness-110 transition-all">
@@ -761,7 +755,27 @@
         <div id="partDividerSongLibraryPopupResizeHandle" class="partdiv-float-popup-resize-handle" title="드래그해서 크기 조절"></div>
     </div>
 
-    <script type="module" src="script.js?v=20260918-77"></script>
+    <!-- 모바일 홈 날짜 선택 달력 -->
+    <div id="mobileDatePickerModal" class="hidden fixed inset-0 bg-black/45 items-center justify-center z-[6000] p-4" onclick="if(event.target===this) closeMobileDatePicker()">
+        <div class="w-full max-w-[380px] rounded-3xl bg-white p-5 shadow-2xl dark:bg-[#211f25]" role="dialog" aria-modal="true" aria-labelledby="datePickerTitle">
+            <div class="mb-4 flex items-center justify-between">
+                <button type="button" onclick="changeDatePickerMonth(-1)" class="flex h-11 w-11 items-center justify-center rounded-full text-xl text-[#222] hover:bg-gray-100 dark:text-white dark:hover:bg-white/10" aria-label="이전 달">
+                    <i class="fi fi-rr-angle-left"></i>
+                </button>
+                <strong id="datePickerTitle" class="text-[17px] font-extrabold text-[#222] dark:text-white"></strong>
+                <button type="button" onclick="changeDatePickerMonth(1)" class="flex h-11 w-11 items-center justify-center rounded-full text-xl text-[#222] hover:bg-gray-100 dark:text-white dark:hover:bg-white/10" aria-label="다음 달">
+                    <i class="fi fi-rr-angle-right"></i>
+                </button>
+            </div>
+            <div class="mb-1 grid grid-cols-7 text-center text-[12px] font-bold text-gray-400">
+                <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span>
+            </div>
+            <div id="datePickerGrid" class="grid grid-cols-7 gap-y-1 text-center"></div>
+            <button type="button" onclick="closeMobileDatePicker()" class="mt-4 w-full rounded-xl bg-gray-100 py-3 text-[14px] font-bold text-[#333] dark:bg-white/10 dark:text-white">닫기</button>
+        </div>
+    </div>
+
+    <script type="module" src="script.js?v=20260918-83"></script>
 
 </body>
 </html>

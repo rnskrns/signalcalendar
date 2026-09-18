@@ -792,10 +792,13 @@ window.openMobileHomeNotice = openMobileHomeNotice; window.closeMobileHomeNotice
 window.openMobileNoticeConversation = openMobileNoticeConversation; window.backToMobileNoticeInbox = backToMobileNoticeInbox;
 window.openMobileAdminPage = openMobileAdminPage; window.openMobileAdminSection = openMobileAdminSection;
 window.showMobileMemberView = showMobileMemberView;
+window.toggleMobileArtistList = toggleMobileArtistList;
 window.executeDesktopTabChange = executeDesktopTabChange; window.executeMobileTabChange = executeMobileTabChange;
 window.changeHomeDate = changeHomeDate; window.changeIndividualWeek = changeIndividualWeek;
 window.openMobileDatePicker = openMobileDatePicker; window.closeMobileDatePicker = closeMobileDatePicker;
+window.openIndividualWeekPicker = openIndividualWeekPicker;
 window.changeDatePickerMonth = changeDatePickerMonth; window.selectMobileDate = selectMobileDate;
+window.highlightDatePickerWeek = highlightDatePickerWeek;
 window.closeUpPopup = closeUpPopup; 
 
 window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
@@ -1174,6 +1177,7 @@ let sidePanelMode = null;
 let homeTargetDate = new Date(); 
 let individualTargetDate = new Date(); 
 let datePickerCurrentDate = new Date();
+let mobileDatePickerMode = 'home';
 
 let rollingTopics = [];
 let rollingEntries = [];
@@ -3028,7 +3032,6 @@ function renderHeaderTabs() {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
                 clickAction = `onclick="toggleDesktopExtraMenu(event)"`; 
                 mainLinkHtml = `
-                    <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
                     <a href="#" onclick="executeDesktopTabChange('업보정리'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">업보정리</a>
                     <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">사다리타기</a>
@@ -3070,16 +3073,20 @@ function renderHeaderTabs() {
 
     if (mobileNav) {
         const homeActive = currentPage === '홈';
-        const moreActive = !homeActive;
+        const clipActive = currentPage === '클립';
+        const moreActive = ['롤링페이퍼', '업보정리', '업보선택', '사다리타기', '파트분배기'].includes(currentPage);
         mobileNav.innerHTML = `
             <button class="mobile-main-nav-btn ${homeActive ? 'is-active' : ''}" onclick="executeDesktopTabChange('홈')" aria-label="홈">
                 <i class="fi fi-${homeActive ? 'sr' : 'rr'}-home"></i><span>홈</span>
             </button>
+            <button class="mobile-main-nav-btn ${clipActive ? 'is-active' : ''}" onclick="executeMobileTabChange('클립')" aria-label="클립 모아보기">
+                <i class="fi fi-${clipActive ? 'sr' : 'rr'}-play-alt"></i><span>클립 모아보기</span>
+            </button>
             <button class="mobile-main-nav-btn" onclick="openMobileHomeNotice()" aria-label="공지">
-                <i class="fi fi-rr-comment-alt-middle"></i><span>공지</span>
+                <i class="fi fi-rr-comment-alt-middle" data-regular="fi-rr-comment-alt-middle" data-solid="fi-sr-comment-alt-middle"></i><span>공지</span>
             </button>
             <button class="mobile-main-nav-btn ${moreActive ? 'is-active' : ''}" onclick="openMobileTabMenu('추가기능')" aria-label="더보기">
-                <i class="fi fi-rr-menu-dots"></i><span>더보기</span>
+                <i class="fi fi-${moreActive ? 'sr' : 'rr'}-menu-dots"></i><span>더보기</span>
             </button>
             <button class="mobile-main-nav-btn ${typeof isAdmin !== 'undefined' && isAdmin ? 'is-admin-profile' : ''}" onclick="${typeof isAdmin !== 'undefined' && isAdmin ? 'openMobileAdminPage()' : 'handleAdminClick()'}" aria-label="${typeof isAdmin !== 'undefined' && isAdmin ? '관리 메뉴' : '로그인'}">
                 ${typeof isAdmin !== 'undefined' && isAdmin && loggedInUser ? `<img class="mobile-nav-admin-avatar" src="${escapeHtml(loggedInUser.img || 'https://via.placeholder.com/48')}" alt="${escapeHtml(loggedInUser.name || '관리자')}">` : '<i class="fi fi-rr-user"></i>'}<span>${typeof isAdmin !== 'undefined' && isAdmin ? '관리' : '로그인'}</span>
@@ -3095,8 +3102,7 @@ function openMobileAdminPage() {
     if (!page) return;
     document.getElementById('mobileHomeNoticeBox')?.classList.remove('is-open');
     if (profile) profile.innerHTML = `<img src="${escapeHtml(loggedInUser.img || 'https://via.placeholder.com/80')}" alt=""><div><strong>${escapeHtml(loggedInUser.name || '관리자')}</strong><span>관리자 모드</span></div>`;
-    document.querySelectorAll('#mobileBottomNav .mobile-main-nav-btn').forEach(btn => btn.classList.remove('is-active'));
-    document.querySelector('#mobileBottomNav [aria-label="관리 메뉴"]')?.classList.add('is-active');
+    setMobileBottomActive('관리 메뉴');
     page.classList.remove('hidden');
 }
 
@@ -3116,8 +3122,7 @@ async function openMobileHomeNotice() {
     }
     const notice = document.getElementById('mobileHomeNoticeBox');
     if (notice) {
-        document.querySelectorAll('#mobileBottomNav .mobile-main-nav-btn').forEach(btn => btn.classList.remove('is-active'));
-        document.querySelector('#mobileBottomNav [aria-label="공지"]')?.classList.add('is-active');
+        setMobileBottomActive('공지');
         notice.classList.remove('hidden');
         const list = document.getElementById('mobileHomeNoticeList');
         if (list && !hasCachedNotice) list.innerHTML = '<div class="mobile-notice-loading"><span></span><p>공지를 불러오는 중이에요.</p></div>';
@@ -3140,8 +3145,7 @@ function closeMobileHomeNotice() {
     const notice = document.getElementById('mobileHomeNoticeBox');
     if (!notice) return;
     notice.classList.remove('is-open');
-    document.querySelector('#mobileBottomNav [aria-label="공지"]')?.classList.remove('is-active');
-    document.querySelector('#mobileBottomNav [aria-label="홈"]')?.classList.add('is-active');
+    setMobileBottomActive('홈');
     setTimeout(() => notice.classList.add('hidden'), 220);
 }
 
@@ -3156,7 +3160,6 @@ function openMobileTabMenu(tab) {
 
     if (tab === '추가기능') {
         const extraItems = [
-            ['클립', 'fi-rr-video-camera-alt', '멤버들의 클립을 한곳에서 확인합니다.'],
             ['롤링페이퍼', 'fi-rr-envelope', '마음을 담은 메시지를 남기고 확인합니다.'],
             ['업보정리', 'fi-rr-box-open', '등록된 업보를 멤버별로 정리합니다.'],
             ['사다리타기', 'ladder', '이름과 결과를 넣어 사다리게임을 진행합니다.'],
@@ -3171,8 +3174,7 @@ function openMobileTabMenu(tab) {
         overlay.classList.remove('hidden'); overlay.classList.add('block');
         container.classList.remove('opacity-0', 'translate-y-4');
         container.classList.add('opacity-100', 'translate-y-0');
-        document.querySelectorAll('#mobileBottomNav .mobile-main-nav-btn').forEach(btn => btn.classList.remove('is-active'));
-        document.querySelector('#mobileBottomNav [aria-label="더보기"]')?.classList.add('is-active');
+        setMobileBottomActive('더보기');
         return;
     }
 
@@ -3205,7 +3207,6 @@ function openMobileTabMenu(tab) {
         </button>`;
 
     if (tab === '추가기능') {
-        html += iconBtn("executeMobileTabChange('클립')", 'fi-rr-video-camera-alt', '클립', color);
         html += iconBtn("executeMobileTabChange('롤링페이퍼')", 'fi-rr-envelope', '롤링페이퍼', color);
         html += iconBtn("executeMobileTabChange('업보정리')", 'fi-rr-box-open', '업보정리', color);
         html += iconBtn("executeMobileTabChange('사다리타기')", 'fi-rr-ladder', '사다리타기', color);
@@ -3253,6 +3254,27 @@ function forceCloseMobileTabMenu() {
         container.classList.remove('mobile-extra-page-container', 'opacity-100', 'translate-y-0');
         container.classList.add('opacity-0', 'translate-y-4');
     }
+}
+
+function setMobileBottomActive(label) {
+    const iconMap = {
+        '홈': ['fi-rr-home', 'fi-sr-home'],
+        '클립 모아보기': ['fi-rr-play-alt', 'fi-sr-play-alt'],
+        '공지': ['fi-rr-comment-alt-middle', 'fi-sr-comment-alt-middle'],
+        '더보기': ['fi-rr-menu-dots', 'fi-sr-menu-dots'],
+        '로그인': ['fi-rr-user', 'fi-sr-user']
+    };
+    document.querySelectorAll('#mobileBottomNav .mobile-main-nav-btn').forEach(btn => {
+        const active = btn.getAttribute('aria-label') === label;
+        btn.classList.toggle('is-active', active);
+        const icon = btn.querySelector('i');
+        const key = btn.getAttribute('aria-label') === '관리 메뉴' ? '로그인' : btn.getAttribute('aria-label');
+        const pair = iconMap[key];
+        if (icon && pair) {
+            icon.classList.remove(pair[0], pair[1]);
+            icon.classList.add(active ? pair[1] : pair[0]);
+        }
+    });
 }
 
 /* =========================================================
@@ -7275,7 +7297,15 @@ function renderPicker() {
 }
 
 function openMobileDatePicker() {
+    mobileDatePickerMode = 'home';
     datePickerCurrentDate = new Date(homeTargetDate.getTime());
+    renderMobileDatePicker();
+    document.getElementById('mobileDatePickerModal').classList.replace('hidden', 'flex');
+}
+
+function openIndividualWeekPicker() {
+    mobileDatePickerMode = 'individual';
+    datePickerCurrentDate = new Date(individualTargetDate.getTime());
     renderMobileDatePicker();
     document.getElementById('mobileDatePickerModal').classList.replace('hidden', 'flex');
 }
@@ -7290,9 +7320,28 @@ function changeDatePickerMonth(delta) {
 }
 
 function selectMobileDate(y, m, d) {
-    homeTargetDate = new Date(y, m, d);
+    if (mobileDatePickerMode === 'individual') {
+        individualTargetDate = new Date(y, m, d);
+        mobileMemberView = 'schedule';
+    } else {
+        homeTargetDate = new Date(y, m, d);
+    }
     closeMobileDatePicker();
     render();
+}
+
+function highlightDatePickerWeek(cell, active) {
+    if (mobileDatePickerMode !== 'individual' || !cell) return;
+    const grid = document.getElementById('datePickerGrid');
+    if (!grid) return;
+    grid.querySelectorAll('.date-picker-day').forEach(dayCell => {
+        dayCell.classList.remove('is-week-hover', 'is-hover-start', 'is-hover-end');
+    });
+    if (!active) return;
+    const weekCells = Array.from(grid.querySelectorAll(`.date-picker-day[data-week-key="${cell.dataset.weekKey}"]`));
+    weekCells.forEach(dayCell => dayCell.classList.add('is-week-hover'));
+    weekCells[0]?.classList.add('is-hover-start');
+    weekCells[weekCells.length - 1]?.classList.add('is-hover-end');
 }
 
 function renderMobileDatePicker() {
@@ -7310,18 +7359,44 @@ function renderMobileDatePicker() {
     for (let i = 0; i < 42; i++) {
         const day = i - startIdx + 1;
         if (day > 0 && day <= daysInMonth) {
-            const isSelected = (y === homeTargetDate.getFullYear() && m === homeTargetDate.getMonth() && day === homeTargetDate.getDate());
+            const cellDate = new Date(y, m, day);
+            const cellDay = cellDate.getDay();
+            const cellWeekStart = new Date(cellDate);
+            cellWeekStart.setDate(day - (cellDay === 0 ? 6 : cellDay - 1));
+            const weekKey = `${cellWeekStart.getFullYear()}-${cellWeekStart.getMonth() + 1}-${cellWeekStart.getDate()}`;
+            let isSelected;
+            if (mobileDatePickerMode === 'individual') {
+                const target = new Date(individualTargetDate);
+                target.setHours(0, 0, 0, 0);
+                const targetDay = target.getDay();
+                const weekStart = new Date(target);
+                weekStart.setDate(target.getDate() - (targetDay === 0 ? 6 : targetDay - 1));
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+                isSelected = cellDate >= weekStart && cellDate <= weekEnd;
+            } else {
+                isSelected = (y === homeTargetDate.getFullYear() && m === homeTargetDate.getMonth() && day === homeTargetDate.getDate());
+            }
             const isRealToday = (y === new Date().getFullYear() && m === new Date().getMonth() && day === new Date().getDate());
             
             let classes = "py-2 rounded-lg cursor-pointer transition-colors text-[15px] ";
             if (isSelected) {
-                classes += "bg-[#FF5252] text-white shadow-md";
+                if (mobileDatePickerMode === 'individual') {
+                    const isVisibleWeekStart = (i % 7 === 0) || day === 1;
+                    const isVisibleWeekEnd = (i % 7 === 6) || day === daysInMonth;
+                    classes += `date-picker-week-selected text-white ${isVisibleWeekStart ? 'is-week-start' : ''} ${isVisibleWeekEnd ? 'is-week-end' : ''}`;
+                } else {
+                    classes += "bg-[#FF5252] text-white shadow-md";
+                }
             } else if (isRealToday) {
                 classes += "today-highlight";
             } else {
                 classes += "hover:bg-gray-100 text-[#5D4037]";
             }
-            html += `<div class="${classes}" onclick="selectMobileDate(${y}, ${m}, ${day})">${day}</div>`;
+            const weekHoverAttrs = mobileDatePickerMode === 'individual'
+                ? `data-week-key="${weekKey}" onmouseenter="highlightDatePickerWeek(this,true)" onmouseleave="highlightDatePickerWeek(this,false)"`
+                : '';
+            html += `<div class="date-picker-day ${classes}" ${weekHoverAttrs} onclick="selectMobileDate(${y}, ${m}, ${day})">${day}</div>`;
         } else {
             html += `<div></div>`;
         }
@@ -7424,7 +7499,7 @@ function render() {
     // 메모/시네티 버튼: 개인 캘린더(달타/다룽/최또/카나시) 탭일 때만 노출.
     // 모바일에서는 상단바 우측 영역에, 데스크톱은 각 캘린더 컨테이너 내부에서 렌더링.
     const isMemberPage = ['달타', '다룽', '최또', '카나시'].includes(currentPage);
-    if (mBtnContainer) mBtnContainer.innerHTML = (isMobile && isMemberPage) ? buildMemoCinetiButtonsHtml('mobileHeader') : '';
+    if (mBtnContainer) mBtnContainer.innerHTML = '';
     if (dBtnContainer) {
         if (!isMobile && isMemberPage) dBtnContainer.innerHTML = buildMemberQuickMenuHtml(currentPage, 'schedule');
         else if (!isMobile && currentPage === '노래책') dBtnContainer.innerHTML = buildMemberQuickMenuHtml(songbookMember, 'songbook');
@@ -7712,8 +7787,8 @@ function renderSongbook() {
                 <div class="w-full flex flex-wrap gap-2 mb-6" id="genreFilterContainer"></div>
                 <div class="w-full grid gap-x-4 gap-y-7" style="grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));" id="songListContainer"></div>
             </div>
-            <aside class="songbook-artist-column">
-                <div class="songbook-artist-heading"><i class="fi fi-rr-microphone"></i> 가수 목록</div>
+            <aside class="songbook-artist-column ${isMobile ? 'mobile-collapsed' : ''}" id="songbookArtistColumn">
+                <button type="button" class="songbook-artist-heading" onclick="${isMobile ? 'toggleMobileArtistList()' : ''}"><i class="fi fi-rr-microphone"></i><span>가수 목록</span>${isMobile ? '<i class="fi fi-rr-angle-small-down songbook-artist-toggle-icon"></i>' : ''}</button>
                 <div id="songArtistContainer" class="songbook-artist-list modal-scroll"></div>
             </aside>
         </div>
@@ -7724,6 +7799,12 @@ function renderSongbook() {
     renderGenreFilters();
     renderArtistSidePanel();
     if (isMobile) refreshMemberChannelRings(songbookMember, profileYoutubeUrl);
+}
+
+function toggleMobileArtistList() {
+    const column = document.getElementById('songbookArtistColumn');
+    if (!column) return;
+    column.classList.toggle('mobile-collapsed');
 }
 
 function renderSongList() {
@@ -9805,9 +9886,9 @@ function renderMobileHome(grouped) {
         </section>
         <div class="mobile-feed-datebar">
             <button onclick="changeHomeDate(-1)" aria-label="이전 날짜"><i class="fi fi-rr-angle-left"></i></button>
-            <div onclick="openMobileDatePicker()">
+            <button type="button" class="mobile-feed-date-trigger" onclick="openMobileDatePicker()" aria-label="날짜 선택 달력 열기">
                 <strong>${isSelectedToday ? '오늘 · ' : ''}${dateStr} (${dayStr})</strong><i class="fi fi-sr-caret-down"></i>
-            </div>
+            </button>
             <button onclick="changeHomeDate(1)" aria-label="다음 날짜"><i class="fi fi-rr-angle-right"></i></button>
         </div>
         <div class="mobile-schedule-feed">
@@ -9940,7 +10021,7 @@ function renderMobileIndividual(grouped) {
     const isMemoView = mobileMemberView === 'memo';
     const scheduleBody = `<div class="member-profile-week-nav">
         <button onclick="changeIndividualWeek(-7)"><i class="fi fi-rr-angle-left"></i></button>
-        <strong onclick="openMonthPicker()">${weekDates[0].getFullYear()}.${weekDates[0].getMonth()+1}.${weekDates[0].getDate()} – ${weekDates[6].getMonth()+1}.${weekDates[6].getDate()}</strong>
+        <button type="button" class="member-profile-week-trigger" onclick="openIndividualWeekPicker()" aria-label="주 선택 달력 열기"><strong>${weekDates[0].getFullYear()}.${weekDates[0].getMonth()+1}.${weekDates[0].getDate()} – ${weekDates[6].getMonth()+1}.${weekDates[6].getDate()}</strong><i class="fi fi-sr-caret-down"></i></button>
         <button onclick="changeIndividualWeek(7)"><i class="fi fi-rr-angle-right"></i></button>
     </div><div class="member-week-text-list">${feedHtml}</div>`;
 
@@ -10351,6 +10432,7 @@ function toggleFields(modalId, radioName) {
 }
 
 function handleAdminClick() { 
+    if (isMobile) setMobileBottomActive(isAdmin ? '관리 메뉴' : '로그인');
     if (!isAdmin) openPasswordModal(); 
 }
 
