@@ -788,6 +788,10 @@ window.startEditDday = startEditDday; window.cancelEditDday = cancelEditDday;
 window.switchDdayImgTab = switchDdayImgTab; window.previewDdayImageFile = previewDdayImageFile; window.previewDdayImageUrl = previewDdayImageUrl;
 window.toggleUpPanel = toggleUpPanel; window.toggleMemoPanel = toggleMemoPanel; window.closeSidePanel = closeSidePanel;
 window.openMobileTabMenu = openMobileTabMenu; window.closeMobileTabMenu = closeMobileTabMenu;
+window.openMobileHomeNotice = openMobileHomeNotice; window.closeMobileHomeNotice = closeMobileHomeNotice;
+window.openMobileNoticeConversation = openMobileNoticeConversation; window.backToMobileNoticeInbox = backToMobileNoticeInbox;
+window.openMobileAdminPage = openMobileAdminPage; window.openMobileAdminSection = openMobileAdminSection;
+window.showMobileMemberView = showMobileMemberView;
 window.executeDesktopTabChange = executeDesktopTabChange; window.executeMobileTabChange = executeMobileTabChange;
 window.changeHomeDate = changeHomeDate; window.changeIndividualWeek = changeIndividualWeek;
 window.openMobileDatePicker = openMobileDatePicker; window.closeMobileDatePicker = closeMobileDatePicker;
@@ -1147,6 +1151,7 @@ let userLikedSongsCache = null;   // { [member]: [songId, ...] } - 로그인한 
 // ⭐ 신규: 새로고침 시 SOOP 로그인 상태 복원 (Firebase onAuthStateChanged보다 먼저 currentUser를 채워둠)
 restoreSoopSession();
 let currentPage = '홈';
+let mobileMemberView = 'schedule';
 let songbookMember = '달타';
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
@@ -1411,9 +1416,60 @@ const memberCardImages = {
 
 // 멤버별 SOOP(아프리카TV) 아이디 매핑 - 라이브 여부 확인 및 방송 바로가기에 사용
 const memberSoopIdMap = { '달타': 'dalta20', '다룽': 'daarung22', '최또': 'choiagain', '카나시': 'kjhh0029' };
+const memberChannelImages = {
+    '달타': { soop:'https://stimg.sooplive.com/LOGO/da/dalta20/dalta20.jpg', youtube:'https://yt3.googleusercontent.com/piKeoG3xgvjHLCZ4v1F1HICAFyw_ZUQCmZIafxwhscyoOgWGBkaClFUb3yzkJgQgrUJHoyHKaeM=s160-c-k-c0x00ffffff-no-rj' },
+    '다룽': { soop:'https://stimg.sooplive.com/LOGO/da/daarung22/daarung22.jpg', youtube:'https://yt3.googleusercontent.com/KgozNFawpfBUpcSFTNzghY2X1GedO0cSxK4HHYN6KBJuL-66tXZWRgJs2T2702VdcM7WwREoJQ=s160-c-k-c0x00ffffff-no-rj' },
+    '최또': { soop:'https://stimg.sooplive.com/LOGO/ch/choiagain/choiagain.jpg', youtube:'https://yt3.googleusercontent.com/zGIeGPyPIEKZCdIgfhNV9lIvXYlEBR0JrKCFi3xfzzZE-VJLrKADyJGqMPZBdm7XUPY6_UtJLHI=s160-c-k-c0x00ffffff-no-rj' },
+    '카나시': { soop:'https://stimg.sooplive.com/LOGO/kj/kjhh0029/kjhh0029.jpg', youtube:'https://yt3.googleusercontent.com/nh2HvXjlsujdmD2hcLMWSf__nh9vDTA0KGUFmTk-3JMZyBuTzM1bTQCtDcLa2tZj5jetFpZ4=s160-c-k-c0x00ffffff-no-rj' }
+};
 // 멤버별 최근 확인된 라이브 여부 캐시 { 멤버이름: true/false }
 const liveStatusCache = {};
 let liveStatusIntervalId = null;
+const youtubeRecentUploadCache = {};
+
+async function fetchTextWithCorsFallback(url) {
+    try {
+        const direct = await fetch(url);
+        if (direct.ok) return await direct.text();
+    } catch (e) {}
+    const proxied = await fetch('https://corsproxy.io/?url=' + encodeURIComponent(url));
+    if (!proxied.ok) throw new Error('HTTP ' + proxied.status);
+    return await proxied.text();
+}
+
+async function hasRecentYoutubeUpload(channelUrl) {
+    if (!channelUrl) return false;
+    const cached = youtubeRecentUploadCache[channelUrl];
+    if (cached && Date.now() - cached.checkedAt < 10 * 60 * 1000) return cached.value;
+    try {
+        const channelHtml = await fetchTextWithCorsFallback(channelUrl.replace(/\/$/, '') + '/videos');
+        const channelId = channelHtml.match(/"channelId":"(UC[^"]+)"/)?.[1]
+            || channelHtml.match(/<meta itemprop="channelId" content="([^"]+)"/)?.[1];
+        if (!channelId) throw new Error('YouTube channel id not found');
+        const feedXml = await fetchTextWithCorsFallback(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+        const publishedText = feedXml.match(/<entry>[\s\S]*?<published>([^<]+)<\/published>/)?.[1];
+        const publishedAt = publishedText ? new Date(publishedText).getTime() : 0;
+        const value = publishedAt > 0 && Date.now() - publishedAt <= 24 * 60 * 60 * 1000;
+        youtubeRecentUploadCache[channelUrl] = { value, checkedAt: Date.now() };
+        return value;
+    } catch (error) {
+        console.warn('유튜브 최근 업로드 확인 실패:', error);
+        youtubeRecentUploadCache[channelUrl] = { value: false, checkedAt: Date.now() };
+        return false;
+    }
+}
+
+async function refreshMemberChannelRings(memberName, youtubeUrl) {
+    const soopRing = document.getElementById(`memberSoopRing-${memberName}`);
+    const youtubeRing = document.getElementById(`memberYoutubeRing-${memberName}`);
+    const soopId = memberSoopIdMap[memberName];
+    const [isLive, hasRecent] = await Promise.all([
+        soopId ? checkSoopLiveStatus(soopId).catch(() => false) : false,
+        hasRecentYoutubeUpload(youtubeUrl)
+    ]);
+    if (soopRing && soopRing.isConnected) soopRing.classList.toggle('has-channel-activity', !!isLive);
+    if (youtubeRing && youtubeRing.isConnected) youtubeRing.classList.toggle('has-channel-activity', !!hasRecent);
+}
 
 // SOOP 라이브 상태 API로 해당 아이디가 현재 생방송 중인지 확인
 // (background.js 확장 프로그램에서 실제로 잘 동작하는 bjapi.afreecatv.com station API를 그대로 사용)
@@ -1863,6 +1919,7 @@ function refreshAuthUI() {
         if (desktopContainer) desktopContainer.innerHTML = renderLoggedOutAuthHtml('desktop');
         if (mobileContainer) mobileContainer.innerHTML = renderLoggedOutAuthHtml('mobile');
     }
+    renderHeaderTabs();
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -1987,6 +2044,7 @@ function openManageModal(tab = 'link') {
 function closeManageModal() {
     document.getElementById('manageModal').classList.replace('flex', 'hidden');
     if (editingUpdateLogId && typeof cancelEditUpdateLog === 'function') cancelEditUpdateLog();
+    if (isMobile && isAdmin) openMobileAdminPage();
 }
 
 function switchManageTab(tab) {
@@ -2001,6 +2059,7 @@ function switchManageTab(tab) {
         btns[key].classList.toggle('text-white', active);
         btns[key].classList.toggle('text-[#5D4037]', !active);
         btns[key].classList.toggle('hover:bg-gray-100', !active);
+        btns[key].classList.toggle('is-active', active);
     });
 }
 
@@ -2503,8 +2562,7 @@ async function fetchAndRenderAllNotices() {
     cachedPerMemberNoticeHtml = perMemberNoticeHtml;
     noticeFetchAttempted = true;
 
-    if (mobileNoticeList) mobileNoticeList.innerHTML = itemsHtml;
-    if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasAnyPost);
+    if (mobileNoticeList) renderMobileNoticeInbox();
 
     // 데스크탑 홈탭: 유튜브 영상 박스 아래에 전체 멤버 공지를 한 곳에 모아 표시
     const noticeBox = document.getElementById('homeNoticeBox');
@@ -2548,10 +2606,50 @@ function scrollNoticeListsToBottomRobust() {
 function applyCachedNoticeToMobileHome() {
     const mobileNoticeBox = document.getElementById('mobileHomeNoticeBox');
     const mobileNoticeList = document.getElementById('mobileHomeNoticeList');
-    if (mobileNoticeList) mobileNoticeList.innerHTML = cachedNoticeItemsHtml;
-    if (mobileNoticeBox) mobileNoticeBox.classList.toggle('hidden', !hasCachedNotice);
+    if (mobileNoticeList) renderMobileNoticeInbox();
     scrollNoticeListsToBottomRobust();
 }
+
+function renderMobileNoticeInbox() {
+    const list = document.getElementById('mobileHomeNoticeList');
+    const title = document.getElementById('mobileNoticeTitle');
+    const back = document.getElementById('mobileNoticeBackBtn');
+    if (!list) return;
+    if (title) title.textContent = '공지';
+    if (back) back.classList.add('hidden');
+    list.className = 'mobile-notice-inbox overflow-y-auto modal-scroll';
+
+    const rows = soopBoards.map(board => {
+        const notices = cachedPerMemberNoticeHtml[board.name] || [];
+        if (!notices.length) return '';
+        const holder = document.createElement('div');
+        holder.innerHTML = notices[notices.length - 1];
+        const latestTitle = holder.querySelector('.kakao-bubble-title')?.textContent?.trim() || '새 공지';
+        const latestBody = holder.querySelector('.kakao-bubble-body')?.textContent?.trim() || '';
+        const latestTime = holder.querySelector('.kakao-time')?.textContent?.trim() || '';
+        const member = members.find(m => m.name === board.name);
+        return `<button class="mobile-notice-inbox-row" onclick="openMobileNoticeConversation('${board.name}')">
+            <img src="${member ? member.img : ''}" alt="${board.name}">
+            <span><strong>${board.name}</strong><p>${escapeHtml(latestTitle)}${latestBody ? ` · ${escapeHtml(latestBody)}` : ''}</p></span>
+            <time>${escapeHtml(latestTime)}</time><i class="fi fi-rr-angle-small-right"></i>
+        </button>`;
+    }).filter(Boolean).join('');
+    list.innerHTML = rows || '<div class="mobile-notice-empty">새로운 공지가 없습니다.</div>';
+}
+
+function openMobileNoticeConversation(memberName) {
+    const list = document.getElementById('mobileHomeNoticeList');
+    const title = document.getElementById('mobileNoticeTitle');
+    const back = document.getElementById('mobileNoticeBackBtn');
+    if (!list) return;
+    if (title) title.textContent = memberName;
+    if (back) back.classList.remove('hidden');
+    list.className = 'kakao-chat-bg mobile-notice-conversation flex flex-col gap-3 p-4 overflow-y-auto modal-scroll';
+    list.innerHTML = (cachedPerMemberNoticeHtml[memberName] || []).join('') || '<div class="mobile-notice-empty">등록된 공지가 없습니다.</div>';
+    setTimeout(scrollNoticeListsToBottomRobust, 30);
+}
+
+function backToMobileNoticeInbox() { renderMobileNoticeInbox(); }
 
 // 데스크탑 홈탭: 유튜브 영상 박스 아래 공지 박스에 캐시된 전체 공지를 즉시 반영
 function applyCachedNoticeToDesktopHome() {
@@ -2971,36 +3069,115 @@ function renderHeaderTabs() {
     }
 
     if (mobileNav) {
-        let mHtml = '';
-        ['홈', ...tabs].forEach(tab => {
-            const isActive = (currentPage === tab) || (currentPage === '롤링페이퍼' && tab === '추가기능') || (currentPage === '업보정리' && tab === '추가기능') || (currentPage === '업보선택' && tab === '추가기능') || (currentPage === '사다리타기' && tab === '추가기능') || (currentPage === '파트분배기' && tab === '추가기능') || (currentPage === '노래책' && songbookMember === tab);
-            const activeColor = tab === '홈' ? '#FF5252' : colors[tab];
-            let contentHtml = '';
-            
-            if (tab === '홈') {
-                contentHtml = `<i class="fi fi-rr-home text-[24px] transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}"></i>`;
-            } else if (tab === '추가기능') {
-                contentHtml = `<i class="fi fi-rr-menu-dots text-[24px] mt-1 transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}"></i>`;
-            } else {
-                contentHtml = `<span class="text-[16px] font-bold font-paperozi transition-all ${isActive ? 'scale-110' : ''}" style="color: ${isActive ? activeColor : '#9CA3AF'}">${tab}</span>`;
-            }
-            
-            mHtml += `
-                <button class="flex flex-col items-center justify-center w-full h-full gap-1 transition-all" onclick="openMobileTabMenu('${tab}')">
-                    ${contentHtml}
-                </button>
-            `;
-        });
-        mobileNav.innerHTML = mHtml;
+        const homeActive = currentPage === '홈';
+        const moreActive = !homeActive;
+        mobileNav.innerHTML = `
+            <button class="mobile-main-nav-btn ${homeActive ? 'is-active' : ''}" onclick="executeDesktopTabChange('홈')" aria-label="홈">
+                <i class="fi fi-${homeActive ? 'sr' : 'rr'}-home"></i><span>홈</span>
+            </button>
+            <button class="mobile-main-nav-btn" onclick="openMobileHomeNotice()" aria-label="공지">
+                <i class="fi fi-rr-comment-alt-middle"></i><span>공지</span>
+            </button>
+            <button class="mobile-main-nav-btn ${moreActive ? 'is-active' : ''}" onclick="openMobileTabMenu('추가기능')" aria-label="더보기">
+                <i class="fi fi-rr-menu-dots"></i><span>더보기</span>
+            </button>
+            <button class="mobile-main-nav-btn ${typeof isAdmin !== 'undefined' && isAdmin ? 'is-admin-profile' : ''}" onclick="${typeof isAdmin !== 'undefined' && isAdmin ? 'openMobileAdminPage()' : 'handleAdminClick()'}" aria-label="${typeof isAdmin !== 'undefined' && isAdmin ? '관리 메뉴' : '로그인'}">
+                ${typeof isAdmin !== 'undefined' && isAdmin && loggedInUser ? `<img class="mobile-nav-admin-avatar" src="${escapeHtml(loggedInUser.img || 'https://via.placeholder.com/48')}" alt="${escapeHtml(loggedInUser.name || '관리자')}">` : '<i class="fi fi-rr-user"></i>'}<span>${typeof isAdmin !== 'undefined' && isAdmin ? '관리' : '로그인'}</span>
+            </button>`;
     }
 }
 
+function openMobileAdminPage() {
+    forceCloseMobileTabMenu();
+    if (!isAdmin || !loggedInUser) return handleAdminClick();
+    const page = document.getElementById('mobileAdminPage');
+    const profile = document.getElementById('mobileAdminProfile');
+    if (!page) return;
+    document.getElementById('mobileHomeNoticeBox')?.classList.remove('is-open');
+    if (profile) profile.innerHTML = `<img src="${escapeHtml(loggedInUser.img || 'https://via.placeholder.com/80')}" alt=""><div><strong>${escapeHtml(loggedInUser.name || '관리자')}</strong><span>관리자 모드</span></div>`;
+    document.querySelectorAll('#mobileBottomNav .mobile-main-nav-btn').forEach(btn => btn.classList.remove('is-active'));
+    document.querySelector('#mobileBottomNav [aria-label="관리 메뉴"]')?.classList.add('is-active');
+    page.classList.remove('hidden');
+}
+
+function openMobileAdminSection(section) {
+    document.getElementById('mobileAdminPage')?.classList.add('hidden');
+    if (section === 'members') window.openMemberManageModal();
+    else openManageModal();
+}
+
+async function openMobileHomeNotice() {
+    forceCloseMobileTabMenu();
+    document.getElementById('mobileAdminPage')?.classList.add('hidden');
+    if (currentPage !== '홈') {
+        executeDesktopTabChange('홈');
+        setTimeout(openMobileHomeNotice, 180);
+        return;
+    }
+    const notice = document.getElementById('mobileHomeNoticeBox');
+    if (notice) {
+        document.querySelectorAll('#mobileBottomNav .mobile-main-nav-btn').forEach(btn => btn.classList.remove('is-active'));
+        document.querySelector('#mobileBottomNav [aria-label="공지"]')?.classList.add('is-active');
+        notice.classList.remove('hidden');
+        const list = document.getElementById('mobileHomeNoticeList');
+        if (list && !hasCachedNotice) list.innerHTML = '<div class="mobile-notice-loading"><span></span><p>공지를 불러오는 중이에요.</p></div>';
+        requestAnimationFrame(() => notice.classList.add('is-open'));
+        if (hasCachedNotice) {
+            applyCachedNoticeToMobileHome();
+        } else {
+            try {
+                await fetchAndRenderAllNotices();
+            } catch (error) {
+                console.error('공지 불러오기 실패:', error);
+                if (list) list.innerHTML = '<div class="mobile-notice-empty">공지를 불러오지 못했습니다.<br>잠시 후 다시 시도해 주세요.</div>';
+            }
+        }
+        setTimeout(scrollNoticeListsToBottomRobust, 50);
+    }
+}
+
+function closeMobileHomeNotice() {
+    const notice = document.getElementById('mobileHomeNoticeBox');
+    if (!notice) return;
+    notice.classList.remove('is-open');
+    document.querySelector('#mobileBottomNav [aria-label="공지"]')?.classList.remove('is-active');
+    document.querySelector('#mobileBottomNav [aria-label="홈"]')?.classList.add('is-active');
+    setTimeout(() => notice.classList.add('hidden'), 220);
+}
+
 function openMobileTabMenu(tab) {
+    document.getElementById('mobileAdminPage')?.classList.add('hidden');
+    document.getElementById('mobileHomeNoticeBox')?.classList.remove('is-open');
     if (tab === '홈') { executeDesktopTabChange('홈'); return; }
     if (tab === '시그널') { executeMobileTabChange('시그널'); return; }
     const overlay = document.getElementById('mobileTabMenuOverlay');
     const container = document.getElementById('mobileTabMenuContainer');
     const color = themeColors[tab === '추가기능' ? '롤링페이퍼' : tab];
+
+    if (tab === '추가기능') {
+        const extraItems = [
+            ['클립', 'fi-rr-video-camera-alt', '멤버들의 클립을 한곳에서 확인합니다.'],
+            ['롤링페이퍼', 'fi-rr-envelope', '마음을 담은 메시지를 남기고 확인합니다.'],
+            ['업보정리', 'fi-rr-box-open', '등록된 업보를 멤버별로 정리합니다.'],
+            ['사다리타기', 'ladder', '이름과 결과를 넣어 사다리게임을 진행합니다.'],
+            ['파트분배기', 'fi-rr-microphone-alt', '노래 파트를 멤버들에게 나누어 배정합니다.']
+        ];
+        container.innerHTML = `<section class="mobile-extra-page">
+            <header><strong>추가 기능</strong></header>
+            <div>${extraItems.map(([name, icon, desc]) => `<button onclick="executeMobileTabChange('${name}')">${icon === 'ladder' ? '<span class="mobile-extra-ladder-icon" aria-hidden="true"><i></i><i></i><i></i></span>' : `<i class="fi ${icon}"></i>`}<span><b>${name}</b><small>${desc}</small></span><i class="fi fi-rr-angle-small-right"></i></button>`).join('')}</div>
+        </section>`;
+        overlay.classList.add('mobile-extra-page-overlay');
+        container.classList.add('mobile-extra-page-container');
+        overlay.classList.remove('hidden'); overlay.classList.add('block');
+        container.classList.remove('opacity-0', 'translate-y-4');
+        container.classList.add('opacity-100', 'translate-y-0');
+        document.querySelectorAll('#mobileBottomNav .mobile-main-nav-btn').forEach(btn => btn.classList.remove('is-active'));
+        document.querySelector('#mobileBottomNav [aria-label="더보기"]')?.classList.add('is-active');
+        return;
+    }
+
+    overlay.classList.remove('mobile-extra-page-overlay');
+    container.classList.remove('mobile-extra-page-container');
 
     // 링크 타이틀/URL에 맞는 아이콘을 대략적으로 매칭 (SOOP/유튜브/카페 등)
     const iconForLink = (title, url) => {
@@ -3059,7 +3236,23 @@ function closeMobileTabMenu() {
     if(!container) return;
     container.classList.remove('opacity-100', 'translate-y-0');
     container.classList.add('opacity-0', 'translate-y-4');
-    setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('block'); }, 200);
+    setTimeout(() => {
+        overlay.classList.add('hidden'); overlay.classList.remove('block', 'mobile-extra-page-overlay');
+        container.classList.remove('mobile-extra-page-container');
+    }, 200);
+}
+
+function forceCloseMobileTabMenu() {
+    const overlay = document.getElementById('mobileTabMenuOverlay');
+    const container = document.getElementById('mobileTabMenuContainer');
+    if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('block', 'mobile-extra-page-overlay');
+    }
+    if (container) {
+        container.classList.remove('mobile-extra-page-container', 'opacity-100', 'translate-y-0');
+        container.classList.add('opacity-0', 'translate-y-4');
+    }
 }
 
 /* =========================================================
@@ -5292,11 +5485,23 @@ window.partDividerOpenBugsSearchFromInfo = partDividerOpenBugsSearchFromInfo;
 // partDividerOpenSongLibraryPopup / partDividerCloseSongLibraryPopup 은 window.___ = function(){...} 형태로 이미 전역 등록됨
 
 function executeDesktopTabChange(tab) {
+    forceCloseMobileTabMenu();
+    document.getElementById('mobileAdminPage')?.classList.add('hidden');
     const menu = document.getElementById('desktopExtraMenu');
     if (menu) menu.classList.add('hidden');
     changeTab(tab);
 }
-function executeMobileTabChange(tab) { closeMobileTabMenu(); changeTab(tab); }
+function executeMobileTabChange(tab) {
+    closeMobileTabMenu();
+    if (members.some(member => member.name === tab)) mobileMemberView = 'schedule';
+    changeTab(tab);
+}
+
+function showMobileMemberView(member, view) {
+    mobileMemberView = view === 'memo' ? 'memo' : 'schedule';
+    if (currentPage !== member) changeTab(member);
+    else render();
+}
 
 window.toggleDesktopExtraMenu = function(event) {
     if (event) {
@@ -6337,6 +6542,7 @@ async function saveMemoAction() {
         saveScheduleCache();
         closeMemoModal();
         if (sidePanelMode === 'MEMO') openSidePanel('MEMO');
+        if (isMobile && mobileMemberView === 'memo') render();
     } catch(e) { console.error('메모 저장 실패:', e); }
 }
 
@@ -6348,6 +6554,7 @@ async function deleteMemo(memoId) {
         memoList[currentPage] = memoList[currentPage].filter(m => m.id !== memoId);
         saveScheduleCache();
         if (sidePanelMode === 'MEMO') openSidePanel('MEMO');
+        if (isMobile && mobileMemberView === 'memo') render();
     } catch(e) { console.error('메모 삭제 실패:', e); }
 }
 
@@ -7208,6 +7415,8 @@ function render() {
     document.body.className = document.body.className.replace(/theme-\S+/g, '');
     const themeClass = (currentPage === '업보정리' || currentPage === '업보선택') ? 'rolling' : currentPage === '노래책' ? getThemeClassForMember(songbookMember) : getThemeClassForMember(activeThemeMember);
     document.body.classList.add('theme-' + themeClass);
+    document.body.classList.toggle('mobile-home-page', isMobile && currentPage === '홈');
+    document.body.classList.toggle('mobile-member-page', isMobile && (['달타', '다룽', '최또', '카나시'].includes(currentPage) || currentPage === '노래책'));
     
     const mBtnContainer = document.getElementById('mobileHeaderRightBtn');
     const dBtnContainer = document.getElementById('dynamicSideBtn');
@@ -7359,13 +7568,11 @@ function buildMemoCinetiButtonsHtml(variant) {
     if (variant === 'mobileHeader') {
         return `<div class="flex items-center gap-1 shrink-0">
             <button onclick="toggleMemoPanel()" title="메모" class="w-[32px] h-[32px] bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm text-[#5D4037] text-[15px] hover:bg-gray-50 transition-all cursor-pointer"><i class="fi fi-rr-edit"></i></button>
-            <button onclick="toggleCinetiPanel()" title="시네티" class="w-[32px] h-[32px] bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm text-[#5D4037] text-[15px] hover:bg-gray-50 transition-all cursor-pointer"><i class="fi fi-rr-video-camera-alt"></i></button>
         </div>`;
     }
     if (variant === 'mobile') {
         return `<div class="flex items-center justify-center gap-3">
             <button onclick="toggleMemoPanel()" class="w-14 h-14 bg-white hover:bg-gray-50 text-[#5D4037] font-bold rounded-2xl transition-all font-paperozi text-[11px] cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm hover:-translate-y-0.5"><i class="fi fi-rr-edit text-[18px]"></i><span>메모</span></button>
-            <button onclick="toggleCinetiPanel()" class="w-14 h-14 bg-white hover:bg-gray-50 text-[#5D4037] font-bold rounded-2xl transition-all font-paperozi text-[11px] cursor-pointer flex flex-col items-center justify-center gap-0.5 shadow-sm hover:-translate-y-0.5"><i class="fi fi-rr-video-camera-alt text-[18px]"></i><span>시네티</span></button>
         </div>`;
     }
     if (variant === 'desktop') {
@@ -7466,8 +7673,25 @@ function renderSongbook() {
     if (!content) return;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
     const theme = getSongbookTheme(songbookMember);
+    const profileMember = members.find(m => m.name === songbookMember) || members[0];
+    const profileLinks = dynamicLinks[songbookMember] || [];
+    const profileSoopUrl = (profileLinks.find(l => /soop|숲/i.test(l.title || '')) || {}).url || `https://www.sooplive.com/station/${memberSoopIdMap[songbookMember] || ''}`;
+    const profileYoutubeUrl = (profileLinks.find(l => /유튜브|youtube/i.test(l.title || '')) || {}).url || '';
+    const profileChannelImages = memberChannelImages[songbookMember] || {};
+    const mobileProfileNav = isMobile ? `<section class="member-instagram-profile member-songbook-profile" style="--profile-theme:${theme.color}">
+        <div class="member-instagram-head"><img src="${profileMember.img}" alt="${songbookMember}"><div><h1>${songbookMember}</h1><p>노래책</p></div></div>
+        <div class="member-instagram-highlights">
+            <a href="${profileSoopUrl}" target="_blank" rel="noopener"><span id="memberSoopRing-${songbookMember}" class="member-channel-ring member-channel-ring-soop"><img src="${profileChannelImages.soop || ''}" alt="SOOP"></span><b>SOOP</b></a>
+            <a href="${profileYoutubeUrl}" target="_blank" rel="noopener"><span id="memberYoutubeRing-${songbookMember}" class="member-channel-ring member-channel-ring-youtube"><img src="${profileChannelImages.youtube || ''}" alt="유튜브"></span><b>유튜브</b></a>
+        </div>
+        <div class="member-profile-tabs">
+            <button onclick="showMobileMemberView('${songbookMember}','schedule')"><i class="fi fi-rr-calendar"></i><span>일정</span></button>
+            <button onclick="showMobileMemberView('${songbookMember}','memo')"><i class="fi fi-rr-edit"></i><span>메모</span></button>
+            <button class="is-active" onclick="changeTab('노래책_${songbookMember}')"><i class="fi fi-rr-music-alt"></i><span>노래책</span></button>
+        </div>
+    </section>` : '';
 
-    let html = `<div class="big-white-box relative theme-${getThemeClassForMember(songbookMember)}" style="min-height:900px; padding:${isMobile ? '20px' : '40px'}; width:100%; box-sizing:border-box; align-items:stretch; display:block; --songbook-accent:${theme.color}; --songbook-soft:${theme.soft}; --songbook-border:${theme.border};">
+    let html = `${mobileProfileNav}<div class="big-white-box relative theme-${getThemeClassForMember(songbookMember)}" style="min-height:900px; padding:${isMobile ? '20px' : '40px'}; width:100%; box-sizing:border-box; align-items:stretch; display:block; --songbook-accent:${theme.color}; --songbook-soft:${theme.soft}; --songbook-border:${theme.border};">
         <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
             <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
                 <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" style="display:inline-block;">
@@ -7499,6 +7723,7 @@ function renderSongbook() {
     renderSongList();
     renderGenreFilters();
     renderArtistSidePanel();
+    if (isMobile) refreshMemberChannelRings(songbookMember, profileYoutubeUrl);
 }
 
 function renderSongList() {
@@ -9563,60 +9788,92 @@ function renderMobileHome(grouped) {
     const dateStr = `${d.getMonth()+1}.${d.getDate()}`;
     const dayStr = ['일','월','화','수','목','금','토'][d.getDay()];
 
-    const memberColors = { '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#fdecf9', '카나시': '#FFF3E0' };
+    const today = new Date();
+    const isSelectedToday = d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+    const safe = value => escapeHtml(String(value || ''));
     let html = `
-        <div class="w-[calc(100%-2rem)] flex justify-between items-center mb-5 mx-4 mt-2 px-2 py-1.5 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_8px_20px_rgba(70,60,160,0.08)]">
-            <button onclick="changeHomeDate(-1)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-left text-3xl"></i></button>
-            <div class="text-[22px] font-bold font-paperozi text-[#5D4037] cursor-pointer hover:opacity-70 transition-opacity flex items-center gap-2" onclick="openMobileDatePicker()">
-                ${dateStr} (${dayStr}) <i class="fi fi-sr-caret-down text-sm mt-1"></i>
+        <section class="mobile-story-strip" aria-label="멤버 주간일정">
+            ${members.map(member => {
+                const todayKey = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}-${member.name}`;
+                const isBangonToday = (grouped[todayKey] || []).some(s => s.globalType === '뱅온');
+                return `<button class="mobile-story" onclick="executeMobileTabChange('${member.name}')">
+                    <span class="mobile-story-ring ${isBangonToday ? 'is-live-today' : ''}" style="--story-color:${themeColors[member.name]}">
+                        <img src="${member.img}" alt="${member.name}">
+                    </span><span class="mobile-story-name">${member.name}</span>
+                </button>`;
+            }).join('')}
+        </section>
+        <div class="mobile-feed-datebar">
+            <button onclick="changeHomeDate(-1)" aria-label="이전 날짜"><i class="fi fi-rr-angle-left"></i></button>
+            <div onclick="openMobileDatePicker()">
+                <strong>${isSelectedToday ? '오늘 · ' : ''}${dateStr} (${dayStr})</strong><i class="fi fi-sr-caret-down"></i>
             </div>
-            <button onclick="changeHomeDate(1)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-right text-3xl"></i></button>
+            <button onclick="changeHomeDate(1)" aria-label="다음 날짜"><i class="fi fi-rr-angle-right"></i></button>
         </div>
-        <div class="grid grid-cols-1 gap-4 px-4 w-full">
+        <div class="mobile-schedule-feed">
     `;
     
     members.forEach((member, i) => {
         const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}-${member.name}`;
         const daySchedules = grouped[key] || [];
-        let schedulesHtml = '';
-
-        if (daySchedules.length > 0) {
-            const isHubang = daySchedules.some(s => s.globalType === '휴방');
-            const imgSrc = isHubang ? memberCardImages[member.name].hubang : memberCardImages[member.name].bangon;
-            const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
-            const dayGlobalTime = sWithGlobal ? formatTime12(sWithGlobal.globalStartTime) : '';
-
-            const bgColor = isHubang ? '#E5E7EB' : (memberColors[member.name] || '#FFFFFF');
-            const finalTextColor = isHubang ? '#6B7280' : (themeColors[member.name] || '#5D4037');
-
-            schedulesHtml = `<div class="schedule-card ${isHubang ? 'hubang' : ''} aspect-square w-full flex items-center justify-center overflow-hidden relative shadow-sm" style="--sch-bg: ${bgColor}; --sch-text: ${finalTextColor}; color: ${finalTextColor}; background-color: ${bgColor}; padding:0; border-radius: 16px;" onclick="openAllSchedulesModal(event, '${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}', '${member.name}')"><img src="${imgSrc}" class="w-full h-full object-cover" alt="${isHubang ? '휴방' : '뱅온'}" loading="lazy" decoding="async">${dayGlobalTime ? `<div class="absolute bottom-4 right-2.5 text-[14px] font-black tracking-tight" style="color: ${finalTextColor}; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 0px 2px 3px rgba(0,0,0,0.3);">${dayGlobalTime}</div>` : ''}</div>`;
-        } else {
-            schedulesHtml = `<div class="w-full aspect-square flex items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50"><span class="text-gray-400 text-[15px] font-bold">일정 없음</span></div>`;
-        }
-
-        html += `
-            <div class="flex flex-col w-full bg-white rounded-[26px] shadow-[0_10px_26px_rgba(70,60,160,0.10)] border-[1.5px] border-[#ECEDFA] overflow-hidden">
-                <div class="flex w-full px-4 pt-4 pb-4 gap-3">
-                    <div class="w-1/2 aspect-square rounded-[18px] overflow-hidden relative cursor-pointer p-0 shrink-0" onclick="handleProfileClick(event, '${member.name}', '${member.link}')">
-                        <img src="${member.img}" class="w-full h-full object-cover">
-                        <div id="liveBadge-${member.name}" class="live-badge" onclick="goToLiveBroadcast(event, '${member.name}')" title="현재 방송 중이 아니에요">
-                            <span class="live-badge-dot"></span>LIVE
-                        </div>
-                    </div>
-                    <div class="w-1/2 aspect-square p-2 flex flex-col justify-center gap-2 bg-[#FAFAFD] rounded-[18px] overflow-y-auto" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')">
-                        ${schedulesHtml}
-                    </div>
-                </div>
-            </div>
-        `;
+        const feedItems = daySchedules.length ? daySchedules : [{ id: '', title: '등록된 일정이 없어요', detail: '새로운 일정을 기다리고 있어요.', globalType: '일정 없음' }];
+        const typeColor = sch => {
+            if (sch.globalType === '휴방') return '#aeb4bd';
+            if (sch.broadType === '합방') return '#dca9e7';
+            if (sch.broadType === '시그널합방') return '#f2a7a7';
+            if (sch.broadType === '천타버스') return '#8fcbd3';
+            if (sch.broadType === '비방일정') return '#a99d9f';
+            if (sch.globalType === '일정 없음') return '#c7cbd1';
+            return themeColors[member.name];
+        };
+        const participantProfiles = tag => {
+            if (!tag || typeof parseMembers !== 'function') return '';
+            return `<div class="mobile-feed-member-section"><div class="mobile-feed-member-label">참여멤버</div><div class="mobile-feed-member-profiles">${parseMembers(tag).map(m => `
+                <span class="${m.isCrew ? 'is-crew' : ''}">
+                    <img src="${safe(m.imageUrl)}" alt="${safe(m.nickname)}" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/60'">
+                    ${m.nickname && !m.isCrew ? `<b>${safe(m.nickname)}</b>` : ''}
+                </span>`).join('')}</div></div>`;
+        };
+        const visualItems = feedItems.filter(sch => !!sch.imageUrl);
+        const mediaHtml = visualItems.map(sch => {
+            const title = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
+            const detail = sch.detail || '';
+            const time = sch.globalStartTime || sch.time;
+            const displayTime = time ? formatTime12(time) : '';
+            const participants = sch.memberTag || '';
+            const click = sch.id ? `openDetailModal(event, '${sch.id}')` : `handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')`;
+            return `<button class="mobile-feed-schedule ${sch.imageUrl ? 'has-image' : ''}" style="--schedule-color:${typeColor(sch)}" onclick="${click}">
+                ${sch.imageUrl ? `<img src="${safe(sch.imageUrl)}" alt="${safe(title)}" loading="lazy" decoding="async">` : `
+                    <strong>${safe(title)}</strong>${displayTime ? `<time><i class="fi fi-rr-clock-three"></i>${displayTime}</time>` : ''}${participantProfiles(participants)}${detail ? `<p>${safe(detail)}</p>` : ''}`}
+            </button>`;
+        }).join('');
+        const captionHtml = feedItems.map(sch => {
+            const title = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
+            const time = sch.globalStartTime || sch.time;
+            const participants = sch.memberTag || '';
+            return `<div class="mobile-feed-caption-item" style="--schedule-line:${typeColor(sch)}"><div class="mobile-feed-caption-title"><b>${safe(title)}</b>${time ? `<time><i class="fi fi-rr-clock-three"></i>${formatTime12(time)}</time>` : ''}</div>${participantProfiles(participants)}${sch.detail ? `<p>${safe(sch.detail)}</p>` : ''}</div>`;
+        }).join('');
+        const firstSchedule = feedItems.find(sch => sch.id);
+        const mainClick = firstSchedule ? `openDetailModal(event, '${firstSchedule.id}')` : `handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${member.name}')`;
+        html += `<article class="mobile-feed-post" style="--member-theme:${themeColors[member.name]}">
+                <header class="mobile-feed-author" onclick="executeMobileTabChange('${member.name}')">
+                    <img src="${member.img}" alt=""><div><strong>${member.name}</strong><span>${dateStr} · 일정 ${daySchedules.length}개</span></div>
+                    <i class="fi fi-rr-menu-dots"></i>
+                </header>
+                ${visualItems.length ? `<div class="mobile-feed-media mobile-feed-count-${Math.min(visualItems.length, 4)}">${mediaHtml}</div>
+                <div class="mobile-feed-actions"><button onclick="${mainClick}" aria-label="일정 상세"><i class="fi fi-rr-calendar"></i></button><button onclick="executeMobileTabChange('${member.name}')" aria-label="주간일정"><i class="fi fi-rr-arrow-right"></i></button></div>
+                <div class="mobile-feed-caption">${captionHtml}<span>${dateStr} (${dayStr})</span></div>` : `
+                <div class="mobile-feed-caption mobile-feed-caption-direct">${captionHtml}<span>${dateStr} (${dayStr})</span></div>
+                <div class="mobile-feed-actions"><button onclick="${mainClick}" aria-label="일정 상세"><i class="fi fi-rr-calendar"></i></button><button onclick="executeMobileTabChange('${member.name}')" aria-label="주간일정"><i class="fi fi-rr-arrow-right"></i></button></div>`}
+            </article>`;
     });
     html += `</div>`;
     html += `
-        <div id="mobileHomeNoticeBox" class="hidden mx-4 mt-4 bg-white border-2 border-[#5D4037] rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,0.3)] p-4">
-            <div class="text-[15px] font-bold text-[#5D4037] mb-2 font-paperozi flex items-center gap-2">
-                공지
-            </div>
-            <div id="mobileHomeNoticeList" class="kakao-chat-bg flex flex-col gap-3 p-3 max-h-[570px] overflow-y-auto modal-scroll pr-1"></div>
+        <div id="mobileHomeNoticeBox" class="mobile-notice-messenger hidden" onclick="if(event.target===this) closeMobileHomeNotice()">
+            <section>
+                <header><button id="mobileNoticeBackBtn" class="mobile-notice-back hidden" onclick="backToMobileNoticeInbox()" aria-label="목록으로"><i class="fi fi-rr-arrow-left"></i></button><strong id="mobileNoticeTitle">공지</strong><button onclick="closeMobileHomeNotice()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button></header>
+                <div id="mobileHomeNoticeList" class="kakao-chat-bg flex flex-col gap-3 p-4 overflow-y-auto modal-scroll"></div>
+            </section>
         </div>
     `;
     content.innerHTML = html;
@@ -9633,73 +9890,79 @@ function renderMobileHome(grouped) {
 function renderMobileIndividual(grouped) {
     const content = document.getElementById('mainContent');
     const realToday = new Date();
-    
     const current = new Date(individualTargetDate);
     const day = current.getDay();
     const diff = current.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(current.setDate(diff));
-
-    let weekDates = [];
-    for(let i=0; i<7; i++) {
-        weekDates.push(new Date(monday.getTime() + i*24*60*60*1000));
-    }
-
-    const monthStr = `${weekDates[0].getMonth()+1}월`;
+    const weekDates = Array.from({ length: 7 }, (_, i) => new Date(monday.getTime() + i * 86400000));
+    const member = members.find(m => m.name === currentPage) || members[0];
     const themeColor = themeColors[currentPage];
-
-    let html = `
-        <div class="w-[calc(100%-2rem)] flex justify-between items-center mb-3 mx-4 mt-2 px-2 py-1.5 bg-white rounded-2xl border border-[#ECEDFA] shadow-[0_8px_20px_rgba(70,60,160,0.08)]">
-            <button onclick="changeIndividualWeek(-7)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-left text-3xl"></i></button>
-            <div class="text-[20px] font-bold font-paperozi text-[#5D4037] cursor-pointer hover:opacity-70 transition-opacity flex items-center gap-2" onclick="openMonthPicker()">
-                ${weekDates[0].getFullYear()}년 ${monthStr} 주간 <i class="fi fi-sr-caret-down text-sm mt-1"></i>
-            </div>
-            <button onclick="changeIndividualWeek(7)" class="p-2 flex items-center justify-center text-[#5D4037] hover:scale-110 transition-transform"><i class="fi fi-rr-angle-right text-3xl"></i></button>
-        </div>
-        <div class="grid grid-cols-1 gap-4 px-4 w-full">
-    `;
-
+    const memberLinks = dynamicLinks[currentPage] || [];
+    const soopUrl = (memberLinks.find(l => /soop|숲/i.test(l.title || '')) || {}).url || `https://www.sooplive.com/station/${memberSoopIdMap[currentPage] || ''}`;
+    const youtubeUrl = (memberLinks.find(l => /유튜브|youtube/i.test(l.title || '')) || {}).url || '';
+    const channelImages = memberChannelImages[currentPage] || {};
     const daysLabel = ['월','화','수','목','금','토','일'];
-    weekDates.forEach((d, i) => {
+    const feedHtml = weekDates.map((d, i) => {
         const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}-${currentPage}`;
         const daySchedules = grouped[key] || [];
-        let schedulesHtml = daySchedules.map(sch => buildScheduleCardHtml(sch, true)).join('');
-
         const isToday = d.getFullYear() === realToday.getFullYear() && d.getMonth() === realToday.getMonth() && d.getDate() === realToday.getDate();
-        
-        let dayGlobalTime = '';
-        let isDayHubang = false;
-        if (daySchedules.length > 0) {
-            const sWithGlobal = daySchedules.find(s => s.globalStartTime && s.globalType === '뱅온');
-            if (sWithGlobal) {
-                dayGlobalTime = formatTime12(sWithGlobal.globalStartTime);
-            } else if (daySchedules.some(s => s.globalType === '휴방')) {
-                isDayHubang = true;
-            }
-        }
-        const timeDisplayHtml = dayGlobalTime
-            ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white" style="color: ${isToday ? themeColor : '#5D4037'}">${dayGlobalTime}</span>`
-            : (isDayHubang ? `<span class="text-[12px] font-bold mt-1 px-1 rounded bg-white text-gray-400">휴방</span>` : '');
+        const bangonSchedule = daySchedules.find(sch => sch.globalType === '뱅온' && (sch.globalStartTime || sch.time));
+        const bangonTime = bangonSchedule ? formatTime12(bangonSchedule.globalStartTime || bangonSchedule.time) : '';
+        const scheduleRows = daySchedules.map(sch => {
+            const title = sch.title || sch.globalType || '일정';
+            const time = sch.globalStartTime || sch.time;
+            let color = themeColor;
+            if (sch.globalType === '휴방') color = '#aeb4bd';
+            else if (sch.broadType === '합방') color = '#dca9e7';
+            else if (sch.broadType === '시그널합방') color = '#f2a7a7';
+            else if (sch.broadType === '천타버스') color = '#8fcbd3';
+            else if (sch.broadType === '비방일정') color = '#a99d9f';
+            return `<div class="member-week-schedule-row" style="--schedule-color:${color}">
+                <div><strong>${escapeHtml(title)}</strong>${time ? `<time><i class="fi fi-rr-clock-three"></i>${formatTime12(time)}</time>` : ''}</div>
+                ${sch.detail ? `<p>${escapeHtml(sch.detail)}</p>` : ''}
+            </div>`;
+        }).join('');
+        return `<button class="member-week-text-card ${isToday ? 'is-today' : ''}" style="--profile-theme:${themeColor}" onclick="handleDayClick(${d.getFullYear()},${d.getMonth()+1},${d.getDate()},'${currentPage}')" oncontextmenu="handleDayRightClick(event,${d.getFullYear()},${d.getMonth()+1},${d.getDate()},'${currentPage}')">
+            <span class="member-week-date"><b>${daysLabel[i]}</b><strong>${d.getDate()}</strong>${bangonTime ? `<small>${bangonTime}</small>` : ''}</span>
+            <span class="member-week-content">${scheduleRows || '<span class="member-week-empty">등록된 일정이 없어요.</span>'}</span>
+        </button>`;
+    }).join('');
 
-        if (!schedulesHtml) {
-            schedulesHtml = `<div class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl bg-gray-50"><span class="text-gray-400 text-[14px] font-bold">일정 없음</span></div>`;
-        }
+    const memberMemos = memoList[currentPage] || [];
+    const memoHtml = `<div class="member-inline-memo-list">
+        ${isAdmin ? `<button class="member-inline-memo-add" onclick="openMemoAddModal()"><i class="fi fi-br-plus"></i> 메모 추가</button>` : ''}
+        ${memberMemos.length ? memberMemos.map(memo => `<article class="member-inline-memo-card" oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin){event.preventDefault();openMemoEditModal('${memo.id}');}">
+            <time>${escapeHtml(memo.date || '')}</time>
+            <p>${escapeHtml(memo.content || '')}</p>
+            ${isAdmin ? `<div><button onclick="openMemoEditModal('${memo.id}')"><i class="fi fi-rr-edit"></i></button><button onclick="deleteMemo('${memo.id}')"><i class="fi fi-rr-trash"></i></button></div>` : ''}
+        </article>`).join('') : '<div class="member-inline-empty"><i class="fi fi-rr-edit"></i><p>저장된 메모가 없습니다.</p></div>'}
+    </div>`;
+    const isMemoView = mobileMemberView === 'memo';
+    const scheduleBody = `<div class="member-profile-week-nav">
+        <button onclick="changeIndividualWeek(-7)"><i class="fi fi-rr-angle-left"></i></button>
+        <strong onclick="openMonthPicker()">${weekDates[0].getFullYear()}.${weekDates[0].getMonth()+1}.${weekDates[0].getDate()} – ${weekDates[6].getMonth()+1}.${weekDates[6].getDate()}</strong>
+        <button onclick="changeIndividualWeek(7)"><i class="fi fi-rr-angle-right"></i></button>
+    </div><div class="member-week-text-list">${feedHtml}</div>`;
 
-        html += `
-            <div class="flex w-full bg-white rounded-2xl shadow-[0_8px_20px_rgba(70,60,160,0.08)] border-[1.5px] border-[#ECEDFA] cursor-pointer transition-transform hover:-translate-y-1 min-h-[96px] overflow-hidden ${isToday ? '' : 'dm-text-brown'}" style="color: ${isToday ? themeColor : '#3E2723'}" onclick="handleDayClick(${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')" oncontextmenu="handleDayRightClick(event, ${d.getFullYear()}, ${d.getMonth()+1}, ${d.getDate()}, '${currentPage}')">
-                <div class="w-[78px] shrink-0 flex flex-col items-center justify-center" style="background-color: ${isToday ? themeColor : '#FAFAFD'}; color: ${isToday ? 'white' : themeColor};">
-                    <span class="text-[14px] font-bold mb-0.5 opacity-80">${daysLabel[i]}</span>
-                    <span class="text-[26px] font-bold leading-none">${d.getDate()}</span>
-                    ${timeDisplayHtml}
-                </div>
-                <div class="flex-1 p-2.5 flex flex-col justify-center gap-2 overflow-y-auto bg-white">
-                    ${schedulesHtml}
-                </div>
-            </div>
-        `;
-    });
-    html += `</div>`;
+    const html = `<section class="member-instagram-profile" style="--profile-theme:${themeColor}">
+        <div class="member-instagram-head">
+            <img src="${member.img}" alt="${member.name}">
+            <div><h1>${member.name}</h1><p>이번 주 방송 일정</p></div>
+        </div>
+        <div class="member-instagram-highlights">
+            <a href="${soopUrl}" target="_blank" rel="noopener"><span id="memberSoopRing-${currentPage}" class="member-channel-ring member-channel-ring-soop"><img src="${channelImages.soop || ''}" alt="SOOP"></span><b>SOOP</b></a>
+            <a href="${youtubeUrl}" target="_blank" rel="noopener"><span id="memberYoutubeRing-${currentPage}" class="member-channel-ring member-channel-ring-youtube"><img src="${channelImages.youtube || ''}" alt="유튜브"></span><b>유튜브</b></a>
+        </div>
+        <div class="member-profile-tabs">
+            <button class="${!isMemoView ? 'is-active' : ''}" onclick="showMobileMemberView('${currentPage}','schedule')"><i class="fi fi-rr-calendar"></i><span>일정</span></button>
+            <button class="${isMemoView ? 'is-active' : ''}" onclick="showMobileMemberView('${currentPage}','memo')"><i class="fi fi-rr-edit"></i><span>메모</span></button>
+            <button onclick="changeTab('노래책_${currentPage}')"><i class="fi fi-rr-music-alt"></i><span>노래책</span></button>
+        </div>
+        ${isMemoView ? memoHtml : scheduleBody}
+    </section>`;
     content.innerHTML = html;
-    content.className = `shrink-0 transition-all duration-300 w-full max-w-[600px] mx-auto pb-6 theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}`;
+    content.className = `shrink-0 transition-all duration-300 w-full max-w-[600px] mx-auto pb-6 member-profile-page theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}`;
+    refreshMemberChannelRings(currentPage, youtubeUrl);
 }
 
 function renderDesktopHome(grouped) {
@@ -10759,6 +11022,7 @@ window.openMemberManageModal = async function() {
     const modal = document.getElementById('memberManageModal');
     if (!modal) return;
     modal.classList.replace('hidden', 'flex');
+    if (typeof window.switchMemberManageTab === 'function') window.switchMemberManageTab('member');
 
     ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => {
         const pMenu = document.getElementById(id);
@@ -10791,6 +11055,7 @@ window.openMemberManageModal = async function() {
 
 window.closeMemberManageModal = function() {
     document.getElementById('memberManageModal').classList.replace('flex', 'hidden');
+    if (isMobile && isAdmin) openMobileAdminPage();
 };
 
 window.addCustomMember = async function() {
@@ -11008,11 +11273,13 @@ window.switchMemberManageTab = function(tab) {
         groupContent.classList.remove('flex'); groupContent.classList.add('hidden');
         memberBtn.classList.add('bg-[#5D4037]', 'text-white'); memberBtn.classList.remove('bg-white', 'text-[#5D4037]');
         groupBtn.classList.remove('bg-[#5D4037]', 'text-white'); groupBtn.classList.add('bg-white', 'text-[#5D4037]');
+        memberBtn.classList.add('is-active'); groupBtn.classList.remove('is-active');
     } else {
         groupContent.classList.remove('hidden'); groupContent.classList.add('flex');
         memberContent.classList.remove('flex'); memberContent.classList.add('hidden');
         groupBtn.classList.add('bg-[#5D4037]', 'text-white'); groupBtn.classList.remove('bg-white', 'text-[#5D4037]');
         memberBtn.classList.remove('bg-[#5D4037]', 'text-white'); memberBtn.classList.add('bg-white', 'text-[#5D4037]');
+        groupBtn.classList.add('is-active'); memberBtn.classList.remove('is-active');
         editingGroupId = null;
         renderGroupMemberCheckboxes([]);
         renderMemberGroupsList();

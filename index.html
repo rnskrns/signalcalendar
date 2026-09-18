@@ -48,7 +48,7 @@
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-brands/css/uicons-brands.css'>
-    <link rel="stylesheet" href="style.css?v=20260918-30">
+    <link rel="stylesheet" href="style.css?v=20260918-61">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <!-- 외부 리소스 렌더링 사전 연결 -->
@@ -143,6 +143,16 @@
     </header>
 
     <nav id="mobileBottomNav" class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 z-[2000] flex lg:hidden justify-around items-center h-[70px] pb-2 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]"></nav>
+
+    <section id="mobileAdminPage" class="mobile-admin-page hidden lg:hidden">
+        <header><strong>관리자 메뉴</strong></header>
+        <div id="mobileAdminProfile" class="mobile-admin-page-profile"></div>
+        <div class="mobile-admin-page-menu">
+            <button onclick="openMobileAdminSection('members')"><i class="fi fi-rr-users"></i><span><b>멤버관리</b><small>멤버와 그룹 정보를 관리합니다.</small></span><i class="fi fi-rr-angle-small-right"></i></button>
+            <button onclick="openMobileAdminSection('manage')"><i class="fi fi-rr-settings"></i><span><b>관리</b><small>홈과 일정 관련 설정을 관리합니다.</small></span><i class="fi fi-rr-angle-small-right"></i></button>
+            <button class="is-logout" onclick="logoutAdmin()"><i class="fi fi-rr-sign-out-alt"></i><span><b>로그아웃</b><small>관리자 모드를 종료합니다.</small></span><i class="fi fi-rr-angle-small-right"></i></button>
+        </div>
+    </section>
 
     <div id="notifPanelOverlay" class="hidden fixed inset-0 z-[3000]" onclick="closeNotifPanel()">
         <div id="notifPanel" class="absolute w-[min(380px,92vw)] bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden" onclick="handleNotifPanelClick(event)">
@@ -751,7 +761,7 @@
         <div id="partDividerSongLibraryPopupResizeHandle" class="partdiv-float-popup-resize-handle" title="드래그해서 크기 조절"></div>
     </div>
 
-    <script type="module" src="script.js?v=20260918-61"></script>
+    <script type="module" src="script.js?v=20260918-77"></script>
 
 </body>
 </html>
