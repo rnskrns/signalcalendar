@@ -7821,12 +7821,16 @@ window.openSongRandomModal = function() {
             <p>장르와 카드 수를 고르고 뽑기를 눌러 주세요. 카드를 누르면 노래가 공개됩니다.</p>
             <div class="song-random-controls">
                 <span class="song-random-genre-label" id="songRandomGenreLabel">장르</span>
-                <div id="songRandomGenres" class="song-random-genres" role="group" aria-labelledby="songRandomGenreLabel">
-                    <button type="button" class="song-random-genre is-selected" data-genre="all" aria-pressed="true">전체 (${songs.length})</button>
-                    ${genres.map(([genre, count], index) => `<button type="button" class="song-random-genre" data-genre="${index}" aria-pressed="false">${escapeHtml(genre)} (${count})</button>`).join('')}
+                <div class="song-random-options">
+                    <div id="songRandomGenres" class="song-random-genres" role="group" aria-labelledby="songRandomGenreLabel">
+                        <button type="button" class="song-random-genre is-selected" data-genre="all" aria-pressed="true">전체 (${songs.length})</button>
+                        ${genres.map(([genre, count], index) => `<button type="button" class="song-random-genre" data-genre="${index}" aria-pressed="false">${escapeHtml(genre)} (${count})</button>`).join('')}
+                    </div>
+                    <div class="song-random-count">
+                        <label for="songRandomCount">카드 수</label>
+                        <select id="songRandomCount">${[1, 2, 3, 4, 5].map(count => `<option value="${count}" ${count === 3 ? 'selected' : ''}>${count}장</option>`).join('')}</select>
+                    </div>
                 </div>
-                <label for="songRandomCount">카드 수</label>
-                <select id="songRandomCount">${[1, 2, 3, 4, 5].map(count => `<option value="${count}" ${count === 3 ? 'selected' : ''}>${count}장</option>`).join('')}</select>
                 <button type="button" onclick="drawRandomSongs()">뽑기</button>
             </div>
             <div id="songRandomMessage" class="song-random-message" aria-live="polite">${songs.length ? '' : '노래를 불러오는 중이거나 등록된 노래가 없습니다.'}</div>
