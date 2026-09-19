@@ -7843,6 +7843,7 @@ window.drawRandomSongs = function() {
     const pool = songs.filter(song => !genre || (song.genre || '미분류') === genre);
     const cards = modal.querySelector('#songRandomCards');
     const message = modal.querySelector('#songRandomMessage');
+    cards.classList.remove('is-shuffling');
     cards.replaceChildren();
     if (!pool.length) {
         message.textContent = '선택한 장르에 등록된 노래가 없습니다.';
@@ -7860,13 +7861,18 @@ window.drawRandomSongs = function() {
         card.type = 'button';
         card.className = 'song-random-card';
         card.setAttribute('aria-label', `${index + 1}번 카드 공개`);
-        card.innerHTML = `<span class="song-random-card-inner"><span class="song-random-card-back"><i class="fi fi-rr-music-alt"></i><strong>${index + 1}</strong><small>눌러서 공개</small></span><span class="song-random-card-front"><small>${index + 1}번 노래</small><strong>${escapeHtml(song.title || '제목 없음')}</strong><span>${escapeHtml(song.artist || '가수 미상')}</span></span></span>`;
+        const albumArt = song.albumArt
+            ? `<img class="song-random-album-art" src="${escapeHtml(song.albumArt)}" alt="${escapeHtml(song.title || '노래')} 앨범 아트" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'song-random-album-fallback',textContent:'🎵'}))">`
+            : '<span class="song-random-album-fallback">🎵</span>';
+        card.innerHTML = `<span class="song-random-card-inner"><span class="song-random-card-back"><img src="./images/logo.webp" alt="시그널 로고"><small>눌러서 공개</small></span><span class="song-random-card-front"><small>${index + 1}번 노래</small>${albumArt}<strong>${escapeHtml(song.title || '제목 없음')}</strong><span>${escapeHtml(song.artist || '가수 미상')}</span></span></span>`;
         card.addEventListener('click', () => {
             card.classList.add('is-revealed');
             card.setAttribute('aria-label', `${index + 1}번 카드: ${song.title || '제목 없음'}, ${song.artist || '가수 미상'}`);
         });
         cards.appendChild(card);
     });
+    cards.classList.add('is-shuffling');
+    setTimeout(() => { if (cards.isConnected) cards.classList.remove('is-shuffling'); }, 1450);
 };
 
 function toggleMobileArtistList() {
