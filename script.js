@@ -7777,7 +7777,10 @@ function renderSongbook() {
                 </svg>
                 ${songbookMember} 노래책
             </h2>
-            ${isAdmin ? `<button onclick="openSongAddModal()" class="px-5 py-2.5 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-105 hover:-translate-y-0.5 transition font-paperozi text-[15px] flex items-center gap-2 cursor-pointer" style="background-color:${theme.color}; border-color:${theme.color};"><i class="fi fi-br-plus"></i> 노래 추가</button>` : ''}
+            <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="openSongRandomModal()" class="song-random-open"><i class="fi fi-rr-shuffle"></i> 랜덤 뽑기</button>
+                ${isAdmin ? `<button onclick="openSongAddModal()" class="px-5 py-2.5 text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-105 hover:-translate-y-0.5 transition font-paperozi text-[15px] flex items-center gap-2 cursor-pointer" style="background-color:${theme.color}; border-color:${theme.color};"><i class="fi fi-br-plus"></i> 노래 추가</button>` : ''}
+            </div>
         </div>
         <div class="songbook-content-layout">
             <div class="songbook-song-column">
@@ -7801,6 +7804,70 @@ function renderSongbook() {
     renderArtistSidePanel();
     if (isMobile) refreshMemberChannelRings(songbookMember, profileYoutubeUrl);
 }
+
+window.openSongRandomModal = function() {
+    document.getElementById('songRandomModal')?.remove();
+    const theme = getSongbookTheme(songbookMember);
+    const genres = getGenreCounts();
+    const modal = document.createElement('div');
+    modal.id = 'songRandomModal';
+    modal.className = 'song-random-overlay';
+    modal.style.setProperty('--songbook-accent', theme.color);
+    modal.innerHTML = `
+        <div class="song-random-dialog" role="dialog" aria-modal="true" aria-labelledby="songRandomTitle">
+            <button type="button" class="song-random-close" onclick="closeSongRandomModal()" aria-label="닫기">&times;</button>
+            <h2 id="songRandomTitle">${escapeHtml(songbookMember)} 노래 랜덤 뽑기</h2>
+            <p>장르를 고르고 뽑기를 눌러 주세요. 카드를 누르면 노래가 공개됩니다.</p>
+            <div class="song-random-controls">
+                <label for="songRandomGenre">장르</label>
+                <select id="songRandomGenre"><option value="">전체 장르 (${songs.length})</option>${genres.map(([genre, count], index) => `<option value="${index}">${escapeHtml(genre)} (${count})</option>`).join('')}</select>
+                <button type="button" onclick="drawRandomSongs()">뽑기</button>
+            </div>
+            <div id="songRandomMessage" class="song-random-message" aria-live="polite">${songs.length ? '' : '노래를 불러오는 중이거나 등록된 노래가 없습니다.'}</div>
+            <div id="songRandomCards" class="song-random-cards"></div>
+        </div>`;
+    modal.addEventListener('click', event => { if (event.target === modal) window.closeSongRandomModal(); });
+    document.body.appendChild(modal);
+    modal.querySelector('#songRandomGenre').focus();
+};
+
+window.closeSongRandomModal = function() {
+    document.getElementById('songRandomModal')?.remove();
+};
+
+window.drawRandomSongs = function() {
+    const modal = document.getElementById('songRandomModal');
+    if (!modal) return;
+    const selected = modal.querySelector('#songRandomGenre').value;
+    const genre = selected === '' ? null : getGenreCounts()[Number(selected)]?.[0];
+    const pool = songs.filter(song => !genre || (song.genre || '미분류') === genre);
+    const cards = modal.querySelector('#songRandomCards');
+    const message = modal.querySelector('#songRandomMessage');
+    cards.replaceChildren();
+    if (!pool.length) {
+        message.textContent = '선택한 장르에 등록된 노래가 없습니다.';
+        return;
+    }
+    const shuffled = pool.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const picks = shuffled.slice(0, 3);
+    message.textContent = picks.length < 3 ? `등록된 노래가 ${picks.length}곡이라 ${picks.length}장만 뽑았습니다.` : '카드를 눌러 결과를 확인하세요.';
+    picks.forEach((song, index) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'song-random-card';
+        card.setAttribute('aria-label', `${index + 1}번 카드 공개`);
+        card.innerHTML = `<span class="song-random-card-inner"><span class="song-random-card-back"><i class="fi fi-rr-music-alt"></i><strong>${index + 1}</strong><small>눌러서 공개</small></span><span class="song-random-card-front"><small>${index + 1}번 노래</small><strong>${escapeHtml(song.title || '제목 없음')}</strong><span>${escapeHtml(song.artist || '가수 미상')}</span></span></span>`;
+        card.addEventListener('click', () => {
+            card.classList.add('is-revealed');
+            card.setAttribute('aria-label', `${index + 1}번 카드: ${song.title || '제목 없음'}, ${song.artist || '가수 미상'}`);
+        });
+        cards.appendChild(card);
+    });
+};
 
 function toggleMobileArtistList() {
     const column = document.getElementById('songbookArtistColumn');
