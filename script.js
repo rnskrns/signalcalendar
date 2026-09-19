@@ -3032,6 +3032,7 @@ function renderHeaderTabs() {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
                 clickAction = `onclick="toggleDesktopExtraMenu(event)"`; 
                 mainLinkHtml = `
+                    <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
                     <a href="#" onclick="executeDesktopTabChange('업보정리'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">업보정리</a>
                     <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">사다리타기</a>
