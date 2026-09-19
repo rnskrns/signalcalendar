@@ -7813,6 +7813,7 @@ window.openSongRandomModal = function() {
     modal.id = 'songRandomModal';
     modal.className = 'song-random-overlay';
     modal.style.setProperty('--songbook-accent', theme.color);
+    modal.style.setProperty('--songbook-soft', theme.soft);
     modal.innerHTML = `
         <div class="song-random-dialog" role="dialog" aria-modal="true" aria-labelledby="songRandomTitle">
             <button type="button" class="song-random-close" onclick="closeSongRandomModal()" aria-label="닫기">&times;</button>
