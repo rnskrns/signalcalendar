@@ -1,4 +1,4 @@
-﻿import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 import { getDatabase, ref, set, get, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
@@ -7818,10 +7818,15 @@ window.openSongRandomModal = function() {
         <div class="song-random-dialog" role="dialog" aria-modal="true" aria-labelledby="songRandomTitle">
             <button type="button" class="song-random-close" onclick="closeSongRandomModal()" aria-label="닫기">&times;</button>
             <h2 id="songRandomTitle">노래 랜덤 뽑기</h2>
-            <p>장르를 고르고 뽑기를 눌러 주세요. 카드를 누르면 노래가 공개됩니다.</p>
+            <p>장르와 카드 수를 고르고 뽑기를 눌러 주세요. 카드를 누르면 노래가 공개됩니다.</p>
             <div class="song-random-controls">
-                <label for="songRandomGenre">장르</label>
-                <select id="songRandomGenre"><option value="">전체 장르 (${songs.length})</option>${genres.map(([genre, count], index) => `<option value="${index}">${escapeHtml(genre)} (${count})</option>`).join('')}</select>
+                <span class="song-random-genre-label" id="songRandomGenreLabel">장르</span>
+                <div id="songRandomGenres" class="song-random-genres" role="group" aria-labelledby="songRandomGenreLabel">
+                    <button type="button" class="song-random-genre is-selected" data-genre="all" aria-pressed="true">전체 (${songs.length})</button>
+                    ${genres.map(([genre, count], index) => `<button type="button" class="song-random-genre" data-genre="${index}" aria-pressed="false">${escapeHtml(genre)} (${count})</button>`).join('')}
+                </div>
+                <label for="songRandomCount">카드 수</label>
+                <select id="songRandomCount">${[1, 2, 3, 4, 5].map(count => `<option value="${count}" ${count === 3 ? 'selected' : ''}>${count}장</option>`).join('')}</select>
                 <button type="button" onclick="drawRandomSongs()">뽑기</button>
             </div>
             <div id="songRandomMessage" class="song-random-message" aria-live="polite">${songs.length ? '' : '노래를 불러오는 중이거나 등록된 노래가 없습니다.'}</div>
@@ -7829,7 +7834,20 @@ window.openSongRandomModal = function() {
         </div>`;
     modal.addEventListener('click', event => { if (event.target === modal) window.closeSongRandomModal(); });
     document.body.appendChild(modal);
-    modal.querySelector('#songRandomGenre').focus();
+    modal.querySelector('#songRandomGenres').addEventListener('click', event => {
+        const button = event.target.closest('.song-random-genre');
+        if (!button) return;
+        const buttons = [...modal.querySelectorAll('.song-random-genre')];
+        if (button.dataset.genre === 'all') {
+            buttons.forEach(item => item.classList.toggle('is-selected', item === button));
+        } else {
+            buttons[0].classList.remove('is-selected');
+            button.classList.toggle('is-selected');
+            if (!buttons.slice(1).some(item => item.classList.contains('is-selected'))) buttons[0].classList.add('is-selected');
+        }
+        buttons.forEach(item => item.setAttribute('aria-pressed', String(item.classList.contains('is-selected'))));
+    });
+    modal.querySelector('.song-random-genre').focus();
 };
 
 window.closeSongRandomModal = function() {
@@ -7839,9 +7857,10 @@ window.closeSongRandomModal = function() {
 window.drawRandomSongs = function() {
     const modal = document.getElementById('songRandomModal');
     if (!modal) return;
-    const selected = modal.querySelector('#songRandomGenre').value;
-    const genre = selected === '' ? null : getGenreCounts()[Number(selected)]?.[0];
-    const pool = songs.filter(song => !genre || (song.genre || '미분류') === genre);
+    const selectedGenres = new Set([...modal.querySelectorAll('.song-random-genre.is-selected:not([data-genre="all"])')]
+        .map(button => getGenreCounts()[Number(button.dataset.genre)]?.[0]).filter(Boolean));
+    const requestedCount = Math.min(5, Math.max(1, Number(modal.querySelector('#songRandomCount').value) || 3));
+    const pool = songs.filter(song => !selectedGenres.size || selectedGenres.has(song.genre || '미분류'));
     const cards = modal.querySelector('#songRandomCards');
     const message = modal.querySelector('#songRandomMessage');
     cards.classList.remove('is-shuffling');
@@ -7855,8 +7874,8 @@ window.drawRandomSongs = function() {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    const picks = shuffled.slice(0, 3);
-    message.textContent = picks.length < 3 ? `등록된 노래가 ${picks.length}곡이라 ${picks.length}장만 뽑았습니다.` : '카드를 눌러 결과를 확인하세요.';
+    const picks = shuffled.slice(0, requestedCount);
+    message.textContent = picks.length < requestedCount ? `등록된 노래가 ${picks.length}곡이라 ${picks.length}장만 뽑았습니다.` : '카드를 눌러 결과를 확인하세요.';
     picks.forEach((song, index) => {
         const card = document.createElement('button');
         card.type = 'button';
