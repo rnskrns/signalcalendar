@@ -7828,13 +7828,13 @@ window.openSongRandomModal = function() {
                     </div>
                     <div class="song-random-count">
                         <label for="songRandomCount">카드 수</label>
-                        <select id="songRandomCount">${[1, 2, 3, 4, 5].map(count => `<option value="${count}" ${count === 3 ? 'selected' : ''}>${count}장</option>`).join('')}</select>
+                        <select id="songRandomCount">${[1, 2, 3, 4, 5, 6].map(count => `<option value="${count}" ${count === 3 ? 'selected' : ''}>${count}장</option>`).join('')}</select>
                     </div>
                 </div>
-                <button type="button" onclick="drawRandomSongs()">뽑기</button>
             </div>
             <div id="songRandomMessage" class="song-random-message" aria-live="polite">${songs.length ? '' : '노래를 불러오는 중이거나 등록된 노래가 없습니다.'}</div>
             <div id="songRandomCards" class="song-random-cards"></div>
+            <div class="song-random-draw-wrap"><button id="songRandomDraw" type="button" onclick="drawRandomSongs()">뽑기</button></div>
         </div>`;
     modal.addEventListener('click', event => { if (event.target === modal) window.closeSongRandomModal(); });
     document.body.appendChild(modal);
@@ -7863,7 +7863,7 @@ window.drawRandomSongs = function() {
     if (!modal) return;
     const selectedGenres = new Set([...modal.querySelectorAll('.song-random-genre.is-selected:not([data-genre="all"])')]
         .map(button => getGenreCounts()[Number(button.dataset.genre)]?.[0]).filter(Boolean));
-    const requestedCount = Math.min(5, Math.max(1, Number(modal.querySelector('#songRandomCount').value) || 3));
+    const requestedCount = Math.min(6, Math.max(1, Number(modal.querySelector('#songRandomCount').value) || 3));
     const pool = songs.filter(song => !selectedGenres.size || selectedGenres.has(song.genre || '미분류'));
     const cards = modal.querySelector('#songRandomCards');
     const message = modal.querySelector('#songRandomMessage');
@@ -7879,6 +7879,7 @@ window.drawRandomSongs = function() {
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     const picks = shuffled.slice(0, requestedCount);
+    modal.querySelector('#songRandomDraw').textContent = '다시 뽑기';
     message.textContent = picks.length < requestedCount ? `등록된 노래가 ${picks.length}곡이라 ${picks.length}장만 뽑았습니다.` : '카드를 눌러 결과를 확인하세요.';
     picks.forEach((song, index) => {
         const card = document.createElement('button');

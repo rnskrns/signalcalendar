@@ -1167,8 +1167,10 @@ body.admin-mode {
 .song-random-genres .song-random-genre:focus-visible { outline:2px solid var(--songbook-accent); outline-offset:2px; }
 .song-random-controls button { padding:11px 24px; border-radius:10px; background:var(--songbook-accent); color:#352a27; font-weight:900; cursor:pointer; }
 .song-random-message { min-height:25px; margin:14px 0; font-size:13px; color:#756d69; }
-.song-random-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
-.song-random-card { height:280px; padding:0; background:transparent; border:0; cursor:pointer; perspective:900px; text-align:center; }
+.song-random-draw-wrap { display:flex; justify-content:center; margin-top:20px; }
+.song-random-draw-wrap button { padding:11px 28px; border:0; border-radius:10px; background:var(--songbook-accent); color:#352a27; font-weight:900; cursor:pointer; }
+.song-random-cards { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; }
+.song-random-card { flex:0 0 calc((100% - 28px) / 3); min-width:0; height:280px; padding:0; background:transparent; border:0; cursor:pointer; perspective:900px; text-align:center; }
 .song-random-cards.is-shuffling { pointer-events:none; }
 .song-random-cards.is-shuffling .song-random-card { animation:song-card-shuffle 1.4s ease-in-out both; }
 .song-random-cards.is-shuffling .song-random-card:nth-child(1) { --shuffle-x:105%; animation-delay:0s; }
@@ -1176,6 +1178,7 @@ body.admin-mode {
 .song-random-cards.is-shuffling .song-random-card:nth-child(3) { --shuffle-x:-105%; animation-delay:.16s; }
 .song-random-cards.is-shuffling .song-random-card:nth-child(4) { --shuffle-x:105%; animation-delay:.24s; }
 .song-random-cards.is-shuffling .song-random-card:nth-child(5) { --shuffle-x:-105%; animation-delay:.32s; }
+.song-random-cards.is-shuffling .song-random-card:nth-child(6) { --shuffle-x:105%; animation-delay:.4s; }
 @keyframes song-card-shuffle { 0% { opacity:0; transform:translateY(35px) scale(.7) rotate(-10deg); } 22% { opacity:1; transform:translateY(0) scale(1) rotate(0); } 45% { transform:translateX(var(--shuffle-x)) rotate(8deg) scale(.9); } 68% { transform:translateX(-30%) rotate(-7deg) scale(.94); } 85% { transform:translateX(12%) rotate(3deg); } 100% { transform:translateX(0) rotate(0) scale(1); } }
 .song-random-card-inner { position:relative; display:block; width:100%; height:100%; transition:transform .55s; transform-style:preserve-3d; }
 .song-random-card.is-revealed .song-random-card-inner { transform:rotateY(180deg); }
@@ -1189,7 +1192,7 @@ body.admin-mode {
 .song-random-album-fallback { line-height:82px; font-size:35px; }
 .song-random-card-front strong { font-size:17px; line-height:1.25; }
 .song-random-card-front span { font-size:14px; }
-@media(max-width:600px) { .song-random-dialog { padding:22px 16px; } .song-random-cards { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; } .song-random-card { height:210px; } .song-random-card-back,.song-random-card-front { padding:7px; } .song-random-card-back img { max-height:80px; } .song-random-album-art,.song-random-album-fallback { width:64px; height:64px; } .song-random-album-fallback { line-height:64px; } .song-random-card-front strong { font-size:14px; } .song-random-card-front span { font-size:12px; } }
+@media(max-width:600px) { .song-random-dialog { padding:22px 16px; } .song-random-cards { gap:7px; } .song-random-card { flex-basis:calc((100% - 7px) / 2); height:210px; } .song-random-card-back,.song-random-card-front { padding:7px; } .song-random-card-back img { max-height:80px; } .song-random-album-art,.song-random-album-fallback { width:64px; height:64px; } .song-random-album-fallback { line-height:64px; } .song-random-card-front strong { font-size:14px; } .song-random-card-front span { font-size:12px; } }
 @media(prefers-reduced-motion:reduce) { .song-random-cards.is-shuffling .song-random-card { animation:none; } .song-random-card-inner { transition:none; } }
 html.dark-mode .song-random-dialog { background:#252327; color:#f5f0ea; }
 html.dark-mode .song-random-dialog p,html.dark-mode .song-random-message { color:#c6bdba; }
