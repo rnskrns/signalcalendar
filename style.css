@@ -2283,13 +2283,13 @@ html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
     .mobile-feed-author span { font-size:11px; color:#8b8b8b; margin-top:1px; }
     .mobile-feed-author > i { font-size:20px; }
     .mobile-feed-author img { border:1px solid #d1d5db; }
-    .mobile-feed-media { width:100%; aspect-ratio:1/1; overflow:hidden; display:grid; grid-template-columns:1fr; grid-auto-rows:1fr; background:#f3f3f3; }
+    .mobile-feed-media { width:100%; display:flex; flex-direction:column; background:#f3f3f3; }
     .mobile-feed-media.mobile-feed-count-2 { grid-template-rows:repeat(2,1fr); }
     .mobile-feed-media.mobile-feed-count-3 { grid-template-columns:1fr; grid-template-rows:repeat(3,1fr); }
     .mobile-feed-media.mobile-feed-count-4 { grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); }
     .mobile-feed-schedule { position:relative; min-width:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center; color:#fff; background:var(--schedule-color); border:1px solid rgba(255,255,255,.42); }
-    .mobile-feed-schedule.has-image { padding:0; background:#eee; }
-    .mobile-feed-schedule.has-image > img { width:100%; height:100%; object-fit:cover; }
+    .mobile-feed-schedule.has-image { display:block; padding:0; background:#eee; }
+    .mobile-feed-schedule.has-image > img { display:block; width:100%; height:auto; }
     .mobile-feed-schedule time { display:flex; align-items:center; justify-content:center; gap:4px; font-size:11px; font-weight:700; }
     .mobile-feed-member-section { width:100%; margin-top:10px; }
     .mobile-feed-member-label { width:100%; margin-bottom:7px; text-align:center; color:#888; font-size:11px; font-weight:700; line-height:1.2; }
