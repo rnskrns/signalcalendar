@@ -7817,7 +7817,7 @@ window.openSongRandomModal = function() {
     modal.innerHTML = `
         <div class="song-random-dialog" role="dialog" aria-modal="true" aria-labelledby="songRandomTitle">
             <button type="button" class="song-random-close" onclick="closeSongRandomModal()" aria-label="닫기">&times;</button>
-            <h2 id="songRandomTitle">${escapeHtml(songbookMember)} 노래 랜덤 뽑기</h2>
+            <h2 id="songRandomTitle">노래 랜덤 뽑기</h2>
             <p>장르를 고르고 뽑기를 눌러 주세요. 카드를 누르면 노래가 공개됩니다.</p>
             <div class="song-random-controls">
                 <label for="songRandomGenre">장르</label>
