@@ -819,7 +819,6 @@ window.openInfoModal = openInfoModal; window.closeInfoModal = closeInfoModal; wi
 window.moveScheduleBlock = moveScheduleBlock;
 window.startScheduleDrag = startScheduleDrag;
 window.startCalendarCardDrag = startCalendarCardDrag;
-window.loginWithProfile = loginWithProfile; window.deleteSavedProfile = deleteSavedProfile;
 window.savePopupImage = savePopupImage; window.deletePopupImage = deletePopupImage; window.switchPopupImgTab = switchPopupImgTab;
 window.saveHomeYoutubeLink = saveHomeYoutubeLink; window.deleteHomeYoutubeLink = deleteHomeYoutubeLink;
 window.previewPopupImgFile = previewPopupImgFile;
