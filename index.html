@@ -378,8 +378,8 @@
                     </div>
                     <div id="manageTabPanel_info" class="hidden max-w-[400px]">
                         <div class="mb-4">
-                            <label class="block text-[13px] font-bold text-gray-500 mb-1">연동 이메일</label>
-                            <input type="email" id="infoEmail" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="이메일 입력">
+                            <label class="block text-[13px] font-bold text-gray-500 mb-1">관리자 이메일</label>
+                            <input type="email" id="infoEmail" readonly class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400 font-bold" placeholder="이메일">
                         </div>
                         <div class="mb-6">
                             <label class="block text-[13px] font-bold text-gray-500 mb-1">새 비밀번호 (변경 시에만 입력)</label>
@@ -472,19 +472,7 @@
                 <div class="flex-grow border-t border-gray-300"></div>
             </div>
 
-            <div id="savedProfilesSection" class="hidden mb-4">
-                <div class="text-[13px] font-bold text-gray-500 mb-2 text-center">어떤 계정으로 로그인하시겠어요?</div>
-                <div id="savedProfilesList" class="flex gap-4 overflow-x-auto pb-2 px-1 justify-center hide-scrollbar">
-                    </div>
-            </div>
-
-            <div id="loginDivider" class="hidden relative flex py-3 items-center">
-                <div class="flex-grow border-t border-gray-300"></div>
-                <span class="flex-shrink-0 mx-4 text-gray-400 text-[12px] font-bold">또는 다른 계정으로</span>
-                <div class="flex-grow border-t border-gray-300"></div>
-            </div>
-            
-            <input type="text" id="idInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] mt-2 font-bold outline-none focus:border-blue-400" placeholder="아이디">
+            <input type="text" id="idInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] mt-2 font-bold outline-none focus:border-blue-400" placeholder="아이디 또는 이메일">
             <input type="password" id="pwInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="비밀번호" onkeypress="if(event.key==='Enter') checkPassword()">
             
             <div class="flex items-center gap-2 mb-4 justify-center">

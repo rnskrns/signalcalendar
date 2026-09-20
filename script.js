@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, updatePassword } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 import { getDatabase, ref, set, get, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 
 // =========================================================================
@@ -1126,7 +1126,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // 멤버관리(스케줄 멤버) 전용 데이터베이스 - 별도 Firebase 프로젝트 연결
-// 어드민 계정(admins)과 멤버 그룹(memberGroups)은 기존 데이터베이스(db)를 그대로 사용합니다.
+// 멤버 그룹(memberGroups)은 기존 데이터베이스(db)를 그대로 사용합니다.
 const memberFirebaseConfig = {
     apiKey: "AIzaSyDVBD4FnLGFcUXqLWJyVOuZELCP-8jFO2E",
     authDomain: "memberlist-2e19f.firebaseapp.com",
@@ -1574,88 +1574,28 @@ function openSmartLink(url) {
     if (isMobileDevice) { window.location.href = url; } else { window.open(url, '_blank'); }
 }
 
-function generateAuthToken() {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+const ADMIN_ACCOUNTS = Object.freeze({
+    'dalta20@signal.com': '달타',
+    'daarung22@signal.com': '다룽',
+    'choiagain@signal.com': '최또',
+    'kjhh0029@signal.com': '카나시',
+    'rnskrns@gmail.com': 'rnskrns',
+    'jkolpc@gmail.com': 'jkolpc'
+});
+
+function adminEmail(input) {
+    const value = input.trim().toLowerCase();
+    return value.includes('@') ? value : `${value}@signal.com`;
 }
 
-function getSavedProfiles() {
-    return JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
-}
-
-function saveProfileLocally(profile) {
-    let profiles = getSavedProfiles();
-    profiles = profiles.filter(p => p.docId !== profile.docId); 
-    profiles.push(profile);
-    localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
-}
-
-function deleteSavedProfile(docId) {
-    let profiles = getSavedProfiles();
-    profiles = profiles.filter(p => p.docId !== docId);
-    localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
-    renderSavedProfiles();
-}
-
-function renderSavedProfiles() {
-    const profiles = getSavedProfiles();
-    const section = document.getElementById('savedProfilesSection');
-    const list = document.getElementById('savedProfilesList');
-    const divider = document.getElementById('loginDivider');
-
-    if (profiles.length > 0) {
-        section.classList.remove('hidden');
-        divider.classList.remove('hidden'); divider.classList.add('flex');
-        
-        list.innerHTML = profiles.map(p => `
-            <div class="relative flex flex-col items-center gap-1 cursor-pointer group shrink-0" onclick="loginWithProfile('${p.docId}', '${p.token}')">
-                <button onclick="event.stopPropagation(); deleteSavedProfile('${p.docId}')" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition z-10 hover:scale-110 shadow-sm"><i class="fi fi-br-cross-small"></i></button>
-                <img src="${p.img || 'https://via.placeholder.com/40'}" loading="lazy" decoding="async" class="w-[48px] h-[48px] rounded-full object-cover border-[2.5px] border-gray-200 group-hover:border-[#5D4037] transition">
-                <span class="text-[12px] font-bold text-[#5D4037] truncate w-[54px] text-center">${p.name}</span>
-            </div>
-        `).join('');
-    } else {
-        section.classList.add('hidden');
-        divider.classList.add('hidden'); divider.classList.remove('flex');
-        list.innerHTML = '';
-    }
-}
-
-async function loginWithProfile(docId, token) {
-    try {
-        const docRef = doc(db, "admins", docId);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-            const adminData = docSnap.data();
-            const savedProfiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
-            const matchedProfile = savedProfiles.find(p => p.docId === docId);
-
-            if (matchedProfile && matchedProfile.token === token) {
-                isAdmin = true;
-                loggedInUser = { docId, ...adminData };
-                
-                const isAutoLogin = document.getElementById('autoLoginCheck')?.checked;
-                if (isAutoLogin) {
-                    localStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
-                } else {
-                    sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
-                }
-
-                refreshAuthUI();
-                alert(`${adminData.name}님 환영합니다!`);
-                closePasswordModal();
-            } else {
-                alert("인증이 만료되었습니다. 보안을 위해 아이디와 비밀번호로 다시 로그인해 주세요.");
-                deleteSavedProfile(docId); 
-            }
-        } else {
-            alert("존재하지 않거나 삭제된 관리자입니다.");
-            deleteSavedProfile(docId);
-        }
-    } catch(e) {
-        console.error("프로필 로그인 에러:", e);
-        alert("로그인 중 오류가 발생했습니다.");
-    }
+function setAdminUser(user) {
+    const email = (user?.email || '').toLowerCase();
+    const name = ADMIN_ACCOUNTS[email];
+    isAdmin = !!name;
+    loggedInUser = name ? { uid: user.uid, id: email.split('@')[0], email, name,
+        img: user.photoURL || members.find(m => m.name === name)?.img || '' } : null;
+    refreshAuthUI();
+    return isAdmin;
 }
 
 async function checkPassword() {
@@ -1666,43 +1606,20 @@ async function checkPassword() {
     if(!inputId || !inputPw) return alert("아이디와 비밀번호를 모두 입력해주세요.");
 
     try {
-        const q = query(collection(db, "admins"), where("id", "==", inputId));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-            const adminDoc = querySnapshot.docs[0];
-            const adminData = adminDoc.data();
-            
-            if (adminData.pw === inputPw) {
-                const docId = adminDoc.id;
-                const token = generateAuthToken();
-
-                isAdmin = true;
-                loggedInUser = { docId, ...adminData };
-                
-                if (isAutoLogin) {
-                    localStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
-                } else {
-                    sessionStorage.setItem('activeAdminSession', JSON.stringify({ docId, token }));
-                }
-
-                saveProfileLocally({ docId, id: inputId, name: adminData.name, img: adminData.img, token });
-                
-                refreshAuthUI();
-                alert(`${adminData.name}님 환영합니다!`); 
-                document.getElementById('idInput').value = '';
-                document.getElementById('pwInput').value = ''; 
-                closePasswordModal();
-            } else {
-                alert('비밀번호가 일치하지 않습니다.');
-                document.getElementById('pwInput').value = '';
-            }
-        } else {
-            alert('존재하지 않는 아이디입니다.');
-        }
+        const email = adminEmail(inputId);
+        if (!Object.hasOwn(ADMIN_ACCOUNTS, email)) return alert('등록된 관리자 아이디가 아닙니다.');
+        await setPersistence(auth, isAutoLogin ? browserLocalPersistence : browserSessionPersistence);
+        const credential = await signInWithEmailAndPassword(auth, email, inputPw);
+        setAdminUser(credential.user);
+        alert(`${loggedInUser.name}님 환영합니다!`);
+        document.getElementById('idInput').value = '';
+        document.getElementById('pwInput').value = '';
+        closePasswordModal();
     } catch (e) { 
         console.error("로그인 에러:", e); 
-        alert("시스템 에러로 로그인에 실패했습니다."); 
+        document.getElementById('pwInput').value = '';
+        alert(e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found'
+            ? '아이디 또는 비밀번호를 확인해주세요.' : '로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
 }
 
@@ -1931,6 +1848,8 @@ onAuthStateChanged(auth, async (user) => {
     if (isLinkingGoogleAccount) return;
 
     if (!user) {
+        isAdmin = false;
+        loggedInUser = null;
         // ⭐ 신규: SOOP 로그인 세션이 복원되어 있는 상태라면, Firebase의 '로그아웃 상태'로 덮어쓰지 않음
         if (isSoopSession) return;
 
@@ -1940,6 +1859,12 @@ onAuthStateChanged(auth, async (user) => {
         if (typeof renderSongList === 'function' && document.getElementById('songListContainer')) {
             try { renderSongList(); } catch (e) { /* 아직 렌더 준비 전이면 무시 */ }
         }
+        return;
+    }
+
+    if (setAdminUser(user)) {
+        clearSoopSession();
+        currentUser = null;
         return;
     }
 
@@ -2070,6 +1995,7 @@ function switchManageTab(tab) {
 function renderInfoManagePanel() {
     if (!loggedInUser) return;
     document.getElementById('infoEmail').value = loggedInUser.email || '';
+    document.getElementById('infoEmail').readOnly = true;
     document.getElementById('infoPw').value = '';
 }
 
@@ -2077,28 +2003,18 @@ function openInfoModal() { openManageModal('info'); }
 function closeInfoModal() { closeManageModal(); }
 
 async function updateUserInfo() {
-    const newEmail = document.getElementById('infoEmail').value.trim();
     const newPw = document.getElementById('infoPw').value;
     
-    if (!loggedInUser || !loggedInUser.docId) return;
+    if (!loggedInUser || !auth.currentUser || !newPw) return alert('새 비밀번호를 입력해주세요.');
 
     try {
-        const updateData = { email: newEmail };
-        if (newPw) { 
-            updateData.pw = newPw; 
-            
-            let profiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
-            profiles = profiles.filter(p => p.docId !== loggedInUser.docId);
-            localStorage.setItem('savedAdminProfiles', JSON.stringify(profiles));
-        }
-        
-        await updateDoc(doc(db, "admins", loggedInUser.docId), updateData);
-        alert("정보가 성공적으로 변경되었습니다. 보안을 위해 다시 로그인해주세요.");
+        await updatePassword(auth.currentUser, newPw);
+        alert("비밀번호가 변경되었습니다. 다시 로그인해주세요.");
         closeInfoModal();
-        logoutAdmin(); 
+        await logoutAdmin();
     } catch (e) {
         console.error("정보 업데이트 실패:", e);
-        alert("수정에 실패했습니다.");
+        alert(e.code === 'auth/requires-recent-login' ? '보안을 위해 로그아웃 후 다시 로그인한 뒤 변경해주세요.' : '비밀번호 변경에 실패했습니다.');
     }
 }
 
@@ -6620,13 +6536,7 @@ function sortUpLinksComparator(a, b) {
 let memberLoginImgMap = {};
 async function ensureMemberLoginImgMap() {
     if (Object.keys(memberLoginImgMap).length > 0) return memberLoginImgMap;
-    try {
-        const snap = await getDocs(collection(db, 'admins'));
-        snap.forEach(d => {
-            const data = d.data();
-            if (data && data.name) memberLoginImgMap[data.name] = data.img;
-        });
-    } catch(e) { console.error('로그인 프사 로드 실패:', e); }
+    members.forEach(member => { if (member.name && member.img) memberLoginImgMap[member.name] = member.img; });
     return memberLoginImgMap;
 }
 
@@ -10535,10 +10445,12 @@ function handleAdminClick() {
     if (!isAdmin) openPasswordModal(); 
 }
 
-function logoutAdmin() {
+async function logoutAdmin() {
     isAdmin = false; loggedInUser = null;
     sessionStorage.removeItem('activeAdminSession'); 
     localStorage.removeItem('activeAdminSession');
+    localStorage.removeItem('savedAdminProfiles');
+    await signOut(auth);
     
     refreshAuthUI();
     
@@ -10547,7 +10459,6 @@ function logoutAdmin() {
 }
 
 function openPasswordModal() { 
-    renderSavedProfiles();
     document.getElementById('passwordModal').classList.replace('hidden', 'flex'); 
 }
 
@@ -11029,26 +10940,11 @@ function hidePageLoadingScreen() {
 async function initApp() {
     adjustDesktopScale(); 
 
-    const sessionActive = sessionStorage.getItem('activeAdminSession') || localStorage.getItem('activeAdminSession');
-    if (sessionActive) {
-        const { docId, token } = JSON.parse(sessionActive);
-        try {
-            const docRef = doc(db, "admins", docId);
-            const docSnap = await getDoc(docRef);
-            
-            const savedProfiles = JSON.parse(localStorage.getItem('savedAdminProfiles') || '[]');
-            const matchedProfile = savedProfiles.find(p => p.docId === docId);
-            
-            if (docSnap.exists() && matchedProfile && matchedProfile.token === token) {
-                isAdmin = true;
-                loggedInUser = { docId, ...docSnap.data() };
-                refreshAuthUI();
-            } else {
-                sessionStorage.removeItem('activeAdminSession');
-                localStorage.removeItem('activeAdminSession');
-            }
-        } catch(e) { console.error("자동 로그인 검증 실패:", e); }
-    }
+    // 이전 Firestore 관리자 토큰은 더 이상 인증에 사용하지 않습니다.
+    sessionStorage.removeItem('activeAdminSession');
+    localStorage.removeItem('activeAdminSession');
+    localStorage.removeItem('savedAdminProfiles');
+    // Firebase Auth가 저장된 로그인 상태를 복원하고 onAuthStateChanged에서 관리자 여부를 확인합니다.
     
     // === 초기 탭 설정 분리 ===
     const today = getTodayYYYYMMDD();
