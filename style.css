@@ -2453,14 +2453,16 @@ html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
     .member-instagram-head h1 { font:900 23px/1.2 'Paperozi',sans-serif; }
     .member-instagram-head p { margin-top:7px; color:#81858b; font-size:13px; font-weight:600; }
     .member-instagram-highlights { display:flex; gap:22px; padding:4px 22px 20px; }
-    .member-instagram-highlights a { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:66px; color:#303030; }
-    .member-instagram-highlights a > span { width:66px; height:66px; display:grid; place-items:center; border:1px solid #d5d8dc; border-radius:50%; background:#fff; box-shadow:inset 0 0 0 4px #f5f6f7; font-size:25px; color:var(--profile-theme); }
+    .member-instagram-highlights a, .member-instagram-highlights button { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:66px; color:#303030; }
+    .member-instagram-highlights a > span, .member-instagram-highlights button > span { width:66px; height:66px; display:grid; place-items:center; border:1px solid #d5d8dc; border-radius:50%; background:#fff; box-shadow:inset 0 0 0 4px #f5f6f7; font-size:25px; color:var(--profile-theme); }
     .member-instagram-highlights a > span > img { width:56px; height:56px; border-radius:50%; object-fit:cover; }
     .member-instagram-highlights .member-channel-ring { transition:box-shadow .22s ease, border-color .22s ease; }
     .member-instagram-highlights .member-channel-ring.has-channel-activity { border-color:#fff; box-shadow:0 0 0 3px var(--channel-ring-color), 0 0 0 5px #fff; }
     .member-instagram-highlights .member-channel-ring-soop { --channel-ring-color:#2589ff; }
     .member-instagram-highlights .member-channel-ring-youtube { --channel-ring-color:#ff3153; }
-    .member-instagram-highlights a b { font-size:11px; font-weight:700; }
+    .member-instagram-highlights button > .member-channel-ring-notice, html.dark-mode .member-instagram-highlights button > .member-channel-ring-notice { background:#fff; border-color:#d5d8dc; box-shadow:inset 0 0 0 4px #f5f6f7; color:#303030; }
+    .member-instagram-highlights button > .member-channel-ring-notice > img { width:56px; height:56px; border-radius:50%; object-fit:cover; }
+    .member-instagram-highlights a b, .member-instagram-highlights button b { font-size:11px; font-weight:700; }
     .member-profile-tabs { height:62px; display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid #eceef0; border-bottom:1px solid #dfe1e4; }
     .member-profile-tabs button { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:#8b8f95; font-size:19px; }
     .member-profile-tabs button span { display:block; font-size:10px; font-weight:800; line-height:1.1; }
@@ -2517,8 +2519,8 @@ html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
     .member-inline-empty i { font-size:25px; }
     .member-inline-empty p { font-size:13px; font-weight:700; }
     html.dark-mode .member-profile-page, html.dark-mode .member-instagram-profile, html.dark-mode .member-profile-feed-grid { background:#151319; color:#f5f5f5; }
-    html.dark-mode .member-instagram-highlights a { color:#f5f5f5; }
-    html.dark-mode .member-instagram-highlights a > span { background:#201d24; border-color:#454149; box-shadow:inset 0 0 0 4px #2a262e; }
+    html.dark-mode .member-instagram-highlights a, html.dark-mode .member-instagram-highlights button { color:#f5f5f5; }
+    html.dark-mode .member-instagram-highlights a > span, html.dark-mode .member-instagram-highlights button > span { background:#201d24; border-color:#454149; box-shadow:inset 0 0 0 4px #2a262e; }
     html.dark-mode .member-profile-tabs button.is-active { color:#fff; }
     html.dark-mode .member-profile-tabs button.is-active::after { background:#fff; }
     html.dark-mode .mobile-admin-page { background:#151319; color:#f5f5f5; }

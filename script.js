@@ -788,7 +788,7 @@ window.startEditDday = startEditDday; window.cancelEditDday = cancelEditDday;
 window.switchDdayImgTab = switchDdayImgTab; window.previewDdayImageFile = previewDdayImageFile; window.previewDdayImageUrl = previewDdayImageUrl;
 window.toggleUpPanel = toggleUpPanel; window.toggleMemoPanel = toggleMemoPanel; window.closeSidePanel = closeSidePanel;
 window.openMobileTabMenu = openMobileTabMenu; window.closeMobileTabMenu = closeMobileTabMenu;
-window.openMobileHomeNotice = openMobileHomeNotice; window.closeMobileHomeNotice = closeMobileHomeNotice;
+window.openMobileHomeNotice = openMobileHomeNotice; window.openMobileMemberNotice = openMobileMemberNotice; window.closeMobileHomeNotice = closeMobileHomeNotice;
 window.openMobileNoticeConversation = openMobileNoticeConversation; window.backToMobileNoticeInbox = backToMobileNoticeInbox;
 window.openMobileAdminPage = openMobileAdminPage; window.openMobileAdminSection = openMobileAdminSection;
 window.showMobileMemberView = showMobileMemberView;
@@ -7653,6 +7653,13 @@ function getGenreCounts() {
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0], 'ko'));
 }
 
+const memberNoticeImages = {
+    '달타': 'https://cafeptthumb-phinf.pstatic.net/MjAyNjA2MjJfMjA0/MDAxNzgyMTMwNzMwMDIz.rQNBtg_eFkG4F4hZJ2I8cUCwlZbm59a6NpiCBEFlBUMg.eMVcXdkgLCKlSV9MsMP3I97kQ_3qX5K4gRgT0szjAIIg.PNG/NAIS_1782024519808.png?type=s3',
+    '다룽': 'https://cafeptthumb-phinf.pstatic.net/MjAyNjA4MTFfNDcg/MDAxNzg2NDE2MjMxNDk4.a4rC13RYTgXI1j6b2zKrG-F-cqa4SwNoWY8YIn7Bi9cg.5DdKsd1YeoYYwXBddJJcTJ3J4emQl4fhkYes4Ed2h4sg.JPEG/externalFile.jpg?type=s3',
+    '최또': 'https://cafeptthumb-phinf.pstatic.net/MjAyNjA2MDFfMTQ4/MDAxNzgwMzA0MzQ4MjAz.3MI8-gPN_TiG9aOap1SGkMWDXsCtrADZHFLBV7hUNxIg.jQLBmDaZpjL8HsdBnyNHSqXTJ2cfJ5-YAtllMtFT530g.PNG/%25EB%25B0%25B0%25EB%2584%2588_%25281%2529.png?type=s3',
+    '카나시': 'https://cafeptthumb-phinf.pstatic.net/MjAyNTExMDJfMjE2/MDAxNzYyMDk1MjIwMzIw.Vd7xJnGre6BZuIWz1ioMhxBN-4FC4QiNd_ApL4sIxWkg.iD9YlKXLh9GaYSSaiQcZG02eOeS5_jy8bFYN-GGoVekg.PNG/Warudo_2025-10-25-17-31-13_1920x1080.png?type=s3'
+};
+
 function renderSongbook() {
     const content = document.getElementById('mainContent');
     if (!content) return;
@@ -7668,13 +7675,14 @@ function renderSongbook() {
         <div class="member-instagram-highlights">
             <a href="${profileSoopUrl}" target="_blank" rel="noopener"><span id="memberSoopRing-${songbookMember}" class="member-channel-ring member-channel-ring-soop"><img src="${profileChannelImages.soop || ''}" alt="SOOP"></span><b>SOOP</b></a>
             <a href="${profileYoutubeUrl}" target="_blank" rel="noopener"><span id="memberYoutubeRing-${songbookMember}" class="member-channel-ring member-channel-ring-youtube"><img src="${profileChannelImages.youtube || ''}" alt="유튜브"></span><b>유튜브</b></a>
+            <button type="button" onclick="openMobileMemberNotice('${songbookMember}')" aria-label="${songbookMember} 공지"><span class="member-channel-ring member-channel-ring-notice"><img src="${memberNoticeImages[songbookMember] || ''}" alt="" loading="lazy"></span><b>공지</b></button>
         </div>
         <div class="member-profile-tabs">
             <button onclick="showMobileMemberView('${songbookMember}','schedule')"><i class="fi fi-rr-calendar"></i><span>일정</span></button>
             <button onclick="showMobileMemberView('${songbookMember}','memo')"><i class="fi fi-rr-edit"></i><span>메모</span></button>
             <button class="is-active" onclick="changeTab('노래책_${songbookMember}')"><i class="fi fi-rr-music-alt"></i><span>노래책</span></button>
         </div>
-    </section>` : '';
+    </section>${mobileNoticeModalHtml()}` : '';
 
     let html = `${mobileProfileNav}<div class="big-white-box relative theme-${getThemeClassForMember(songbookMember)}" style="min-height:900px; padding:${isMobile ? '20px' : '40px'}; width:100%; box-sizing:border-box; align-items:stretch; display:block; --songbook-accent:${theme.color}; --songbook-soft:${theme.soft}; --songbook-border:${theme.border};">
         <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
@@ -9957,14 +9965,7 @@ function renderMobileHome(grouped) {
             </article>`;
     });
     html += `</div>`;
-    html += `
-        <div id="mobileHomeNoticeBox" class="mobile-notice-messenger hidden" onclick="if(event.target===this) closeMobileHomeNotice()">
-            <section>
-                <header><button id="mobileNoticeBackBtn" class="mobile-notice-back hidden" onclick="backToMobileNoticeInbox()" aria-label="목록으로"><i class="fi fi-rr-arrow-left"></i></button><strong id="mobileNoticeTitle">공지</strong><button onclick="closeMobileHomeNotice()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button></header>
-                <div id="mobileHomeNoticeList" class="kakao-chat-bg flex flex-col gap-3 p-4 overflow-y-auto modal-scroll"></div>
-            </section>
-        </div>
-    `;
+    html += mobileNoticeModalHtml();
     content.innerHTML = html;
     content.className = 'shrink-0 transition-all duration-300 w-full max-w-[600px] mx-auto pb-6';
 
@@ -9973,6 +9974,36 @@ function renderMobileHome(grouped) {
     // 아직 한 번도 불러온 적이 없다면 최초 1회 데이터 요청 (날짜 이동 등 재렌더링 시 중복 fetch 방지)
     if (!noticeFetchAttempted) {
         fetchAndRenderAllNotices();
+    }
+}
+
+function mobileNoticeModalHtml() {
+    return `<div id="mobileHomeNoticeBox" class="mobile-notice-messenger hidden" onclick="if(event.target===this) closeMobileHomeNotice()">
+        <section>
+            <header><button id="mobileNoticeBackBtn" class="mobile-notice-back hidden" onclick="backToMobileNoticeInbox()" aria-label="목록으로"><i class="fi fi-rr-arrow-left"></i></button><strong id="mobileNoticeTitle">공지</strong><button onclick="closeMobileHomeNotice()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button></header>
+            <div id="mobileHomeNoticeList" class="kakao-chat-bg flex flex-col gap-3 p-4 overflow-y-auto modal-scroll"></div>
+        </section>
+    </div>`;
+}
+
+async function openMobileMemberNotice(memberName) {
+    const notice = document.getElementById('mobileHomeNoticeBox');
+    if (!notice) return;
+    notice.classList.remove('hidden');
+    notice.classList.add('is-open');
+    const list = document.getElementById('mobileHomeNoticeList');
+    if (!hasCachedNotice) {
+        if (list) list.innerHTML = '<div class="mobile-notice-loading"><span></span><p>공지를 불러오는 중이에요.</p></div>';
+        try {
+            await fetchAndRenderAllNotices();
+        } catch (error) {
+            console.error('공지 불러오기 실패:', error);
+            if (list) list.innerHTML = '<div class="mobile-notice-empty">공지를 불러오지 못했습니다.<br>잠시 후 다시 시도해 주세요.</div>';
+            return;
+        }
+    }
+    if (document.getElementById('mobileHomeNoticeBox') === notice && notice.classList.contains('is-open')) {
+        openMobileNoticeConversation(memberName);
     }
 }
 
@@ -10041,6 +10072,7 @@ function renderMobileIndividual(grouped) {
         <div class="member-instagram-highlights">
             <a href="${soopUrl}" target="_blank" rel="noopener"><span id="memberSoopRing-${currentPage}" class="member-channel-ring member-channel-ring-soop"><img src="${channelImages.soop || ''}" alt="SOOP"></span><b>SOOP</b></a>
             <a href="${youtubeUrl}" target="_blank" rel="noopener"><span id="memberYoutubeRing-${currentPage}" class="member-channel-ring member-channel-ring-youtube"><img src="${channelImages.youtube || ''}" alt="유튜브"></span><b>유튜브</b></a>
+            <button type="button" onclick="openMobileMemberNotice('${currentPage}')" aria-label="${currentPage} 공지"><span class="member-channel-ring member-channel-ring-notice"><img src="${memberNoticeImages[currentPage] || ''}" alt="" loading="lazy"></span><b>공지</b></button>
         </div>
         <div class="member-profile-tabs">
             <button class="${!isMemoView ? 'is-active' : ''}" onclick="showMobileMemberView('${currentPage}','schedule')"><i class="fi fi-rr-calendar"></i><span>일정</span></button>
@@ -10048,7 +10080,7 @@ function renderMobileIndividual(grouped) {
             <button onclick="changeTab('노래책_${currentPage}')"><i class="fi fi-rr-music-alt"></i><span>노래책</span></button>
         </div>
         ${isMemoView ? memoHtml : scheduleBody}
-    </section>`;
+    </section>${mobileNoticeModalHtml()}`;
     content.innerHTML = html;
     content.className = `shrink-0 transition-all duration-300 w-full max-w-[600px] mx-auto pb-6 member-profile-page theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}`;
     refreshMemberChannelRings(currentPage, youtubeUrl);
