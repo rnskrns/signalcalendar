@@ -7672,10 +7672,10 @@ function getGenreCounts() {
 }
 
 const memberNoticeImages = {
-    '달타': 'https://cafeptthumb-phinf.pstatic.net/MjAyNjA2MjJfMjA0/MDAxNzgyMTMwNzMwMDIz.rQNBtg_eFkG4F4hZJ2I8cUCwlZbm59a6NpiCBEFlBUMg.eMVcXdkgLCKlSV9MsMP3I97kQ_3qX5K4gRgT0szjAIIg.PNG/NAIS_1782024519808.png?type=s3',
-    '다룽': 'https://cafeptthumb-phinf.pstatic.net/MjAyNjA4MTFfNDcg/MDAxNzg2NDE2MjMxNDk4.a4rC13RYTgXI1j6b2zKrG-F-cqa4SwNoWY8YIn7Bi9cg.5DdKsd1YeoYYwXBddJJcTJ3J4emQl4fhkYes4Ed2h4sg.JPEG/externalFile.jpg?type=s3',
-    '최또': 'https://cafeptthumb-phinf.pstatic.net/MjAyNjA2MDFfMTQ4/MDAxNzgwMzA0MzQ4MjAz.3MI8-gPN_TiG9aOap1SGkMWDXsCtrADZHFLBV7hUNxIg.jQLBmDaZpjL8HsdBnyNHSqXTJ2cfJ5-YAtllMtFT530g.PNG/%25EB%25B0%25B0%25EB%2584%2588_%25281%2529.png?type=s3',
-    '카나시': 'https://cafeptthumb-phinf.pstatic.net/MjAyNTExMDJfMjE2/MDAxNzYyMDk1MjIwMzIw.Vd7xJnGre6BZuIWz1ioMhxBN-4FC4QiNd_ApL4sIxWkg.iD9YlKXLh9GaYSSaiQcZG02eOeS5_jy8bFYN-GGoVekg.PNG/Warudo_2025-10-25-17-31-13_1920x1080.png?type=s3'
+    '달타': './images/daltafan.png',
+    '다룽': './images/darungfan.jpg',
+    '최또': './images/choiagainfan.png',
+    '카나시': './images/kanashifan.png'
 };
 
 function renderSongbook() {
