@@ -2052,6 +2052,19 @@ function previewPopupImgFile(input) {
     reader.readAsDataURL(file);
 }
 
+function checkPopupImageUrl(url) {
+    return new Promise((resolve) => {
+        let parsed;
+        try { parsed = new URL(url); } catch (_) { resolve(false); return; }
+        if (!['http:', 'https:'].includes(parsed.protocol)) { resolve(false); return; }
+        const image = new Image();
+        const timer = setTimeout(() => { image.src = ''; resolve(false); }, 10000);
+        image.onload = () => { clearTimeout(timer); resolve(true); };
+        image.onerror = () => { clearTimeout(timer); resolve(false); };
+        image.src = url;
+    });
+}
+
 async function savePopupImage() {
     const urlInput = document.getElementById('popupImgUrl');
     const fileInput = document.getElementById('popupImgFile');
@@ -2066,6 +2079,10 @@ async function savePopupImage() {
     if (isUrlMode) {
         imageUrl = urlInput ? urlInput.value.trim() : '';
         if (!imageUrl) return alert('이미지 URL을 입력하세요.');
+        if (statusEl) { statusEl.classList.remove('hidden'); statusEl.textContent = '이미지 링크 확인 중...'; }
+        const imageLoads = await checkPopupImageUrl(imageUrl);
+        if (statusEl) statusEl.classList.add('hidden');
+        if (!imageLoads) return alert('이미지를 불러올 수 없습니다. 이미지 파일의 직접 주소(jpg, png, webp 등)를 입력하고 링크 공개 설정을 확인하세요.');
     } else {
         const file = fileInput ? fileInput.files[0] : null;
         if (!file) return alert('업로드할 파일을 선택하세요.');
@@ -2808,7 +2825,8 @@ async function showUpPopup(today) {
     if (activeImg && activeImg.url) {
         popupImgHtml = `
             <div class="${leftWidthClass} shrink-0 flex items-center justify-center">
-                <img src="${activeImg.url}" alt="공지 이미지" loading="lazy" decoding="async" class="w-full h-auto max-h-[55vh] md:max-h-[65vh] object-contain rounded-2xl shadow-sm border border-gray-100">
+                <img src="${escapeHtml(activeImg.url)}" alt="공지 이미지" loading="eager" decoding="async" class="w-full h-auto max-h-[55vh] md:max-h-[65vh] object-contain rounded-2xl shadow-sm border border-gray-100" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                <p hidden class="text-center text-sm text-gray-500 p-4">공지 이미지를 불러올 수 없습니다. 이미지 링크를 확인해 주세요.</p>
             </div>
         `;
     }
@@ -7525,10 +7543,10 @@ function buildMemberQuickMenuHtml(member, activeMenu = 'schedule') {
             : (isYoutube
                 ? `<img src="${shortcutImages.youtube || ''}" alt="" class="member-quick-profile-image">`
             : (isNotice
-                ? `<span class="member-quick-emoji">${escapeHtml(link.title)}</span>`
+                ? `<img src="${escapeHtml(memberNoticeImages[member] || '')}" alt="" class="member-quick-profile-image">`
                 : (iconClass ? `<i class="fi ${iconClass}"></i>` : '')));
         return `
-            <button type="button" class="member-quick-menu-btn ${(isSoop || isYoutube) ? 'has-profile-image' : ''}" style="--member-accent: ${memberColor};" onclick="openSmartLink('${link.url}')" title="${escapeHtml(link.title)}" aria-label="${escapeHtml(link.title)}">
+            <button type="button" class="member-quick-menu-btn ${(isSoop || isYoutube || isNotice) ? 'has-profile-image' : ''}" style="--member-accent: ${memberColor};" onclick="openSmartLink('${link.url}')" title="${isNotice ? '팬카페' : escapeHtml(link.title)}" aria-label="${isNotice ? '팬카페' : escapeHtml(link.title)}">
                 ${visualHtml}
             </button>
         `;
@@ -7675,7 +7693,7 @@ function renderSongbook() {
         <div class="member-instagram-highlights">
             <a href="${profileSoopUrl}" target="_blank" rel="noopener"><span id="memberSoopRing-${songbookMember}" class="member-channel-ring member-channel-ring-soop"><img src="${profileChannelImages.soop || ''}" alt="SOOP"></span><b>SOOP</b></a>
             <a href="${profileYoutubeUrl}" target="_blank" rel="noopener"><span id="memberYoutubeRing-${songbookMember}" class="member-channel-ring member-channel-ring-youtube"><img src="${profileChannelImages.youtube || ''}" alt="유튜브"></span><b>유튜브</b></a>
-            <button type="button" onclick="openMobileMemberNotice('${songbookMember}')" aria-label="${songbookMember} 공지"><span class="member-channel-ring member-channel-ring-notice"><img src="${memberNoticeImages[songbookMember] || ''}" alt="" loading="lazy"></span><b>공지</b></button>
+            <button type="button" onclick="openMobileMemberNotice('${songbookMember}')" aria-label="${songbookMember} 팬카페"><span class="member-channel-ring member-channel-ring-notice"><img src="${memberNoticeImages[songbookMember] || ''}" alt="" loading="lazy"></span><b>팬카페</b></button>
         </div>
         <div class="member-profile-tabs">
             <button onclick="showMobileMemberView('${songbookMember}','schedule')"><i class="fi fi-rr-calendar"></i><span>일정</span></button>
@@ -9986,25 +10004,12 @@ function mobileNoticeModalHtml() {
     </div>`;
 }
 
-async function openMobileMemberNotice(memberName) {
-    const notice = document.getElementById('mobileHomeNoticeBox');
-    if (!notice) return;
-    notice.classList.remove('hidden');
-    notice.classList.add('is-open');
-    const list = document.getElementById('mobileHomeNoticeList');
-    if (!hasCachedNotice) {
-        if (list) list.innerHTML = '<div class="mobile-notice-loading"><span></span><p>공지를 불러오는 중이에요.</p></div>';
-        try {
-            await fetchAndRenderAllNotices();
-        } catch (error) {
-            console.error('공지 불러오기 실패:', error);
-            if (list) list.innerHTML = '<div class="mobile-notice-empty">공지를 불러오지 못했습니다.<br>잠시 후 다시 시도해 주세요.</div>';
-            return;
-        }
-    }
-    if (document.getElementById('mobileHomeNoticeBox') === notice && notice.classList.contains('is-open')) {
-        openMobileNoticeConversation(memberName);
-    }
+function openMobileMemberNotice(memberName) {
+    // PC 개인일정의 세 번째 바로가기와 동일한 멤버별 카페 공지게시판을 연다.
+    const cafeLink = (dynamicLinks[memberName] || []).find(link =>
+        String(link.url || '').toLowerCase().includes('cafe.naver.com')
+    );
+    if (cafeLink) openSmartLink(cafeLink.url);
 }
 
 function renderMobileIndividual(grouped) {
@@ -10072,7 +10077,7 @@ function renderMobileIndividual(grouped) {
         <div class="member-instagram-highlights">
             <a href="${soopUrl}" target="_blank" rel="noopener"><span id="memberSoopRing-${currentPage}" class="member-channel-ring member-channel-ring-soop"><img src="${channelImages.soop || ''}" alt="SOOP"></span><b>SOOP</b></a>
             <a href="${youtubeUrl}" target="_blank" rel="noopener"><span id="memberYoutubeRing-${currentPage}" class="member-channel-ring member-channel-ring-youtube"><img src="${channelImages.youtube || ''}" alt="유튜브"></span><b>유튜브</b></a>
-            <button type="button" onclick="openMobileMemberNotice('${currentPage}')" aria-label="${currentPage} 공지"><span class="member-channel-ring member-channel-ring-notice"><img src="${memberNoticeImages[currentPage] || ''}" alt="" loading="lazy"></span><b>공지</b></button>
+            <button type="button" onclick="openMobileMemberNotice('${currentPage}')" aria-label="${currentPage} 팬카페"><span class="member-channel-ring member-channel-ring-notice"><img src="${memberNoticeImages[currentPage] || ''}" alt="" loading="lazy"></span><b>팬카페</b></button>
         </div>
         <div class="member-profile-tabs">
             <button class="${!isMemoView ? 'is-active' : ''}" onclick="showMobileMemberView('${currentPage}','schedule')"><i class="fi fi-rr-calendar"></i><span>일정</span></button>
