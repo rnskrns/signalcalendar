@@ -6088,6 +6088,15 @@ let cinetiLoaded = false;
 let cinetiPendingScheduleId = null;
 let cinetiPickerDate = new Date();
 let cinetiViewDate = new Date();
+let cinetiEditingId = null;
+
+function sortCinetiItemsByAirDate() {
+    cinetiItems.sort((a, b) => {
+        const aDateTime = `${a.airDate || '0000-00-00'}T${a.airTime || '00:00'}`;
+        const bDateTime = `${b.airDate || '0000-00-00'}T${b.airTime || '00:00'}`;
+        return bDateTime.localeCompare(aDateTime) || (b.timestamp || 0) - (a.timestamp || 0);
+    });
+}
 
 async function loadCinetiItems(force = false) {
     if (cinetiLoaded && !force) return;
@@ -6095,7 +6104,7 @@ async function loadCinetiItems(force = false) {
         const snap = await getDocs(collection(db, 'cinetiItems'));
         cinetiItems = [];
         snap.forEach(itemDoc => cinetiItems.push({ id: itemDoc.id, ...itemDoc.data() }));
-        cinetiItems.sort((a, b) => String(b.airDate || '').localeCompare(String(a.airDate || '')) || (b.timestamp || 0) - (a.timestamp || 0));
+        sortCinetiItemsByAirDate();
         cinetiLoaded = true;
     } catch (e) {
         console.error('시네티 정보 불러오기 실패:', e);
@@ -6136,9 +6145,9 @@ function renderCinetiPanel() {
         return `
         <article class="cineti-card">
             <div class="cineti-card-image">
-                ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title || '')}" loading="lazy" decoding="async">` : '<div class="cineti-image-empty"><i class="fi fi-rr-picture"></i></div>'}
+                ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title || '')}" loading="lazy" decoding="async" style="object-position:${Number.isFinite(Number(item.imagePositionX)) ? Number(item.imagePositionX) : 50}% ${Number.isFinite(Number(item.imagePositionY)) ? Number(item.imagePositionY) : 50}%">` : '<div class="cineti-image-empty"><i class="fi fi-rr-picture"></i></div>'}
                 <span class="cineti-vod-badge ${airingStatus.className}">${airingStatus.text}</span>
-                ${isAdmin ? `<button type="button" class="cineti-delete-btn" onclick="deleteCinetiItem('${item.id}')" title="삭제"><i class="fi fi-rr-trash"></i></button>` : ''}
+                ${isAdmin ? `<div class="cineti-card-admin-actions"><button type="button" class="cineti-edit-btn" onclick="openCinetiEditModal('${item.id}')" title="수정"><i class="fi fi-rr-edit"></i></button><button type="button" class="cineti-delete-btn" onclick="deleteCinetiItem('${item.id}')" title="삭제"><i class="fi fi-rr-trash"></i></button></div>` : ''}
             </div>
             <div class="cineti-card-body">
                 <div class="cineti-title-row"><h3>${escapeHtml(item.title || '작품명 없음')}</h3><span>${escapeHtml(item.category || '영화')}</span></div>
@@ -6184,6 +6193,7 @@ function resetCinetiViewMonth() {
 
 async function openCinetiAddModal() {
     if (!isAdmin) return;
+    cinetiEditingId = null;
     let modal = document.getElementById('cinetiAddModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -6191,7 +6201,7 @@ async function openCinetiAddModal() {
         modal.className = 'cineti-modal hidden';
         modal.innerHTML = `
             <div class="cineti-modal-dialog" onclick="event.stopPropagation()">
-                <div class="cineti-modal-head"><h2>시네티 정보 등록</h2><button type="button" onclick="closeCinetiAddModal()"><i class="fi fi-rr-cross-small"></i></button></div>
+                <div class="cineti-modal-head"><h2 id="cinetiFormTitle">시네티 정보 등록</h2><button type="button" onclick="closeCinetiAddModal()"><i class="fi fi-rr-cross-small"></i></button></div>
                 <form id="cinetiAddForm" onsubmit="saveCinetiItem(event)">
                     <label>작품명<input id="cinetiTitle" type="text" required placeholder="작품명을 입력하세요"></label>
                     <label>분류<select id="cinetiCategory"><option>영화</option><option>드라마</option><option>애니</option></select></label>
@@ -6202,7 +6212,11 @@ async function openCinetiAddModal() {
                     <label>이미지 파일<input id="cinetiImageFile" type="file" accept="image/*" onchange="previewCinetiImage(this)"></label>
                     <div class="cineti-image-or"><span>또는</span></div>
                     <label>이미지 링크<input id="cinetiImageUrl" type="url" placeholder="https://example.com/image.jpg" oninput="previewCinetiImageUrl(this.value)"></label>
-                    <img id="cinetiImagePreview" class="cineti-form-preview hidden" alt="이미지 미리보기">
+                    <div id="cinetiImageAdjust" class="cineti-image-adjust hidden">
+                        <div class="cineti-preview-frame"><img id="cinetiImagePreview" class="cineti-form-preview" alt="이미지 미리보기"></div>
+                        <label>가로 위치 <span id="cinetiImageXValue">50%</span><input id="cinetiImageX" type="range" min="0" max="100" value="50" oninput="updateCinetiImagePosition()"></label>
+                        <label>세로 위치 <span id="cinetiImageYValue">50%</span><input id="cinetiImageY" type="range" min="0" max="100" value="50" oninput="updateCinetiImagePosition()"></label>
+                    </div>
                     <button id="cinetiSaveBtn" class="cineti-modal-save" type="submit">등록하기</button>
                 </form>
             </div>`;
@@ -6210,13 +6224,44 @@ async function openCinetiAddModal() {
         document.body.appendChild(modal);
     }
     document.getElementById('cinetiAddForm').reset();
-    document.getElementById('cinetiImagePreview').classList.add('hidden');
+    document.getElementById('cinetiImageX').value = '50';
+    document.getElementById('cinetiImageY').value = '50';
+    document.getElementById('cinetiImageAdjust').classList.add('hidden');
+    document.getElementById('cinetiFormTitle').textContent = '시네티 정보 등록';
+    document.getElementById('cinetiSaveBtn').textContent = '등록하기';
+    updateCinetiImagePosition();
     modal.classList.remove('hidden');
+}
+
+async function openCinetiEditModal(id) {
+    if (!isAdmin) return;
+    const item = cinetiItems.find(entry => entry.id === id);
+    if (!item) return;
+    await openCinetiAddModal();
+    cinetiEditingId = id;
+    document.getElementById('cinetiFormTitle').textContent = '시네티 정보 수정';
+    document.getElementById('cinetiSaveBtn').textContent = '수정하기';
+    document.getElementById('cinetiTitle').value = item.title || '';
+    document.getElementById('cinetiCategory').value = item.category || '영화';
+    document.getElementById('cinetiAirDate').value = item.airDate || '';
+    document.getElementById('cinetiAirTime').value = item.airTime || '';
+    document.getElementById('cinetiEndDate').value = item.endDate || '';
+    document.getElementById('cinetiEndTime').value = item.endTime || '';
+    document.getElementById('cinetiImageUrl').value = item.imageUrl || '';
+    document.getElementById('cinetiImageX').value = Number.isFinite(Number(item.imagePositionX)) ? Number(item.imagePositionX) : 50;
+    document.getElementById('cinetiImageY').value = Number.isFinite(Number(item.imagePositionY)) ? Number(item.imagePositionY) : 50;
+    const preview = document.getElementById('cinetiImagePreview');
+    if (item.imageUrl) {
+        preview.src = item.imageUrl;
+        document.getElementById('cinetiImageAdjust').classList.remove('hidden');
+    }
+    updateCinetiImagePosition();
 }
 
 function closeCinetiAddModal() {
     const modal = document.getElementById('cinetiAddModal');
     if (modal) modal.classList.add('hidden');
+    cinetiEditingId = null;
 }
 
 function previewCinetiImage(input) {
@@ -6224,7 +6269,7 @@ function previewCinetiImage(input) {
     const preview = document.getElementById('cinetiImagePreview');
     if (!file || !preview) return;
     const reader = new FileReader();
-    reader.onload = e => { preview.src = e.target.result; preview.classList.remove('hidden'); };
+    reader.onload = e => { preview.src = e.target.result; document.getElementById('cinetiImageAdjust').classList.remove('hidden'); updateCinetiImagePosition(); };
     reader.readAsDataURL(file);
 }
 
@@ -6235,11 +6280,26 @@ function previewCinetiImageUrl(value) {
     const url = String(value || '').trim();
     if (!url) {
         preview.removeAttribute('src');
-        preview.classList.add('hidden');
+        document.getElementById('cinetiImageAdjust').classList.add('hidden');
         return;
     }
     preview.src = url;
-    preview.classList.remove('hidden');
+    document.getElementById('cinetiImageAdjust').classList.remove('hidden');
+    updateCinetiImagePosition();
+}
+
+function updateCinetiImagePosition() {
+    const xInput = document.getElementById('cinetiImageX');
+    const yInput = document.getElementById('cinetiImageY');
+    const preview = document.getElementById('cinetiImagePreview');
+    if (!xInput || !yInput || !preview) return;
+    const x = xInput.value;
+    const y = yInput.value;
+    preview.style.objectPosition = `${x}% ${y}%`;
+    const xValue = document.getElementById('cinetiImageXValue');
+    const yValue = document.getElementById('cinetiImageYValue');
+    if (xValue) xValue.textContent = `${x}%`;
+    if (yValue) yValue.textContent = `${y}%`;
 }
 
 async function saveCinetiItem(event) {
@@ -6251,6 +6311,8 @@ async function saveCinetiItem(event) {
     const airTime = document.getElementById('cinetiAirTime').value;
     const endDate = document.getElementById('cinetiEndDate').value;
     const endTime = document.getElementById('cinetiEndTime').value;
+    const imagePositionX = Number(document.getElementById('cinetiImageX').value || 50);
+    const imagePositionY = Number(document.getElementById('cinetiImageY').value || 50);
     const file = document.getElementById('cinetiImageFile').files[0];
     const imageLink = document.getElementById('cinetiImageUrl').value.trim();
     if (!title || !airDate || (!file && !imageLink)) return alert('작품명, 분류, 방영일, 이미지 파일 또는 이미지 링크를 입력해주세요.');
@@ -6258,21 +6320,29 @@ async function saveCinetiItem(event) {
     if (endDate && endDate < airDate) return alert('종료일은 방영일보다 빠를 수 없습니다.');
     if (endDate && endDate === airDate && airTime && endTime && endTime < airTime) return alert('종료 시간은 방영 시간보다 빠를 수 없습니다.');
     const btn = document.getElementById('cinetiSaveBtn');
-    btn.disabled = true; btn.textContent = '등록 중...';
+    const editingId = cinetiEditingId;
+    btn.disabled = true; btn.textContent = editingId ? '수정 중...' : '등록 중...';
     try {
         const imageUrl = file ? await window.uploadImageToCloudinary(file) : imageLink;
         if (!imageUrl) throw new Error('이미지 업로드 실패');
-        const item = { title, category, airDate, airTime, endDate, endTime, imageUrl, timestamp: Date.now() };
-        const docRef = await addDoc(collection(db, 'cinetiItems'), item);
-        cinetiItems.unshift({ id: docRef.id, ...item });
+        const item = { title, category, airDate, airTime, endDate, endTime, imageUrl, imagePositionX, imagePositionY, timestamp: Date.now() };
+        if (editingId) {
+            await updateDoc(doc(db, 'cinetiItems', editingId), item);
+            const index = cinetiItems.findIndex(entry => entry.id === editingId);
+            if (index !== -1) cinetiItems[index] = { id: editingId, ...item };
+        } else {
+            const docRef = await addDoc(collection(db, 'cinetiItems'), item);
+            cinetiItems.unshift({ id: docRef.id, ...item });
+        }
+        sortCinetiItemsByAirDate();
         cinetiViewDate = new Date(airDate + 'T00:00:00');
         closeCinetiAddModal();
         renderCinetiPanel();
     } catch (e) {
         console.error('시네티 등록 실패:', e);
-        alert('시네티 정보 등록에 실패했습니다.');
+        alert(editingId ? '시네티 정보 수정에 실패했습니다.' : '시네티 정보 등록에 실패했습니다.');
     } finally {
-        btn.disabled = false; btn.textContent = '등록하기';
+        btn.disabled = false; btn.textContent = editingId ? '수정하기' : '등록하기';
     }
 }
 
@@ -6364,7 +6434,7 @@ async function registerCinetiSchedule(dateStr) {
     }
 }
 
-Object.assign(window, { openCinetiAddModal, closeCinetiAddModal, previewCinetiImage, previewCinetiImageUrl, saveCinetiItem, deleteCinetiItem, changeCinetiViewMonth, resetCinetiViewMonth, openCinetiSchedulePicker, closeCinetiSchedulePicker, changeCinetiPickerMonth, registerCinetiSchedule });
+Object.assign(window, { openCinetiAddModal, openCinetiEditModal, closeCinetiAddModal, previewCinetiImage, previewCinetiImageUrl, updateCinetiImagePosition, saveCinetiItem, deleteCinetiItem, changeCinetiViewMonth, resetCinetiViewMonth, openCinetiSchedulePicker, closeCinetiSchedulePicker, changeCinetiPickerMonth, registerCinetiSchedule });
 function toggleArtistPanel() {
     if (sidePanelMode === 'ARTIST') closeSidePanel();
     else openSidePanel('ARTIST');
