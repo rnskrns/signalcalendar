@@ -554,13 +554,17 @@ function positionNotifPanel(btn) {
     const rect = btn.getBoundingClientRect();
     const margin = 8;
     const panelWidth = Math.min(380, window.innerWidth * 0.92);
+    const edge = 8;
 
-    let left = rect.right - panelWidth; // 버튼 오른쪽 끝에 패널 오른쪽 끝을 맞춤
-    left = Math.max(8, Math.min(left, window.innerWidth - panelWidth - 8));
+    // 뷰포트를 기준으로 버튼 아래에 고정해 헤더 너비/스크롤의 영향을 받지 않게 한다.
+    let left = rect.right - panelWidth;
+    left = Math.max(edge, Math.min(left, window.innerWidth - panelWidth - edge));
     const top = rect.bottom + margin;
 
+    panel.style.position = 'fixed';
     panel.style.top = `${top}px`;
     panel.style.left = `${left}px`;
+    panel.style.right = 'auto';
     panel.style.maxHeight = `${Math.max(200, window.innerHeight - top - 16)}px`;
 }
 
@@ -574,9 +578,10 @@ window.toggleNotifPanel = function(event) {
     const isHidden = overlay.classList.contains('hidden');
     if (isHidden) {
         notifPanelAnchorBtn = (event && event.currentTarget) || document.getElementById('notifBellBtn') || document.getElementById('notifBellBtnMobile');
-        positionNotifPanel(notifPanelAnchorBtn);
         renderNotifPanelList();
         overlay.classList.remove('hidden');
+        // 패널을 표시한 다음 실제 레이아웃을 기준으로 좌표를 계산한다.
+        requestAnimationFrame(() => positionNotifPanel(notifPanelAnchorBtn));
         // ⭐ 변경: 예전에는 패널을 열면 자동으로 전부 읽음 처리했지만,
         // 이제 "모두 읽음" 메뉴가 따로 생겨서 자동 처리 없이 사용자가 직접 선택하게 함
     } else {
@@ -6503,6 +6508,10 @@ function resetPanelPositionStyles(panel) {
     panel.style.margin = '';
     panel.style.width = '';
     panel.style.height = '';
+    panel.style.minWidth = '';
+    panel.style.maxWidth = '';
+    panel.style.minHeight = '';
+    panel.style.maxHeight = '';
     panel.style.zIndex = '';
     panel.style.transition = '';
 }
@@ -6531,6 +6540,10 @@ function startPanelDrag(e) {
     panel.style.margin = '0';
     panel.style.width = rect.width + 'px';
     panel.style.height = rect.height + 'px';
+    panel.style.minWidth = rect.width + 'px';
+    panel.style.maxWidth = rect.width + 'px';
+    panel.style.minHeight = rect.height + 'px';
+    panel.style.maxHeight = rect.height + 'px';
     panel.style.zIndex = '4500';
     panel.style.transition = 'none'; 
 
@@ -6538,7 +6551,9 @@ function startPanelDrag(e) {
         startX: e.clientX,
         startY: e.clientY,
         startLeft: rect.left,
-        startTop: rect.top
+        startTop: rect.top,
+        width: rect.width,
+        height: rect.height
     };
 
     document.body.style.userSelect = 'none';
@@ -6550,6 +6565,10 @@ window.startPanelDrag = startPanelDrag;
 function onPanelDragMove(e) {
     if (!panelDragState) return;
     const panel = document.getElementById('sideExpansionPanel');
+
+    // 이동 중 자식 콘텐츠나 뷰포트 레이아웃이 바뀌어도 팝업 크기는 유지한다.
+    panel.style.width = panelDragState.width + 'px';
+    panel.style.height = panelDragState.height + 'px';
 
     let newLeft = panelDragState.startLeft + (e.clientX - panelDragState.startX);
     let newTop = panelDragState.startTop + (e.clientY - panelDragState.startY);
@@ -6570,6 +6589,10 @@ function onPanelDragEnd() {
     const panel = document.getElementById('sideExpansionPanel');
     
     if (panel) {
+        panel.style.minWidth = '';
+        panel.style.maxWidth = '';
+        panel.style.minHeight = '';
+        panel.style.maxHeight = '';
         if (sidePanelMode !== 'CINETI') panel.style.transition = ''; 
         
         // 드래그가 끝나면 iframe 마우스 이벤트 다시 복구
