@@ -6081,6 +6081,271 @@ function toggleCinetiPanel() {
     else openSidePanel('CINETI');
 }
 window.toggleCinetiPanel = toggleCinetiPanel;
+
+// ===== 시네티 작품 정보 =====
+let cinetiItems = [];
+let cinetiLoaded = false;
+let cinetiPendingScheduleId = null;
+let cinetiPickerDate = new Date();
+let cinetiViewDate = new Date();
+
+async function loadCinetiItems(force = false) {
+    if (cinetiLoaded && !force) return;
+    try {
+        const snap = await getDocs(collection(db, 'cinetiItems'));
+        cinetiItems = [];
+        snap.forEach(itemDoc => cinetiItems.push({ id: itemDoc.id, ...itemDoc.data() }));
+        cinetiItems.sort((a, b) => String(b.airDate || '').localeCompare(String(a.airDate || '')) || (b.timestamp || 0) - (a.timestamp || 0));
+        cinetiLoaded = true;
+    } catch (e) {
+        console.error('시네티 정보 불러오기 실패:', e);
+    }
+}
+
+function formatCinetiDate(value) {
+    if (!value) return '-';
+    const date = new Date(value + 'T00:00:00');
+    if (Number.isNaN(date.getTime())) return value;
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekdays[date.getDay()]})`;
+}
+
+function renderCinetiPanel() {
+    const panel = document.getElementById('sideExpansionPanel');
+    if (!panel || sidePanelMode !== 'CINETI') return;
+    const viewYear = cinetiViewDate.getFullYear();
+    const viewMonth = cinetiViewDate.getMonth();
+    const monthStart = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-01`;
+    const monthEnd = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(new Date(viewYear, viewMonth + 1, 0).getDate()).padStart(2, '0')}`;
+    const visibleItems = cinetiItems.filter(item => {
+        const start = item.airDate || item.endDate || '';
+        const end = item.endDate || item.airDate || '';
+        return start && end && start <= monthEnd && end >= monthStart;
+    });
+    const cards = visibleItems.map(item => `
+        <article class="cineti-card">
+            <div class="cineti-card-image">
+                ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title || '')}" loading="lazy" decoding="async">` : '<div class="cineti-image-empty"><i class="fi fi-rr-picture"></i></div>'}
+                <span class="cineti-vod-badge">VOD</span>
+                ${isAdmin ? `<button type="button" class="cineti-delete-btn" onclick="deleteCinetiItem('${item.id}')" title="삭제"><i class="fi fi-rr-trash"></i></button>` : ''}
+            </div>
+            <div class="cineti-card-body">
+                <div class="cineti-title-row"><h3>${escapeHtml(item.title || '작품명 없음')}</h3><span>${escapeHtml(item.category || '영화')}</span></div>
+                <dl class="cineti-dates">
+                    <div><dt>방영일</dt><dd>${formatCinetiDate(item.airDate)}</dd></div>
+                    <div><dt>종료일</dt><dd>${formatCinetiDate(item.endDate)}</dd></div>
+                </dl>
+                <div class="cineti-card-divider"></div>
+                <button type="button" class="cineti-schedule-btn" onclick="openCinetiSchedulePicker('${item.id}')">일정에 추가하기</button>
+            </div>
+        </article>
+    `).join('');
+
+    panel.innerHTML = `
+        <div class="cineti-panel-header lg:cursor-move" onmousedown="startPanelDrag(event)">
+            <div><i class="fi fi-rr-video-camera-alt"></i><strong>시네티</strong></div>
+            <div class="cineti-header-actions">
+                ${isAdmin ? '<button type="button" onclick="openCinetiAddModal()" title="시네티 정보 등록"><i class="fi fi-br-plus"></i></button>' : ''}
+                <button type="button" onclick="closeSidePanel()" title="닫기"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+        </div>
+        <div class="cineti-month-nav">
+            <button type="button" onclick="changeCinetiViewMonth(-1)" aria-label="이전 달"><i class="fi fi-rr-angle-left"></i></button>
+            <button type="button" class="cineti-month-current" onclick="resetCinetiViewMonth()" title="이번 달로 이동"><strong>${viewYear}년 ${viewMonth + 1}월</strong></button>
+            <button type="button" onclick="changeCinetiViewMonth(1)" aria-label="다음 달"><i class="fi fi-rr-angle-right"></i></button>
+        </div>
+        <div class="cineti-panel-content">
+            ${cards || `<div class="cineti-empty"><i class="fi fi-rr-calendar"></i><p>${viewMonth + 1}월에 방영하는 작품이 없습니다.</p></div>`}
+        </div>
+    `;
+}
+
+function changeCinetiViewMonth(offset) {
+    cinetiViewDate = new Date(cinetiViewDate.getFullYear(), cinetiViewDate.getMonth() + offset, 1);
+    renderCinetiPanel();
+}
+
+function resetCinetiViewMonth() {
+    cinetiViewDate = new Date();
+    renderCinetiPanel();
+}
+
+async function openCinetiAddModal() {
+    if (!isAdmin) return;
+    let modal = document.getElementById('cinetiAddModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'cinetiAddModal';
+        modal.className = 'cineti-modal hidden';
+        modal.innerHTML = `
+            <div class="cineti-modal-dialog" onclick="event.stopPropagation()">
+                <div class="cineti-modal-head"><h2>시네티 정보 등록</h2><button type="button" onclick="closeCinetiAddModal()"><i class="fi fi-rr-cross-small"></i></button></div>
+                <form id="cinetiAddForm" onsubmit="saveCinetiItem(event)">
+                    <label>작품명<input id="cinetiTitle" type="text" required placeholder="작품명을 입력하세요"></label>
+                    <label>분류<select id="cinetiCategory"><option>영화</option><option>드라마</option><option>애니</option></select></label>
+                    <div class="cineti-form-row"><label>방영일<input id="cinetiAirDate" type="date" required></label><label>종료일<input id="cinetiEndDate" type="date" required></label></div>
+                    <label>이미지 파일<input id="cinetiImageFile" type="file" accept="image/*" onchange="previewCinetiImage(this)"></label>
+                    <div class="cineti-image-or"><span>또는</span></div>
+                    <label>이미지 링크<input id="cinetiImageUrl" type="url" placeholder="https://example.com/image.jpg" oninput="previewCinetiImageUrl(this.value)"></label>
+                    <img id="cinetiImagePreview" class="cineti-form-preview hidden" alt="이미지 미리보기">
+                    <button id="cinetiSaveBtn" class="cineti-modal-save" type="submit">등록하기</button>
+                </form>
+            </div>`;
+        modal.onclick = closeCinetiAddModal;
+        document.body.appendChild(modal);
+    }
+    document.getElementById('cinetiAddForm').reset();
+    document.getElementById('cinetiImagePreview').classList.add('hidden');
+    modal.classList.remove('hidden');
+}
+
+function closeCinetiAddModal() {
+    const modal = document.getElementById('cinetiAddModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function previewCinetiImage(input) {
+    const file = input.files && input.files[0];
+    const preview = document.getElementById('cinetiImagePreview');
+    if (!file || !preview) return;
+    const reader = new FileReader();
+    reader.onload = e => { preview.src = e.target.result; preview.classList.remove('hidden'); };
+    reader.readAsDataURL(file);
+}
+
+function previewCinetiImageUrl(value) {
+    const preview = document.getElementById('cinetiImagePreview');
+    const fileInput = document.getElementById('cinetiImageFile');
+    if (!preview || (fileInput && fileInput.files && fileInput.files[0])) return;
+    const url = String(value || '').trim();
+    if (!url) {
+        preview.removeAttribute('src');
+        preview.classList.add('hidden');
+        return;
+    }
+    preview.src = url;
+    preview.classList.remove('hidden');
+}
+
+async function saveCinetiItem(event) {
+    event.preventDefault();
+    if (!isAdmin) return;
+    const title = document.getElementById('cinetiTitle').value.trim();
+    const category = document.getElementById('cinetiCategory').value;
+    const airDate = document.getElementById('cinetiAirDate').value;
+    const endDate = document.getElementById('cinetiEndDate').value;
+    const file = document.getElementById('cinetiImageFile').files[0];
+    const imageLink = document.getElementById('cinetiImageUrl').value.trim();
+    if (!title || !airDate || !endDate || (!file && !imageLink)) return alert('작품명, 분류, 방영일, 종료일, 이미지 파일 또는 이미지 링크를 입력해주세요.');
+    if (endDate < airDate) return alert('종료일은 방영일보다 빠를 수 없습니다.');
+    const btn = document.getElementById('cinetiSaveBtn');
+    btn.disabled = true; btn.textContent = '등록 중...';
+    try {
+        const imageUrl = file ? await window.uploadImageToCloudinary(file) : imageLink;
+        if (!imageUrl) throw new Error('이미지 업로드 실패');
+        const item = { title, category, airDate, endDate, imageUrl, timestamp: Date.now() };
+        const docRef = await addDoc(collection(db, 'cinetiItems'), item);
+        cinetiItems.unshift({ id: docRef.id, ...item });
+        cinetiViewDate = new Date(airDate + 'T00:00:00');
+        closeCinetiAddModal();
+        renderCinetiPanel();
+    } catch (e) {
+        console.error('시네티 등록 실패:', e);
+        alert('시네티 정보 등록에 실패했습니다.');
+    } finally {
+        btn.disabled = false; btn.textContent = '등록하기';
+    }
+}
+
+async function deleteCinetiItem(id) {
+    if (!isAdmin || !confirm('이 시네티 정보를 삭제하시겠습니까?')) return;
+    try {
+        await deleteDoc(doc(db, 'cinetiItems', id));
+        cinetiItems = cinetiItems.filter(item => item.id !== id);
+        renderCinetiPanel();
+    } catch (e) {
+        console.error('시네티 삭제 실패:', e);
+        alert('삭제에 실패했습니다.');
+    }
+}
+
+function openCinetiSchedulePicker(id) {
+    const item = cinetiItems.find(entry => entry.id === id);
+    if (!item) return;
+    cinetiPendingScheduleId = id;
+    cinetiPickerDate = item.airDate ? new Date(item.airDate + 'T00:00:00') : new Date();
+    let modal = document.getElementById('cinetiScheduleModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'cinetiScheduleModal';
+        modal.className = 'cineti-modal hidden';
+        modal.innerHTML = `
+            <div class="cineti-modal-dialog cineti-calendar-dialog" onclick="event.stopPropagation()">
+                <div class="cineti-modal-head"><h2>일정 날짜 선택</h2><button type="button" onclick="closeCinetiSchedulePicker()"><i class="fi fi-rr-cross-small"></i></button></div>
+                <p class="cineti-calendar-guide">${escapeHtml(currentPage)} 월간 일정에 등록할 날짜를 선택하세요.</p>
+                <div class="cineti-calendar-nav"><button type="button" onclick="changeCinetiPickerMonth(-1)"><i class="fi fi-rr-angle-left"></i></button><strong id="cinetiPickerTitle"></strong><button type="button" onclick="changeCinetiPickerMonth(1)"><i class="fi fi-rr-angle-right"></i></button></div>
+                <div class="cineti-calendar-week"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+                <div id="cinetiPickerGrid" class="cineti-calendar-grid"></div>
+            </div>`;
+        modal.onclick = closeCinetiSchedulePicker;
+        document.body.appendChild(modal);
+    }
+    modal.querySelector('.cineti-calendar-guide').textContent = `${currentPage} 월간 일정에 등록할 날짜를 선택하세요.`;
+    renderCinetiScheduleCalendar();
+    modal.classList.remove('hidden');
+}
+
+function closeCinetiSchedulePicker() {
+    const modal = document.getElementById('cinetiScheduleModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function changeCinetiPickerMonth(offset) {
+    cinetiPickerDate = new Date(cinetiPickerDate.getFullYear(), cinetiPickerDate.getMonth() + offset, 1);
+    renderCinetiScheduleCalendar();
+}
+
+function renderCinetiScheduleCalendar() {
+    const year = cinetiPickerDate.getFullYear();
+    const month = cinetiPickerDate.getMonth();
+    const title = document.getElementById('cinetiPickerTitle');
+    const grid = document.getElementById('cinetiPickerGrid');
+    if (!title || !grid) return;
+    title.textContent = `${year}년 ${month + 1}월`;
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    let html = '<span></span>'.repeat(firstDay);
+    for (let day = 1; day <= lastDate; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        html += `<button type="button" onclick="registerCinetiSchedule('${dateStr}')">${day}</button>`;
+    }
+    grid.innerHTML = html;
+}
+
+async function registerCinetiSchedule(dateStr) {
+    const item = cinetiItems.find(entry => entry.id === cinetiPendingScheduleId);
+    const colName = collectionMap[currentPage];
+    if (!item || !colName) return alert('멤버 월간 일정 화면에서 등록해주세요.');
+    const newSchedule = {
+        tabOrMember: currentPage, globalType: '뱅온', globalStartTime: '',
+        title: item.title, startDate: dateStr, endDate: dateStr, time: '',
+        broadType: '시네티', memberTag: '', detail: '', imageUrl: item.imageUrl || '',
+        cinetiId: item.id, timestamp: Date.now()
+    };
+    try {
+        const docRef = await addDoc(collection(db, colName), newSchedule);
+        scheduleList.push({ id: docRef.id, collectionName: colName, ...newSchedule });
+        saveScheduleCache();
+        closeCinetiSchedulePicker();
+        render();
+        alert(`${dateStr} 일정에 등록했습니다.`);
+    } catch (e) {
+        console.error('시네티 일정 등록 실패:', e);
+        alert('일정 등록에 실패했습니다.');
+    }
+}
+
+Object.assign(window, { openCinetiAddModal, closeCinetiAddModal, previewCinetiImage, previewCinetiImageUrl, saveCinetiItem, deleteCinetiItem, changeCinetiViewMonth, resetCinetiViewMonth, openCinetiSchedulePicker, closeCinetiSchedulePicker, changeCinetiPickerMonth, registerCinetiSchedule });
 function toggleArtistPanel() {
     if (sidePanelMode === 'ARTIST') closeSidePanel();
     else openSidePanel('ARTIST');
@@ -6376,30 +6641,8 @@ function openSidePanel(mode) {
     } else if (mode === 'ARTIST') {
         renderArtistSidePanel();
     } else if (mode === 'CINETI') {
-        panel.innerHTML = `
-            <!-- 상하좌우, 대각선 크기 조절 핸들 (투명) -->
-            <div class="hidden lg:block absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-30" onmousedown="startPanelResize(event, 'n')"></div>
-            <div class="hidden lg:block absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize z-30" onmousedown="startPanelResize(event, 's')"></div>
-            <div class="hidden lg:block absolute top-0 bottom-0 left-0 w-2 cursor-ew-resize z-30" onmousedown="startPanelResize(event, 'w')"></div>
-            <div class="hidden lg:block absolute top-0 bottom-0 right-0 w-2 cursor-ew-resize z-30" onmousedown="startPanelResize(event, 'e')"></div>
-            <div class="hidden lg:block absolute top-0 left-0 w-3 h-3 cursor-nwse-resize z-40" onmousedown="startPanelResize(event, 'nw')"></div>
-            <div class="hidden lg:block absolute top-0 right-0 w-3 h-3 cursor-nesw-resize z-40" onmousedown="startPanelResize(event, 'ne')"></div>
-            <div class="hidden lg:block absolute bottom-0 left-0 w-3 h-3 cursor-nesw-resize z-40" onmousedown="startPanelResize(event, 'sw')"></div>
-            <div class="hidden lg:block absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-40 flex items-center justify-center text-[#5D4037]/50 hover:text-[#5D4037] transition" onmousedown="startPanelResize(event, 'se')">
-                <i class="fi fi-rr-arrow-small-down text-[14px]" style="transform: rotate(-45deg);"></i>
-            </div>
-
-            <!-- 세로로 긴 팝업에 어울리도록 폰트 사이즈 조정 -->
-            <div class="p-3 bg-white/15 backdrop-blur-lg flex justify-between items-center shadow-sm z-10 shrink-0 lg:cursor-move" onmousedown="startPanelDrag(event)">
-                <div class="text-[18px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2 pointer-events-none ml-2">
-                    <i class="fi fi-rr-video-camera-alt"></i> 시네티
-                </div>
-                <button onclick="closeSidePanel()" class="text-2xl text-[#5D4037] hover:text-red-500 cursor-pointer z-50 mr-1"><i class="fi fi-rr-cross-small"></i></button>
-            </div>
-            <div class="flex-1 w-full bg-white overflow-hidden relative">
-                <iframe src="https://cineti-mu.vercel.app/" title="시네티" class="w-full h-full border-0" allow="clipboard-write; fullscreen"></iframe>
-            </div>
-        `;
+        panel.innerHTML = '<div class="cineti-loading"><span></span><p>시네티 정보를 불러오는 중...</p></div>';
+        loadCinetiItems().then(renderCinetiPanel);
     }
 
     requestAnimationFrame(() => {
