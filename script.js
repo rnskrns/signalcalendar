@@ -6102,19 +6102,20 @@ async function loadCinetiItems(force = false) {
     }
 }
 
-function formatCinetiDate(value) {
+function formatCinetiDate(value, timeValue = '') {
     if (!value) return '-';
     const date = new Date(value + 'T00:00:00');
     if (Number.isNaN(date.getTime())) return value;
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-    return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekdays[date.getDay()]})`;
+    return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekdays[date.getDay()]})${timeValue ? ` ${timeValue}` : ''}`;
 }
 
 function getCinetiAiringStatus(item) {
     const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    if (item.endDate && item.endDate < today) return { text: '방영종료', className: 'is-ended' };
-    if ((!item.airDate || item.airDate <= today) && (!item.endDate || item.endDate >= today)) return { text: '방영중', className: 'is-airing' };
+    const startAt = item.airDate ? new Date(`${item.airDate}T${item.airTime || '00:00'}:00`) : null;
+    const endAt = item.endDate ? new Date(`${item.endDate}T${item.endTime || '23:59'}:59`) : null;
+    if (endAt && endAt < now) return { text: '방영종료', className: 'is-ended' };
+    if ((!startAt || startAt <= now) && (!endAt || endAt >= now)) return { text: '방영중', className: 'is-airing' };
     return { text: '방영예정', className: 'is-upcoming' };
 }
 
@@ -6127,7 +6128,7 @@ function renderCinetiPanel() {
     const monthEnd = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(new Date(viewYear, viewMonth + 1, 0).getDate()).padStart(2, '0')}`;
     const visibleItems = cinetiItems.filter(item => {
         const start = item.airDate || item.endDate || '';
-        const end = item.endDate || item.airDate || '';
+        const end = item.endDate || '9999-12-31';
         return start && end && start <= monthEnd && end >= monthStart;
     });
     const cards = visibleItems.map(item => {
@@ -6142,8 +6143,8 @@ function renderCinetiPanel() {
             <div class="cineti-card-body">
                 <div class="cineti-title-row"><h3>${escapeHtml(item.title || '작품명 없음')}</h3><span>${escapeHtml(item.category || '영화')}</span></div>
                 <dl class="cineti-dates">
-                    <div><dt>방영일</dt><dd>${formatCinetiDate(item.airDate)}</dd></div>
-                    <div><dt>종료일</dt><dd>${formatCinetiDate(item.endDate)}</dd></div>
+                    <div><dt>방영일</dt><dd>${formatCinetiDate(item.airDate, item.airTime)}</dd></div>
+                    <div><dt>종료일</dt><dd>${formatCinetiDate(item.endDate, item.endTime)}</dd></div>
                 </dl>
                 <div class="cineti-card-divider"></div>
                 <button type="button" class="cineti-schedule-btn" onclick="openCinetiSchedulePicker('${item.id}')">일정에 추가하기</button>
@@ -6194,7 +6195,10 @@ async function openCinetiAddModal() {
                 <form id="cinetiAddForm" onsubmit="saveCinetiItem(event)">
                     <label>작품명<input id="cinetiTitle" type="text" required placeholder="작품명을 입력하세요"></label>
                     <label>분류<select id="cinetiCategory"><option>영화</option><option>드라마</option><option>애니</option></select></label>
-                    <div class="cineti-form-row"><label>방영일<input id="cinetiAirDate" type="date" required></label><label>종료일<input id="cinetiEndDate" type="date" required></label></div>
+                    <div class="cineti-form-row">
+                        <div class="cineti-date-time-field"><label>방영일<input id="cinetiAirDate" type="date" required></label><label>시간 (선택)<input id="cinetiAirTime" type="time"></label></div>
+                        <div class="cineti-date-time-field"><label>종료일 (선택)<input id="cinetiEndDate" type="date"></label><label>시간 (선택)<input id="cinetiEndTime" type="time"></label></div>
+                    </div>
                     <label>이미지 파일<input id="cinetiImageFile" type="file" accept="image/*" onchange="previewCinetiImage(this)"></label>
                     <div class="cineti-image-or"><span>또는</span></div>
                     <label>이미지 링크<input id="cinetiImageUrl" type="url" placeholder="https://example.com/image.jpg" oninput="previewCinetiImageUrl(this.value)"></label>
@@ -6244,17 +6248,21 @@ async function saveCinetiItem(event) {
     const title = document.getElementById('cinetiTitle').value.trim();
     const category = document.getElementById('cinetiCategory').value;
     const airDate = document.getElementById('cinetiAirDate').value;
+    const airTime = document.getElementById('cinetiAirTime').value;
     const endDate = document.getElementById('cinetiEndDate').value;
+    const endTime = document.getElementById('cinetiEndTime').value;
     const file = document.getElementById('cinetiImageFile').files[0];
     const imageLink = document.getElementById('cinetiImageUrl').value.trim();
-    if (!title || !airDate || !endDate || (!file && !imageLink)) return alert('작품명, 분류, 방영일, 종료일, 이미지 파일 또는 이미지 링크를 입력해주세요.');
-    if (endDate < airDate) return alert('종료일은 방영일보다 빠를 수 없습니다.');
+    if (!title || !airDate || (!file && !imageLink)) return alert('작품명, 분류, 방영일, 이미지 파일 또는 이미지 링크를 입력해주세요.');
+    if (endTime && !endDate) return alert('종료 시간을 입력하려면 종료일도 선택해주세요.');
+    if (endDate && endDate < airDate) return alert('종료일은 방영일보다 빠를 수 없습니다.');
+    if (endDate && endDate === airDate && airTime && endTime && endTime < airTime) return alert('종료 시간은 방영 시간보다 빠를 수 없습니다.');
     const btn = document.getElementById('cinetiSaveBtn');
     btn.disabled = true; btn.textContent = '등록 중...';
     try {
         const imageUrl = file ? await window.uploadImageToCloudinary(file) : imageLink;
         if (!imageUrl) throw new Error('이미지 업로드 실패');
-        const item = { title, category, airDate, endDate, imageUrl, timestamp: Date.now() };
+        const item = { title, category, airDate, airTime, endDate, endTime, imageUrl, timestamp: Date.now() };
         const docRef = await addDoc(collection(db, 'cinetiItems'), item);
         cinetiItems.unshift({ id: docRef.id, ...item });
         cinetiViewDate = new Date(airDate + 'T00:00:00');
@@ -6338,8 +6346,8 @@ async function registerCinetiSchedule(dateStr) {
     const colName = collectionMap[currentPage];
     if (!item || !colName) return alert('멤버 월간 일정 화면에서 등록해주세요.');
     const newSchedule = {
-        tabOrMember: currentPage, globalType: '뱅온', globalStartTime: '',
-        title: item.title, startDate: dateStr, endDate: dateStr, time: '',
+        tabOrMember: currentPage, globalType: '뱅온', globalStartTime: item.airTime || '',
+        title: item.title, startDate: dateStr, endDate: dateStr, time: item.airTime || '',
         broadType: '시네티', memberTag: '', detail: '', imageUrl: item.imageUrl || '',
         cinetiId: item.id, timestamp: Date.now()
     };
