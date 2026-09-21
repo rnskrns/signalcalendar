@@ -6110,6 +6110,14 @@ function formatCinetiDate(value) {
     return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekdays[date.getDay()]})`;
 }
 
+function getCinetiAiringStatus(item) {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (item.endDate && item.endDate < today) return { text: '방영종료', className: 'is-ended' };
+    if ((!item.airDate || item.airDate <= today) && (!item.endDate || item.endDate >= today)) return { text: '방영중', className: 'is-airing' };
+    return { text: '방영예정', className: 'is-upcoming' };
+}
+
 function renderCinetiPanel() {
     const panel = document.getElementById('sideExpansionPanel');
     if (!panel || sidePanelMode !== 'CINETI') return;
@@ -6122,11 +6130,13 @@ function renderCinetiPanel() {
         const end = item.endDate || item.airDate || '';
         return start && end && start <= monthEnd && end >= monthStart;
     });
-    const cards = visibleItems.map(item => `
+    const cards = visibleItems.map(item => {
+        const airingStatus = getCinetiAiringStatus(item);
+        return `
         <article class="cineti-card">
             <div class="cineti-card-image">
                 ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title || '')}" loading="lazy" decoding="async">` : '<div class="cineti-image-empty"><i class="fi fi-rr-picture"></i></div>'}
-                <span class="cineti-vod-badge">VOD</span>
+                <span class="cineti-vod-badge ${airingStatus.className}">${airingStatus.text}</span>
                 ${isAdmin ? `<button type="button" class="cineti-delete-btn" onclick="deleteCinetiItem('${item.id}')" title="삭제"><i class="fi fi-rr-trash"></i></button>` : ''}
             </div>
             <div class="cineti-card-body">
@@ -6139,7 +6149,8 @@ function renderCinetiPanel() {
                 <button type="button" class="cineti-schedule-btn" onclick="openCinetiSchedulePicker('${item.id}')">일정에 추가하기</button>
             </div>
         </article>
-    `).join('');
+    `;
+    }).join('');
 
     panel.innerHTML = `
         <div class="cineti-panel-header lg:cursor-move" onmousedown="startPanelDrag(event)">
