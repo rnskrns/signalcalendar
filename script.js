@@ -203,6 +203,7 @@ function restoreSoopSession() {
         currentUser = user;
         isSoopSession = true;
         soopSessionViaGoogleLink = viaGoogleLink;
+        setAdminUserFromSoop(user);
         refreshAuthUI();
         loadAndMergeSoopLikes(user.uid); // 노래책 좋아요 계정 데이터 비동기 로드
         flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
@@ -259,6 +260,9 @@ window.addEventListener('message', (event) => {
             displayName: user.nick,      // SOOP 닉네임
             photoURL: user.imgUrl        // SOOP 프로필 이미지
         };
+
+        // 등록된 SOOP 아이디라면 기존 이메일 관리자와 동일하게 관리자 권한을 부여
+        setAdminUserFromSoop(currentUser);
 
         // ⭐ 신규: 새로고침해도 로그인이 풀리지 않도록 세션 저장
         isSoopSession = true;
@@ -1581,6 +1585,30 @@ const ADMIN_ACCOUNTS = Object.freeze({
     'rnskrns@gmail.com': 'rnskrns',
     'jkolpc@gmail.com': 'jkolpc'
 });
+
+// 기존 이메일 관리자 로그인과 별개로, SOOP 확장프로그램 로그인 시 대조할 관리자 아이디
+const ADMIN_SOOP_ACCOUNTS = Object.freeze({
+    'kjhh0029': '카나시',
+    'dalta20': '달타',
+    'choiagain': '최또',
+    'daarung22': '다룽',
+    'jkolpc': '관리자'
+});
+
+function setAdminUserFromSoop(user) {
+    const soopId = String(user?.uid || '').trim().toLowerCase();
+    const name = ADMIN_SOOP_ACCOUNTS[soopId];
+    isAdmin = !!name;
+    loggedInUser = name ? {
+        uid: soopId,
+        id: soopId,
+        email: '',
+        name,
+        img: user?.photoURL || user?.imgUrl || members.find(m => m.name === name)?.img || ''
+    } : null;
+    refreshAuthUI();
+    return isAdmin;
+}
 
 function adminEmail(input) {
     const value = input.trim().toLowerCase();
