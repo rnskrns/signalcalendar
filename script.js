@@ -6094,7 +6094,7 @@ function sortCinetiItemsByAirDate() {
     cinetiItems.sort((a, b) => {
         const aDateTime = `${a.airDate || '0000-00-00'}T${a.airTime || '00:00'}`;
         const bDateTime = `${b.airDate || '0000-00-00'}T${b.airTime || '00:00'}`;
-        return bDateTime.localeCompare(aDateTime) || (b.timestamp || 0) - (a.timestamp || 0);
+        return aDateTime.localeCompare(bDateTime) || (a.timestamp || 0) - (b.timestamp || 0);
     });
 }
 
@@ -6139,6 +6139,10 @@ function renderCinetiPanel() {
         const start = item.airDate || item.endDate || '';
         const end = item.endDate || '9999-12-31';
         return start && end && start <= monthEnd && end >= monthStart;
+    }).sort((a, b) => {
+        const aTime = new Date(`${a.airDate || '0000-01-01'}T${a.airTime || '00:00'}:00`).getTime();
+        const bTime = new Date(`${b.airDate || '0000-01-01'}T${b.airTime || '00:00'}:00`).getTime();
+        return aTime - bTime || (a.timestamp || 0) - (b.timestamp || 0);
     });
     const cards = visibleItems.map(item => {
         const airingStatus = getCinetiAiringStatus(item);
