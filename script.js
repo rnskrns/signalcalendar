@@ -6087,8 +6087,8 @@ let cinetiItems = [];
 let cinetiLoaded = false;
 let cinetiPendingScheduleId = null;
 let cinetiPickerDate = new Date();
-let cinetiViewDate = new Date();
 let cinetiEditingId = null;
+let cinetiStatusFilter = 'active';
 
 function sortCinetiItemsByAirDate() {
     cinetiItems.sort((a, b) => {
@@ -6131,14 +6131,9 @@ function getCinetiAiringStatus(item) {
 function renderCinetiPanel() {
     const panel = document.getElementById('sideExpansionPanel');
     if (!panel || sidePanelMode !== 'CINETI') return;
-    const viewYear = cinetiViewDate.getFullYear();
-    const viewMonth = cinetiViewDate.getMonth();
-    const monthStart = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-01`;
-    const monthEnd = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(new Date(viewYear, viewMonth + 1, 0).getDate()).padStart(2, '0')}`;
     const visibleItems = cinetiItems.filter(item => {
-        const start = item.airDate || item.endDate || '';
-        const end = item.endDate || '9999-12-31';
-        return start && end && start <= monthEnd && end >= monthStart;
+        const status = getCinetiAiringStatus(item).className;
+        return cinetiStatusFilter === 'ended' ? status === 'is-ended' : status !== 'is-ended';
     }).sort((a, b) => {
         const aTime = new Date(`${a.airDate || '0000-01-01'}T${a.airTime || '00:00'}:00`).getTime();
         const bTime = new Date(`${b.airDate || '0000-01-01'}T${b.airTime || '00:00'}:00`).getTime();
@@ -6174,24 +6169,18 @@ function renderCinetiPanel() {
                 <button type="button" onclick="closeSidePanel()" title="닫기"><i class="fi fi-rr-cross-small"></i></button>
             </div>
         </div>
-        <div class="cineti-month-nav">
-            <button type="button" onclick="changeCinetiViewMonth(-1)" aria-label="이전 달"><i class="fi fi-rr-angle-left"></i></button>
-            <button type="button" class="cineti-month-current" onclick="resetCinetiViewMonth()" title="이번 달로 이동"><strong>${viewYear}년 ${viewMonth + 1}월</strong></button>
-            <button type="button" onclick="changeCinetiViewMonth(1)" aria-label="다음 달"><i class="fi fi-rr-angle-right"></i></button>
+        <div class="cineti-status-nav">
+            <strong>${cinetiStatusFilter === 'ended' ? '방영종료' : '방영중 · 방영예정'}</strong>
+            <button type="button" onclick="setCinetiStatusFilter('${cinetiStatusFilter === 'ended' ? 'active' : 'ended'}')">${cinetiStatusFilter === 'ended' ? '방영중 · 예정 보기' : '방영종료'}</button>
         </div>
         <div class="cineti-panel-content">
-            ${cards || `<div class="cineti-empty"><i class="fi fi-rr-calendar"></i><p>${viewMonth + 1}월에 방영하는 작품이 없습니다.</p></div>`}
+            ${cards || `<div class="cineti-empty"><i class="fi fi-rr-video-camera-alt"></i><p>${cinetiStatusFilter === 'ended' ? '방영이 종료된 작품이 없습니다.' : '방영중이거나 방영 예정인 작품이 없습니다.'}</p></div>`}
         </div>
     `;
 }
 
-function changeCinetiViewMonth(offset) {
-    cinetiViewDate = new Date(cinetiViewDate.getFullYear(), cinetiViewDate.getMonth() + offset, 1);
-    renderCinetiPanel();
-}
-
-function resetCinetiViewMonth() {
-    cinetiViewDate = new Date();
+function setCinetiStatusFilter(filter) {
+    cinetiStatusFilter = filter === 'ended' ? 'ended' : 'active';
     renderCinetiPanel();
 }
 
@@ -6339,7 +6328,6 @@ async function saveCinetiItem(event) {
             cinetiItems.unshift({ id: docRef.id, ...item });
         }
         sortCinetiItemsByAirDate();
-        cinetiViewDate = new Date(airDate + 'T00:00:00');
         closeCinetiAddModal();
         renderCinetiPanel();
     } catch (e) {
@@ -6438,7 +6426,7 @@ async function registerCinetiSchedule(dateStr) {
     }
 }
 
-Object.assign(window, { openCinetiAddModal, openCinetiEditModal, closeCinetiAddModal, previewCinetiImage, previewCinetiImageUrl, updateCinetiImagePosition, saveCinetiItem, deleteCinetiItem, changeCinetiViewMonth, resetCinetiViewMonth, openCinetiSchedulePicker, closeCinetiSchedulePicker, changeCinetiPickerMonth, registerCinetiSchedule });
+Object.assign(window, { openCinetiAddModal, openCinetiEditModal, closeCinetiAddModal, previewCinetiImage, previewCinetiImageUrl, updateCinetiImagePosition, saveCinetiItem, deleteCinetiItem, setCinetiStatusFilter, openCinetiSchedulePicker, closeCinetiSchedulePicker, changeCinetiPickerMonth, registerCinetiSchedule });
 function toggleArtistPanel() {
     if (sidePanelMode === 'ARTIST') closeSidePanel();
     else openSidePanel('ARTIST');
