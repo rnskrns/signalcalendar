@@ -43,25 +43,17 @@ html.dark-mode .cineti-panel-header,html.dark-mode .cineti-card,html.dark-mode .
     font-display: swap;
 }
 
-@font-face {
-    font-family: 'SchoolSafeTwist';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2402_keris@1.0/TTHakgyoansimKkwabaegiR.woff2') format('woff2');
-    font-weight: normal;
-    font-display: swap;
-}
-
-@font-face { font-family: 'DnfBitbeatV2'; src: url('//cdn.df.nexon.com/img/common/font/DNFBitBitv2.otf') format('opentype'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'PyeongchangPeace'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2206-02@1.0/PyeongChangPeace-Light.woff2') format('woff2'); font-weight: 300; font-display: swap; }
 @font-face { font-family: 'Sweet'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
 
 .font-paperozi { font-family: 'Paperozi', sans-serif !important; }
 .font-kkukkkuk { font-family: 'OmuDaye', sans-serif !important; }
-.font-schoolsafe { font-family: 'SchoolSafeTwist', sans-serif !important; }
 
 #pwInput { font-family: monospace !important; -webkit-text-security: disc; text-security: disc; }
 .modal-content, #passwordModal, #logoutModal { font-family: 'Sweet', sans-serif !important; }
 
 body { font-family: 'Paperozi', sans-serif; background-color: var(--bg-cream); transition: background-color 0.3s ease; color: var(--text-dark); padding: 44px 0; overflow-x: auto; }
+.dynamic-member-hover:hover { color: var(--dynamic-hover-color) !important; }
+.dynamic-member-button:hover { color: var(--dynamic-hover-color) !important; border-color: var(--dynamic-hover-color) !important; }
 .pretendard { font-family: 'Pretendard', sans-serif; }
 
 .planner-container { display: flex; align-items: flex-start; justify-content: center; }

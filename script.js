@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebas
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, updatePassword } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 import { getDatabase, ref, set, get, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+import { loadScript } from "./modules/vendor-loader.js";
 
 // =========================================================================
 // SOOP 확장프로그램 로그인 연동
@@ -764,20 +765,6 @@ function setAppIcon() {
 setAppIcon();
 
 // =========================================================================
-// 동적 스크립트 로딩 (Lazy Load)
-// =========================================================================
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${src}"]`)) return resolve();
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
-
-// =========================================================================
 // 전역 함수 바인딩
 // =========================================================================
 window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; window.checkPassword = checkPassword; window.logoutAdmin = logoutAdmin;
@@ -1413,14 +1400,14 @@ const collectionMap = { '달타': 'daltaevent', '다룽': 'drungevent', '최또'
 const memoCollectionMap = { '달타': 'daltamemo', '다룽': 'drungmemo', '최또': 'choiagainmemo', '카나시': 'kanashimemo' };
 
 const members = [
-    { name: '달타', img: './images/profile1.png', link: '' },
+    { name: '달타', img: './images/profile1.webp', link: '' },
     { name: '다룽', img: './images/profile2.webp', link: '' },
     { name: '최또', img: './images/profile3.webp', link: '' },
-    { name: '카나시', img: './images/profile4.png', link: '' }
+    { name: '카나시', img: './images/profile4.webp', link: '' }
 ];
 
 const memberCardImages = {
-    '달타': { bangon: './images/on1.webp', hubang: './images/off1.png' },
+    '달타': { bangon: './images/on1.webp', hubang: './images/off1.webp' },
     '다룽': { bangon: './images/on2.webp', hubang: './images/off2.webp' },
     '최또': { bangon: './images/on3.webp', hubang: './images/off3.webp' },
     '카나시': { bangon: './images/on4.webp', hubang: './images/off4.webp' }
@@ -2998,33 +2985,33 @@ function renderHeaderTabs() {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
                 clickAction = `onclick="toggleDesktopExtraMenu(event)"`; 
                 mainLinkHtml = `
-                    <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">클립 모아보기</a>
-                    <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">롤링페이퍼</a>
-                    <a href="#" onclick="executeDesktopTabChange('업보정리'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">업보정리</a>
-                    <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">사다리타기</a>
-                    <a href="#" onclick="executeDesktopTabChange('파트분배기'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center">파트분배기</a>
+                    <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">클립 모아보기</a>
+                    <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">롤링페이퍼</a>
+                    <a href="#" onclick="executeDesktopTabChange('업보정리'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">업보정리</a>
+                    <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">사다리타기</a>
+                    <a href="#" onclick="executeDesktopTabChange('파트분배기'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center" style="--dynamic-hover-color:${hoverColor}">파트분배기</a>
                 `;
             } else if (tab === '시그널') {
                 clickAction = `onclick="executeDesktopTabChange('시그널')"`;
             } else {
                 const links = dynamicLinks[tab] || [];
-                mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors border-b border-gray-100 text-center">일정표</a>`;
-                const songbookHtml = `<a href="#" onclick="executeDesktopTabChange('노래책_${tab}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">노래책</a>`;
+                mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors border-b border-gray-100 text-center" style="--dynamic-hover-color:${hoverColor}">일정표</a>`;
+                const songbookHtml = `<a href="#" onclick="executeDesktopTabChange('노래책_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">노래책</a>`;
                 dropdownHtml = songbookHtml + links.map(link => `
-                    <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 hover:text-[${hoverColor}] transition-colors text-center border-b border-gray-100">${link.title}</a>
+                    <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">${link.title}</a>
                 `).join('');
             }
             
             if (tab === '시그널' || ['달타', '다룽', '최또', '카나시'].includes(tab)) {
                 html += `
                     <div class="relative flex items-center">
-                        <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
+                        <button class="dynamic-member-button font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg transition-all duration-200 flex items-center justify-center" style="--dynamic-hover-color:${hoverColor}" ${clickAction}>${btnContent}</button>
                     </div>
                 `;
             } else {
                 html += `
                     <div id="desktopExtraMenuWrap" class="relative group flex items-center">
-                        <button class="font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[${hoverColor}] hover:text-[${hoverColor}] transition-all duration-200 flex items-center justify-center" ${clickAction}>${btnContent}</button>
+                        <button class="dynamic-member-button font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg transition-all duration-200 flex items-center justify-center" style="--dynamic-hover-color:${hoverColor}" ${clickAction}>${btnContent}</button>
                         <div id="desktopExtraMenu" class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
                             <div class="bg-white flex flex-col shadow-xl rounded-2xl border border-[#ECEDFA] overflow-hidden py-1" style="box-shadow: 0 20px 45px -20px rgba(70,60,160,0.22);">
                                 ${mainLinkHtml}${dropdownHtml}
@@ -6952,10 +6939,6 @@ function parseSoopPostUrl(url) {
     };
 }
 
-function isSoopPostUrl(url) {
-    return !!parseSoopPostUrl(url);
-}
-
 // 게시글의 모든 댓글 페이지를 순회하며 수집
 // (기존에는 브라우저에서 SOOP API를 직접 호출하고, CORS로 막히면 공용 프록시(allorigins)로
 //  재시도하는 방식이었음. 이제는 참고 저장소(upranking)와 동일하게, 우리 서버의 /api/comment
@@ -7157,25 +7140,6 @@ function buildNormalUpCardHtml(up) {
             </div>
         </div>
     `;
-}
-
-// (남겨둠: 혹시 다른 곳에서 "완성된 HTML 문자열 통째로" 필요할 때를 위한 기존 방식)
-async function buildUpLinksCardsHtml(preSorted = null) {
-    const sorted = preSorted || [...getVisibleUpLinks()].sort(sortUpLinksComparator);
-    if (sorted.length === 0) return `<div class="h-full min-h-[240px] flex items-center justify-center text-center text-gray-400 font-bold text-lg">등록된 UP 링크가 없습니다.</div>`;
-
-    const items = buildUpLinkRenderItems(sorted);
-    const cards = await Promise.all(items.map(async item => {
-        if (item.type === 'normal') return buildNormalUpCardHtml(item.up);
-        try {
-            const data = await buildSoopGroupData(item);
-            return buildSoopGroupCardHtml(item, data);
-        } catch(e) {
-            console.error('게시글 댓글 순위 로드 실패:', e);
-            return buildSoopGroupErrorCardHtml(item);
-        }
-    }));
-    return cards.join('');
 }
 
 // 카드를 전부 다 불러올 때까지 기다렸다가 한번에 뿌리는 대신,
@@ -7995,10 +7959,6 @@ function saveLikedSongIds(set, member = songbookMember) {
     localStorage.setItem(localKey, JSON.stringify(Array.from(set)));
 }
 
-function isSongLiked(id) {
-    return getLikedSongIds().has(id);
-}
-
 function getFilteredSongs() {
     const q = (document.getElementById('songSearchInput')?.value || '').trim().toLowerCase().replace(/\s+/g, '');
     
@@ -8047,10 +8007,10 @@ function getGenreCounts() {
 }
 
 const memberNoticeImages = {
-    '달타': './images/daltafan.png',
+    '달타': './images/daltafan.webp',
     '다룽': './images/darungfan.jpg',
-    '최또': './images/choiagainfan.png',
-    '카나시': './images/kanashifan.png'
+    '최또': './images/choiagainfan.webp',
+    '카나시': './images/kanashifan.webp'
 };
 
 function renderSongbook() {
@@ -11389,9 +11349,11 @@ async function initApp() {
     // === 필수 데이터 우선 로딩 (렌더링 최우선) ===
     if (currentPage === '홈') {
         // 홈은 모든 멤버의 일정이 필요하므로 전체를 불러온다.
-        await loadSchedulesFromFirebase();
-        await loadHomeSettingsFromFirebase(); // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
-        await loadDdaysFromFirebase(); // 홈 탭 입장 시 디데이 목록도 함께 가져옴
+        await Promise.all([
+            loadSchedulesFromFirebase(),
+            loadHomeSettingsFromFirebase(), // 홈 탭 입장 시 유튜브 박스 설정을 즉시 가져옴
+            loadDdaysFromFirebase() // 홈 탭 입장 시 디데이 목록도 함께 가져옴
+        ]);
     } else if (['달타', '다룽', '최또', '카나시'].includes(currentPage)) {
         // 개인 캘린더 탭은 해당 멤버의 일정/메모 컬렉션만 불러온다.
         await loadSchedulesFromFirebase({ member: currentPage });
@@ -12306,10 +12268,6 @@ function parseLinesToRecords(lines) {
     return records;
 }
 
-function applyUpboMappingToLines(lines, rules) {
-    return applyUpboMappingToRecords(parseLinesToRecords(lines), rules);
-}
-
 function finishUpboFileProcessing(addedCount) {
     if (addedCount > 0) {
         alert(`총 ${addedCount}건의 항목이 매핑되어 추가/반영되었습니다.`);
@@ -12976,11 +12934,16 @@ window.renderUpdateComposerPreview = renderUpdateComposerPreview;
 
 let updateLogsList = [];
 let editingUpdateLogId = null; // 수정 중인 업데이트 내역의 id (null이면 신규 등록 모드)
+let updateLogsFullyLoaded = false;
 
-async function loadUpdateLogsFromFirebase() {
+async function loadUpdateLogsFromFirebase({ latestOnly = false } = {}) {
     try {
-        const snap = await getDocs(query(collection(db, 'updates'), orderBy('timestamp', 'desc')));
+        const updatesQuery = latestOnly
+            ? query(collection(db, 'updates'), orderBy('timestamp', 'desc'), limit(1))
+            : query(collection(db, 'updates'), orderBy('timestamp', 'desc'));
+        const snap = await getDocs(updatesQuery);
         updateLogsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        updateLogsFullyLoaded = !latestOnly;
         checkUpdateBadge();
     } catch(e) { console.error('업데이트 로드 에러:', e); }
 }
@@ -13010,7 +12973,8 @@ function checkUpdateBadge() {
     }
 }
 
-function openUpdateModal() {
+async function openUpdateModal() {
+        if (!updateLogsFullyLoaded) await loadUpdateLogsFromFirebase();
         if (updateLogsList.length > 0) {
             localStorage.setItem('lastSeenUpdateTs', Date.now().toString());
             checkUpdateBadge();
@@ -13058,7 +13022,10 @@ async function captureUpdateLogScreenshot(id) {
     if (!isAdmin) return;
     const card = document.getElementById(`updateLogCard_${id}`);
     if (!card) return;
-    if (typeof html2canvas === 'undefined') {
+    try {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    } catch (error) {
+        console.error('html2canvas 로드 실패:', error);
         alert('스크린샷 기능을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
         return;
     }
@@ -13435,7 +13402,7 @@ function renderUpdateManagePanel() {
 
 // DOMContentLoaded 이벤트에 업데이트 내역 불러오기 추가
 document.addEventListener('DOMContentLoaded', () => {
-    loadUpdateLogsFromFirebase();
+    loadUpdateLogsFromFirebase({ latestOnly: true });
 });
 
 function partDividerSyncMembersToFirebase() {

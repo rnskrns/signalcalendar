@@ -1,15 +1,17 @@
 {
-  "name": "claude",
+  "name": "signal-schedule",
   "version": "1.0.0",
   "description": "",
-  "main": "clip.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build:css": "tailwindcss -c tailwind.config.js -i tailwind.source.css -o tailwind.generated.css --minify",
+    "build": "npm run build:css",
+    "check": "node --check script.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "cheerio": "^1.2.0"
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
   }
 }
