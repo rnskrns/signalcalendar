@@ -6386,7 +6386,7 @@ function openCinetiSchedulePicker(id) {
                 <div class="cineti-modal-head"><h2>일정 날짜 선택</h2><button type="button" onclick="closeCinetiSchedulePicker()"><i class="fi fi-rr-cross-small"></i></button></div>
                 <p class="cineti-calendar-guide">${escapeHtml(currentPage)} 월간 일정에 등록할 날짜를 선택하세요.</p>
                 <div class="cineti-calendar-nav"><button type="button" onclick="changeCinetiPickerMonth(-1)"><i class="fi fi-rr-angle-left"></i></button><strong id="cinetiPickerTitle"></strong><button type="button" onclick="changeCinetiPickerMonth(1)"><i class="fi fi-rr-angle-right"></i></button></div>
-                <div class="cineti-calendar-week"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+                <div class="cineti-calendar-week"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>
                 <div id="cinetiPickerGrid" class="cineti-calendar-grid"></div>
             </div>`;
         modal.onclick = closeCinetiSchedulePicker;
@@ -6415,8 +6415,9 @@ function renderCinetiScheduleCalendar() {
     if (!title || !grid) return;
     title.textContent = `${year}년 ${month + 1}월`;
     const firstDay = new Date(year, month, 1).getDay();
+    const mondayFirstOffset = (firstDay + 6) % 7;
     const lastDate = new Date(year, month + 1, 0).getDate();
-    let html = '<span></span>'.repeat(firstDay);
+    let html = '<span></span>'.repeat(mondayFirstOffset);
     for (let day = 1; day <= lastDate; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         html += `<button type="button" onclick="registerCinetiSchedule('${dateStr}')">${day}</button>`;
@@ -6430,8 +6431,8 @@ async function registerCinetiSchedule(dateStr) {
     const colName = collectionMap[currentPage];
     if (!item || !colName) return alert('멤버 월간 일정 화면에서 등록해주세요.');
     const newSchedule = {
-        tabOrMember: currentPage, globalType: '뱅온', globalStartTime: item.airTime || '',
-        title: item.title, startDate: dateStr, endDate: dateStr, time: item.airTime || '',
+        tabOrMember: currentPage, globalType: '뱅온', globalStartTime: '',
+        title: item.title, startDate: dateStr, endDate: dateStr, time: '',
         broadType: '시네티', memberTag: '', detail: '', imageUrl: item.imageUrl || '',
         cinetiId: item.id, timestamp: Date.now()
     };
