@@ -3387,15 +3387,30 @@ window.changeLadderCount = function(delta) {
 };
 
 function generateLadderRungs(n, rowCount) {
-    const rungs = [];
+    const rungs = Array.from({ length: rowCount }, () => new Array(n - 1).fill(false));
+
+    // 각 세로줄 사이에 가로선이 최소 하나는 생기게 해,
+    // 한쪽 구간에만 가로선이 몰린 사다리가 나오지 않도록 한다.
+    const gapOrder = Array.from({ length: n - 1 }, (_, i) => i);
+    for (let i = gapOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [gapOrder[i], gapOrder[j]] = [gapOrder[j], gapOrder[i]];
+    }
+    const rowOrder = Array.from({ length: rowCount }, (_, i) => i);
+    for (let i = rowOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rowOrder[i], rowOrder[j]] = [rowOrder[j], rowOrder[i]];
+    }
+    gapOrder.forEach((gap, i) => { rungs[rowOrder[i % rowCount]][gap] = true; });
+
+    // 보장된 가로선 위에 나머지 선을 무작위로 추가한다.
+    // 같은 높이에서 이웃한 가로선끼리는 붙지 않게 유지한다.
     for (let r = 0; r < rowCount; r++) {
-        const row = new Array(n - 1).fill(false);
-        let i = 0;
-        while (i < n - 1) {
-            if (Math.random() < 0.45) { row[i] = true; i += 2; }
-            else { i += 1; }
+        for (let i = 0; i < n - 1; i++) {
+            if (!rungs[r][i] && !rungs[r][i - 1] && !rungs[r][i + 1] && Math.random() < 0.45) {
+                rungs[r][i] = true;
+            }
         }
-        rungs.push(row);
     }
     return rungs;
 }
