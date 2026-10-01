@@ -6189,8 +6189,8 @@ function renderCinetiPanel() {
                     <div><dt>방영일</dt><dd>${formatCinetiDate(item.airDate, item.airTime)}</dd></div>
                     <div><dt>종료일</dt><dd>${formatCinetiDate(item.endDate, item.endTime)}</dd></div>
                 </dl>
-                ${isAdmin ? `<div class="cineti-card-divider"></div>
-                <button type="button" class="cineti-schedule-btn" onclick="openCinetiSchedulePicker('${item.id}')">일정에 추가하기</button>` : ''}
+                <div class="cineti-card-divider"></div>
+                <button type="button" class="cineti-schedule-btn" onclick="openCinetiSchedulePicker('${item.id}')">일정에 추가하기</button>
             </div>
         </article>
     `;
@@ -6386,7 +6386,7 @@ async function deleteCinetiItem(id) {
 }
 
 function openCinetiSchedulePicker(id) {
-    if (!isAdmin) return;
+    if (!isAdmin) return alert('권한이 없습니다.');
     const item = cinetiItems.find(entry => entry.id === id);
     if (!item) return;
     cinetiPendingScheduleId = id;
@@ -6441,7 +6441,7 @@ function renderCinetiScheduleCalendar() {
 }
 
 async function registerCinetiSchedule(dateStr) {
-    if (!isAdmin) return;
+    if (!isAdmin) return alert('권한이 없습니다.');
     const item = cinetiItems.find(entry => entry.id === cinetiPendingScheduleId);
     const colName = collectionMap[currentPage];
     if (!item || !colName) return alert('멤버 월간 일정 화면에서 등록해주세요.');
