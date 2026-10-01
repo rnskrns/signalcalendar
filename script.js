@@ -6390,7 +6390,7 @@ function openCinetiSchedulePicker(id) {
     const item = cinetiItems.find(entry => entry.id === id);
     if (!item) return;
     cinetiPendingScheduleId = id;
-    cinetiPickerDate = item.airDate ? new Date(item.airDate + 'T00:00:00') : new Date();
+    cinetiPickerDate = new Date(); // 항상 오늘 날짜(이번 달) 기준으로 열기
     let modal = document.getElementById('cinetiScheduleModal');
     if (!modal) {
         modal = document.createElement('div');
