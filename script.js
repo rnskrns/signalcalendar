@@ -5799,8 +5799,8 @@ const rowsHtml = items.map(d => {
                         ${escapeHtml(message)}
                     </div>
                     <div class="dday-hero-stat shrink-0">
-                        <div class="dday-hero-stat-num" style="color: #fef08a !important; text-shadow: 0 2px 4px rgba(0,0,0,0.25);">${isToday ? 'D-DAY' : d.daysLeft}</div>
-                        ${isToday ? '' : '<div class="dday-hero-stat-label" style="color: #fef08a !important; text-shadow: 0 1px 2px rgba(0,0,0,0.25);">DAYS</div>'}
+                        <div class="dday-hero-stat-num" style="color: rgb(var(--dday-c1)) !important; text-shadow: 0 2px 4px rgba(0,0,0,0.25);">${isToday ? 'D-DAY' : d.daysLeft}</div>
+                        ${isToday ? '' : '<div class="dday-hero-stat-label" style="color: rgb(var(--dday-c1)) !important; text-shadow: 0 1px 2px rgba(0,0,0,0.25);">DAYS</div>'}
                     </div>
                 </div>
             </div>
