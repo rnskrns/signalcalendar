@@ -100,11 +100,15 @@ async function linkGoogleAccount() {
     if (statusEl) statusEl.textContent = '구글 로그인 창을 확인해주세요...';
 
     try {
+        // 팝업은 클릭 이벤트의 사용자 활성화가 살아 있을 때 즉시 열어야 합니다.
+        // Firestore 조회를 먼저 await하면 일부 브라우저에서 팝업 차단기로 막힐 수 있으므로
+        // Google 팝업을 먼저 호출합니다.
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const result = await signInWithPopup(auth, provider);
+        const googleUser = result.user;
         const soopSnapBefore = await getDoc(doc(db, "soopUsers", soopId));
         const prevGoogleUid = soopSnapBefore.exists() ? (soopSnapBefore.data().linkedGoogleUid || null) : null;
-
-        const result = await signInWithPopup(auth, new GoogleAuthProvider());
-        const googleUser = result.user;
 
         // 기존과 같은 구글 계정을 다시 선택한 경우
         if (prevGoogleUid === googleUser.uid) {

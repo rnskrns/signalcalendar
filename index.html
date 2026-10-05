@@ -30,7 +30,7 @@
     <meta property="og:image" content="https://i.postimg.cc/wjrJrQ0c/A1EAA0.png">
 
     <title>SIGNAL</title>
-    <link rel="stylesheet" href="tailwind.generated.css?v=20261001-1">
+    <link rel="stylesheet" href="tailwind.generated.css?v=20261005-1">
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-solid-rounded/css/uicons-solid-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
@@ -469,6 +469,20 @@
         </div>
     </div>
 
+    <!-- SOOP 계정에 구글 계정을 연결하는 팝업 -->
+    <div id="googleLinkModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[6000] p-4" onclick="if(event.target === this) closeGoogleLinkModal()">
+        <div class="modal-content relative w-full max-w-[380px] rounded-2xl border border-[#ECEDFA] bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="googleLinkModalTitle">
+            <button type="button" class="absolute right-4 top-3 text-2xl text-gray-400 transition hover:text-red-500" onclick="closeGoogleLinkModal()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button>
+            <div class="mb-4 flex items-center justify-center">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="h-10 w-10 object-contain" alt="Google">
+            </div>
+            <h2 id="googleLinkModalTitle" class="mb-3 text-center text-xl font-bold text-[#5D4037]">구글 계정 연동</h2>
+            <p id="googleLinkStatus" class="mb-5 text-center text-[13px] leading-6 text-gray-600" aria-live="polite">연동 상태를 확인하는 중...</p>
+            <button id="googleLinkActionBtn" type="button" onclick="linkGoogleAccount()" class="w-full rounded-xl border-2 border-gray-300 bg-white py-3 font-bold text-[#5D4037] transition hover:bg-gray-50 disabled:cursor-wait disabled:opacity-60">구글 계정 연동하기</button>
+            <button type="button" onclick="closeGoogleLinkModal()" class="mt-2 w-full rounded-xl bg-gray-100 py-3 font-bold text-gray-600 transition hover:bg-gray-200">취소</button>
+        </div>
+    </div>
+
     <!-- 일정 추가 모달 -->
     <div id="scheduleModal" class="hidden fixed inset-0 bg-black/50 z-[5000] overflow-y-auto flex-col items-center py-10 px-4">
         <div class="modal-content bg-[#FFFDF5] p-8 rounded-3xl w-full max-w-[680px] shadow-2xl flex flex-col relative border border-[#ECEDFA] shrink-0 my-auto">
@@ -749,7 +763,7 @@
         </div>
     </div>
 
-    <script type="module" src="script.js?v=20261002-1"></script>
+    <script type="module" src="script.js?v=20261005-1"></script>
 
 </body>
 </html>
