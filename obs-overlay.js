@@ -12,8 +12,6 @@
   const el = {
     card: document.getElementById('rankCard'),
     rank: document.getElementById('rankValue'),
-    nick: document.getElementById('userNick'),
-    userId: document.getElementById('userId'),
     profile: document.getElementById('profileImage'),
     likes: document.getElementById('likeCount'),
     link: document.getElementById('postLink'),
@@ -56,8 +54,6 @@
 
     const comment = sorted[index];
     el.rank.textContent = (index + 1).toLocaleString('ko-KR');
-    el.nick.textContent = comment.userNick || '닉네임 없음';
-    el.userId.textContent = comment.userId ? `@${comment.userId}` : '';
     el.likes.textContent = Number(comment.likeCnt || 0).toLocaleString('ko-KR');
     if (comment.profileImage) {
       el.profile.src = comment.profileImage;
