@@ -44,10 +44,12 @@ body { color: #fff; }
 .like-row { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:7px; color:#ff91ac; }
 .like-row svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .like-row strong { color:#fff; font-size:32px; line-height:1; }
-.like-row span { color:#aeb4be; font-size:13px; font-weight:800; }
+.rank-change { flex-basis:100%; color:#aeb4be; font-size:12px; font-weight:900; text-align:center; white-space:nowrap; }
+.rank-change.up { color:#70e69b; }
+.rank-change.down { color:#ff7f91; }
 
 .qr-panel {
-  width:132px;
+  width:390px;
   display:block;
   margin-top:10px;
   padding:7px;
@@ -56,7 +58,7 @@ body { color: #fff; }
   background:#ffd700;
   box-shadow:0 7px 20px rgba(0,0,0,.25);
 }
-.qr-frame { width:118px; height:118px; padding:5px; border-radius:10px; background:#fff; }
+.qr-frame { width:118px; height:118px; margin:0 auto; padding:5px; border-radius:10px; background:#fff; }
 .qr-frame img { display:block; width:100%; height:100%; border-radius:5px; }
 
 .rank-card.updated { animation: refreshed .48s ease; }
@@ -66,6 +68,7 @@ body { color: #fff; }
 @media (max-width: 620px) {
   .overlay { padding:10px; }
   .rank-card { width:min(390px, calc(100vw - 20px)); }
+  .qr-panel { width:100%; }
   .rank-main { grid-template-columns:90px 82px 1fr; padding:10px 12px; }
   .avatar { width:66px; height:66px; }
 }

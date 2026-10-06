@@ -14,9 +14,12 @@
     rank: document.getElementById('rankValue'),
     profile: document.getElementById('profileImage'),
     likes: document.getElementById('likeCount'),
+    change: document.getElementById('rankChange'),
     link: document.getElementById('postLink'),
     qr: document.getElementById('qrImage')
   };
+
+  let previousRank = null;
 
   el.link.href = TARGET_URL;
   el.qr.src = `https://quickchart.io/qr?size=360&margin=1&ecLevel=M&text=${encodeURIComponent(TARGET_URL)}`;
@@ -53,8 +56,22 @@
     if (index < 0) throw new Error('지정 댓글을 찾지 못했습니다.');
 
     const comment = sorted[index];
-    el.rank.textContent = (index + 1).toLocaleString('ko-KR');
+    const currentRank = index + 1;
+    el.rank.textContent = currentRank.toLocaleString('ko-KR');
     el.likes.textContent = Number(comment.likeCnt || 0).toLocaleString('ko-KR');
+    el.change.classList.remove('up', 'down');
+    if (previousRank === null) {
+      el.change.textContent = '변동 없음';
+    } else if (currentRank < previousRank) {
+      el.change.textContent = `▲ 상승 ${previousRank - currentRank}`;
+      el.change.classList.add('up');
+    } else if (currentRank > previousRank) {
+      el.change.textContent = `▼ 하락 ${currentRank - previousRank}`;
+      el.change.classList.add('down');
+    } else {
+      el.change.textContent = '변동 없음';
+    }
+    previousRank = currentRank;
     if (comment.profileImage) {
       el.profile.src = comment.profileImage;
       el.profile.hidden = false;
