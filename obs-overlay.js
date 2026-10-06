@@ -16,7 +16,6 @@
     userId: document.getElementById('userId'),
     profile: document.getElementById('profileImage'),
     likes: document.getElementById('likeCount'),
-    status: document.getElementById('statusText'),
     link: document.getElementById('postLink'),
     qr: document.getElementById('qrImage')
   };
@@ -66,9 +65,6 @@
     } else {
       el.profile.hidden = true;
     }
-    const now = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date());
-    el.status.classList.remove('error');
-    el.status.textContent = `${now} 갱신 · ${refreshSeconds}초마다 자동 업데이트`;
     el.card.classList.remove('updated');
     requestAnimationFrame(() => el.card.classList.add('updated'));
   }
@@ -78,8 +74,7 @@
       showComment(await fetchAllComments());
     } catch (error) {
       console.error(error);
-      el.status.classList.add('error');
-      el.status.textContent = `갱신 실패 · ${error.message}`;
+      el.rank.textContent = '!';
     }
   }
 
