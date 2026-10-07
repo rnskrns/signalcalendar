@@ -3702,10 +3702,17 @@ let partDividerRoomCode = '';            // 로비에서 입력한 방 코드
 let partDividerPendingAutoJoin = null;    // 초대 링크로 들어왔을 때 렌더 후 자동 입장할 방 코드
 // ⭐ 신규: 롤링페이퍼 특정 번호(seq)로 바로가기 파라미터 감지
 let rollingPendingAutoJoinSeq = null;
-if (window.location.hash.startsWith('#rolling?seq=')) {
-    rollingPendingAutoJoinSeq = parseInt(window.location.hash.split('?seq=')[1], 10);
-    // 탭 시스템이 꼬이지 않도록 주소창을 기본 해시로 덮어씌움
-    window.history.replaceState(null, '', '#rolling'); 
+let rollingPendingEntryNumber = null;
+if (window.location.hash.startsWith('#rolling?')) {
+    const rollingHashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const requestedSeq = Number(rollingHashParams.get('seq'));
+    const requestedEntry = Number(rollingHashParams.get('entry'));
+    if (Number.isInteger(requestedSeq) && requestedSeq > 0) {
+        rollingPendingAutoJoinSeq = requestedSeq;
+    }
+    if (Number.isInteger(requestedEntry) && requestedEntry > 0) {
+        rollingPendingEntryNumber = requestedEntry;
+    }
 }
 let partDividerJoinedRoomCode = '';      // 실제로 입장한 방 코드(방 화면 헤더 표시용)
 let partDividerSearching = false;        // 가사 검색 중 여부
@@ -7476,16 +7483,6 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         renderHeaderTabs(); 
         render();
 
-        if (rollingPendingAutoJoinSeq !== null && rollingTopics.length > 0) {
-            const targetTopic = rollingTopics.find(t => t.seq === rollingPendingAutoJoinSeq);
-            if (targetTopic) {
-                rollingPendingAutoJoinSeq = null; // 1회 실행 후 초기화
-                setTimeout(() => {
-                    openRollingTopicFromMenu(targetTopic.id);
-                }, 100);
-            }
-        }
-
         resetAutoRetry();
         return true;
     } catch (e) {
@@ -9720,6 +9717,7 @@ async function deleteRollingEntry(id) {
 // 마우스 휠(위/아래)로 이전·다음 글로 넘어간다 (책장을 넘기는 듯한 모션).
 function openRollingDetailModal(index) {
     currentEntryIndex = index;
+    updateRollingDetailUrl();
     const modal = document.getElementById('rollingDetailModal');
     modal.innerHTML = `
         <div id="rollingPageStage" class="w-full h-full relative overflow-hidden"></div>
@@ -9788,13 +9786,26 @@ function navigateRollingDetail(direction) {
     if (newIndex < 0) newIndex = currentTopicEntries.length - 1;
     if (newIndex >= currentTopicEntries.length) newIndex = 0;
     currentEntryIndex = newIndex;
+    updateRollingDetailUrl();
     renderRollingDetailModal(direction > 0 ? 1 : -1);
+}
+
+function updateRollingDetailUrl() {
+    if (!currentRollingTopic || !currentRollingTopic.seq) return;
+    const params = new URLSearchParams({
+        seq: String(currentRollingTopic.seq),
+        entry: String(currentEntryIndex + 1)
+    });
+    window.history.replaceState(null, '', `#rolling?${params.toString()}`);
 }
 
 function closeRollingDetailModal() {
     document.getElementById('rollingDetailModal').classList.replace('flex', 'hidden');
     document.body.style.overflow = '';
     document.removeEventListener('keydown', rollingDetailKeyHandler);
+    if (currentRollingTopic && currentRollingTopic.seq) {
+        window.history.replaceState(null, '', `#rolling?seq=${currentRollingTopic.seq}`);
+    }
 }
 
 function rollingDetailKeyHandler(e) {
@@ -11343,11 +11354,12 @@ async function initApp() {
     const partDividerInviteCode = new URLSearchParams(window.location.search).get('room');
 
     const currentHash = window.location.hash;
+    const currentHashPath = currentHash.split('?')[0];
     if (partDividerInviteCode) {
         currentPage = '파트분배기';
         initialTab = '파트분배기';
-    } else if (currentHash && hashToTab[currentHash]) {
-        let mapped = hashToTab[currentHash];
+    } else if (currentHashPath && hashToTab[currentHashPath]) {
+        let mapped = hashToTab[currentHashPath];
         if (mapped === '업보정리') {
             currentPage = '업보선택';
             initialTab = mapped;
@@ -11385,6 +11397,21 @@ async function initApp() {
 
     // 필수 데이터로 초기 화면 렌더링
     await changeTab(initialTab);
+
+    // #rolling?seq=번호로 접속한 경우, 탭과 주제 데이터 로딩이 모두 끝난 뒤 해당 롤링페이퍼를 연다.
+    if (currentPage === '롤링페이퍼' && rollingPendingAutoJoinSeq !== null) {
+        const requestedSeq = rollingPendingAutoJoinSeq;
+        rollingPendingAutoJoinSeq = null;
+        const targetTopic = rollingTopics.find(topic => Number(topic.seq) === requestedSeq);
+        if (targetTopic) {
+            await openRollingTopic(targetTopic.id);
+            if (rollingPendingEntryNumber !== null && currentTopicEntries.length > 0) {
+                const requestedIndex = Math.min(rollingPendingEntryNumber - 1, currentTopicEntries.length - 1);
+                rollingPendingEntryNumber = null;
+                openRollingDetailModal(requestedIndex);
+            }
+        }
+    }
 
     // 파트분배기 초대 링크(?room=코드)로 접속한 경우 - 로비를 건너뛰고 방에 자동 입장시킨 뒤 다시 렌더링
     if (partDividerInviteCode) {
