@@ -3,14 +3,14 @@
 html, body { width:100%; height:100%; margin:0; overflow:hidden; background:transparent; }
 body { color:#fff; }
 .overlay { width:100%; height:100%; padding:0; display:flex; align-items:flex-start; justify-content:flex-start; }
-.rank-widget { width:360px; height:460px; flex:0 0 360px; padding:8px 8px 5px; display:flex; flex-direction:column; gap:4px; overflow:hidden; border:2px solid rgba(255,255,255,.7); border-radius:30px; background:rgba(255,126,174,.9); box-shadow:inset 0 1px 0 rgba(255,255,255,.62),0 14px 28px rgba(118,17,60,.26); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+.rank-widget { width:360px; height:480px; flex:0 0 360px; padding:8px 8px 5px; display:flex; flex-direction:column; gap:4px; overflow:hidden; border:2px solid rgba(255,255,255,.7); border-radius:30px; background:rgba(255,126,174,.9); box-shadow:inset 0 1px 0 rgba(255,255,255,.62),0 14px 28px rgba(118,17,60,.26); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
 .qr-card,.rank-card,.up-card { position:relative; overflow:hidden; border:0; background:transparent; box-shadow:none; }
 .qr-card::after,.rank-card::after,.up-card::after { content:none; }
-.qr-card { height:303px; flex:0 0 303px; padding:8px 14px 10px; display:flex; flex-direction:column; align-items:center; border-radius:21px; color:#fff; text-decoration:none; }
-.qr-heading { width:100%; height:25px; display:flex; align-items:center; gap:7px; color:#fff7fa; font-size:10px; font-weight:900; letter-spacing:.11em; text-shadow:0 1px 8px rgba(135,22,66,.25); }
-.qr-heading span:last-child { margin-left:auto; color:#fff; font-size:9px; }
+.qr-card { height:323px; flex:0 0 323px; padding:8px 14px 10px; display:flex; flex-direction:column; align-items:center; border-radius:21px; color:#fff; text-decoration:none; }
+.qr-heading { width:100%; height:36px; display:flex; align-items:center; gap:8px; color:#fff7fa; font-size:16px; font-weight:950; letter-spacing:.08em; text-shadow:0 1px 8px rgba(135,22,66,.25); }
+.qr-heading span:last-child { margin-left:auto; color:#fff; font-size:14px; }
 .live-dot { width:8px; height:8px; border-radius:50%; background:#fff; box-shadow:0 0 12px #fff; }
-.qr-frame { position:relative; z-index:1; width:250px; height:250px; margin-top:5px; padding:10px; border-radius:20px; background:#fff; box-shadow:0 10px 24px rgba(135,22,66,.23),inset 0 0 0 2px rgba(255,160,195,.28); }
+.qr-frame { position:relative; z-index:1; width:260px; height:260px; margin-top:5px; padding:10px; border-radius:20px; background:#fff; box-shadow:0 10px 24px rgba(135,22,66,.23),inset 0 0 0 2px rgba(255,160,195,.28); }
 .qr-frame img { display:block; width:100%; height:100%; border-radius:13px; }
 .bottom-grid { width:320px; height:136px; align-self:center; display:grid; grid-template-columns:1fr 1fr; gap:0; }
 .rank-card,.up-card { height:136px; border-radius:20px; }
@@ -23,14 +23,15 @@ body { color:#fff; }
 .avatar-fallback.hidden { display:none; }
 .rank-copy { position:relative; z-index:1; min-width:70px; }
 .rank-label { color:#fff; font-size:11px; font-weight:900; }
-.rank-line { margin-top:5px; display:flex; align-items:baseline; }
+.rank-line { margin:4px 0 6px; display:flex; align-items:baseline; }
 .rank-line strong { color:#fff; font-size:42px; line-height:.9; font-weight:950; letter-spacing:-.07em; text-shadow:0 3px 12px rgba(141,39,78,.22); }
 .rank-line span { margin-left:6px; color:#fff; font-size:17px; font-weight:950; }
 .up-card { padding:14px 10px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .like-label { position:relative; z-index:1; display:flex; align-items:center; gap:7px; color:#fff; font-size:13px; font-weight:950; }
 .like-label svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
 .like-count { position:relative; z-index:1; margin:6px 0; color:#fff; font-size:32px; line-height:1; letter-spacing:-.04em; text-shadow:0 3px 12px rgba(141,39,78,.22); }
-.rank-change { position:relative; z-index:1; padding:5px 10px; border-radius:999px; background:rgba(255,255,255,.2); color:#fff; font-size:11px; font-weight:950; white-space:nowrap; }
+.rank-change { position:relative; z-index:1; display:inline-block; padding:4px 7px; border-radius:999px; background:rgba(255,255,255,.2); color:#fff; font-size:9px; font-weight:950; white-space:nowrap; }
+.rank-change[hidden] { display:none; }
 .rank-change.up { background:rgba(255,255,255,.24); color:#fff; }
 .rank-change.down { background:rgba(255,255,255,.18); color:#fff; }
 .rank-widget.updated { animation:refreshed .5s ease; }

@@ -63,11 +63,14 @@
     el.change.classList.remove('up', 'down');
 
     if (previousRank === null || currentRank === previousRank) {
-      el.change.textContent = '변동 없음';
+      el.change.hidden = true;
+      el.change.textContent = '';
     } else if (currentRank < previousRank) {
+      el.change.hidden = false;
       el.change.textContent = `▲ ${previousRank - currentRank}계단 상승`;
       el.change.classList.add('up');
     } else {
+      el.change.hidden = false;
       el.change.textContent = `▼ ${currentRank - previousRank}계단 하락`;
       el.change.classList.add('down');
     }
@@ -92,7 +95,8 @@
     } catch (error) {
       console.error(error);
       el.rank.textContent = '!';
-      el.change.textContent = '연결 확인 필요';
+      el.change.hidden = true;
+      el.change.textContent = '';
       el.change.classList.remove('up', 'down');
     }
   }
@@ -101,6 +105,7 @@
     el.rank.textContent = '3';
     el.likes.textContent = '1,284';
     el.change.textContent = '▲ 2계단 상승';
+    el.change.hidden = false;
     el.change.classList.add('up');
   } else {
     refresh();
