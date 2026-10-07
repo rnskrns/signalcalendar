@@ -2681,7 +2681,7 @@ async function renderHomeYoutubeBox() {
     // 2-1. UP 해줘! 버튼을 유튜브 영상 박스 위에 표시(등록된 UP 링크가 있을 때만)
     const hasUpLinks = await updateHomeUpButtonVisibility();
 
-    // 2-2. 디데이 박스를 UP 해줘! 버튼 위에 표시(D-30 이내인 기념일이 있을 때만)
+    // 2-2. 디데이 박스를 UP 해줘! 버튼 위에 표시(D-15 이내인 기념일이 있을 때만)
     const hasDday = renderHomeDdayBox();
 
     // 3. 영상이 등록되어 있거나, 최신 공지글이 하나라도 있거나, UP 링크나 디데이가 있으면 전체 박스를 보여줌
@@ -2793,11 +2793,11 @@ async function loadLinksFromFirebase() {
     } catch(e) { console.error("링크 로드 실패:", e); }
 }
 
-// 입장 팝업에 띄울 디데이 목록 - 홈탭 디데이 박스와 동일하게 D-30~D-day 범위만, 가까운 순 정렬
+// 입장 팝업에 띄울 디데이 목록 - 홈탭 디데이 박스와 동일하게 D-15~D-day 범위만, 가까운 순 정렬
 function getPopupDdayItems(today) {
     return ddaysList
         .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.date, today) }))
-        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 30)
+        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 15)
         .sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
@@ -5689,7 +5689,7 @@ async function deleteUpLink(upId, source = 'uplinks') {
 }
 
 // =========================================================================
-// 디데이(기념일 카운트다운) — 홈탭 UP 해줘! 버튼 위에 D-30부터 표시
+// 디데이(기념일 카운트다운) — 홈탭 UP 해줘! 버튼 위에 D-15부터 표시
 // =========================================================================
 
 // 기준일 대비 남은 일수 계산 (KST 자정 기준, 지난 날짜는 음수)
@@ -5711,7 +5711,7 @@ async function loadDdaysFromFirebase() {
     renderHomeDdayBox();
 }
 
-// 홈 카드는 당일 별 반짝임, D-1~D-30에는 떠오르는 물방울을 표시한다.
+// 홈 카드는 당일 별 반짝임, D-1~D-15에는 떠오르는 물방울을 표시한다.
 function generateDdayParticles(count = 14, isToday = false) {
     let html = '';
     for (let i = 0; i < count; i++) {
@@ -5741,7 +5741,7 @@ function generateDdayParticles(count = 14, isToday = false) {
     return html;
 }
 
-// 홈탭 UP 해줘! 버튼 바로 위 박스 - D-30 이내(당일 포함)로 남은 기념일만 가까운 순으로 표시
+// 홈탭 UP 해줘! 버튼 바로 위 박스 - D-15 이내(당일 포함)로 남은 기념일만 가까운 순으로 표시
 function renderHomeDdayBox() {
     const box = document.getElementById('homeDdayBox');
     if (!box) return false;
@@ -5749,7 +5749,7 @@ function renderHomeDdayBox() {
     const todayStr = getTodayYYYYMMDD();
     const items = ddaysList
         .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.date, todayStr) }))
-        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 30)
+        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 15)
         .sort((a, b) => a.daysLeft - b.daysLeft);
 
     if (items.length === 0) {
@@ -5764,8 +5764,8 @@ const rowsHtml = items.map(d => {
         const dateLabel = (d.date || '').replaceAll('-', '.');
         const isToday = d.daysLeft === 0;
         const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
-        // 물 빠지는 정도: D-30이면 100%(가득 참), D-day면 0%(완전히 빠짐)
-        const waterPct = Math.max(0, Math.min(100, (d.daysLeft / 30) * 100));
+        // 물 빠지는 정도: D-15이면 100%(가득 참), D-day면 0%(완전히 빠짐)
+        const waterPct = Math.max(0, Math.min(100, (d.daysLeft / 15) * 100));
         const progress = 1 - (waterPct / 100);
         const imgOverlayOpacity = isToday ? '0' : (0.45 - progress * 0.3).toFixed(2);
         const particleOpacity = isToday ? '1' : (0.3 + progress * 0.5).toFixed(2);
@@ -5931,7 +5931,7 @@ function resetDdayImageForm() {
     switchDdayImgTab('url');
 }
 
-// 관리자 > 관리 > 디데이 관리 탭: 등록된 기념일 전체를 날짜 가까운 순으로 보여준다 (D-30 밖이어도 관리 목록에는 항상 표시)
+// 관리자 > 관리 > 디데이 관리 탭: 등록된 기념일 전체를 날짜 가까운 순으로 보여준다 (D-15 밖이어도 관리 목록에는 항상 표시)
 function renderDdayManagePanel() {
     if (!isAdmin || !loggedInUser) return;
     const container = document.getElementById('ddayManageContainer');
