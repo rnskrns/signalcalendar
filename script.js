@@ -7516,7 +7516,13 @@ async function changeTab(tabName) {
         loadSongsFromFirebase(songbookMember);
     } else {
         currentPage = tabName; 
-        if (tabToHash[tabName]) { window.location.hash = tabToHash[tabName]; }
+        if (tabName === '롤링페이퍼' && rollingPendingAutoJoinSeq !== null) {
+            const params = new URLSearchParams({ seq: String(rollingPendingAutoJoinSeq) });
+            if (rollingPendingEntryNumber !== null) params.set('entry', String(rollingPendingEntryNumber));
+            window.history.replaceState(null, '', `#rolling?${params.toString()}`);
+        } else if (tabToHash[tabName]) {
+            window.location.hash = tabToHash[tabName];
+        }
     }
 
     if (currentPage === '노래책') {
