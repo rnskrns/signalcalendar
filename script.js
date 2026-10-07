@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter, onSnapshot } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, updatePassword } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 import { getDatabase, ref, set, get, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 import { loadScript } from "./modules/vendor-loader.js";
@@ -808,6 +808,7 @@ window.goToDdayRolling = goToDdayRolling;
 window.openRollingEntryModal = openRollingEntryModal; window.closeRollingEntryModal = closeRollingEntryModal; window.openEditRollingEntryModal = openEditRollingEntryModal;
 window.saveRollingEntry = saveRollingEntry; window.deleteRollingEntry = deleteRollingEntry; window.openRollingDetailModal = openRollingDetailModal;
 window.closeRollingDetailModal = closeRollingDetailModal; window.navigateRollingDetail = navigateRollingDetail; window.openRollingTopicFromMenu = openRollingTopicFromMenu;
+window.refreshRollingNewEntries = refreshRollingNewEntries;
 window.openRollingTopicFromPopup = openRollingTopicFromPopup;
 window.openDdayFromPopup = openDdayFromPopup;
 
@@ -1184,6 +1185,9 @@ let loadedMemberPages = new Set();
 // 롤링페이퍼는 주제(rollingTopics)는 항상 가볍게 전체 로드하되, 항목(rollingEntries)은
 // 컬렉션 전체를 긁지 않고 실제로 열어본 주제의 항목만 그때그때 불러온다.
 let loadedRollingTopicIds = new Set();
+let rollingEntriesUnsubscribe = null;
+let rollingWatchedTopicId = null;
+let pendingRollingEntries = [];
 
 // =========================================================================
 // 시그널 (지난 방송 아카이브) 상태
@@ -7529,6 +7533,7 @@ async function changeTab(tabName) {
     homeTargetDate = new Date();
     individualTargetDate = new Date();
     
+    stopRollingEntriesWatcher();
     currentRollingTopic = null;
 
     if (['달타', '다룽', '최또', '카나시'].includes(currentPage)) {
@@ -9542,20 +9547,75 @@ async function deleteRollingTopic(id) {
 
 // rollingEntries 컬렉션 전체를 긁는 대신, 실제로 열어본 주제(topicId)의 항목만 그때그때 불러와 캐싱한다.
 async function ensureRollingEntriesLoaded(topicId) {
-    if (!topicId || loadedRollingTopicIds.has(topicId)) return;
-    try {
-        const q = query(collection(db, 'rollingEntries'), where('topicId', '==', topicId));
-        const snap = await getDocs(q);
-        snap.forEach(docSnap => {
-            if (!rollingEntries.some(e => e.id === docSnap.id)) {
-                rollingEntries.push({ id: docSnap.id, ...docSnap.data() });
-            }
-        });
-        loadedRollingTopicIds.add(topicId);
-        saveScheduleCache();
-    } catch (e) {
-        console.error('롤링페이퍼 항목 로드 에러:', e);
+    if (!topicId) return;
+    if (!loadedRollingTopicIds.has(topicId)) {
+        try {
+            const q = query(collection(db, 'rollingEntries'), where('topicId', '==', topicId));
+            const snap = await getDocs(q);
+            snap.forEach(docSnap => {
+                if (!rollingEntries.some(e => e.id === docSnap.id)) {
+                    rollingEntries.push({ id: docSnap.id, ...docSnap.data() });
+                }
+            });
+            loadedRollingTopicIds.add(topicId);
+            saveScheduleCache();
+        } catch (e) {
+            console.error('롤링페이퍼 항목 로드 에러:', e);
+        }
     }
+    startRollingEntriesWatcher(topicId);
+}
+
+function startRollingEntriesWatcher(topicId) {
+    if (!topicId || rollingWatchedTopicId === topicId) return;
+    stopRollingEntriesWatcher();
+    rollingWatchedTopicId = topicId;
+    const q = query(collection(db, 'rollingEntries'), where('topicId', '==', topicId));
+    rollingEntriesUnsubscribe = onSnapshot(q, snapshot => {
+        pendingRollingEntries = snapshot.docs
+            .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+            .filter(entry => !rollingEntries.some(existing => existing.id === entry.id));
+        updateRollingNewEntriesButton();
+    }, error => console.error('롤링페이퍼 새 글 감지 에러:', error));
+}
+
+function stopRollingEntriesWatcher() {
+    if (rollingEntriesUnsubscribe) rollingEntriesUnsubscribe();
+    rollingEntriesUnsubscribe = null;
+    rollingWatchedTopicId = null;
+    pendingRollingEntries = [];
+    updateRollingNewEntriesButton();
+}
+
+function updateRollingNewEntriesButton() {
+    const button = document.getElementById('rollingNewEntriesButton');
+    if (!button) return;
+    const count = pendingRollingEntries.length;
+    button.classList.toggle('hidden', count === 0);
+    button.classList.toggle('flex', count > 0);
+    button.innerHTML = count > 0
+        ? `<i class="fi fi-rr-refresh"></i><span>새 글 ${count}개 · 새로고침</span>`
+        : '';
+}
+
+function refreshRollingNewEntries() {
+    if (!currentRollingTopic || pendingRollingEntries.length === 0) return;
+    const currentEntryId = currentTopicEntries[currentEntryIndex]?.id || null;
+    pendingRollingEntries.forEach(entry => {
+        if (!rollingEntries.some(existing => existing.id === entry.id)) rollingEntries.push(entry);
+    });
+    pendingRollingEntries = [];
+    currentTopicEntries = rollingEntries
+        .filter(entry => entry.topicId === currentRollingTopic.id)
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const preservedIndex = currentEntryId
+        ? currentTopicEntries.findIndex(entry => entry.id === currentEntryId)
+        : -1;
+    if (preservedIndex >= 0) currentEntryIndex = preservedIndex;
+    saveScheduleCache();
+    updateRollingNewEntriesButton();
+    renderRollingDetailModal(0);
+    updateRollingDetailUrl();
 }
 
 // 홈탭 디데이 카드 클릭 시: 등록된 롤링페이퍼 번호(seq)가 있으면 해당 주제로 바로 진입하고, 없으면 목록으로 이동
@@ -9580,7 +9640,7 @@ async function openRollingTopic(id) {
     await ensureRollingEntriesLoaded(id);
     if (currentRollingTopic && currentRollingTopic.id === id) render();
 }
-function closeRollingTopic() { currentRollingTopic = null; window.history.replaceState(null, '', '#rolling'); render(); }
+function closeRollingTopic() { stopRollingEntriesWatcher(); currentRollingTopic = null; window.history.replaceState(null, '', '#rolling'); render(); }
 
 function openRollingEntryModal() {
     if (currentRollingTopic && currentRollingTopic.date < getTodayYYYYMMDD()) {
@@ -9725,9 +9785,11 @@ function openRollingDetailModal(index) {
         <button id="rollingPrevBtn" onclick="navigateRollingDetail(-1)" class="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-30" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-left"></i></button>
         <button id="rollingNextBtn" onclick="navigateRollingDetail(1)" class="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 text-4xl text-white/80 hover:text-white hover:scale-110 transition cursor-pointer z-30" style="text-shadow:0 1px 4px rgba(0,0,0,0.5);"><i class="fi fi-rr-angle-right"></i></button>
         <div id="rollingCounter" class="absolute bottom-5 left-1/2 -translate-x-1/2 text-white/70 text-lg md:text-xl font-bold z-30" style="text-shadow:0 1px 3px rgba(0,0,0,0.5);"></div>
+        <button id="rollingNewEntriesButton" onclick="refreshRollingNewEntries()" class="hidden absolute right-4 bottom-5 md:right-8 md:bottom-8 z-40 items-center gap-2 rounded-full bg-[#8B5CF6] px-4 py-3 text-sm md:text-base font-bold text-white shadow-lg hover:brightness-110 transition"></button>
     `;
     renderRollingDetailModal(0);
     modal.classList.replace('hidden', 'flex');
+    updateRollingNewEntriesButton();
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', rollingDetailKeyHandler);
 }
