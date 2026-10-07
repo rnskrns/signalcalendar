@@ -3,9 +3,9 @@
 html, body { width:100%; height:100%; margin:0; overflow:hidden; background:transparent; }
 body { color:#fff; }
 .overlay { width:100%; height:100%; padding:20px; display:flex; align-items:flex-start; justify-content:flex-start; }
-.rank-widget { width:440px; flex:0 0 440px; padding:12px; display:flex; flex-direction:column; gap:10px; overflow:hidden; border:2px solid rgba(255,255,255,.72); border-radius:34px; background:radial-gradient(circle at 12% 5%,rgba(255,255,255,.5),transparent 25%),linear-gradient(145deg,#ff70a9,#ffb6d2); box-shadow:inset 0 1px 0 rgba(255,255,255,.78),0 18px 34px rgba(154,26,78,.3); }
-.qr-card,.rank-card,.up-card { position:relative; overflow:hidden; border:1px solid rgba(255,255,255,.38); background:linear-gradient(145deg,rgba(255,255,255,.2),rgba(255,255,255,.08)); box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 7px 18px rgba(147,33,76,.1); }
-.qr-card::after,.rank-card::after,.up-card::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(120deg,rgba(255,255,255,.23),transparent 38%); }
+.rank-widget { width:440px; flex:0 0 440px; padding:12px; display:flex; flex-direction:column; gap:10px; overflow:hidden; border:2px solid rgba(255,255,255,.52); border-radius:34px; background:radial-gradient(circle at 12% 5%,rgba(255,255,255,.28),transparent 27%),linear-gradient(145deg,rgba(255,91,151,.58),rgba(255,181,210,.46)); box-shadow:inset 0 1px 0 rgba(255,255,255,.48),0 18px 34px rgba(118,17,60,.2); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+.qr-card,.rank-card,.up-card { position:relative; overflow:hidden; border:1px solid rgba(255,255,255,.3); background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.045)); box-shadow:inset 0 1px 0 rgba(255,255,255,.23),0 7px 18px rgba(147,33,76,.06); }
+.qr-card::after,.rank-card::after,.up-card::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(120deg,rgba(255,255,255,.13),transparent 38%); }
 .qr-card { height:416px; padding:12px 16px 16px; display:flex; flex-direction:column; align-items:center; border-radius:24px; color:#fff; text-decoration:none; }
 .qr-heading { width:100%; height:28px; display:flex; align-items:center; gap:8px; color:#fff7fa; font-size:11px; font-weight:900; letter-spacing:.12em; text-shadow:0 1px 8px rgba(135,22,66,.25); }
 .qr-heading span:last-child { margin-left:auto; color:#8d3157; font-size:10px; }
