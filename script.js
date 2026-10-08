@@ -1236,16 +1236,18 @@ function getDefaultMemoState() {
     return { '달타':[], '다룽':[], '최또':[], '카나시':[] };
 }
 
-function readScheduleCache() {
+function readScheduleCache({ allowExpired = false } = {}) {
     try {
         const raw = localStorage.getItem(scheduleCacheStorageKey);
         if (!raw) return null;
         const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed.savedAt !== 'number' || (Date.now() - parsed.savedAt) > SCHEDULE_CACHE_TTL_MS) {
-            // 유효기간이 지난 캐시는 버리고 새로 로드하게 한다.
+        if (!parsed || typeof parsed.savedAt !== 'number') {
             localStorage.removeItem(scheduleCacheStorageKey);
             return null;
         }
+        // 만료된 캐시는 평소에는 사용하지 않지만, 네트워크 장애 시 마지막 정상 화면을
+        // 복구할 수 있도록 삭제하지 않고 보관한다.
+        if (!allowExpired && (Date.now() - parsed.savedAt) > SCHEDULE_CACHE_TTL_MS) return null;
         return parsed;
     } catch (e) {
         console.warn('스케줄 캐시 읽기 실패:', e);
@@ -7417,13 +7419,32 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
             return getDocs(collection(db, colName)).then(snapshot => ({ type: 'memo', member: targetMember, colName, snapshot }));
         });
 
-        const results = await Promise.all([...eventPromises, ...memoPromises]);
+        const settledResults = await Promise.allSettled([...eventPromises, ...memoPromises]);
+        const results = settledResults
+            .filter(result => result.status === 'fulfilled')
+            .map(result => result.value);
+        const failedResults = settledResults.filter(result => result.status === 'rejected');
 
-        if (!member) {
-            scheduleList = [];
-            memoList = getDefaultMemoState();
+        if (results.length === 0 && failedResults.length > 0) {
+            throw failedResults[0].reason;
         }
-        targetMembers.forEach((targetMember) => loadedMemberPages.add(targetMember));
+
+        // 성공한 컬렉션만 새 스냅샷으로 교체한다. 실패한 컬렉션은 기존/캐시 데이터를
+        // 유지하여 한 번의 통신 오류가 전체 일정을 빈 화면으로 만들지 않게 한다.
+        results.forEach(({ type, member: targetMember, colName }) => {
+            if (type === 'memo') {
+                memoList[targetMember] = [];
+            } else {
+                scheduleList = scheduleList.filter(item => item.collectionName !== colName);
+            }
+        });
+
+        targetMembers.forEach((targetMember) => {
+            const eventLoaded = results.some(result => result.type === 'event' && result.member === targetMember);
+            const memoLoaded = results.some(result => result.type === 'memo' && result.member === targetMember);
+            if (eventLoaded && memoLoaded) loadedMemberPages.add(targetMember);
+            else loadedMemberPages.delete(targetMember);
+        });
 
         const upsertSchedule = (list, item) => {
             const idx = list.findIndex(existing => existing.id === item.id);
@@ -7463,14 +7484,24 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
             // 별도 함수(재시도 + 백그라운드 자동 복구 포함)로 분리 처리
             await loadCustomMembersFromFirebase();
 
-            const grpSnap = await getDocs(collection(db, 'memberGroups'));
-            memberGroups = [];
-            grpSnap.forEach(doc => memberGroups.push({ id: doc.id, ...doc.data() }));
+            const [groupResult, topicResult] = await Promise.allSettled([
+                getDocs(collection(db, 'memberGroups')),
+                getDocs(collection(db, 'rollingTopics'))
+            ]);
+            if (groupResult.status === 'fulfilled') {
+                memberGroups = [];
+                groupResult.value.forEach(doc => memberGroups.push({ id: doc.id, ...doc.data() }));
+            } else {
+                console.error('멤버 그룹 로드 에러:', groupResult.reason);
+            }
 
-            const topicSnap = await getDocs(collection(db, 'rollingTopics'));
-            rollingTopics = [];
-            topicSnap.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
-            sortRollingTopics();
+            if (topicResult.status === 'fulfilled') {
+                rollingTopics = [];
+                topicResult.value.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
+                sortRollingTopics();
+            } else {
+                console.error('롤링 주제 로드 에러:', topicResult.reason);
+            }
 
             // rollingEntries는 여기서 전체를 긁지 않는다. 주제 개수가 쌓일수록 항목도 함께 계속
             // 쌓이는 컬렉션이라, 방문자가 실제로 열어본 주제의 항목만 openRollingTopic 시점에 불러온다.
@@ -7487,10 +7518,22 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         renderHeaderTabs(); 
         render();
 
+        if (failedResults.length > 0) {
+            console.warn('일부 일정 컬렉션을 불러오지 못했습니다:', failedResults.map(result => result.reason));
+            scheduleAutoRetry(() => loadSchedulesFromFirebase({ forceReload: true, member, members, useCacheOnly }));
+            return false;
+        }
+
         resetAutoRetry();
         return true;
     } catch (e) {
         console.error("데이터 불러오기 실패:", e);
+        const fallbackCache = cached || readScheduleCache({ allowExpired: true });
+        if (fallbackCache) {
+            hydrateScheduleCache(fallbackCache);
+            renderHeaderTabs();
+            render();
+        }
         scheduleAutoRetry(() => loadSchedulesFromFirebase({ forceReload: true, member, members, useCacheOnly }));
         return false;
     }
@@ -7837,14 +7880,16 @@ function render() {
                 else renderDesktopIndividual(grouped);
             }
         }
-        resetAutoRetry();
+        // 데이터 로딩 재시도는 화면 렌더링 성공만으로 취소하면 안 된다.
+        // 렌더 자체가 실패해서 예약된 재시도만 여기서 해제한다.
+        if (autoRetryState.kind === 'render') resetAutoRetry();
     } catch (renderErr) {
         console.error('화면 렌더링 실패:', renderErr);
         content.innerHTML = `<div class="w-full flex flex-col items-center justify-center py-24 gap-2 text-[#5D4037]">
             <div class="text-[16px] font-bold">화면을 불러오지 못했습니다.</div>
             <div class="text-[13px] text-gray-400">잠시 후 자동으로 다시 시도합니다...</div>
         </div>`;
-        scheduleAutoRetry(() => render());
+        scheduleAutoRetry(() => render(), 'render');
         return;
     }
 
@@ -8629,7 +8674,7 @@ window.saveSong = async function() {
 // =========================================================================
 // 데이터 로딩/렌더링 실패 시 안내 배너 + 자동 재시도
 // =========================================================================
-const autoRetryState = { count: 0, timer: null, maxRetries: 5, lastRetryFn: null };
+const autoRetryState = { count: 0, timer: null, maxRetries: 5, lastRetryFn: null, kind: null };
 
 function showLoadErrorBanner(message, showManualRetry = false) {
     let banner = document.getElementById('loadErrorBanner');
@@ -8654,13 +8699,15 @@ function resetAutoRetry() {
     autoRetryState.count = 0;
     if (autoRetryState.timer) { clearTimeout(autoRetryState.timer); autoRetryState.timer = null; }
     autoRetryState.lastRetryFn = null;
+    autoRetryState.kind = null;
     hideLoadErrorBanner();
 }
 
 // 실패 시 호출: 배너를 띄우고, 잠시 후 retryFn을 자동으로 재실행한다 (최대 maxRetries회, 대기시간 점점 증가)
-function scheduleAutoRetry(retryFn) {
+function scheduleAutoRetry(retryFn, kind = 'load') {
     if (autoRetryState.timer) clearTimeout(autoRetryState.timer);
     autoRetryState.lastRetryFn = retryFn;
+    autoRetryState.kind = kind;
     autoRetryState.count++;
 
     if (autoRetryState.count > autoRetryState.maxRetries) {
