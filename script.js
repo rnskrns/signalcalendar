@@ -9166,12 +9166,15 @@ function renderKanashiUpboTable(query = '', targetId = 'upboSearchResult', edita
         const message = [record.memo, record.roulette].filter(Boolean).join(' / ');
         if (editable) {
             return `<tr class="upbo-data-row">
+                <td class="kanashi-check-cell"><input type="checkbox" class="upbo-row-checkbox" aria-label="행 선택"></td>
                 <td><input class="upbo-nick" value="${escapeHtml(record.nickname || '')}" placeholder="닉네임"></td>
                 <td><input class="upbo-uid" value="${escapeHtml(record.uid || '')}" placeholder="SOOP 아이디"></td>
                 <td><input type="number" min="0" class="upbo-donation-count" value="${Number(record.donationCount || 0)}"></td>
                 <td><textarea class="upbo-category" rows="1" placeholder="품목">${escapeHtml(record.category || '')}</textarea></td>
                 <td><textarea class="upbo-memo" rows="1" placeholder="메시지/룰렛 결과">${escapeHtml(message)}</textarea><textarea class="upbo-roulette hidden"></textarea></td>
-                <td><input type="hidden" class="upbo-status" value="배송중"><input type="hidden" class="upbo-station-url" value="${escapeHtml(stationUrl)}"><button type="button" class="kanashi-station-link" onclick="openKanashiTableStation(this)"><i class="fi fi-rr-link-alt"></i> 이동</button></td>
+                <td><input type="button" class="upbo-status kanashi-status-btn ${record.status === '배송완료' ? 'is-complete' : 'is-shipping'}" value="${record.status === '배송완료' ? '배송완료' : '배송중'}" onclick="toggleKanashiTableStatus(this)"></td>
+                <td><input type="hidden" class="upbo-station-url" value="${escapeHtml(stationUrl)}"><button type="button" class="kanashi-station-link" onclick="openKanashiTableStation(this)"><i class="fi fi-rr-link-alt"></i> 이동</button></td>
+                <td class="kanashi-delete-cell"><button type="button" class="kanashi-row-delete" onclick="deleteKanashiTableRow(this)" title="삭제"><i class="fi fi-rr-trash"></i></button></td>
             </tr>`;
         }
         return `<tr>
@@ -9183,7 +9186,11 @@ function renderKanashiUpboTable(query = '', targetId = 'upboSearchResult', edita
             <td>${stationUrl ? `<a class="kanashi-station-link" href="${escapeHtml(stationUrl)}" target="_blank" rel="noopener"><i class="fi fi-rr-link-alt"></i> 이동</a>` : '-'}</td>
         </tr>`;
     }).join('');
-    const markup = `<thead><tr><th>닉네임</th><th>SOOP 아이디</th><th>후원수</th><th>품목</th><th>메시지/룰렛 결과</th><th>방송국 주소</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="kanashi-table-empty">표시할 데이터가 없습니다.</td></tr>`}</tbody>`;
+    const header = editable
+        ? `<tr><th class="kanashi-check-cell"><input type="checkbox" id="upboCheckAll" aria-label="전체 선택" onclick="toggleAllUpboCheckboxes(this.checked)"></th><th>닉네임</th><th>SOOP 아이디</th><th>후원수</th><th>품목</th><th>메시지/룰렛 결과</th><th>상태</th><th>방송국 주소</th><th>삭제</th></tr>`
+        : `<tr><th>닉네임</th><th>SOOP 아이디</th><th>후원수</th><th>품목</th><th>메시지/룰렛 결과</th><th>방송국 주소</th></tr>`;
+    const columnCount = editable ? 9 : 6;
+    const markup = `<thead>${header}</thead><tbody>${rows || `<tr><td colspan="${columnCount}" class="kanashi-table-empty">표시할 데이터가 없습니다.</td></tr>`}</tbody>`;
     if (table) table.innerHTML = markup;
     else target.innerHTML = `<div class="kanashi-upbo-table-wrap"><table class="kanashi-upbo-table">${markup}</table></div>`;
     if (table) table.classList.add('kanashi-upbo-table');
@@ -9196,6 +9203,19 @@ window.openKanashiTableStation = function(button) {
     const url = savedUrl || (uid ? `https://www.sooplive.com/station/${encodeURIComponent(uid)}` : '');
     if (!url) return alert('SOOP 아이디 또는 방송국 주소가 없습니다.');
     window.open(url, '_blank', 'noopener');
+};
+
+window.toggleKanashiTableStatus = function(button) {
+    const completed = button.value !== '배송완료';
+    button.value = completed ? '배송완료' : '배송중';
+    button.classList.toggle('is-complete', completed);
+    button.classList.toggle('is-shipping', !completed);
+};
+
+window.deleteKanashiTableRow = function(button) {
+    if (!confirm('이 항목을 삭제하시겠습니까?')) return;
+    button.closest('.upbo-data-row')?.remove();
+    syncUpboDomToState();
 };
 
 function renderKanashiUpboCards() {
@@ -12802,7 +12822,9 @@ window.changeStatusSelectedUpboRows = function() {
         const statusBtn = tr.querySelector('.upbo-status');
         if(statusBtn) {
             statusBtn.value = newStatus;
-            if (tr.classList.contains('upbo-admin-card')) {
+            if (tr.closest('.kanashi-upbo-table')) {
+                statusBtn.className = `upbo-status kanashi-status-btn ${newStatus === '배송완료' ? 'is-complete' : 'is-shipping'}`;
+            } else if (tr.classList.contains('upbo-admin-card')) {
                 statusBtn.textContent = newStatus;
                 statusBtn.className = `upbo-status ${newStatus === '배송완료' ? 'is-complete' : 'is-shipping'}`;
             } else {
