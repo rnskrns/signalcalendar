@@ -7312,9 +7312,43 @@ async function loadUpboDataFromFirebase() {
             if (!freshUpboData[m].records) freshUpboData[m].records = [];
         }
         upboData = freshUpboData;
+        await loadKanashiUpboFromGoogleSheet();
         return true;
     } catch (e) {
         console.error("업보데이터 로드 에러:", e);
+        return false;
+    }
+}
+
+async function loadKanashiUpboFromGoogleSheet() {
+    try {
+        const url = `${KANASHI_UPBO_API_URL}?accessKey=${encodeURIComponent(KANASHI_UPBO_ACCESS_KEY)}&_=${Date.now()}`;
+        const response = await fetch(url, { cache: 'no-store' });
+        const result = await response.json();
+        if (!response.ok || !result || result.ok === false || !Array.isArray(result.rows)) {
+            throw new Error(result?.message || `HTTP ${response.status}`);
+        }
+        const previous = upboData['카나시'] || {};
+        upboData['카나시'] = {
+            ...previous,
+            records: result.rows.map(row => ({
+                nickname: String(row.nickname || ''),
+                uid: String(row.userId || ''),
+                donationCount: Number(row.donationCount || 0),
+                category: String(row.items || ''),
+                memo: String(row.message || ''),
+                roulette: '',
+                stationUrl: String(row.stationUrl || ''),
+                exportedAt: String(row.exportedAt || ''),
+                collectedAt: String(row.collectedAt || ''),
+                source: String(row.source || ''),
+                status: '배송중',
+                items: {}
+            }))
+        };
+        return true;
+    } catch (error) {
+        console.warn('카나시 구글시트 데이터 로드 실패 - Firebase 데이터를 사용합니다.', error);
         return false;
     }
 }
@@ -9059,13 +9093,9 @@ function renderUpboPage() {
                         </ol>
                     </div>
                 </div>
-                ${upboCurrentMember === '카나시' ? `
-                    <div id="upboAdminCards" class="upbo-admin-card-grid mb-4"></div>
-                ` : `
-                    <div class="overflow-x-auto lg:overflow-visible border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
-                        <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable"></table>
-                    </div>
-                `}
+                <div class="overflow-x-auto border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
+                    <table class="w-full text-left border-collapse min-w-[980px]" id="upboAdminTable"></table>
+                </div>
                 <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
             </div>
         `;
@@ -9075,12 +9105,17 @@ function renderUpboPage() {
     content.innerHTML = mainHtml;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6 upbo-content-wrap';
 
+    if ((upboViewMode === 'search' || !isAdmin) && upboCurrentMember === '카나시') {
+        const input = document.getElementById('upboSearchInput');
+        if (input) input.placeholder = '닉네임, 아이디, 품목 또는 메시지 검색';
+        renderKanashiUpboTable();
+    }
     if (isAdmin && upboViewMode === 'admin') { renderUpboAdminTable(); renderUpboMenuAdminList(); }
 }
 
 function renderUpboAdminTable() {
     if (upboCurrentMember === '카나시') {
-        renderKanashiUpboCards();
+        renderKanashiUpboTable('', 'upboAdminTable', true);
         return;
     }
     const table = document.getElementById('upboAdminTable');
@@ -9117,6 +9152,53 @@ function renderUpboAdminTable() {
 
     table.innerHTML = thead + tbody;
 }
+
+function renderKanashiUpboTable(query = '', targetId = 'upboSearchResult', editable = false) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    const normalizedQuery = normalizeUpboSearchText(query);
+    const records = (upboData['카나시']?.records || []).filter(record => {
+        if (!normalizedQuery) return true;
+        return [record.nickname, record.uid, record.category, record.memo, record.roulette]
+            .some(value => normalizeUpboSearchText(value).includes(normalizedQuery));
+    });
+    const table = target.tagName === 'TABLE' ? target : null;
+    const rows = records.map(record => {
+        const stationUrl = record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '');
+        const message = [record.memo, record.roulette].filter(Boolean).join(' / ');
+        if (editable) {
+            return `<tr class="upbo-data-row">
+                <td><input class="upbo-nick" value="${escapeHtml(record.nickname || '')}" placeholder="닉네임"></td>
+                <td><input class="upbo-uid" value="${escapeHtml(record.uid || '')}" placeholder="SOOP 아이디"></td>
+                <td><input type="number" min="0" class="upbo-donation-count" value="${Number(record.donationCount || 0)}"></td>
+                <td><textarea class="upbo-category" rows="1" placeholder="품목">${escapeHtml(record.category || '')}</textarea></td>
+                <td><textarea class="upbo-memo" rows="1" placeholder="메시지/룰렛 결과">${escapeHtml(message)}</textarea><textarea class="upbo-roulette hidden"></textarea></td>
+                <td><input type="hidden" class="upbo-status" value="배송중"><input type="hidden" class="upbo-station-url" value="${escapeHtml(stationUrl)}"><button type="button" class="kanashi-station-link" onclick="openKanashiTableStation(this)"><i class="fi fi-rr-link-alt"></i> 이동</button></td>
+            </tr>`;
+        }
+        return `<tr>
+            <td>${escapeHtml(record.nickname || '-')}</td>
+            <td>${escapeHtml(record.uid || '-')}</td>
+            <td class="is-number">${Number(record.donationCount || 0).toLocaleString('ko-KR')}</td>
+            <td>${escapeHtml(record.category || '-')}</td>
+            <td>${escapeHtml(message || '-')}</td>
+            <td>${stationUrl ? `<a class="kanashi-station-link" href="${escapeHtml(stationUrl)}" target="_blank" rel="noopener"><i class="fi fi-rr-link-alt"></i> 이동</a>` : '-'}</td>
+        </tr>`;
+    }).join('');
+    const markup = `<thead><tr><th>닉네임</th><th>SOOP 아이디</th><th>후원수</th><th>품목</th><th>메시지/룰렛 결과</th><th>방송국 주소</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="kanashi-table-empty">표시할 데이터가 없습니다.</td></tr>`}</tbody>`;
+    if (table) table.innerHTML = markup;
+    else target.innerHTML = `<div class="kanashi-upbo-table-wrap"><table class="kanashi-upbo-table">${markup}</table></div>`;
+    if (table) table.classList.add('kanashi-upbo-table');
+}
+
+window.openKanashiTableStation = function(button) {
+    const row = button.closest('.upbo-data-row');
+    const uid = row?.querySelector('.upbo-uid')?.value.trim();
+    const savedUrl = row?.querySelector('.upbo-station-url')?.value.trim();
+    const url = savedUrl || (uid ? `https://www.sooplive.com/station/${encodeURIComponent(uid)}` : '');
+    if (!url) return alert('SOOP 아이디 또는 방송국 주소가 없습니다.');
+    window.open(url, '_blank', 'noopener');
+};
 
 function renderKanashiUpboCards() {
     const container = document.getElementById('upboAdminCards');
@@ -9231,7 +9313,7 @@ function syncUpboDomToState() {
     rows.forEach(tr => {
         const nick = tr.querySelector('.upbo-nick').value.trim();
         const uid = tr.querySelector('.upbo-uid').value.trim();
-        const status = tr.querySelector('.upbo-status').value;
+        const status = tr.querySelector('.upbo-status')?.value || '배송중';
         const categoryEl = tr.querySelector('.upbo-category');
         const category = categoryEl ? categoryEl.value.trim() : '';
         const memoEl = tr.querySelector('.upbo-memo');
@@ -9240,6 +9322,8 @@ function syncUpboDomToState() {
         // 👇 누락되었던 룰렛 저장 로직 추가 👇
         const rouletteEl = tr.querySelector('.upbo-roulette');
         const roulette = rouletteEl ? rouletteEl.value.trim() : '';
+        const donationCount = Number(tr.querySelector('.upbo-donation-count')?.value || 0);
+        const stationUrl = tr.querySelector('.upbo-station-url')?.value.trim() || (uid ? `https://www.sooplive.com/station/${uid}` : '');
 
         let items = {};
         tr.querySelectorAll('.upbo-qty').forEach((inp) => {
@@ -9255,7 +9339,7 @@ function syncUpboDomToState() {
             }
         });
         if (nick || uid) {
-            newRecords.push({ nickname: nick, uid: uid, category: category, items: items, status: status, memo: memo, roulette: roulette });
+            newRecords.push({ nickname: nick, uid: uid, donationCount, category: category, items: items, status: status, memo: memo, roulette: roulette, stationUrl });
         }
     });
 
@@ -9433,13 +9517,17 @@ async function saveUpboData() {
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
                     accessKey: KANASHI_UPBO_ACCESS_KEY,
-                    member: '카나시',
-                    products: dataToSave.products || [],
-                    records: dataToSave.records || [],
-                    data: dataToSave.records || [],
-                    menu: dataToSave.menu || [],
-                    menuImage: dataToSave.menuImage || '',
-                    menuListImage: dataToSave.menuListImage || ''
+                    rows: (dataToSave.records || []).map(record => ({
+                        exportedAt: new Date().toISOString(),
+                        collectedAt: record.collectedAt || '',
+                        source: record.source || 'SIGNAL 업보정리',
+                        nickname: record.nickname || '',
+                        userId: record.uid || '',
+                        donationCount: Number(record.donationCount || 0),
+                        items: record.category || '',
+                        message: [record.memo, record.roulette].filter(Boolean).join(' / '),
+                        stationUrl: record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '')
+                    }))
                 })
             });
             const apiResult = await apiResponse.json().catch(() => null);
@@ -9463,6 +9551,10 @@ function normalizeUpboSearchText(str) {
 
 function searchUpbo() {
     const rawQuery = document.getElementById('upboSearchInput').value.trim();
+    if (upboCurrentMember === '카나시') {
+        renderKanashiUpboTable(rawQuery);
+        return;
+    }
     const query = normalizeUpboSearchText(rawQuery);
     const resultContainer = document.getElementById('upboSearchResult');
     

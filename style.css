@@ -8,6 +8,27 @@
     --card-bg-cream: #FFFDF5;
 }
 
+/* 카나시 업보 구글시트 표 */
+.kanashi-upbo-table-wrap { width:100%; overflow-x:auto; border:1px solid #eadfd6; border-radius:16px; background:#fff; }
+.kanashi-upbo-table { width:100%; min-width:920px; border-collapse:separate; border-spacing:0; color:#4e3625; }
+.kanashi-upbo-table th { padding:14px 16px; border-bottom:2px solid #f57c00; background:#fff7ed; color:#7c4a20; font-size:13px; font-weight:900; white-space:nowrap; }
+.kanashi-upbo-table td { padding:13px 16px; border-right:1px solid #f1e7de; border-bottom:1px solid #f1e7de; font-size:13px; font-weight:700; line-height:1.5; vertical-align:middle; }
+.kanashi-upbo-table th:last-child, .kanashi-upbo-table td:last-child { border-right:0; text-align:center; }
+.kanashi-upbo-table tbody tr:last-child td { border-bottom:0; }
+.kanashi-upbo-table tbody tr:hover td { background:#fffaf5; }
+.kanashi-upbo-table td.is-number { text-align:right; font-variant-numeric:tabular-nums; }
+.kanashi-upbo-table input, .kanashi-upbo-table textarea { width:100%; min-width:90px; padding:8px 9px; border:1px solid #eadfd6; border-radius:8px; background:#fff; color:#4e3625; font-size:13px; font-weight:700; outline:none; resize:vertical; }
+.kanashi-upbo-table input:focus, .kanashi-upbo-table textarea:focus { border-color:#f57c00; box-shadow:0 0 0 3px rgba(245,124,0,.1); }
+.kanashi-station-link { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:72px; padding:8px 12px; border-radius:9px; background:#eaf3ff; color:#2563eb; font-size:12px; font-weight:900; white-space:nowrap; transition:.18s ease; }
+.kanashi-station-link:hover { background:#2563eb; color:#fff; transform:translateY(-1px); }
+.kanashi-table-empty { height:170px; color:#a89b91; text-align:center !important; }
+html.dark-mode .kanashi-upbo-table-wrap { background:#211d1a; border-color:#4a3b30; }
+html.dark-mode .kanashi-upbo-table { color:#f3e9e1; }
+html.dark-mode .kanashi-upbo-table th { background:#302318; color:#ffc58f; border-bottom-color:#f57c00; }
+html.dark-mode .kanashi-upbo-table td { border-color:#40352d; }
+html.dark-mode .kanashi-upbo-table tbody tr:hover td { background:#29211b; }
+html.dark-mode .kanashi-upbo-table input, html.dark-mode .kanashi-upbo-table textarea { background:#171412; border-color:#4a3b30; color:#f5eee8; }
+
 /* 카나시 업보관리 카드형 편집 화면 */
 .upbo-admin-card-grid {
     display: grid;
