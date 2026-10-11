@@ -7343,7 +7343,10 @@ async function loadKanashiUpboFromGoogleSheet() {
                 collectedAt: String(row.collectedAt || ''),
                 source: String(row.source || ''),
                 status: '배송중',
-                items: {}
+                items: {
+                    ...(Number(row.donationCount || 0) > 0 ? { '후원수': String(Number(row.donationCount || 0)) } : {}),
+                    ...(row.items ? { '품목': String(row.items) } : {})
+                }
             }))
         };
         return true;
@@ -9105,11 +9108,6 @@ function renderUpboPage() {
     content.innerHTML = mainHtml;
     content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6 upbo-content-wrap';
 
-    if ((upboViewMode === 'search' || !isAdmin) && upboCurrentMember === '카나시') {
-        const input = document.getElementById('upboSearchInput');
-        if (input) input.placeholder = '닉네임, 아이디, 품목 또는 메시지 검색';
-        renderKanashiUpboTable();
-    }
     if (isAdmin && upboViewMode === 'admin') { renderUpboAdminTable(); renderUpboMenuAdminList(); }
 }
 
@@ -9551,10 +9549,6 @@ function normalizeUpboSearchText(str) {
 
 function searchUpbo() {
     const rawQuery = document.getElementById('upboSearchInput').value.trim();
-    if (upboCurrentMember === '카나시') {
-        renderKanashiUpboTable(rawQuery);
-        return;
-    }
     const query = normalizeUpboSearchText(rawQuery);
     const resultContainer = document.getElementById('upboSearchResult');
     
