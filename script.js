@@ -1318,6 +1318,10 @@ let upboData = {
 let upboCurrentMember = '달타';
 let upboViewMode = 'search'; // 'search' or 'admin'
 
+// 카나시 업보 데이터는 Google Apps Script 저장소에도 함께 동기화한다.
+const KANASHI_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbw5aF5IHW4hWYwmXlPCWOt_28kS-Ku5R-x9QucTTJ2ObK4-E6rMd2oK1mL8DkP3rUxY/exec';
+const KANASHI_UPBO_ACCESS_KEY = 'kanashi-kk1231567-2026';
+
 const tabToHash = { 
     '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
     '롤링페이퍼': 'rolling', '업보정리': 'upbolist', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
@@ -9055,10 +9059,13 @@ function renderUpboPage() {
                         </ol>
                     </div>
                 </div>
-                <div class="overflow-x-auto lg:overflow-visible border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
-                    <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable">
-                    </table>
-                </div>
+                ${upboCurrentMember === '카나시' ? `
+                    <div id="upboAdminCards" class="upbo-admin-card-grid mb-4"></div>
+                ` : `
+                    <div class="overflow-x-auto lg:overflow-visible border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
+                        <table class="w-full text-left border-collapse min-w-max" id="upboAdminTable"></table>
+                    </div>
+                `}
                 <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
             </div>
         `;
@@ -9072,6 +9079,10 @@ function renderUpboPage() {
 }
 
 function renderUpboAdminTable() {
+    if (upboCurrentMember === '카나시') {
+        renderKanashiUpboCards();
+        return;
+    }
     const table = document.getElementById('upboAdminTable');
     if(!table) return;
     const data = upboData[upboCurrentMember] || { products: [], records: [] };
@@ -9107,6 +9118,72 @@ function renderUpboAdminTable() {
     table.innerHTML = thead + tbody;
 }
 
+function renderKanashiUpboCards() {
+    const container = document.getElementById('upboAdminCards');
+    if (!container) return;
+    const data = upboData['카나시'] || { products: [], records: [] };
+    const products = data.products || [];
+    const records = data.records || [];
+    const productEditor = `<section class="upbo-card-product-editor">
+        <div><strong>상품 목록</strong><span>카드에 표시할 상품명을 관리합니다.</span></div>
+        <div class="upbo-card-product-chips">${products.map((product, productIndex) => `
+            <label><input type="text" class="upbo-product-header" data-idx="${productIndex}" value="${escapeHtml(product)}" placeholder="상품명"><button type="button" onclick="removeUpboProduct(${productIndex})" title="상품 삭제"><i class="fi fi-br-cross-small"></i></button></label>
+        `).join('') || '<span class="upbo-card-products-empty">등록된 상품이 없습니다.</span>'}</div>
+    </section>`;
+
+    if (records.length === 0) {
+        container.innerHTML = productEditor + `<div class="upbo-card-empty"><i class="fi fi-rr-box-open"></i><strong>등록된 카나시 업보가 없습니다.</strong><span>아래 버튼을 눌러 첫 카드를 추가해 주세요.</span></div>`;
+        return;
+    }
+
+    container.innerHTML = productEditor + records.map((record, recordIndex) => {
+        const itemInputs = products.map((product, productIndex) => {
+            const value = record.items && record.items[product] !== undefined ? record.items[product] : '';
+            return `<label class="upbo-card-field upbo-card-product">
+                <span>${escapeHtml(product || '상품명 없음')}</span>
+                <textarea class="upbo-qty" data-product-idx="${productIndex}" rows="1" placeholder="수량 또는 내용">${escapeHtml(String(value))}</textarea>
+            </label>`;
+        }).join('');
+        const status = record.status === '배송완료' ? '배송완료' : '배송중';
+        const statusClass = status === '배송완료' ? 'is-complete' : 'is-shipping';
+
+        return `<article class="upbo-data-row upbo-admin-card" data-record-index="${recordIndex}">
+            <div class="upbo-card-head">
+                <label class="upbo-card-check"><input type="checkbox" class="upbo-row-checkbox"><span>선택</span></label>
+                <button type="button" class="upbo-card-delete" onclick="this.closest('.upbo-admin-card').remove(); syncUpboDomToState();" title="삭제"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+            <div class="upbo-card-identity">
+                <label class="upbo-card-field"><span>닉네임</span><input type="text" class="upbo-nick" value="${escapeHtml(record.nickname || '')}" placeholder="닉네임"></label>
+                <label class="upbo-card-field"><span>아이디</span><input type="text" class="upbo-uid" value="${escapeHtml(record.uid || '')}" placeholder="SOOP 아이디"></label>
+                <label class="upbo-card-field"><span>구분</span><input type="text" class="upbo-category" value="${escapeHtml(record.category || '')}" placeholder="구분"></label>
+            </div>
+            ${itemInputs ? `<div class="upbo-card-products">${itemInputs}</div>` : '<div class="upbo-card-no-products">등록된 상품이 없습니다.</div>'}
+            <div class="upbo-card-details">
+                <label class="upbo-card-field"><span>룰렛</span><textarea class="upbo-roulette" rows="2" placeholder="룰렛 당첨 내용">${escapeHtml(record.roulette || '')}</textarea></label>
+                <label class="upbo-card-field"><span>요청사항</span><textarea class="upbo-memo" rows="2" placeholder="요청사항">${escapeHtml(record.memo || '')}</textarea></label>
+            </div>
+            <div class="upbo-card-footer">
+                <button type="button" class="upbo-status ${statusClass}" value="${status}" onclick="toggleKanashiUpboCardStatus(this)">${status}</button>
+                <button type="button" class="upbo-card-station" onclick="openKanashiUpboStation(this)"><i class="fi fi-rr-link-alt"></i> 방송국 바로가기</button>
+            </div>
+        </article>`;
+    }).join('');
+}
+
+window.toggleKanashiUpboCardStatus = function(button) {
+    const isComplete = button.value !== '배송완료';
+    button.value = isComplete ? '배송완료' : '배송중';
+    button.textContent = button.value;
+    button.classList.toggle('is-complete', isComplete);
+    button.classList.toggle('is-shipping', !isComplete);
+};
+
+window.openKanashiUpboStation = function(button) {
+    const uid = button.closest('.upbo-admin-card')?.querySelector('.upbo-uid')?.value.trim();
+    if (!uid) return alert('아이디를 먼저 입력해주세요.');
+    window.open('https://www.sooplive.com/station/' + encodeURIComponent(uid), '_blank', 'noopener');
+};
+
 function createUpboRowHtml(record, products) {
     let html = `<tr class="border-b border-gray-200 hover:bg-gray-50 transition upbo-data-row">
         <td class="p-2 border-r text-center"><input type="checkbox" class="upbo-row-checkbox accent-[#5D4037] w-4 h-4 cursor-pointer"></td>
@@ -9140,14 +9217,17 @@ function createUpboRowHtml(record, products) {
 }
 function syncUpboDomToState() {
     const table = document.getElementById('upboAdminTable');
-    if(!table) return;
+    const cardContainer = document.getElementById('upboAdminCards');
+    const root = table || cardContainer;
+    if(!root) return;
 
-    const productInputs = table.querySelectorAll('.upbo-product-header');
+    const productInputs = root.querySelectorAll('.upbo-product-header');
     let newProducts = [];
-    productInputs.forEach(inp => newProducts.push(inp.value.trim()));
+    if (productInputs.length) productInputs.forEach(inp => newProducts.push(inp.value.trim()));
+    else newProducts = [...(upboData[upboCurrentMember]?.products || [])];
 
     let newRecords = [];
-    const rows = table.querySelectorAll('.upbo-data-row');
+    const rows = root.querySelectorAll('.upbo-data-row');
     rows.forEach(tr => {
         const nick = tr.querySelector('.upbo-nick').value.trim();
         const uid = tr.querySelector('.upbo-uid').value.trim();
@@ -9346,8 +9426,29 @@ async function saveUpboData() {
         const memberToEng = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
         const docId = memberToEng[upboCurrentMember];
         await setDoc(doc(db, 'upboData', docId), dataToSave);
+
+        if (upboCurrentMember === '카나시') {
+            const apiResponse = await fetch(KANASHI_UPBO_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    accessKey: KANASHI_UPBO_ACCESS_KEY,
+                    member: '카나시',
+                    products: dataToSave.products || [],
+                    records: dataToSave.records || [],
+                    data: dataToSave.records || [],
+                    menu: dataToSave.menu || [],
+                    menuImage: dataToSave.menuImage || '',
+                    menuListImage: dataToSave.menuListImage || ''
+                })
+            });
+            const apiResult = await apiResponse.json().catch(() => null);
+            if (!apiResponse.ok || !apiResult || apiResult.ok === false) {
+                throw new Error(apiResult?.message || `카나시 DB 연결 실패 (HTTP ${apiResponse.status})`);
+            }
+        }
         saveScheduleCache();
-        alert("데이터가 성공적으로 저장되었습니다!");
+        alert(upboCurrentMember === '카나시' ? "카나시 데이터가 성공적으로 저장·동기화되었습니다!" : "데이터가 성공적으로 저장되었습니다!");
     } catch(e) {
         console.error(e);
         alert("저장 실패: " + e.message);
@@ -12595,7 +12696,8 @@ window.deleteSelectedUpboRows = function() {
     if(!confirm(`선택한 ${checkboxes.length}개 항목을 삭제하시겠습니까?`)) return;
     
     checkboxes.forEach(cb => {
-        cb.closest('tr').remove();
+        const row = cb.closest('.upbo-data-row');
+        if (row) row.remove();
     });
     
     syncUpboDomToState();
@@ -12610,13 +12712,18 @@ window.changeStatusSelectedUpboRows = function() {
     if(!confirm(`선택한 ${checkboxes.length}개 항목을 '${newStatus}' 상태로 일괄 변경하시겠습니까?`)) return;
     
     checkboxes.forEach(cb => {
-        const tr = cb.closest('tr');
+        const tr = cb.closest('.upbo-data-row');
         const statusBtn = tr.querySelector('.upbo-status');
         if(statusBtn) {
             statusBtn.value = newStatus;
-            statusBtn.className = newStatus === '배송완료' 
-                ? 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-green-100 text-green-700' 
-                : 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-purple-100 text-purple-700';
+            if (tr.classList.contains('upbo-admin-card')) {
+                statusBtn.textContent = newStatus;
+                statusBtn.className = `upbo-status ${newStatus === '배송완료' ? 'is-complete' : 'is-shipping'}`;
+            } else {
+                statusBtn.className = newStatus === '배송완료'
+                    ? 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-green-100 text-green-700'
+                    : 'w-[90%] mx-auto block py-1 rounded font-bold text-[13px] cursor-pointer transition-colors upbo-status bg-purple-100 text-purple-700';
+            }
         }
     });
     

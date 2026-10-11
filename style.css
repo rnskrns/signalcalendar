@@ -8,6 +8,81 @@
     --card-bg-cream: #FFFDF5;
 }
 
+/* 카나시 업보관리 카드형 편집 화면 */
+.upbo-admin-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    gap: 18px;
+}
+.upbo-card-product-editor { grid-column:1/-1; padding:18px; border:1px solid #f0dfcf; border-radius:18px; background:#fffaf5; }
+.upbo-card-product-editor > div:first-child { display:flex; flex-direction:column; gap:3px; margin-bottom:12px; }
+.upbo-card-product-editor strong { color:#624731; font-size:16px; }
+.upbo-card-product-editor span { color:#ad8a6d; font-size:12px; font-weight:700; }
+.upbo-card-product-chips { display:flex; flex-wrap:wrap; gap:9px; }
+.upbo-card-product-chips label { display:flex; align-items:center; overflow:hidden; border:1px solid #ead6c4; border-radius:11px; background:#fff; }
+.upbo-card-product-chips input { width:150px; padding:9px 11px; color:#604630; font-size:13px; font-weight:800; outline:none; }
+.upbo-card-product-chips button { width:34px; align-self:stretch; color:#dc6666; border-left:1px solid #f0ded4; }
+.upbo-card-product-chips button:hover { background:#fff0f0; }
+.upbo-card-products-empty { padding:8px 0; }
+.upbo-admin-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    padding: 20px;
+    border: 1px solid #f1dfd0;
+    border-top: 5px solid #f57c00;
+    border-radius: 22px;
+    background: linear-gradient(155deg, #fff 0%, #fffaf5 100%);
+    box-shadow: 0 12px 30px rgba(130, 78, 26, .10);
+}
+.upbo-card-head, .upbo-card-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.upbo-card-check { display:flex; align-items:center; gap:7px; color:#8a633f; font-size:13px; font-weight:800; cursor:pointer; }
+.upbo-card-check input { width:18px; height:18px; accent-color:#f57c00; }
+.upbo-card-delete { width:34px; height:34px; display:grid; place-items:center; border-radius:50%; background:#fff1f1; color:#e05252; transition:.18s ease; }
+.upbo-card-delete:hover { background:#e05252; color:#fff; transform:rotate(5deg); }
+.upbo-card-identity { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+.upbo-card-identity .upbo-card-field:last-child { grid-column:1/-1; }
+.upbo-card-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.upbo-card-field > span { color:#8f7157; font-size:12px; font-weight:900; }
+.upbo-card-field input, .upbo-card-field textarea {
+    width:100%; min-width:0; padding:11px 12px; border:1px solid #eadfd6; border-radius:11px;
+    background:#fff; color:#4e3625; font-size:14px; font-weight:700; outline:none; resize:vertical;
+}
+.upbo-card-field input:focus, .upbo-card-field textarea:focus { border-color:#f57c00; box-shadow:0 0 0 3px rgba(245,124,0,.12); }
+.upbo-card-products { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:14px; border-radius:15px; background:#fff4e8; }
+.upbo-card-product textarea { min-height:44px; resize:vertical; }
+.upbo-card-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.upbo-card-no-products { padding:15px; border:1px dashed #efc9a5; border-radius:14px; color:#b28a65; text-align:center; font-size:13px; font-weight:800; }
+.upbo-admin-card .upbo-status, .upbo-card-station { min-height:42px; padding:0 16px; border-radius:12px; font-size:13px; font-weight:900; transition:.18s ease; }
+.upbo-admin-card .upbo-status.is-shipping { background:#f3e8ff; color:#7e22ce; }
+.upbo-admin-card .upbo-status.is-complete { background:#dcfce7; color:#15803d; }
+.upbo-card-station { margin-left:auto; background:#eaf3ff; color:#2563eb; }
+.upbo-card-empty { grid-column:1/-1; min-height:260px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; border:2px dashed #f1d2b5; border-radius:22px; background:#fffaf5; color:#ad7e54; text-align:center; }
+.upbo-card-empty i { font-size:34px; }
+.upbo-card-empty strong { color:#6b4d35; font-size:17px; }
+.upbo-card-empty span { font-size:13px; }
+
+html.dark-mode .upbo-admin-card { background:linear-gradient(155deg,#211d1a,#2a211a); border-color:#56402f; border-top-color:#f57c00; }
+html.dark-mode .upbo-card-field > span { color:#d9baa0; }
+html.dark-mode .upbo-card-field input, html.dark-mode .upbo-card-field textarea { background:#171412; border-color:#4a3b30; color:#f5eee8; }
+html.dark-mode .upbo-card-products { background:#302318; }
+html.dark-mode .upbo-card-product-editor { background:#29211b; border-color:#56402f; }
+html.dark-mode .upbo-card-product-editor strong { color:#f3e6dc; }
+html.dark-mode .upbo-card-product-chips label { background:#171412; border-color:#4a3b30; }
+html.dark-mode .upbo-card-product-chips input { color:#f5eee8; }
+html.dark-mode .upbo-card-empty { background:#211d1a; border-color:#654a34; color:#c7a98f; }
+html.dark-mode .upbo-card-empty strong { color:#f3e6dc; }
+
+@media (max-width: 640px) {
+    .upbo-admin-card-grid { grid-template-columns:1fr; gap:13px; }
+    .upbo-admin-card { padding:16px; border-radius:18px; }
+    .upbo-card-identity, .upbo-card-details, .upbo-card-products { grid-template-columns:1fr; }
+    .upbo-card-identity .upbo-card-field:last-child { grid-column:auto; }
+    .upbo-card-footer { align-items:stretch; flex-direction:column; }
+    .upbo-admin-card .upbo-status, .upbo-card-station { width:100%; margin-left:0; }
+}
+
 .cineti-image-or{display:flex;align-items:center;gap:10px;color:#aaa5b0;font-size:11px;font-weight:800}.cineti-image-or::before,.cineti-image-or::after{content:'';height:1px;flex:1;background:#e5e1e9}
 .cineti-vod-badge.is-airing{background:#6f47e8}.cineti-vod-badge.is-ended{background:rgba(39,39,45,.86)}.cineti-vod-badge.is-upcoming{background:#2589ff}.cineti-date-time-field{display:flex;flex-direction:column;gap:10px;padding:11px;border:1px solid #e6e2ea;border-radius:14px;background:#fcfbfd}html.dark-mode .cineti-date-time-field{background:#28242d;border-color:#423c47}.cineti-image-adjust{display:flex;flex-direction:column;gap:12px;padding:12px;border:1px solid #e4e0e8;border-radius:15px;background:#faf9fc}.cineti-image-adjust.hidden{display:none}.cineti-preview-frame{width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:#ece9f0}.cineti-preview-frame .cineti-form-preview{width:100%;height:100%;max-height:none;object-fit:cover;border-radius:0}.cineti-image-adjust label{position:relative}.cineti-image-adjust label>span{position:absolute;right:0;color:#7a5cda;font-size:11px}.cineti-image-adjust input[type='range']{min-height:24px;padding:0;border:0;background:transparent;box-shadow:none;accent-color:#7047e7}html.dark-mode .cineti-image-adjust{background:#28242d;border-color:#423c47}.cineti-card-admin-actions{position:absolute;right:12px;top:12px;display:flex;gap:7px}.cineti-card-admin-actions .cineti-edit-btn,.cineti-card-admin-actions .cineti-delete-btn{position:static;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:rgba(20,18,25,.68);color:#fff}.cineti-card-admin-actions .cineti-edit-btn:hover{background:#7047e7}.cineti-card-admin-actions .cineti-delete-btn:hover{background:#e44f5e}
 .cineti-status-nav{height:62px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#fff;border-bottom:1px solid #ececf2}.cineti-status-nav strong{color:#28252d;font-size:14px;font-weight:900}.cineti-status-nav button{padding:8px 12px;border:1px solid #ded8ee;border-radius:10px;background:#f5f1ff;color:#7047e7;font-size:11px;font-weight:900}.cineti-status-nav button:hover{background:#7047e7;color:#fff}html.dark-mode .cineti-status-nav{background:#211e25;border-color:#38333d}html.dark-mode .cineti-status-nav strong{color:#f6f3f8}html.dark-mode .cineti-status-nav button{background:#302940;border-color:#4b4260;color:#bba7ff}
