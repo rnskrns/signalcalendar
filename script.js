@@ -9155,7 +9155,7 @@ function renderKanashiUpboCards() {
             <div class="upbo-card-identity">
                 <label class="upbo-card-field"><span>닉네임</span><input type="text" class="upbo-nick" value="${escapeHtml(record.nickname || '')}" placeholder="닉네임"></label>
                 <label class="upbo-card-field"><span>아이디</span><input type="text" class="upbo-uid" value="${escapeHtml(record.uid || '')}" placeholder="SOOP 아이디"></label>
-                <label class="upbo-card-field"><span>구분</span><input type="text" class="upbo-category" value="${escapeHtml(record.category || '')}" placeholder="구분"></label>
+                <label class="upbo-card-field"><span>품목명</span><input type="text" class="upbo-category" value="${escapeHtml(record.category || '')}" placeholder="품목명"></label>
             </div>
             ${itemInputs ? `<div class="upbo-card-products">${itemInputs}</div>` : '<div class="upbo-card-no-products">등록된 상품이 없습니다.</div>'}
             <div class="upbo-card-details">

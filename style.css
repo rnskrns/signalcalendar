@@ -11,8 +11,8 @@
 /* 카나시 업보관리 카드형 편집 화면 */
 .upbo-admin-card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+    gap: 14px;
 }
 .upbo-card-product-editor { grid-column:1/-1; padding:18px; border:1px solid #f0dfcf; border-radius:18px; background:#fffaf5; }
 .upbo-card-product-editor > div:first-child { display:flex; flex-direction:column; gap:3px; margin-bottom:12px; }
@@ -27,9 +27,9 @@
 .upbo-admin-card {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 11px;
     min-width: 0;
-    padding: 20px;
+    padding: 16px 18px;
     border: 1px solid #f1dfd0;
     border-top: 5px solid #f57c00;
     border-radius: 22px;
@@ -41,17 +41,16 @@
 .upbo-card-check input { width:18px; height:18px; accent-color:#f57c00; }
 .upbo-card-delete { width:34px; height:34px; display:grid; place-items:center; border-radius:50%; background:#fff1f1; color:#e05252; transition:.18s ease; }
 .upbo-card-delete:hover { background:#e05252; color:#fff; transform:rotate(5deg); }
-.upbo-card-identity { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
-.upbo-card-identity .upbo-card-field:last-child { grid-column:1/-1; }
+.upbo-card-identity { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
 .upbo-card-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
 .upbo-card-field > span { color:#8f7157; font-size:12px; font-weight:900; }
 .upbo-card-field input, .upbo-card-field textarea {
-    width:100%; min-width:0; padding:11px 12px; border:1px solid #eadfd6; border-radius:11px;
+    width:100%; min-width:0; padding:9px 11px; border:1px solid #eadfd6; border-radius:11px;
     background:#fff; color:#4e3625; font-size:14px; font-weight:700; outline:none; resize:vertical;
 }
 .upbo-card-field input:focus, .upbo-card-field textarea:focus { border-color:#f57c00; box-shadow:0 0 0 3px rgba(245,124,0,.12); }
-.upbo-card-products { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:14px; border-radius:15px; background:#fff4e8; }
-.upbo-card-product textarea { min-height:44px; resize:vertical; }
+.upbo-card-products { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:11px; border-radius:15px; background:#fff4e8; }
+.upbo-card-product textarea { min-height:38px; resize:vertical; }
 .upbo-card-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .upbo-card-no-products { padding:15px; border:1px dashed #efc9a5; border-radius:14px; color:#b28a65; text-align:center; font-size:13px; font-weight:800; }
 .upbo-admin-card .upbo-status, .upbo-card-station { min-height:42px; padding:0 16px; border-radius:12px; font-size:13px; font-weight:900; transition:.18s ease; }
@@ -78,7 +77,6 @@ html.dark-mode .upbo-card-empty strong { color:#f3e6dc; }
     .upbo-admin-card-grid { grid-template-columns:1fr; gap:13px; }
     .upbo-admin-card { padding:16px; border-radius:18px; }
     .upbo-card-identity, .upbo-card-details, .upbo-card-products { grid-template-columns:1fr; }
-    .upbo-card-identity .upbo-card-field:last-child { grid-column:auto; }
     .upbo-card-footer { align-items:stretch; flex-direction:column; }
     .upbo-admin-card .upbo-status, .upbo-card-station { width:100%; margin-left:0; }
 }
