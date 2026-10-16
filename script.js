@@ -8596,9 +8596,11 @@ function appendMobileMemberChannelFooter() {
         const text = `${link.title || ''} ${link.url || ''}`;
         const isYoutube = /youtube|유튜브/i.test(text);
         const isSoop = /soop|숲/i.test(text);
+        const isCafe = /cafe\.naver|카페/i.test(text);
         const label = isYoutube ? '유튜브' : (isSoop ? 'SOOP' : '카페');
-        const icon = isYoutube ? 'fi-brands-youtube' : (isSoop ? 'fi-rr-video-camera' : 'fi-rr-users-alt');
-        return `<button type="button" onclick="openSmartLink('${String(link.url || '').replace(/'/g, "\\'")}')"><i class="fi ${icon}"></i><span>${label}</span></button>`;
+        const image = isYoutube ? memberChannelImages[member]?.youtube : (isSoop ? memberChannelImages[member]?.soop : (isCafe ? memberNoticeImages[member] : ''));
+        const fallbackIcon = isYoutube ? 'fi-brands-youtube' : (isSoop ? 'fi-rr-video-camera' : 'fi-rr-users-alt');
+        return `<button type="button" class="signal-member-channel-button" onclick="openSmartLink('${String(link.url || '').replace(/'/g, "\\'")}')">${image ? `<img src="${escapeHtml(image)}" alt="" loading="lazy">` : `<i class="fi ${fallbackIcon}"></i>`}<span>${label}</span></button>`;
     }).join('');
     content.insertAdjacentHTML('beforeend', `<section class="signal-member-channel-footer" style="--member-accent:${themeColors[member] || '#5D4037'}" aria-label="${member} 채널 바로가기"><small>CHANNELS</small><div>${buttons}</div></section>`);
 }
@@ -8616,7 +8618,7 @@ function syncDarkModeSurfaces() {
     apply('.signal-calendar-memo-card', { 'background-color':'#1d1a1f', 'background-image':'none', 'border-color':'#383239', 'color':'#f5efec' });
     apply('.signal-calendar-memo-title, .signal-calendar-memo-card .text-\\[\\#5D4037\\]', { 'color':'#f5efec' });
     apply('#mainContent .signal-member-top-navigation', { 'background-color':'rgba(33,30,35,.96)', 'background-image':'none', 'border-color':'#383239', 'color':'#f5efec' });
-    apply('#mainContent .signal-member-home-button, .signal-member-channel-footer button', { 'background-color':'#29252b', 'border-color':'#383239' });
+    apply('#mainContent .signal-member-home-button', { 'background-color':'#29252b', 'border-color':'#383239' });
     apply('#mobileBottomNav.mobile-member-tabs', { 'background-color':'rgba(35,32,39,.98)', 'border-color':'#383239' });
     apply('.schedule-time-control', { 'background-color':'#18161a', 'background-image':'none', 'border-color':'#383239', 'box-shadow':'none' });
     apply('.schedule-time-control .ampm-btn', { 'background-color':'#29252b', 'border-color':'#383239', 'color':'#f5efec', 'box-shadow':'none' });

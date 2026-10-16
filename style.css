@@ -4322,16 +4322,21 @@ body:has(#mainContent.signal-member-combined-page) { overflow-x:hidden !importan
     .signal-member-channel-footer {
         width:calc(100% - 28px);
         margin:28px auto 18px;
-        padding:22px 16px 116px;
+        padding:22px 16px 18px;
         border-top:1px solid color-mix(in srgb,var(--member-accent) 22%,#ddd8d2);
         text-align:center;
     }
     .signal-member-channel-footer > small { display:block; margin-bottom:13px; color:#99918e; font-size:9px; font-weight:900; letter-spacing:.18em; }
-    .signal-member-channel-footer > div { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
-    .signal-member-channel-footer button { min-width:86px; height:48px; display:flex; align-items:center; justify-content:center; gap:7px; padding:0 14px; border:1px solid color-mix(in srgb,var(--member-accent) 25%,#ddd8d2); border-radius:16px; background:#fff; color:var(--member-accent); font-size:12px; font-weight:900; }
+    .signal-member-channel-footer > div { display:flex; justify-content:center; align-items:flex-start; gap:22px; flex-wrap:nowrap; }
+    .signal-member-channel-footer button { width:64px; min-width:64px; height:auto; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:7px; padding:0; border:0; border-radius:0; background:transparent; color:#77706e; font-size:10px; font-weight:900; }
+    .signal-member-channel-footer button img { width:52px; height:52px; display:block; border:2px solid #fff; border-radius:50%; object-fit:cover; box-shadow:0 0 0 1px #ded9d4; }
+    .signal-member-channel-footer button > i { width:52px; height:52px; display:grid; place-items:center; border:1px solid #ded9d4; border-radius:50%; background:#fff; color:var(--member-accent); font-size:20px; }
+    .signal-member-channel-footer button span { line-height:1; }
     html.dark-mode .signal-member-channel-footer { border-color:var(--dm-border-soft); }
     html.dark-mode .signal-member-channel-footer > small { color:var(--dm-text-sub); }
-    html.dark-mode .signal-member-channel-footer button { border-color:var(--dm-border-soft); background:var(--dm-surface-raised); }
+    html.dark-mode .signal-member-channel-footer button { background:transparent; color:var(--dm-text-sub); }
+    html.dark-mode .signal-member-channel-footer button img { border-color:var(--dm-surface-raised); box-shadow:0 0 0 1px var(--dm-border-soft); }
+    html.dark-mode .signal-member-channel-footer button > i { border-color:var(--dm-border-soft); background:var(--dm-surface-raised); }
 }
 
 @media(max-width:900px) {
