@@ -4644,3 +4644,24 @@ html.dark-mode .upbo-box #upboAdminTable tbody tr:hover td {
         background-color:rgba(35,32,39,.98) !important;
     }
 }
+
+/* Keep all five personal menu buttons fully inside narrow mobile screens. */
+@media(max-width:1050px) {
+    #mainContent .signal-member-top-navigation {
+        padding-right:8px;
+        padding-left:8px;
+    }
+    #mainContent .signal-member-top-navigation-main {
+        width:100%;
+        display:flex;
+        gap:2px;
+        overflow:hidden;
+    }
+    #mainContent .signal-member-top-navigation-main button {
+        width:auto;
+        min-width:0;
+        flex:1 1 0;
+        padding-right:2px;
+        padding-left:2px;
+    }
+}
