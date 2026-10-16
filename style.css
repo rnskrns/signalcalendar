@@ -3635,28 +3635,27 @@ html.dark-mode .signal-calendar-shell .big-cell:hover { background:color-mix(in 
 .song-card:focus-within img { transform:none !important; filter:none !important; }
 .song-card .song-art > button { border-radius:12px; }
 
-/* Darung's song data includes mixed-size remote artwork. Keep the artwork on its
-   own fixed paint layer so hovering a card cannot trigger a grid reflow/flicker. */
+/* Darung artwork uses mixed remote image sizes. Keep the generic card sizing:
+   strict size/paint containment here collapses or clips the artwork layer. */
 .signal-songbook-shell.theme-darung .song-card,
 .signal-songbook-shell.theme-darung .song-card:hover,
 .signal-songbook-shell.theme-darung .song-card:focus-within {
     transform:none !important;
     filter:none !important;
     box-shadow:none !important;
-    contain:layout paint;
+    contain:none;
 }
 .signal-songbook-shell.theme-darung .song-art {
     position:relative;
-    isolation:isolate;
-    contain:strict;
+    isolation:auto;
+    contain:none;
     transform:none !important;
     animation:none !important;
     transition:none !important;
 }
 .signal-songbook-shell.theme-darung .song-art > img,
 .signal-songbook-shell.theme-darung .song-art > div:first-child {
-    position:absolute;
-    inset:0;
+    position:static;
     display:block;
     width:100% !important;
     height:100% !important;
@@ -3665,6 +3664,8 @@ html.dark-mode .signal-calendar-shell .big-cell:hover { background:color-mix(in 
     max-width:none !important;
     max-height:none !important;
     object-fit:cover;
+    opacity:1 !important;
+    visibility:visible !important;
     transform:none !important;
     filter:none !important;
     animation:none !important;
