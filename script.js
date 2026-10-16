@@ -8903,14 +8903,40 @@ function getSongListProgressHtml(rendered, total) {
 
 function setupSongListObserver() {
     if (songListObserver) songListObserver.disconnect();
+    const container = document.getElementById('songListContainer');
     const sentinel = document.getElementById('songListLoadMore');
-    if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+    if (!container || !sentinel || typeof IntersectionObserver === 'undefined') return;
     songListObserver = new IntersectionObserver(entries => {
         if (!entries.some(entry => entry.isIntersecting)) return;
         songListObserver.disconnect();
         window.loadMoreSongs();
-    }, { rootMargin: '360px 0px' });
+    }, { root: container, rootMargin: '0px 0px 240px' });
     songListObserver.observe(sentinel);
+}
+
+function setupSongListScrollWindow() {
+    const container = document.getElementById('songListContainer');
+    if (!container) return;
+    requestAnimationFrame(() => {
+        const cards = [...container.querySelectorAll('.song-card')];
+        container.classList.remove('song-list-scroll-window');
+        container.style.removeProperty('--song-list-viewport-height');
+        if (!cards.length) {
+            setupSongListObserver();
+            return;
+        }
+
+        const rowTops = [...new Set(cards.map(card => Math.round(card.offsetTop)))].sort((a, b) => a - b);
+        if (rowTops.length > 3) {
+            const thirdRowTop = rowTops[2];
+            const thirdRowBottom = Math.max(...cards
+                .filter(card => Math.round(card.offsetTop) === thirdRowTop)
+                .map(card => card.offsetTop + card.offsetHeight));
+            container.style.setProperty('--song-list-viewport-height', `${thirdRowBottom + 2}px`);
+            container.classList.add('song-list-scroll-window');
+        }
+        setupSongListObserver();
+    });
 }
 
 window.loadMoreSongs = function() {
@@ -8974,7 +9000,7 @@ function renderSongList() {
             html += `<div class="col-span-full text-center text-gray-400 font-bold py-16">일치하는 노래가 없습니다.</div>`;
         }
     } else {
-        const progressive = songbookMember === '다룽' && list.length > SONG_RENDER_BATCH_SIZE;
+        const progressive = list.length > SONG_RENDER_BATCH_SIZE;
         const visibleCount = progressive
             ? Math.min(Math.max(previousCount, SONG_RENDER_BATCH_SIZE), list.length)
             : list.length;
@@ -8985,7 +9011,7 @@ function renderSongList() {
     container.innerHTML = html;
     container.dataset.renderSignature = renderSignature;
     container.dataset.renderScope = renderScope;
-    setupSongListObserver();
+    setupSongListScrollWindow();
 }
 
 function renderGenreFilters() {
@@ -11566,7 +11592,7 @@ function renderDesktopIndividual(grouped) {
 
     const memos = memoList[currentPage] || [];
     const memoContentHtml = memos.map(memo => `
-        <div class="bg-white p-4 rounded-xl relative shadow-sm mb-4 transition hover:-translate-y-0.5 border border-[#ECEDFA]" 
+        <div class="signal-calendar-memo-card bg-white p-4 rounded-xl relative shadow-sm mb-4 transition hover:-translate-y-0.5 border border-[#ECEDFA]"
              oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); window.openMemoEditModal('${memo.id}'); }">
             ${isAdmin ? `
             <div class="absolute top-2 right-2 flex items-center gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
@@ -11588,9 +11614,9 @@ function renderDesktopIndividual(grouped) {
             </div>
             
             <!-- 높이를 요일 박스(약 86px)와 정확히 일치시킴 -->
-            <div class="flex justify-between items-center w-full pl-6 pr-4 bg-[var(--card-bg-cream)] border-[1.5px] border-[#ECEDFA] rounded-[25px] shadow-[0_10px_24px_-16px_rgba(70,60,160,0.15)] mb-2 box-border" style="transform: translateY(-14px); height: 86px;">
+            <div class="signal-calendar-memo-header flex justify-between items-center w-full pl-6 pr-4 bg-[var(--card-bg-cream)] border-[1.5px] border-[#ECEDFA] rounded-[25px] shadow-[0_10px_24px_-16px_rgba(70,60,160,0.15)] mb-2 box-border" style="transform: translateY(-14px); height: 86px;">
                 <div class="flex items-center gap-2">
-                    <div class="text-[26px] font-normal text-[#5D4037] font-paperozi flex items-center gap-2" style="letter-spacing: 1px;">
+                    <div class="signal-calendar-memo-title text-[26px] font-normal text-[#5D4037] font-paperozi flex items-center gap-2" style="letter-spacing: 1px;">
                         ${currentPage} 메모장
                     </div>
                     ${isAdmin ? `<button onclick="openMemoAddModal()" class="w-7 h-7 flex items-center justify-center bg-[#5D4037] text-white rounded-full font-bold hover:brightness-110 shadow-sm transition text-[12px] ml-1"><i class="fi fi-br-plus"></i></button>` : ''}
@@ -14286,7 +14312,7 @@ window.renderClipPage = function() {
     let html = `
     ${buildMemberTopNavigation(currentClipStreamer, 'clips')}
     <div class="signal-member-tool-routebar" style="--member-accent:${themeColors[currentClipStreamer] || '#8B5CF6'}"><strong>${currentClipStreamer} 클립 모아보기</strong></div>
-    <div class="big-white-box signal-member-tool-shell relative flex flex-col bg-[#fafafa]" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box; --member-accent:${themeColors[currentClipStreamer] || '#8B5CF6'};">
+    <div class="big-white-box signal-member-tool-shell signal-clips-shell relative flex flex-col bg-[#fafafa]" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box; --member-accent:${themeColors[currentClipStreamer] || '#8B5CF6'};">
         <div class="mb-6 shrink-0 border-b border-gray-200 pb-5">
             <h2 class="text-[24px] lg:text-[27px] font-bold text-gray-900">${currentClipStreamer} 클립</h2>
         </div>

@@ -2192,6 +2192,12 @@ html.dark-mode .clip-card.is-watched .clip-thumbnail {
     min-width:0;
     max-width:100%;
 }
+#mainContent.signal-centered-content > .signal-clips-shell {
+    width:min(1795px,calc(100vw - 72px)) !important;
+    max-width:1795px !important;
+    margin-right:auto !important;
+    margin-left:auto !important;
+}
 #clipGridContainer.clip-grid-layout > .clip-card {
     width:100%;
     min-width:0;
@@ -2210,6 +2216,7 @@ html.dark-mode .clip-card.is-watched .clip-thumbnail {
     overflow-wrap:anywhere;
 }
 @media(max-width:1050px) {
+    #mainContent.signal-centered-content > .signal-clips-shell { width:100% !important; }
     #clipGridContainer.clip-grid-layout { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:560px) {
@@ -3498,6 +3505,11 @@ html.dark-mode .signal-home-news .signal-news-list {
     background:transparent;
 }
 html.dark-mode .signal-home-media-empty { background:#2b2025; color:#ff8594; }
+html.dark-mode .signal-home-date-label,
+html.dark-mode .signal-hero-date,
+html.dark-mode .signal-member-addon-today h2 {
+    color:var(--dm-text-main) !important;
+}
 html.dark-mode .signal-home-media-empty span,
 html.dark-mode .signal-section header small,
 html.dark-mode .signal-home-information article > header small,
@@ -3712,6 +3724,26 @@ html.dark-mode .signal-calendar-shell .big-cell:hover { background:color-mix(in 
 }
 .song-list-load-more button:hover { border-color:var(--songbook-accent); }
 html.dark-mode .song-list-load-more button { background:color-mix(in srgb,var(--songbook-accent) 10%,var(--dm-surface-raised)); }
+#songListContainer.song-list-scroll-window {
+    max-height:var(--song-list-viewport-height);
+    padding-right:8px;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+}
+#songListContainer.song-list-scroll-window::-webkit-scrollbar { width:8px; }
+#songListContainer.song-list-scroll-window::-webkit-scrollbar-track { background:transparent; }
+#songListContainer.song-list-scroll-window::-webkit-scrollbar-thumb {
+    border:2px solid transparent;
+    border-radius:99px;
+    background:color-mix(in srgb,var(--songbook-accent) 35%,#d9d3cf);
+    background-clip:padding-box;
+}
+html.dark-mode #songListContainer.song-list-scroll-window::-webkit-scrollbar-thumb {
+    background:color-mix(in srgb,var(--songbook-accent) 40%,var(--dm-border-soft));
+    background-clip:padding-box;
+}
 
 /* Darung artwork uses mixed remote image sizes. Keep the generic card sizing:
    strict size/paint containment here collapses or clips the artwork layer. */
@@ -3784,6 +3816,19 @@ html.dark-mode #scheduleModal .type-radio:checked + label,
 html.dark-mode #editScheduleModal .type-radio:checked + label { color:#171419 !important; }
 html.dark-mode .signal-calendar-shell .nav-container,
 html.dark-mode .signal-calendar-shell .nav-container *:not(button):not(i) { color:var(--dm-text-main) !important; }
+html.dark-mode .signal-calendar-memo-header {
+    border-color:var(--dm-border-soft) !important;
+    background:var(--dm-surface-raised) !important;
+    box-shadow:none !important;
+}
+html.dark-mode .signal-calendar-memo-title { color:var(--dm-text-main) !important; }
+html.dark-mode .signal-calendar-memo-card {
+    border-color:var(--dm-border-soft) !important;
+    background:var(--dm-surface-soft) !important;
+    color:var(--dm-text-main) !important;
+    box-shadow:none !important;
+}
+html.dark-mode .signal-calendar-memo-card .text-\[\#5D4037\] { color:var(--dm-text-main) !important; }
 html.dark-mode .detail-notebook-box { background:var(--dm-surface-raised) !important; border-color:var(--dm-border-soft) !important; }
 html.dark-mode .detail-notebook-line { background:transparent !important; color:var(--dm-text-main) !important; }
 .signal-songbook-shell.theme-darung .song-card:hover .song-art,
