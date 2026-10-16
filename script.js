@@ -14124,7 +14124,7 @@ window.renderClipPage = function() {
             <span id="clipResultCount" class="text-[12px] font-medium text-gray-500">검색 중…</span>
         </div>
         
-        <div id="clipGridContainer" class="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div id="clipGridContainer" class="clip-grid-layout w-full">
         </div>
         
         <div class="w-full py-8 text-center">

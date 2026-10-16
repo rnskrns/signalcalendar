@@ -2181,6 +2181,39 @@ html.dark-mode .clip-card.is-watched .clip-thumbnail {
     filter: brightness(0.4) saturate(0.8);
 }
 
+/* Keep incomplete clip rows centered instead of pinning them to the left. */
+#clipGridContainer.clip-grid-layout {
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:stretch;
+    gap:16px;
+}
+#clipGridContainer.clip-grid-layout > .clip-card {
+    flex:0 1 calc((100% - 48px) / 4);
+    width:calc((100% - 48px) / 4);
+    min-width:220px;
+    max-width:360px;
+}
+#clipGridContainer.clip-grid-layout > .col-span-full {
+    flex:0 0 100%;
+    width:100%;
+}
+@media(max-width:1050px) {
+    #clipGridContainer.clip-grid-layout > .clip-card {
+        flex-basis:calc((100% - 16px) / 2);
+        width:calc((100% - 16px) / 2);
+        max-width:none;
+        min-width:0;
+    }
+}
+@media(max-width:560px) {
+    #clipGridContainer.clip-grid-layout > .clip-card {
+        flex-basis:100%;
+        width:100%;
+    }
+}
+
 /* 클립 모아보기: 좌·우클릭으로 본 클립은 썸네일을 어둡게 표시 */
 .clip-card .clip-thumbnail {
     transition: filter 180ms ease;
