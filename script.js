@@ -8565,8 +8565,7 @@ function buildMemberTopNavigation(member, activeMenu = 'home') {
         { key:'clips', label:'클립', icon:'fi-rr-play-alt', action:`클립_${member}` },
         { key:'upbo', label:'업보정리', icon:'fi-rr-box-open', action:`업보정리_${member}` }
     ].filter(item => item.key === 'home' || visibility[item.key] !== false);
-    const visibleToolItems = isMobile ? toolItems.filter(item => item.key !== 'home') : toolItems;
-    const toolsHtml = visibleToolItems.map(item => `<button type="button" class="${activeMenu === item.key ? 'is-current' : ''}" onclick="changeTab('${item.action}')"><i class="fi ${item.icon}"></i><span>${item.label}</span></button>`).join('');
+    const toolsHtml = toolItems.map(item => `<button type="button" class="${activeMenu === item.key ? 'is-current' : ''}" onclick="changeTab('${item.action}')"><i class="fi ${item.icon}"></i><span>${item.label}</span></button>`).join('');
     const linksHtml = visibility.links === false ? '' : getMemberDisplayLinks(member).map(link => {
         const title = String(link.title || '바로가기');
         const target = String(link.url || '').replace(/'/g, "\\'");
@@ -8578,9 +8577,7 @@ function buildMemberTopNavigation(member, activeMenu = 'home') {
         const label = isYoutube ? '유튜브' : (isSoop ? 'SOOP' : (isCafe ? '카페' : title));
         return `<button type="button" class="is-external ${image ? 'has-image' : ''}" onclick="event.stopPropagation();openSmartLink('${target}');this.closest('.signal-member-top-navigation-links')?.classList.remove('is-open')" title="${escapeHtml(label)}">${image ? `<img src="${escapeHtml(image)}" alt="">` : '<i class="fi fi-rr-link"></i>'}<span>${escapeHtml(label)}</span></button>`;
     }).join('');
-    const linkBlock = isMobile
-        ? `<div class="signal-member-top-navigation-links"><button type="button" class="signal-member-home-button ${activeMenu === 'home' ? 'is-current' : ''}" onclick="changeTab('${member}')" aria-label="${member} 개인 홈"><i class="fi fi-rr-home"></i><span>홈</span></button></div>`
-        : (!linksHtml ? '' : `<div class="signal-member-top-navigation-links">${linksHtml}</div>`);
+    const linkBlock = isMobile ? '' : (!linksHtml ? '' : `<div class="signal-member-top-navigation-links">${linksHtml}</div>`);
     return `<nav class="signal-member-top-navigation" style="--member-accent:${memberColor}" aria-label="${member} 개인 메뉴"><div class="signal-member-top-navigation-main">${toolsHtml}</div>${linkBlock}</nav>`;
 }
 
