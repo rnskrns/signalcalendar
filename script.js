@@ -8450,6 +8450,7 @@ function render() {
             }
         }
         appendMobileMemberChannelFooter();
+        syncDarkModeSurfaces();
 
         // 데이터 로딩 재시도는 화면 렌더링 성공만으로 취소하면 안 된다.
         // 렌더 자체가 실패해서 예약된 재시도만 여기서 해제한다.
@@ -8604,6 +8605,27 @@ function appendMobileMemberChannelFooter() {
     }).join('');
     content.insertAdjacentHTML('beforeend', `<section class="signal-member-channel-footer" style="--member-accent:${themeColors[member] || '#5D4037'}" aria-label="${member} 채널 바로가기"><small>CHANNELS</small><div>${buttons}</div></section>`);
 }
+
+function syncDarkModeSurfaces() {
+    const dark = document.documentElement.classList.contains('dark-mode');
+    const apply = (selector, darkStyles) => document.querySelectorAll(selector).forEach(element => {
+        Object.entries(darkStyles).forEach(([property, value]) => {
+            if (dark) element.style.setProperty(property, value, 'important');
+            else element.style.removeProperty(property);
+        });
+    });
+    apply('.signal-section > header nav button', { 'background-color':'#29252b', 'border-color':'#383239', 'color':'#f5efec' });
+    apply('.signal-calendar-memo-header, .signal-calendar-memo > div:last-child', { 'background-color':'#29252b', 'background-image':'none', 'border-color':'#383239' });
+    apply('.signal-calendar-memo-card', { 'background-color':'#1d1a1f', 'background-image':'none', 'border-color':'#383239', 'color':'#f5efec' });
+    apply('.signal-calendar-memo-title, .signal-calendar-memo-card .text-\\[\\#5D4037\\]', { 'color':'#f5efec' });
+    apply('#mainContent .signal-member-top-navigation', { 'background-color':'rgba(33,30,35,.96)', 'background-image':'none', 'border-color':'#383239', 'color':'#f5efec' });
+    apply('#mainContent .signal-member-home-button, .signal-member-channel-footer button', { 'background-color':'#29252b', 'border-color':'#383239' });
+    apply('#mobileBottomNav.mobile-member-tabs', { 'background-color':'rgba(35,32,39,.98)', 'border-color':'#383239' });
+    apply('.schedule-time-control', { 'background-color':'#18161a', 'background-image':'none', 'border-color':'#383239', 'box-shadow':'none' });
+    apply('.schedule-time-control .ampm-btn', { 'background-color':'#29252b', 'border-color':'#383239', 'color':'#f5efec', 'box-shadow':'none' });
+    apply('.schedule-time-control input', { 'background-color':'transparent', 'border-color':'transparent', 'color':'#f5efec' });
+}
+window.syncDarkModeSurfaces = syncDarkModeSurfaces;
 
 document.addEventListener('click', event => {
     if (event.target.closest('.signal-member-top-navigation-links')) return;
@@ -9716,7 +9738,7 @@ function renderUpboPage() {
         `;
     } else if (isAdmin && upboViewMode === 'admin') {
         mainHtml += `
-            <div class="mt-4">
+            <div class="mt-4 upbo-admin-panel">
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
                     <div class="flex flex-wrap items-center justify-start sm:justify-end gap-2 shrink-0 upbo-admin-toolbar">
@@ -12328,7 +12350,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
             <div class="grid grid-cols-2 gap-4 mb-5">
                 <div class="optional-field">
                     <label class="${labelBase}">시간 (선택)</label>
-                    <div class="flex items-center justify-between border border-gray-200 rounded-xl p-2 bg-[#FAFAFD] focus-within:bg-white focus-within:border-[var(--theme-color)] focus-within:ring-2 focus-within:ring-[var(--theme-color)]/10 transition-all">
+                    <div class="schedule-time-control flex items-center justify-between border border-gray-200 rounded-xl p-2 bg-[#FAFAFD] focus-within:bg-white focus-within:border-[var(--theme-color)] focus-within:ring-2 focus-within:ring-[var(--theme-color)]/10 transition-all">
                         <button type="button" class="sch-ampm ampm-btn px-3 py-1.5 font-bold text-gray-500 hover:text-[#5D4037] bg-white rounded-lg shadow-sm border border-gray-100 text-[13px] transition-all" onclick="toggleAmpm(this)">${ampm}</button>
                         <input type="number" min="1" max="12" class="sch-hh w-[42px] p-1 text-center font-bold text-[#5D4037] bg-transparent outline-none text-[16px]" placeholder="시" value="${hh}">
                         <span class="font-bold text-gray-300">:</span>
@@ -12370,7 +12392,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
                     </div>
                     <div class="hubang-only-field hidden">
                         <label class="${labelBase}">시간 (선택)</label>
-                        <div class="flex items-center justify-between border border-gray-200 rounded-xl p-2 bg-[#FAFAFD] focus-within:bg-white focus-within:border-[var(--theme-color)] focus-within:ring-2 focus-within:ring-[var(--theme-color)]/10 transition-all">
+                        <div class="schedule-time-control flex items-center justify-between border border-gray-200 rounded-xl p-2 bg-[#FAFAFD] focus-within:bg-white focus-within:border-[var(--theme-color)] focus-within:ring-2 focus-within:ring-[var(--theme-color)]/10 transition-all">
                             <button type="button" class="sch-ampm-off ampm-btn px-3 py-1.5 font-bold text-gray-500 hover:text-[#5D4037] bg-white rounded-lg shadow-sm border border-gray-100 text-[13px] transition-all" onclick="toggleAmpm(this)">${ampm}</button>
                             <input type="number" min="1" max="12" class="sch-hh-off w-[42px] p-1 text-center font-bold text-[#5D4037] bg-transparent outline-none text-[16px]" placeholder="시" value="${hh}">
                             <span class="font-bold text-gray-300">:</span>
@@ -12483,6 +12505,7 @@ function openScheduleModal(year, month, day, member) {
     
     document.getElementById('scheduleModal').classList.replace('hidden', 'flex'); 
     toggleFields('scheduleModal', 'globalSchType');
+    syncDarkModeSurfaces();
 }
 
 function addScheduleInputBlock() {
@@ -12515,6 +12538,7 @@ function addScheduleInputBlock() {
     container.insertAdjacentHTML('beforeend', wrapperHtml);
     container.scrollTop = container.scrollHeight; 
     toggleFields('scheduleModal', 'globalSchType');
+    syncDarkModeSurfaces();
 }
 
 function closeScheduleModal() { document.getElementById('scheduleModal').classList.replace('flex', 'hidden'); }
@@ -12536,6 +12560,7 @@ function editFromMenu() {
     document.getElementById('editContainer').innerHTML = getScheduleFormHTML(sch, false);
     document.getElementById('editScheduleModal').classList.replace('hidden', 'flex'); 
     toggleFields('editScheduleModal', 'editGlobalSchType');
+    syncDarkModeSurfaces();
 
     const editModal = document.getElementById('editScheduleModal');
     const btnContainer = editModal.querySelector('.flex.gap-2') || editModal.querySelector('.flex.gap-3');
