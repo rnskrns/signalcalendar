@@ -174,10 +174,23 @@ let isSoopSession = false; // 현재 currentUser가 SOOP 로그인으로 채워�
 // 현재 SOOP 세션이 "구글 계정으로 로그인했는데 그 구글 계정이 SOOP 계정에 연동되어 있어서"
 // 자동으로 채워진 것인지 여부. true면 "구글 계정 연동" 메뉴에서 연동 대상 SOOP 계정 정보를 보여준다.
 let soopSessionViaGoogleLink = false;
+let soopExtensionLoginTimer = null;
+let soopExtensionLoginPending = false;
+const SOOP_SESSION_KEY = 'soopUserSession';
+
+function saveSoopSession(user, viaGoogleLink = false) {
+    try {
+        // 확장프로그램 로그인은 서버 쿠키가 없으므로 정상 동작하던 기존 버전처럼 브라우저에 유지합니다.
+        localStorage.setItem(SOOP_SESSION_KEY, JSON.stringify({ user, viaGoogleLink }));
+    } catch (e) {
+        console.error('SOOP 세션 저장 실패:', e);
+    }
+}
 
 function clearSoopSession() {
     isSoopSession = false;
     soopSessionViaGoogleLink = false;
+    try { localStorage.removeItem(SOOP_SESSION_KEY); } catch (e) { /* 무시 */ }
 }
 
 function loginWithSoopOAuth() {
@@ -194,6 +207,28 @@ async function restoreSoopSession() {
         window.history.replaceState({}, document.title, next);
     }
 
+    // 확장프로그램으로 로그인한 세션은 서버 쿠키가 없으므로 먼저 로컬 저장본을 복원합니다.
+    try {
+        const saved = localStorage.getItem(SOOP_SESSION_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            const savedUser = parsed?.user || parsed;
+            if (savedUser?.uid) {
+                currentUser = savedUser;
+                isSoopSession = true;
+                soopSessionViaGoogleLink = !!parsed?.viaGoogleLink;
+                setAdminUserFromSoop(savedUser);
+                refreshAuthUI();
+                loadAndMergeSoopLikes(savedUser.uid);
+                flushPendingLoginNotifications();
+            }
+        }
+    } catch (e) {
+        console.error('저장된 SOOP 세션 복원 실패:', e);
+        clearSoopSession();
+    }
+
+    // 공식 OAuth로 로그인한 경우에는 서버가 서명한 쿠키 세션을 우선 적용합니다.
     try {
         const response = await fetch('/api/auth/soop/session', { credentials: 'same-origin', cache: 'no-store' });
         if (!response.ok) {
@@ -208,6 +243,7 @@ async function restoreSoopSession() {
         currentUser = user;
         isSoopSession = true;
         soopSessionViaGoogleLink = false;
+        saveSoopSession(user, false);
         setAdminUserFromSoop(user);
         refreshAuthUI();
         loadAndMergeSoopLikes(user.uid); // 노래책 좋아요 계정 데이터 비동기 로드
@@ -237,12 +273,73 @@ async function loadAndMergeSoopLikes(uid) {
 }
 
 function loginWithSoopExtension() {
-    loginWithSoopOAuth();
+    if (soopExtensionLoginPending) return;
+    soopExtensionLoginPending = true;
+    window.postMessage({ type: 'REQUEST_SOOP_LOGIN' }, window.location.origin);
+
+    // 응답이 아예 없을 때만 확장프로그램 미설치/비활성 상태로 판단합니다.
+    clearTimeout(soopExtensionLoginTimer);
+    soopExtensionLoginTimer = setTimeout(() => {
+        soopExtensionLoginPending = false;
+        openSoopExtInstallModal();
+        if (!document.getElementById('soopExtInstallModal')) {
+            const shouldInstall = confirm('Signal 확장프로그램을 찾지 못했습니다. 확장프로그램 설치 페이지를 열까요?');
+            if (shouldInstall) goToSoopExtDownload();
+        }
+    }, 1800);
+}
+
+async function finishSoopExtensionLogin(extensionUser) {
+    const uid = String(extensionUser?.uid || '').trim().toLowerCase();
+    if (!uid) return;
+    const displayName = String(extensionUser?.nick || uid).trim() || uid;
+    const photoURL = String(extensionUser?.imgUrl || '').trim();
+
+    currentUser = { uid, displayName, photoURL, imgUrl: photoURL };
+    isSoopSession = true;
+    soopSessionViaGoogleLink = false;
+    saveSoopSession(currentUser, false);
+    setAdminUserFromSoop(currentUser);
+    refreshAuthUI();
+
+    // 확장프로그램 로그인 정보도 기존 SOOP 계정 데이터와 같은 문서에 연결합니다.
+    try {
+        await setDoc(doc(db, 'soopUsers', uid), {
+            nick: displayName,
+            displayName,
+            imgUrl: photoURL,
+            photoURL,
+            lastLoginAt: Date.now()
+        }, { merge: true });
+    } catch (e) {
+        console.warn('SOOP 확장프로그램 로그인 정보 저장 실패:', e);
+    }
+
+    await loadAndMergeSoopLikes(uid);
+    flushPendingLoginNotifications();
+    alert(`${displayName}님 환영합니다!`);
 }
 
 // ⭐ 신규: 확장프로그램 응답 수신 리스너
 window.addEventListener('message', (event) => {
-    if (event.source !== window) return;
+    if (event.source !== window || event.origin !== window.location.origin || !event.data) return;
+
+    if (event.data.type === 'SOOP_LOGIN_SUCCESS') {
+        clearTimeout(soopExtensionLoginTimer);
+        soopExtensionLoginPending = false;
+        finishSoopExtensionLogin(event.data.user).catch((e) => {
+            console.error('SOOP 확장프로그램 로그인 처리 실패:', e);
+            alert('SOOP 로그인 정보를 적용하지 못했습니다. 잠시 후 다시 시도해주세요.');
+        });
+        return;
+    }
+
+    if (event.data.type === 'SOOP_LOGIN_FAIL') {
+        clearTimeout(soopExtensionLoginTimer);
+        soopExtensionLoginPending = false;
+        alert('확장프로그램은 연결됐지만 SOOP 로그인 정보를 찾지 못했습니다. 같은 브라우저에서 SOOP에 로그인한 뒤 다시 시도해주세요.');
+        return;
+    }
 
     if (event.data.type === 'SIGNAL_EXT_NOTIFICATION') {
         // ⭐ 신규: 확장프로그램이 전달한 방송/카페 알림을 알림벨에 쌓음
@@ -2864,7 +2961,7 @@ async function fetchAndRenderAllNotices() {
             : '';
 
         const rowHtml = `
-            <div class="kakao-msg-row" data-post-url="${escapeHtml(postUrl)}" data-post-date="${postDateKey}" data-post-clock="${escapeHtml(postClock)}" onclick="window.open(this.dataset.postUrl, '_blank')">
+            <div class="kakao-msg-row" data-post-url="${escapeHtml(postUrl)}" data-post-date="${postDateKey}" data-post-timestamp="${date && !Number.isNaN(date.getTime()) ? date.getTime() : 0}" data-post-clock="${escapeHtml(postClock)}" onclick="window.open(this.dataset.postUrl, '_blank')">
                 <img src="${safeProfileImg}" alt="${safeNickname}" loading="lazy" decoding="async" class="kakao-avatar" style="background-color:${board.color};" onerror="this.style.display='none'">
                 <div class="kakao-msg-col">
                     <span class="kakao-nick" style="color:#000000;">${safeNickname}</span>
@@ -8296,6 +8393,7 @@ function render() {
     const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '업보선택': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF', '파트분배기': '#F3E8FF' };
     const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage === '클립' ? currentClipStreamer : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
+    document.body.style.setProperty('--page-accent', themeColors[activeThemeMember] || '#FF5252');
     document.documentElement.style.setProperty('--theme-color', currentPage === '업보선택' ? '#8B5CF6' : (themeColors[activeThemeMember] || '#8B5CF6'));
     document.body.className = document.body.className.replace(/theme-\S+/g, '');
     const themeClass = currentPage === '업보선택' ? 'rolling' : currentPage === '노래책' ? getThemeClassForMember(songbookMember) : getThemeClassForMember(activeThemeMember);
@@ -8754,6 +8852,16 @@ function renderSongList() {
     if (!container) return;
     const list = getFilteredSongs();
     const theme = getSongbookTheme(songbookMember);
+    const liked = getLikedSongIds();
+    const renderSignature = JSON.stringify({
+        member: songbookMember,
+        artist: songArtistFilter,
+        genre: songGenreFilter,
+        likedOnly: songLikedOnlyFilter,
+        admin: isAdmin,
+        songs: list.map(song => [song.id, song.title, song.artist, song.albumArt, song.genre, Number(song.likes || 0), liked.has(song.id)])
+    });
+    if (container.dataset.renderSignature === renderSignature) return;
     let html = '';
 
     if (songArtistFilter) {
@@ -8773,10 +8881,9 @@ function renderSongList() {
             html += `<div class="col-span-full text-center text-gray-400 font-bold py-16">일치하는 노래가 없습니다.</div>`;
         }
     } else {
-        const liked = getLikedSongIds();
-        list.forEach(song => {
+        list.forEach((song, index) => {
             const artHtml = song.albumArt
-                ? `<img src="${escapeHtml(song.albumArt)}" loading="lazy" decoding="async" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-full flex items-center justify-center text-4xl',innerHTML:'🎵'}));">`
+                ? `<img src="${escapeHtml(song.albumArt)}" loading="${index < 16 ? 'eager' : 'lazy'}" decoding="sync" width="320" height="320" class="song-cover-image w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-full flex items-center justify-center text-4xl',innerHTML:'🎵'}));">`
                 : `<div class="w-full h-full bg-[#FFF9C4] flex items-center justify-center text-4xl">🎵</div>`;
             const isLiked = liked.has(song.id);
             const likeCount = Number(song.likes || 0);
@@ -8808,6 +8915,7 @@ function renderSongList() {
         });
     }
     container.innerHTML = html;
+    container.dataset.renderSignature = renderSignature;
 }
 
 function renderGenreFilters() {
@@ -11676,7 +11784,6 @@ function signalHomeMediaHtml() {
 function syncSignalNewsFromCache() {
     const list = document.getElementById('signal-news-list');
     if (!list) return;
-    const todayKey = getTodayYYYYMMDD();
     const rows = soopBoards.flatMap(board => {
         const entries = cachedPerMemberNoticeHtml[board.name] || [];
         return entries.map(entry => {
@@ -11685,16 +11792,14 @@ function syncSignalNewsFromCache() {
             const postDate = holder.firstElementChild?.dataset?.postDate || '';
             const relativeTime = holder.querySelector('.kakao-time')?.textContent?.trim() || '';
             const time = holder.firstElementChild?.dataset?.postClock || relativeTime;
-            if (postDate ? postDate !== todayKey : !/(방금 전|분 전|시간 전)/.test(relativeTime)) return '';
             const title = holder.querySelector('.kakao-bubble-title')?.textContent?.trim() || '새 공지';
+            const body = holder.querySelector('.kakao-bubble-body')?.textContent?.trim() || '';
             const source = holder.firstElementChild?.dataset?.postUrl || '#';
-            const member = members.find(item => item.name === board.name);
-            return `<button class="signal-news-row" onclick="openSmartLink('${source.replace(/'/g, "\\'")}')">
-                <img src="${member?.img || ''}" alt=""><span><small>${board.name} · 공지</small><strong>${escapeHtml(title)}</strong></span><time>${escapeHtml(time)}</time><i class="fi fi-rr-angle-small-right"></i>
-            </button>`;
+            const sortKey = Number(holder.firstElementChild?.dataset?.postTimestamp || 0) || postDate;
+            return { sortKey, html: `<button class="signal-member-notice-card" style="--member-accent:${themeColors[board.name] || '#FF5252'}" onclick="openSmartLink('${source.replace(/'/g, "\\'")}')"><span><small>${escapeHtml(board.name)} · 공지</small><strong>${escapeHtml(title)}</strong>${body ? `<p>${escapeHtml(body)}</p>` : ''}<time>${escapeHtml(time)}</time></span><i class="fi fi-rr-arrow-up-right"></i></button>` };
         });
-    }).filter(Boolean).join('');
-    list.innerHTML = rows || signalNewsPlaceholder();
+    }).filter(Boolean).sort((a, b) => Number(b.sortKey || 0) - Number(a.sortKey || 0) || String(b.sortKey).localeCompare(String(a.sortKey))).slice(0, 4);
+    list.innerHTML = rows.length ? `<div class="signal-member-notice-list">${rows.map(row => row.html).join('')}</div>` : signalNewsPlaceholder();
 }
 
 function renderSignalHome(grouped) {
@@ -11901,7 +12006,7 @@ async function loadSignalMemberCafePosts(memberName) {
             signalCafePostCache.set(cafeUrl, posts);
         }
         if (!section.isConnected || currentPage !== memberName) return;
-        list.innerHTML = posts.length ? posts.map(post => `<a class="signal-member-cafe-post" href="${escapeHtml(post.url || cafeUrl)}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(post.title || '제목 없음')}</strong><i class="fi fi-rr-arrow-up-right"></i></a>`).join('') : `<div class="signal-member-cafe-empty"><span>표시할 공개 게시글이 없어요.</span><a href="${escapeHtml(cafeUrl)}" target="_blank" rel="noopener noreferrer">카페에서 보기</a></div>`;
+        list.innerHTML = posts.length ? posts.map(post => `<a class="signal-member-cafe-post" href="${escapeHtml(post.url || cafeUrl)}" target="_blank" rel="noopener noreferrer"><span><strong>${escapeHtml(post.title || '제목 없음')}</strong><time>${escapeHtml(post.time || '')}</time></span><i class="fi fi-rr-arrow-up-right"></i></a>`).join('') : `<div class="signal-member-cafe-empty"><span>표시할 공개 게시글이 없어요.</span><a href="${escapeHtml(cafeUrl)}" target="_blank" rel="noopener noreferrer">카페에서 보기</a></div>`;
     } catch (error) {
         console.warn('카페 새 글 불러오기 실패:', error);
         if (!section.isConnected) return;
@@ -11914,20 +12019,17 @@ function syncSignalMemberTodayNotice(memberName) {
     const target = document.getElementById('signal-member-today-notice');
     if (!root || !target) return;
     const notices = cachedPerMemberNoticeHtml[memberName] || [];
-    const todayKey = getTodayYYYYMMDD();
-    const cards = notices.map(entry => {
+    const cards = notices.slice(-4).reverse().map(entry => {
         const holder = document.createElement('div');
         holder.innerHTML = entry;
-        const postDate = holder.firstElementChild?.dataset?.postDate || '';
         const time = holder.querySelector('.kakao-time')?.textContent?.trim() || '';
-        if (postDate ? postDate !== todayKey : !/(방금 전|분 전|시간 전)/.test(time)) return '';
-        const title = holder.querySelector('.kakao-bubble-title')?.textContent?.trim() || '오늘 공지';
+        const title = holder.querySelector('.kakao-bubble-title')?.textContent?.trim() || '공지';
         const body = holder.querySelector('.kakao-bubble-body')?.textContent?.trim() || '';
         const url = holder.firstElementChild?.dataset?.postUrl || '#';
         return `<button class="signal-member-notice-card" onclick="openSmartLink('${url.replace(/'/g, "\\'")}')"><span><strong>${escapeHtml(title)}</strong>${body ? `<p>${escapeHtml(body)}</p>` : ''}<time>${escapeHtml(time)}</time></span><i class="fi fi-rr-arrow-up-right"></i></button>`;
     }).filter(Boolean).join('');
     if (cards) {
-        target.innerHTML = `<header><h2>오늘 공지</h2></header><div class="signal-member-notice-list">${cards}</div>`;
+        target.innerHTML = `<header><h2>공지</h2></header><div class="signal-member-notice-list">${cards}</div>`;
         target.classList.remove('hidden');
     } else {
         target.innerHTML = '';

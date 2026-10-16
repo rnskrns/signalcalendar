@@ -2181,37 +2181,39 @@ html.dark-mode .clip-card.is-watched .clip-thumbnail {
     filter: brightness(0.4) saturate(0.8);
 }
 
-/* Keep incomplete clip rows centered instead of pinning them to the left. */
+/* Keep loaded clips inside the page width. A wrapping flex row contributes the
+   combined intrinsic width of every card here, which can expand the document
+   to several thousand pixels after the API results are inserted. */
 #clipGridContainer.clip-grid-layout {
-    display:flex;
-    flex-wrap:wrap;
-    justify-content:center;
-    align-items:stretch;
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
     gap:16px;
+    width:100%;
+    min-width:0;
+    max-width:100%;
 }
 #clipGridContainer.clip-grid-layout > .clip-card {
-    flex:0 1 calc((100% - 48px) / 4);
-    width:calc((100% - 48px) / 4);
-    min-width:220px;
-    max-width:360px;
+    width:100%;
+    min-width:0;
+    max-width:100%;
+    overflow:hidden;
 }
 #clipGridContainer.clip-grid-layout > .col-span-full {
-    flex:0 0 100%;
-    width:100%;
+    grid-column:1 / -1;
+    min-width:0;
+}
+#clipGridContainer .clip-card > *,
+#clipGridContainer .clip-card .flex-1 {
+    min-width:0;
+}
+#clipGridContainer .clip-card [class*="line-clamp"] {
+    overflow-wrap:anywhere;
 }
 @media(max-width:1050px) {
-    #clipGridContainer.clip-grid-layout > .clip-card {
-        flex-basis:calc((100% - 16px) / 2);
-        width:calc((100% - 16px) / 2);
-        max-width:none;
-        min-width:0;
-    }
+    #clipGridContainer.clip-grid-layout { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:560px) {
-    #clipGridContainer.clip-grid-layout > .clip-card {
-        flex-basis:100%;
-        width:100%;
-    }
+    #clipGridContainer.clip-grid-layout { grid-template-columns:minmax(0,1fr); }
 }
 
 /* 클립 모아보기: 좌·우클릭으로 본 클립은 썸네일을 어둡게 표시 */
@@ -3078,7 +3080,9 @@ html.dark-mode .signal-preserved-calendar > header h2 { color:#f4f0ee; }
 .signal-member-cafe-posts > header button { color:var(--member-accent); font-size:10px; font-weight:900; }
 .signal-member-cafe-post-list { display:flex; flex-direction:column; gap:8px; }
 .signal-member-cafe-post { width:100%; min-height:54px; display:grid; grid-template-columns:minmax(0,1fr) 20px; align-items:center; gap:14px; padding:13px 16px; border:1px solid color-mix(in srgb,var(--member-accent) 22%,#ddd8d2); border-radius:17px; background:#fff; color:#514541; text-align:left; transition:.18s ease; }
+.signal-member-cafe-post > span { min-width:0; display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .signal-member-cafe-post strong { overflow:hidden; font-size:13px; font-weight:850; text-overflow:ellipsis; white-space:nowrap; }
+.signal-member-cafe-post time { flex:none; color:#999299; font-size:10px; font-weight:800; white-space:nowrap; }
 .signal-member-cafe-post i { color:var(--member-accent); }
 .signal-member-cafe-post:hover { border-color:color-mix(in srgb,var(--member-accent) 55%,#ddd8d2); background:color-mix(in srgb,var(--member-accent) 6%,#fff); transform:translateY(-1px); }
 .signal-member-cafe-loading,.signal-member-cafe-empty { min-height:70px; display:flex; align-items:center; justify-content:center; gap:8px; border:1px dashed #ddd8d2; border-radius:17px; color:#9e9693; font-size:11px; font-weight:800; }
@@ -3444,8 +3448,8 @@ html.dark-mode { color-scheme:dark; }
 html.dark-mode body {
     color:var(--dm-text-main);
     background:
-        radial-gradient(circle at 18% -5%,rgba(255,82,82,.07),transparent 26%),
-        radial-gradient(circle at 82% 4%,rgba(139,92,246,.06),transparent 24%),
+        radial-gradient(circle at 18% -5%,color-mix(in srgb,var(--page-accent,#FF5252) 10%,transparent),transparent 26%),
+        radial-gradient(circle at 82% 4%,color-mix(in srgb,var(--page-accent,#FF5252) 6%,transparent),transparent 24%),
         var(--bg-cream) !important;
 }
 html.dark-mode .desktop-global-header-inner {
@@ -3483,6 +3487,11 @@ html.dark-mode .signal-member-content-card {
     color:var(--dm-text-main);
     box-shadow:0 18px 38px -31px #000;
 }
+html.dark-mode .signal-home-layout > .signal-section,
+html.dark-mode .signal-home-information > article {
+    background:transparent;
+    box-shadow:none;
+}
 html.dark-mode .signal-home-news .signal-news-row { background:var(--dm-surface-raised); }
 html.dark-mode .signal-home-media-empty { background:#2b2025; color:#ff8594; }
 html.dark-mode .signal-home-media-empty span,
@@ -3514,6 +3523,14 @@ html.dark-mode .signal-member-top-navigation {
 html.dark-mode .signal-member-top-navigation button { color:#c9c0c4; }
 html.dark-mode .signal-member-top-navigation button:hover,
 html.dark-mode .signal-member-top-navigation button.is-current { background:color-mix(in srgb,var(--member-accent) 16%,var(--card-bg-white)); }
+html.dark-mode .signal-member-top-navigation-main button.is-current {
+    background:color-mix(in srgb,var(--member-accent) 22%,var(--dm-surface-raised));
+    color:var(--member-accent) !important;
+}
+html.dark-mode .signal-member-top-navigation-main button.is-current i {
+    background:color-mix(in srgb,var(--member-accent) 18%,var(--dm-surface-raised));
+    color:var(--member-accent) !important;
+}
 html.dark-mode .signal-member-top-navigation-links button:hover { background:transparent; }
 html.dark-mode .signal-member-addon { background:color-mix(in srgb,var(--member-accent) 12%,var(--dm-surface-soft)); }
 html.dark-mode .signal-member-addon-portrait { background:color-mix(in srgb,var(--member-accent) 14%,#171419); }
@@ -3593,13 +3610,13 @@ html.dark-mode ::selection { background:rgba(255,120,132,.34); color:#fff; }
     font-size:15px;
 }
 .signal-member-top-navigation-main button span { font-size:10px; line-height:1; }
-.signal-member-top-navigation-main button.is-current { background:var(--member-accent); color:#fff; box-shadow:0 12px 24px -17px var(--member-accent); }
-.signal-member-top-navigation-main button.is-current i { background:rgba(255,255,255,.2); color:#fff; }
+.signal-member-top-navigation-main button.is-current { background:color-mix(in srgb,var(--member-accent) 14%,#fff); color:var(--member-accent); box-shadow:0 12px 24px -17px var(--member-accent); }
+.signal-member-top-navigation-main button.is-current i { background:color-mix(in srgb,var(--member-accent) 18%,#fff); color:var(--member-accent); }
 .signal-member-top-navigation-main button:hover:not(.is-current) { background:#fff; }
 .signal-member-top-navigation-links { align-self:stretch; padding-left:15px; border-left:1px solid color-mix(in srgb,var(--member-accent) 16%,#ddd8d2); }
 .signal-member-top-navigation-links button { justify-content:center; }
 html.dark-mode .signal-member-top-navigation-main button i { background:color-mix(in srgb,var(--member-accent) 14%,var(--dm-surface-raised)); }
-html.dark-mode .signal-member-top-navigation-main button.is-current { background:var(--member-accent); }
+html.dark-mode .signal-member-top-navigation-main button.is-current { background:color-mix(in srgb,var(--member-accent) 22%,var(--dm-surface-raised)); color:var(--member-accent) !important; }
 html.dark-mode .signal-member-top-navigation-main button:hover:not(.is-current) { background:var(--dm-surface-raised); }
 html.dark-mode .signal-member-top-navigation-links { border-color:var(--dm-border-soft); }
 
@@ -3661,6 +3678,7 @@ html.dark-mode .signal-calendar-shell .big-cell:hover { background:color-mix(in 
     backface-visibility:visible;
 }
 .song-card .song-art { border-width:1px !important; border-radius:19px !important; transform:none !important; transition:border-color .15s ease !important; will-change:auto; }
+.song-card .song-cover-image { display:block; aspect-ratio:1 / 1; background:#f5f5f5; transform:none !important; animation:none !important; transition:none !important; }
 .song-card:hover { border-color:color-mix(in srgb,var(--songbook-accent) 30%,#e3ddd8); background:color-mix(in srgb,var(--songbook-accent) 4%,#fff); box-shadow:none; transform:none !important; }
 .song-card:hover .song-art,
 .song-card:focus-within .song-art { border-color:var(--songbook-accent); transform:none !important; box-shadow:none !important; }
@@ -3704,6 +3722,43 @@ html.dark-mode .signal-calendar-shell .big-cell:hover { background:color-mix(in 
     animation:none !important;
     transition:none !important;
 }
+
+/* Dark-mode form contrast ------------------------------------------------ */
+html.dark-mode #scheduleModal .modal-content,
+html.dark-mode #editScheduleModal .modal-content,
+html.dark-mode #memoModal .modal-content { background:var(--dm-surface-soft) !important; color:var(--dm-text-main) !important; }
+html.dark-mode #scheduleModalDate,
+html.dark-mode #scheduleModal label,
+html.dark-mode #editScheduleModal label,
+html.dark-mode #memoModalTitle { color:var(--dm-text-main) !important; }
+html.dark-mode #scheduleModal .schedule-input-block,
+html.dark-mode #editScheduleModal .schedule-input-block,
+html.dark-mode #globalTimeInputs { background:var(--dm-surface-raised) !important; border-color:var(--dm-border-soft) !important; }
+html.dark-mode #scheduleModal input:not([type="radio"]):not([type="file"]),
+html.dark-mode #scheduleModal textarea,
+html.dark-mode #scheduleModal select,
+html.dark-mode #editScheduleModal input:not([type="radio"]):not([type="file"]),
+html.dark-mode #editScheduleModal textarea,
+html.dark-mode #editScheduleModal select,
+html.dark-mode #memoDate,
+html.dark-mode #memoContent {
+    background:#18161a !important;
+    border-color:var(--dm-border-soft) !important;
+    color:var(--dm-text-main) !important;
+}
+html.dark-mode #scheduleModal input::placeholder,
+html.dark-mode #scheduleModal textarea::placeholder,
+html.dark-mode #editScheduleModal input::placeholder,
+html.dark-mode #editScheduleModal textarea::placeholder,
+html.dark-mode #memoContent::placeholder { color:var(--dm-text-sub) !important; }
+html.dark-mode #scheduleModal .type-radio + label,
+html.dark-mode #editScheduleModal .type-radio + label { color:var(--dm-text-sub) !important; }
+html.dark-mode #scheduleModal .type-radio:checked + label,
+html.dark-mode #editScheduleModal .type-radio:checked + label { color:#171419 !important; }
+html.dark-mode .signal-calendar-shell .nav-container,
+html.dark-mode .signal-calendar-shell .nav-container *:not(button):not(i) { color:var(--dm-text-main) !important; }
+html.dark-mode .detail-notebook-box { background:var(--dm-surface-raised) !important; border-color:var(--dm-border-soft) !important; }
+html.dark-mode .detail-notebook-line { background:transparent !important; color:var(--dm-text-main) !important; }
 .signal-songbook-shell.theme-darung .song-card:hover .song-art,
 .signal-songbook-shell.theme-darung .song-card:hover .song-art > img,
 .signal-songbook-shell.theme-darung .song-card:focus-within .song-art,
