@@ -43,9 +43,17 @@ export default async function handler(req, res) {
       .slice(0, 8)
       .map(item => {
         const articleId = String(item.articleId || item.articleid);
+        const rawTime = item.writeDateTimestamp || item.writeDate || item.createdAt || item.regDate || item.writeDateStr || '';
+        const parsedTime = typeof rawTime === 'number'
+          ? new Date(rawTime < 1e12 ? rawTime * 1000 : rawTime)
+          : new Date(rawTime);
+        const time = Number.isNaN(parsedTime.getTime())
+          ? String(rawTime || '')
+          : new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }).format(parsedTime);
         return {
           id: articleId,
           title: String(item.subject || item.title).replace(/<[^>]*>/g, '').trim(),
+          time,
           url: `https://cafe.naver.com/ca-fe/cafes/${board.clubId}/articles/${articleId}`
         };
       });
