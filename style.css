@@ -1616,6 +1616,17 @@ html.dark-mode .song-random-genres .song-random-genre.is-selected { background:v
     overflow-y: auto;
     padding-right: 5px;
 }
+.songbook-artist-heading { width:100%; cursor:pointer; }
+.songbook-artist-heading > span { flex:1; text-align:left; }
+.songbook-artist-toggle-icon { margin-left:auto; transition:transform .2s ease; }
+.songbook-artist-column.artist-collapsed {
+    flex-basis:190px;
+    width:190px;
+    padding-left:18px;
+}
+.songbook-artist-column.artist-collapsed .songbook-artist-heading { margin-bottom:0; }
+.songbook-artist-column.artist-collapsed .songbook-artist-list { display:none; }
+.songbook-artist-column:not(.artist-collapsed) .songbook-artist-toggle-icon { transform:rotate(180deg); }
 @media (max-width: 1050px) {
     .songbook-content-layout { flex-direction: column; }
     .songbook-song-column { padding-right: 0; order: 2; }
@@ -1629,12 +1640,7 @@ html.dark-mode .song-random-genres .song-random-genre.is-selected { background:v
         border-bottom: 2px dashed #E5E7EB;
     }
     .songbook-artist-heading { width:100%; height:52px; margin-bottom:10px; justify-content:flex-start; }
-    .songbook-artist-heading > span { flex:1; text-align:left; }
-    .songbook-artist-toggle-icon { margin-left:auto; transition:transform .2s ease; }
-    .songbook-artist-column.mobile-collapsed { padding-bottom:0; margin-bottom:14px; border-bottom:0; }
-    .songbook-artist-column.mobile-collapsed .songbook-artist-heading { margin-bottom:0; }
-    .songbook-artist-column.mobile-collapsed .songbook-artist-list { display:none; }
-    .songbook-artist-column:not(.mobile-collapsed) .songbook-artist-toggle-icon { transform:rotate(180deg); }
+    .songbook-artist-column.artist-collapsed { width:100%; padding:0; padding-bottom:0; margin-bottom:14px; border-bottom:0; }
     .songbook-artist-list {
         display:grid;
         grid-template-columns:repeat(2,minmax(0,1fr));
@@ -4436,7 +4442,7 @@ body:has(#mainContent.signal-member-combined-page) { overflow-x:hidden !importan
         font-size:14px;
         box-shadow:none;
     }
-    .signal-songbook-shell .songbook-artist-column:not(.mobile-collapsed) .songbook-artist-list {
+    .signal-songbook-shell .songbook-artist-column:not(.artist-collapsed) .songbook-artist-list {
         position:absolute;
         top:calc(100% + 8px);
         right:0;
@@ -4461,7 +4467,7 @@ body:has(#mainContent.signal-member-combined-page) { overflow-x:hidden !importan
         font-size:12px !important;
     }
     html.dark-mode .signal-songbook-shell .songbook-artist-heading,
-    html.dark-mode .signal-songbook-shell .songbook-artist-column:not(.mobile-collapsed) .songbook-artist-list {
+    html.dark-mode .signal-songbook-shell .songbook-artist-column:not(.artist-collapsed) .songbook-artist-list {
         border-color:var(--dm-border-soft);
         background:var(--dm-surface-raised);
     }

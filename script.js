@@ -8729,8 +8729,8 @@ function renderSongbook() {
                 <div class="w-full flex flex-wrap gap-2 mb-6" id="genreFilterContainer"></div>
                 <div class="w-full grid gap-x-4 gap-y-7" style="grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));" id="songListContainer"></div>
             </div>
-            <aside class="songbook-artist-column ${isMobile ? 'mobile-collapsed' : ''}" id="songbookArtistColumn">
-                <button type="button" class="songbook-artist-heading" onclick="${isMobile ? 'toggleMobileArtistList()' : ''}"><i class="fi fi-rr-microphone"></i><span>가수 목록</span>${isMobile ? '<i class="fi fi-rr-angle-small-down songbook-artist-toggle-icon"></i>' : ''}</button>
+            <aside class="songbook-artist-column artist-collapsed" id="songbookArtistColumn">
+                <button type="button" class="songbook-artist-heading" onclick="toggleMobileArtistList()" aria-expanded="false" aria-controls="songArtistContainer"><i class="fi fi-rr-microphone"></i><span>가수 목록</span><i class="fi fi-rr-angle-small-down songbook-artist-toggle-icon"></i></button>
                 <div id="songArtistContainer" class="songbook-artist-list modal-scroll"></div>
             </aside>
         </div>
@@ -8844,7 +8844,8 @@ window.drawRandomSongs = function() {
 function toggleMobileArtistList() {
     const column = document.getElementById('songbookArtistColumn');
     if (!column) return;
-    column.classList.toggle('mobile-collapsed');
+    const collapsed = column.classList.toggle('artist-collapsed');
+    column.querySelector('.songbook-artist-heading')?.setAttribute('aria-expanded', String(!collapsed));
 }
 
 const SONG_RENDER_BATCH_SIZE = 32;
@@ -9127,14 +9128,14 @@ window.selectArtistFilterIdx = function(idx) {
     songArtistFilter = (songArtistFilter === artist) ? null : artist;
     renderSongList();
     renderArtistSidePanel();
-    if (isMobile) document.getElementById('songbookArtistColumn')?.classList.add('mobile-collapsed');
+    document.getElementById('songbookArtistColumn')?.classList.add('artist-collapsed');
 };
 
 window.clearArtistFilter = function() {
     songArtistFilter = null;
     renderSongList();
     renderArtistSidePanel();
-    if (isMobile) document.getElementById('songbookArtistColumn')?.classList.add('mobile-collapsed');
+    document.getElementById('songbookArtistColumn')?.classList.add('artist-collapsed');
 };
 
 let songGenreOptionsCache = [];
