@@ -8847,6 +8847,95 @@ function toggleMobileArtistList() {
     column.classList.toggle('mobile-collapsed');
 }
 
+const SONG_RENDER_BATCH_SIZE = 32;
+let songListObserver = null;
+
+function getSongListScope() {
+    return JSON.stringify({
+        member: songbookMember,
+        artist: songArtistFilter,
+        genre: songGenreFilter,
+        likedOnly: songLikedOnlyFilter,
+        query: (document.getElementById('songSearchInput')?.value || '').trim().toLowerCase()
+    });
+}
+
+function getSongCardHtml(song, index, theme, liked) {
+    const artHtml = song.albumArt
+        ? `<img src="${escapeHtml(song.albumArt)}" loading="${index < 12 ? 'eager' : 'lazy'}" decoding="async" width="320" height="320" class="song-cover-image w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-full flex items-center justify-center text-4xl',innerHTML:'🎵'}));">`
+        : `<div class="w-full h-full bg-[#FFF9C4] flex items-center justify-center text-4xl">🎵</div>`;
+    const isLiked = liked.has(song.id);
+    const likeCount = Number(song.likes || 0);
+    const genreTags = song.genre
+        ? song.genre.split(/[,\/·]/).map(g => g.trim()).filter(Boolean)
+        : [];
+
+    return `
+        <div class="song-card group relative flex flex-col cursor-pointer" onclick="openSongInfoModal('${song.id}')" aria-label="${escapeHtml(song.title)} 노래 정보 보기">
+            <div class="song-art relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-gray-200 bg-gray-50 shrink-0">
+                ${artHtml}
+                <button onclick="event.stopPropagation(); toggleLikeSong('${song.id}')" class="absolute top-2 right-2 min-h-8 px-2 rounded-full bg-white/90 backdrop-blur flex items-center gap-1 shadow-md transition cursor-pointer ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}">
+                    <i class="fi ${isLiked ? 'fi-sr-heart' : 'fi-rr-heart'} text-[15px] leading-none flex items-center justify-center"></i>
+                    <span class="text-[11px] font-bold">${likeCount}</span>
+                </button>
+                ${isAdmin ? `
+                <div class="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition z-10">
+                    <button onclick="event.stopPropagation(); openSongEditModal('${song.id}')" class="w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-md text-gray-400 hover:text-blue-500 transition cursor-pointer text-[12px]"><i class="fi fi-rr-edit"></i></button>
+                    <button onclick="event.stopPropagation(); deleteSong('${song.id}')" class="w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-md text-gray-400 hover:text-red-500 transition cursor-pointer text-[13px]"><i class="fi fi-br-cross-small"></i></button>
+                </div>` : ''}
+            </div>
+            <div class="mt-2.5 px-0.5">
+                <div class="font-bold text-[#5D4037] text-[15px] truncate leading-snug">${escapeHtml(song.title)}</div>
+                <div class="text-gray-500 text-[13px] font-bold truncate mt-0.5">${escapeHtml(song.artist)}</div>
+                ${genreTags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${genreTags.map(g => `<span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full dm-text-brown" style="color:#5D4037; background:${theme.soft};">${escapeHtml(g)}</span>`).join('')}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function getSongListProgressHtml(rendered, total) {
+    if (rendered >= total) return '';
+    return `<div id="songListLoadMore" class="song-list-load-more col-span-full" aria-live="polite">
+        <span>${rendered} / ${total}곡</span>
+        <button type="button" onclick="loadMoreSongs()">더 불러오기</button>
+    </div>`;
+}
+
+function setupSongListObserver() {
+    if (songListObserver) songListObserver.disconnect();
+    const sentinel = document.getElementById('songListLoadMore');
+    if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+    songListObserver = new IntersectionObserver(entries => {
+        if (!entries.some(entry => entry.isIntersecting)) return;
+        songListObserver.disconnect();
+        window.loadMoreSongs();
+    }, { rootMargin: '360px 0px' });
+    songListObserver.observe(sentinel);
+}
+
+window.loadMoreSongs = function() {
+    const container = document.getElementById('songListContainer');
+    const sentinel = document.getElementById('songListLoadMore');
+    if (!container || !sentinel || container.dataset.renderScope !== getSongListScope()) return;
+
+    const list = getFilteredSongs();
+    const theme = getSongbookTheme(songbookMember);
+    const liked = getLikedSongIds();
+    const start = Number(container.dataset.renderedCount || 0);
+    const end = Math.min(start + SONG_RENDER_BATCH_SIZE, list.length);
+    const nextHtml = list.slice(start, end).map((song, offset) => getSongCardHtml(song, start + offset, theme, liked)).join('');
+    sentinel.insertAdjacentHTML('beforebegin', nextHtml);
+    container.dataset.renderedCount = String(end);
+
+    if (end >= list.length) {
+        sentinel.remove();
+        if (songListObserver) songListObserver.disconnect();
+    } else {
+        sentinel.querySelector('span').textContent = `${end} / ${list.length}곡`;
+        requestAnimationFrame(setupSongListObserver);
+    }
+};
+
 function renderSongList() {
     const container = document.getElementById('songListContainer');
     if (!container) return;
@@ -8862,6 +8951,10 @@ function renderSongList() {
         songs: list.map(song => [song.id, song.title, song.artist, song.albumArt, song.genre, Number(song.likes || 0), liked.has(song.id)])
     });
     if (container.dataset.renderSignature === renderSignature) return;
+    const renderScope = getSongListScope();
+    const previousCount = container.dataset.renderScope === renderScope
+        ? Number(container.dataset.renderedCount || 0)
+        : 0;
     let html = '';
 
     if (songArtistFilter) {
@@ -8881,41 +8974,18 @@ function renderSongList() {
             html += `<div class="col-span-full text-center text-gray-400 font-bold py-16">일치하는 노래가 없습니다.</div>`;
         }
     } else {
-        list.forEach((song, index) => {
-            const artHtml = song.albumArt
-                ? `<img src="${escapeHtml(song.albumArt)}" loading="${index < 16 ? 'eager' : 'lazy'}" decoding="sync" width="320" height="320" class="song-cover-image w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.classList.add('bg-[#FFF9C4]');this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-full flex items-center justify-center text-4xl',innerHTML:'🎵'}));">`
-                : `<div class="w-full h-full bg-[#FFF9C4] flex items-center justify-center text-4xl">🎵</div>`;
-            const isLiked = liked.has(song.id);
-            const likeCount = Number(song.likes || 0);
-            const genreTags = song.genre
-                ? song.genre.split(/[,\/·]/).map(g => g.trim()).filter(Boolean)
-                : [];
-
-            html += `
-                <div class="song-card group relative flex flex-col cursor-pointer" onclick="openSongInfoModal('${song.id}')" aria-label="${escapeHtml(song.title)} 노래 정보 보기">
-                    <div class="song-art relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-gray-200 bg-gray-50 shrink-0">
-                        ${artHtml}
-                        <button onclick="event.stopPropagation(); toggleLikeSong('${song.id}')" class="absolute top-2 right-2 min-h-8 px-2 rounded-full bg-white/90 backdrop-blur flex items-center gap-1 shadow-md transition cursor-pointer ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}">
-                            <i class="fi ${isLiked ? 'fi-sr-heart' : 'fi-rr-heart'} text-[15px] leading-none flex items-center justify-center"></i>
-                            <span class="text-[11px] font-bold">${likeCount}</span>
-                        </button>
-                        ${isAdmin ? `
-                        <div class="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition z-10">
-                            <button onclick="event.stopPropagation(); openSongEditModal('${song.id}')" class="w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-md text-gray-400 hover:text-blue-500 transition cursor-pointer text-[12px]"><i class="fi fi-rr-edit"></i></button>
-                            <button onclick="event.stopPropagation(); deleteSong('${song.id}')" class="w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-md text-gray-400 hover:text-red-500 transition cursor-pointer text-[13px]"><i class="fi fi-br-cross-small"></i></button>
-                        </div>` : ''}
-                    </div>
-                    <div class="mt-2.5 px-0.5">
-                        <div class="font-bold text-[#5D4037] text-[15px] truncate leading-snug">${escapeHtml(song.title)}</div>
-                        <div class="text-gray-500 text-[13px] font-bold truncate mt-0.5">${escapeHtml(song.artist)}</div>
-                        ${genreTags.length ? `<div class="flex flex-wrap gap-1 mt-1.5">${genreTags.map(g => `<span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full dm-text-brown" style="color:#5D4037; background:${theme.soft};">${escapeHtml(g)}</span>`).join('')}</div>` : ''}
-                    </div>
-                </div>
-            `;
-        });
+        const progressive = songbookMember === '다룽' && list.length > SONG_RENDER_BATCH_SIZE;
+        const visibleCount = progressive
+            ? Math.min(Math.max(previousCount, SONG_RENDER_BATCH_SIZE), list.length)
+            : list.length;
+        html += list.slice(0, visibleCount).map((song, index) => getSongCardHtml(song, index, theme, liked)).join('');
+        if (progressive) html += getSongListProgressHtml(visibleCount, list.length);
+        container.dataset.renderedCount = String(visibleCount);
     }
     container.innerHTML = html;
     container.dataset.renderSignature = renderSignature;
+    container.dataset.renderScope = renderScope;
+    setupSongListObserver();
 }
 
 function renderGenreFilters() {

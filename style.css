@@ -3493,6 +3493,10 @@ html.dark-mode .signal-home-information > article {
     box-shadow:none;
 }
 html.dark-mode .signal-home-news .signal-news-row { background:var(--dm-surface-raised); }
+html.dark-mode .signal-home-news .signal-news-list {
+    border-color:transparent;
+    background:transparent;
+}
 html.dark-mode .signal-home-media-empty { background:#2b2025; color:#ff8594; }
 html.dark-mode .signal-home-media-empty span,
 html.dark-mode .signal-section header small,
@@ -3685,6 +3689,29 @@ html.dark-mode .signal-calendar-shell .big-cell:hover { background:color-mix(in 
 .song-card:hover img,
 .song-card:focus-within img { transform:none !important; filter:none !important; }
 .song-card .song-art > button { border-radius:12px; }
+.song-list-load-more {
+    min-height:78px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    margin-top:6px;
+    color:#8b817c;
+    font-size:12px;
+    font-weight:800;
+}
+.song-list-load-more button {
+    min-height:40px;
+    padding:0 17px;
+    border:1px solid color-mix(in srgb,var(--songbook-accent) 28%,#ddd8d2);
+    border-radius:14px;
+    background:color-mix(in srgb,var(--songbook-accent) 8%,#fff);
+    color:var(--songbook-accent);
+    font-weight:900;
+    cursor:pointer;
+}
+.song-list-load-more button:hover { border-color:var(--songbook-accent); }
+html.dark-mode .song-list-load-more button { background:color-mix(in srgb,var(--songbook-accent) 10%,var(--dm-surface-raised)); }
 
 /* Darung artwork uses mixed remote image sizes. Keep the generic card sizing:
    strict size/paint containment here collapses or clips the artwork layer. */
