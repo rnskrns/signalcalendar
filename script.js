@@ -8449,6 +8449,8 @@ function render() {
                 else renderDesktopIndividual(grouped);
             }
         }
+        appendMobileMemberChannelFooter();
+
         // 데이터 로딩 재시도는 화면 렌더링 성공만으로 취소하면 안 된다.
         // 렌더 자체가 실패해서 예약된 재시도만 여기서 해제한다.
         if (autoRetryState.kind === 'render') resetAutoRetry();
@@ -8562,7 +8564,8 @@ function buildMemberTopNavigation(member, activeMenu = 'home') {
         { key:'clips', label:'클립', icon:'fi-rr-play-alt', action:`클립_${member}` },
         { key:'upbo', label:'업보정리', icon:'fi-rr-box-open', action:`업보정리_${member}` }
     ].filter(item => item.key === 'home' || visibility[item.key] !== false);
-    const toolsHtml = toolItems.map(item => `<button type="button" class="${activeMenu === item.key ? 'is-current' : ''}" onclick="changeTab('${item.action}')"><i class="fi ${item.icon}"></i><span>${item.label}</span></button>`).join('');
+    const visibleToolItems = isMobile ? toolItems.filter(item => item.key !== 'home') : toolItems;
+    const toolsHtml = visibleToolItems.map(item => `<button type="button" class="${activeMenu === item.key ? 'is-current' : ''}" onclick="changeTab('${item.action}')"><i class="fi ${item.icon}"></i><span>${item.label}</span></button>`).join('');
     const linksHtml = visibility.links === false ? '' : getMemberDisplayLinks(member).map(link => {
         const title = String(link.title || '바로가기');
         const target = String(link.url || '').replace(/'/g, "\\'");
@@ -8574,10 +8577,32 @@ function buildMemberTopNavigation(member, activeMenu = 'home') {
         const label = isYoutube ? '유튜브' : (isSoop ? 'SOOP' : (isCafe ? '카페' : title));
         return `<button type="button" class="is-external ${image ? 'has-image' : ''}" onclick="event.stopPropagation();openSmartLink('${target}');this.closest('.signal-member-top-navigation-links')?.classList.remove('is-open')" title="${escapeHtml(label)}">${image ? `<img src="${escapeHtml(image)}" alt="">` : '<i class="fi fi-rr-link"></i>'}<span>${escapeHtml(label)}</span></button>`;
     }).join('');
-    const linkBlock = !linksHtml ? '' : (isMobile
-        ? `<div class="signal-member-top-navigation-links"><button type="button" class="signal-member-links-toggle" onclick="event.stopPropagation();this.parentElement.classList.toggle('is-open')" aria-label="외부 링크 열기"><i class="fi fi-rr-link"></i><span>링크</span></button><div class="signal-member-links-popup">${linksHtml}</div></div>`
-        : `<div class="signal-member-top-navigation-links">${linksHtml}</div>`);
+    const linkBlock = isMobile
+        ? `<div class="signal-member-top-navigation-links"><button type="button" class="signal-member-home-button ${activeMenu === 'home' ? 'is-current' : ''}" onclick="changeTab('${member}')" aria-label="${member} 개인 홈"><i class="fi fi-rr-home"></i><span>홈</span></button></div>`
+        : (!linksHtml ? '' : `<div class="signal-member-top-navigation-links">${linksHtml}</div>`);
     return `<nav class="signal-member-top-navigation" style="--member-accent:${memberColor}" aria-label="${member} 개인 메뉴"><div class="signal-member-top-navigation-main">${toolsHtml}</div>${linkBlock}</nav>`;
+}
+
+function appendMobileMemberChannelFooter() {
+    if (!isMobile) return;
+    const member = currentPage === '노래책' ? songbookMember
+        : currentPage === '클립' ? currentClipStreamer
+        : currentPage === '업보정리' ? upboCurrentMember
+        : (['달타', '다룽', '최또', '카나시'].includes(currentPage) ? currentPage : '');
+    const content = document.getElementById('mainContent');
+    if (!member || !content || content.querySelector('.signal-member-channel-footer')) return;
+
+    const links = getMemberDisplayLinks(member).filter(link => /youtube|유튜브|soop|숲|cafe\.naver|카페/i.test(`${link.title || ''} ${link.url || ''}`));
+    if (!links.length) return;
+    const buttons = links.map(link => {
+        const text = `${link.title || ''} ${link.url || ''}`;
+        const isYoutube = /youtube|유튜브/i.test(text);
+        const isSoop = /soop|숲/i.test(text);
+        const label = isYoutube ? '유튜브' : (isSoop ? 'SOOP' : '카페');
+        const icon = isYoutube ? 'fi-brands-youtube' : (isSoop ? 'fi-rr-video-camera' : 'fi-rr-users-alt');
+        return `<button type="button" onclick="openSmartLink('${String(link.url || '').replace(/'/g, "\\'")}')"><i class="fi ${icon}"></i><span>${label}</span></button>`;
+    }).join('');
+    content.insertAdjacentHTML('beforeend', `<section class="signal-member-channel-footer" style="--member-accent:${themeColors[member] || '#5D4037'}" aria-label="${member} 채널 바로가기"><small>CHANNELS</small><div>${buttons}</div></section>`);
 }
 
 document.addEventListener('click', event => {

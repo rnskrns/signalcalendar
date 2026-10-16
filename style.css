@@ -3516,6 +3516,11 @@ html.dark-mode .signal-hero-date,
 html.dark-mode .signal-member-addon-today h2 {
     color:var(--dm-text-main) !important;
 }
+html.dark-mode .signal-section > header nav button {
+    border-color:var(--dm-border-soft);
+    background:var(--dm-surface-raised);
+    color:var(--dm-text-main);
+}
 html.dark-mode .signal-home-media-empty span,
 html.dark-mode .signal-section header small,
 html.dark-mode .signal-home-information article > header small,
@@ -3835,6 +3840,36 @@ html.dark-mode .signal-calendar-memo-card {
     box-shadow:none !important;
 }
 html.dark-mode .signal-calendar-memo-card .text-\[\#5D4037\] { color:var(--dm-text-main) !important; }
+html.dark-mode .signal-calendar-memo { border-color:var(--dm-border-soft) !important; }
+html.dark-mode .signal-calendar-memo > div:last-child {
+    background:var(--dm-surface-raised) !important;
+    scrollbar-color:var(--dm-border-soft) var(--dm-surface-raised);
+}
+html.dark-mode .signal-calendar-memo-card .text-gray-400 { color:var(--dm-text-sub) !important; }
+html.dark-mode #scheduleModal .schedule-input-block .optional-field > div:not(.relative),
+html.dark-mode #editScheduleModal .schedule-input-block .optional-field > div:not(.relative) {
+    border-color:var(--dm-border-soft) !important;
+    background:#18161a !important;
+}
+html.dark-mode #scheduleModal .schedule-input-block .ampm-btn,
+html.dark-mode #editScheduleModal .schedule-input-block .ampm-btn {
+    border-color:var(--dm-border-soft) !important;
+    background:var(--dm-surface-raised) !important;
+    color:var(--dm-text-main) !important;
+    box-shadow:none !important;
+}
+html.dark-mode #scheduleModal .schedule-input-block .sch-hh,
+html.dark-mode #scheduleModal .schedule-input-block .sch-mm,
+html.dark-mode #scheduleModal .schedule-input-block .sch-hh-off,
+html.dark-mode #scheduleModal .schedule-input-block .sch-mm-off,
+html.dark-mode #editScheduleModal .schedule-input-block .sch-hh,
+html.dark-mode #editScheduleModal .schedule-input-block .sch-mm,
+html.dark-mode #editScheduleModal .schedule-input-block .sch-hh-off,
+html.dark-mode #editScheduleModal .schedule-input-block .sch-mm-off {
+    background:transparent !important;
+    border-color:transparent !important;
+    color:var(--dm-text-main) !important;
+}
 html.dark-mode .detail-notebook-box { background:var(--dm-surface-raised) !important; border-color:var(--dm-border-soft) !important; }
 html.dark-mode .detail-notebook-line { background:transparent !important; color:var(--dm-text-main) !important; }
 .signal-songbook-shell.theme-darung .song-card:hover .song-art,
@@ -4215,6 +4250,20 @@ body:has(#mainContent.signal-member-combined-page) { overflow-x:hidden !importan
     #mainContent .signal-member-top-navigation-links button { width:46px; padding:3px; }
     #mainContent .signal-member-top-navigation-links button img { width:34px; height:34px; }
     #mainContent .signal-member-top-navigation-links button span { font-size:8px; }
+    #mainContent .signal-member-top-navigation-links .signal-member-home-button {
+        width:56px;
+        height:64px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        border-radius:18px;
+        background:color-mix(in srgb,var(--member-accent) 9%,#fff);
+        color:var(--member-accent);
+    }
+    #mainContent .signal-member-top-navigation-links .signal-member-home-button i { font-size:18px; }
+    #mainContent .signal-member-top-navigation-links .signal-member-home-button span { font-size:9px; font-weight:900; }
     #mainContent .signal-member-links-toggle {
         width:56px;
         height:64px;
@@ -4258,6 +4307,7 @@ body:has(#mainContent.signal-member-combined-page) { overflow-x:hidden !importan
     #mainContent .signal-member-links-popup .is-external img { width:36px; height:36px; flex:none; }
     #mainContent .signal-member-links-popup .is-external span { font-size:11px; }
     html.dark-mode #mainContent .signal-member-links-toggle,
+    html.dark-mode #mainContent .signal-member-home-button,
     html.dark-mode #mainContent .signal-member-links-popup,
     html.dark-mode #mainContent .signal-member-links-popup .is-external { background:var(--dm-surface-raised); }
     html.dark-mode #mobileBottomNav.mobile-member-tabs { border-color:var(--dm-border); background:rgba(35,32,39,.98) !important; }
@@ -4268,6 +4318,20 @@ body:has(#mainContent.signal-member-combined-page) { overflow-x:hidden !importan
     html.dark-mode #mobileBottomNav #mobileAuthContainer > button,
     html.dark-mode #mobileBottomNav .dark-mode-toggle-btn-mobile,
     html.dark-mode .mobile-main-menu-btn { background:var(--dm-surface-soft); color:var(--dm-text); }
+
+    .signal-member-channel-footer {
+        width:calc(100% - 28px);
+        margin:28px auto 18px;
+        padding:22px 16px 116px;
+        border-top:1px solid color-mix(in srgb,var(--member-accent) 22%,#ddd8d2);
+        text-align:center;
+    }
+    .signal-member-channel-footer > small { display:block; margin-bottom:13px; color:#99918e; font-size:9px; font-weight:900; letter-spacing:.18em; }
+    .signal-member-channel-footer > div { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+    .signal-member-channel-footer button { min-width:86px; height:48px; display:flex; align-items:center; justify-content:center; gap:7px; padding:0 14px; border:1px solid color-mix(in srgb,var(--member-accent) 25%,#ddd8d2); border-radius:16px; background:#fff; color:var(--member-accent); font-size:12px; font-weight:900; }
+    html.dark-mode .signal-member-channel-footer { border-color:var(--dm-border-soft); }
+    html.dark-mode .signal-member-channel-footer > small { color:var(--dm-text-sub); }
+    html.dark-mode .signal-member-channel-footer button { border-color:var(--dm-border-soft); background:var(--dm-surface-raised); }
 }
 
 @media(max-width:900px) {
