@@ -9,6 +9,7 @@ import { loadScript } from "./modules/vendor-loader.js";
 // =========================================================================
 // ⭐ 신규: 전역 함수 바인딩 영역에 추가
 window.loginWithSoopExtension = loginWithSoopExtension;
+window.loginWithSoopOAuth = loginWithSoopOAuth;
 window.closeSoopExtInstallModal = closeSoopExtInstallModal;
 window.goToSoopExtDownload = goToSoopExtDownload;
 
@@ -168,46 +169,50 @@ function goToSoopExtDownload() {
 }
 
 // ⭐ 신규: SOOP 확장프로그램 로그인 요청 함수
-let soopLoginResponded = false;
-let soopLoginTimeoutId = null;
-
-// ⭐ 신규: SOOP 로그인 새로고침 유지(세션 저장/복원)
-const SOOP_SESSION_KEY = 'soopUserSession';
+// SOOP 공식 OAuth 세션은 서버의 HttpOnly 쿠키로 유지합니다.
 let isSoopSession = false; // 현재 currentUser가 SOOP 로그인으로 채워진 상태인지 여부
 // 현재 SOOP 세션이 "구글 계정으로 로그인했는데 그 구글 계정이 SOOP 계정에 연동되어 있어서"
 // 자동으로 채워진 것인지 여부. true면 "구글 계정 연동" 메뉴에서 연동 대상 SOOP 계정 정보를 보여준다.
 let soopSessionViaGoogleLink = false;
 
-function saveSoopSession(user, viaGoogleLink = false) {
-    try {
-        localStorage.setItem(SOOP_SESSION_KEY, JSON.stringify({ user, viaGoogleLink }));
-    } catch (e) { console.error('SOOP 세션 저장 실패:', e); }
-}
-
 function clearSoopSession() {
     isSoopSession = false;
     soopSessionViaGoogleLink = false;
-    try { localStorage.removeItem(SOOP_SESSION_KEY); } catch (e) { /* 무시 */ }
 }
 
-// 새로고침 시 저장해둔 SOOP 로그인 정보를 불러와 즉시 로그인 상태로 복원합니다.
-function restoreSoopSession() {
+function loginWithSoopOAuth() {
+    window.location.assign('/api/auth/soop/start');
+}
+
+// 새로고침 시 서버가 서명한 SOOP 로그인 세션을 복원합니다.
+async function restoreSoopSession() {
+    const params = new URLSearchParams(window.location.search);
+    const loginResult = params.get('soop_login');
+    if (loginResult) {
+        params.delete('soop_login');
+        const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+        window.history.replaceState({}, document.title, next);
+    }
+
     try {
-        const saved = localStorage.getItem(SOOP_SESSION_KEY);
-        if (!saved) return;
-        const parsed = JSON.parse(saved);
-        // 이전 버전(사용자 객체를 그대로 저장)과의 호환도 함께 처리
-        const user = parsed && parsed.user ? parsed.user : parsed;
-        const viaGoogleLink = !!(parsed && parsed.viaGoogleLink);
-        if (!user || !user.uid) return;
+        const response = await fetch('/api/auth/soop/session', { credentials: 'same-origin', cache: 'no-store' });
+        if (!response.ok) {
+            if (loginResult === 'config_error') alert('SOOP 로그인 설정이 아직 완료되지 않았습니다. 관리자에게 문의해주세요.');
+            else if (loginResult === 'failed') alert('SOOP 로그인 처리에 실패했습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+        const data = await response.json();
+        const user = data?.user;
+        if (!data?.authenticated || !user?.uid) return;
 
         currentUser = user;
         isSoopSession = true;
-        soopSessionViaGoogleLink = viaGoogleLink;
+        soopSessionViaGoogleLink = false;
         setAdminUserFromSoop(user);
         refreshAuthUI();
         loadAndMergeSoopLikes(user.uid); // 노래책 좋아요 계정 데이터 비동기 로드
         flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
+        if (loginResult === 'success') alert(`${user.displayName || user.uid}님 환영합니다!`);
     } catch (e) {
         console.error('SOOP 세션 복원 실패:', e);
         clearSoopSession();
@@ -232,61 +237,14 @@ async function loadAndMergeSoopLikes(uid) {
 }
 
 function loginWithSoopExtension() {
-    soopLoginResponded = false;
-
-    // 확장프로그램에 정보 요청
-    window.postMessage({ type: 'REQUEST_SOOP_LOGIN' }, '*');
-
-    // 일정 시간 내에 확장프로그램의 응답이 없으면 미설치로 간주
-    if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
-    soopLoginTimeoutId = setTimeout(() => {
-        if (!soopLoginResponded) {
-            openSoopExtInstallModal();
-        }
-    }, 1500);
+    loginWithSoopOAuth();
 }
 
 // ⭐ 신규: 확장프로그램 응답 수신 리스너
 window.addEventListener('message', (event) => {
     if (event.source !== window) return;
 
-    if (event.data.type === 'SOOP_LOGIN_SUCCESS') {
-        soopLoginResponded = true;
-        if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
-        const user = event.data.user;
-
-        // 기존 시스템(Firebase Auth 등)이 인식하는 currentUser 형식에 맞춰 가짜 유저 객체 생성
-        currentUser = {
-            uid: user.uid,               // SOOP 아이디
-            displayName: user.nick,      // SOOP 닉네임
-            photoURL: user.imgUrl        // SOOP 프로필 이미지
-        };
-
-        // 등록된 SOOP 아이디라면 기존 이메일 관리자와 동일하게 관리자 권한을 부여
-        setAdminUserFromSoop(currentUser);
-
-        // ⭐ 신규: 새로고침해도 로그인이 풀리지 않도록 세션 저장
-        isSoopSession = true;
-        soopSessionViaGoogleLink = false;
-        saveSoopSession(currentUser, false);
-
-        // UI 즉시 업데이트 (프사, 닉네임 적용됨)
-        refreshAuthUI();
-        alert(`${user.nick}님 환영합니다!`);
-
-        // ⭐ 신규: 노래책 좋아요 목록을 계정 기준으로 불러와 기억되게 함
-        loadAndMergeSoopLikes(user.uid);
-        flushPendingLoginNotifications(); // 로그인 전 대기열에 쌓여있던 알림을 알림벨에 반영
-
-        // ⭐ 신규: SOOP 닉네임/프사를 soopUsers 문서에 저장해둠 → 이후 구글 로그인(연동)으로 접속해도 이 정보를 그대로 사용
-        setDoc(doc(db, "soopUsers", user.uid), { nick: user.nick || null, imgUrl: user.imgUrl || null }, { merge: true })
-            .catch((e) => console.error('SOOP 프로필 저장 실패:', e));
-
-    } else if (event.data.type === 'SOOP_LOGIN_FAIL') {
-        soopLoginResponded = true;
-        if (soopLoginTimeoutId) clearTimeout(soopLoginTimeoutId);
-        alert("SOOP 로그인이 되어있지 않거나 확장프로그램 통신에 실패했습니다.");
-    } else if (event.data.type === 'SIGNAL_EXT_NOTIFICATION') {
+    if (event.data.type === 'SIGNAL_EXT_NOTIFICATION') {
         // ⭐ 신규: 확장프로그램이 전달한 방송/카페 알림을 알림벨에 쌓음
         // 사이트에 로그인이 안 되어 있으면 바로 쌓지 않고 대기열에 저장해뒀다가, 로그인하면 한꺼번에 반영합니다.
         if (!currentUser) {
@@ -504,7 +462,11 @@ window.setNotifTab = function(tab) {
 window.toggleNotifSortMenu = function(event) {
     if (event) event.stopPropagation();
     const menu = document.getElementById('notifSortMenu');
-    if (menu) menu.classList.toggle('hidden');
+    if (menu) {
+        const willOpen = menu.classList.contains('hidden');
+        menu.classList.toggle('hidden', !willOpen);
+        document.querySelector('.notif-sort-btn')?.setAttribute('aria-expanded', String(willOpen));
+    }
 };
 
 window.setNotifSort = function(sort) {
@@ -518,6 +480,7 @@ window.setNotifSort = function(sort) {
 function closeNotifDropdowns() {
     const sortMenu = document.getElementById('notifSortMenu');
     if (sortMenu) sortMenu.classList.add('hidden');
+    document.querySelector('.notif-sort-btn')?.setAttribute('aria-expanded', 'false');
 }
 
 // 알림 패널 내부 클릭은 오버레이(닫기)로 전파되지 않게 막고, 열려있는 드롭다운은 필요할 때 닫아줌
@@ -778,6 +741,8 @@ window.closeMonthPicker = closeMonthPicker; window.changePickerYear = changePick
 window.closeScheduleModal = closeScheduleModal; window.saveSchedule = saveSchedule; window.toggleFields = toggleFields; 
 window.toggleProfileDropdown = toggleProfileDropdown; window.openLinkModal = openLinkModal; window.closeLinkModal = closeLinkModal;
 window.openManageModal = openManageModal; window.closeManageModal = closeManageModal; window.switchManageTab = switchManageTab;
+window.renderMemberPageManagePanel = renderMemberPageManagePanel; window.previewMemberPageSettings = previewMemberPageSettings; window.saveMemberPageSettings = saveMemberPageSettings;
+window.addMemberPageLink = addMemberPageLink; window.removeMemberPageLink = removeMemberPageLink;
 window.addUpLink = addUpLink; window.deleteUpLink = deleteUpLink;
 window.addDday = addDday; window.deleteDday = deleteDday; window.selectDdayColor = selectDdayColor;
 window.startEditDday = startEditDday; window.cancelEditDday = cancelEditDday;
@@ -1150,6 +1115,8 @@ let userLikedSongsCache = null;   // { [member]: [songId, ...] } - 로그인한 
 // ⭐ 신규: 새로고침 시 SOOP 로그인 상태 복원 (Firebase onAuthStateChanged보다 먼저 currentUser를 채워둠)
 restoreSoopSession();
 let currentPage = '홈';
+let memberViewMode = 'home';
+let signalMobileWeekOffset = 0;
 let mobileMemberView = 'schedule';
 let songbookMember = '달타';
 let currentYear = new Date().getFullYear();
@@ -1415,6 +1382,7 @@ const members = [
     { name: '최또', img: './images/profile3.webp', link: '' },
     { name: '카나시', img: './images/profile4.webp', link: '' }
 ];
+const memberHomeImageMap = Object.freeze(Object.fromEntries(members.map(member => [member.name, member.img])));
 
 const memberCardImages = {
     '달타': { bangon: './images/on1.webp', hubang: './images/off1.webp' },
@@ -1433,6 +1401,7 @@ const memberChannelImages = {
 };
 // 멤버별 최근 확인된 라이브 여부 캐시 { 멤버이름: true/false }
 const liveStatusCache = {};
+const liveInfoCache = {};
 let liveStatusIntervalId = null;
 const youtubeRecentUploadCache = {};
 
@@ -1483,13 +1452,33 @@ async function refreshMemberChannelRings(memberName, youtubeUrl) {
 // SOOP 라이브 상태 API로 해당 아이디가 현재 생방송 중인지 확인
 // (background.js 확장 프로그램에서 실제로 잘 동작하는 bjapi.afreecatv.com station API를 그대로 사용)
 // (주의: 이 API도 브라우저에서 직접 호출하면 CORS로 막히는 경우가 있어, 실패하면 공용 프록시로 재시도합니다)
-async function checkSoopLiveStatus(soopId) {
+async function fetchSoopLiveInfo(soopId) {
     const apiUrl = `https://bjapi.afreecatv.com/api/${soopId}/station`;
+    const normalize = (data) => {
+        const broad = data?.broad;
+        if (!broad) return null;
+        const broadNo = broad.broad_no || broad.broadNo || broad.bno || '';
+        return {
+            title: broad.broad_title || broad.broadTitle || broad.title || '라이브 방송 중',
+            thumbnail: broad.broad_thumb || broad.broadThumb || broad.thumbnail || broad.thumb || (broadNo ? `https://liveimg.sooplive.co.kr/m/${broadNo}` : ''),
+            url: `https://play.sooplive.com/${soopId}`,
+            broadNo
+        };
+    };
+    try {
+        const serverResponse = await fetch(`/api/live?streamer=${encodeURIComponent(soopId)}&_=${Math.floor(Date.now() / 20000)}`, { headers:{ Accept:'application/json' } });
+        if (serverResponse.ok) {
+            const payload = await serverResponse.json();
+            return payload?.live && payload.info ? payload.info : null;
+        }
+    } catch (serverError) {
+        console.warn('사이트 라이브 API 확인 실패, 직접 확인으로 전환:', serverError);
+    }
     try {
         const res = await fetch(apiUrl);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        return !!(data && data.broad);
+        return normalize(data);
     } catch (e) {
         // 직접 호출이 CORS 등으로 실패하면 프록시를 통해 재시도
         try {
@@ -1497,21 +1486,48 @@ async function checkSoopLiveStatus(soopId) {
             const res2 = await fetch(proxied);
             if (!res2.ok) throw new Error('HTTP ' + res2.status);
             const data2 = await res2.json();
-            return !!(data2 && data2.broad);
+            return normalize(data2);
         } catch (e2) {
-            return false;
+            return null;
         }
     }
+}
+
+async function checkSoopLiveStatus(soopId) {
+    return !!(await fetchSoopLiveInfo(soopId));
 }
 
 // 등록된 모든 멤버의 라이브 상태를 동시에 확인하고 화면에 반영
 async function refreshAllLiveStatuses() {
     const entries = Object.entries(memberSoopIdMap);
-    const results = await Promise.allSettled(entries.map(([, soopId]) => checkSoopLiveStatus(soopId)));
+    const results = await Promise.allSettled(entries.map(([, soopId]) => fetchSoopLiveInfo(soopId)));
     entries.forEach(([name], i) => {
-        liveStatusCache[name] = results[i].status === 'fulfilled' ? results[i].value : false;
+        const info = results[i].status === 'fulfilled' ? results[i].value : null;
+        liveInfoCache[name] = info;
+        liveStatusCache[name] = !!info;
     });
     applyLiveBadges();
+    applySignalMemberLiveCard();
+}
+
+function applySignalMemberLiveCard() {
+    const box = document.getElementById('signal-member-live-card');
+    if (!box) return;
+    const memberName = box.dataset.member;
+    const info = liveInfoCache[memberName];
+    if (!info) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+    }
+    box.innerHTML = `<button type="button" onclick="openSmartLink('${String(info.url || '').replace(/'/g, "\\'")}')">
+        <span class="signal-member-live-thumb">${info.thumbnail ? `<img src="${escapeHtml(info.thumbnail)}" alt="${escapeHtml(memberName)} 라이브 썸네일" onerror="this.closest('.signal-member-live-thumb').classList.add('is-fallback');this.remove()">` : ''}<b><i></i> LIVE</b></span>
+        <span class="signal-member-live-copy">
+            <strong>${escapeHtml(info.title)}</strong>
+            <em><i class="fi fi-rr-arrow-up-right"></i></em>
+        </span>
+    </button>`;
+    box.classList.remove('hidden');
 }
 
 // 현재 그려진 홈 화면의 라이브 표시 배지를 캐시된 상태에 맞게 갱신
@@ -1566,6 +1582,67 @@ const defaultMemberLinks = {
 };
 
 let dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
+let memberPageSettings = {};
+
+const MEMBER_MENU_VISIBILITY_DEFAULTS = Object.freeze({ calendar:true, songbook:true, clips:true, upbo:true, links:true });
+const MEMBER_HOME_VISIBILITY_DEFAULTS = Object.freeze({ hero:true, today:true, week:true, notice:true, cafe:true, requested:true });
+
+function getMemberVisibility(memberName) {
+    const settings = memberPageSettings[memberName] || {};
+    return {
+        menu: { ...MEMBER_MENU_VISIBILITY_DEFAULTS, ...(settings.menuVisibility || {}) },
+        home: { ...MEMBER_HOME_VISIBILITY_DEFAULTS, ...(settings.homeVisibility || {}) }
+    };
+}
+
+const SIGNAL_COLLAB_COLOR = '#f06f6a';
+const MEMBER_SCHEDULE_COLOR_DEFAULTS = Object.freeze({
+    off:'#aeb4bd', collab:'#dca9e7', signal:SIGNAL_COLLAB_COLOR, bus:'#8fcbd3', private:'#a99d9f'
+});
+
+function getMemberDisplayLinks(memberName) {
+    const settings = memberPageSettings[memberName] || {};
+    const sourceLinks = Array.isArray(settings.links) ? settings.links : (dynamicLinks[memberName] || []);
+    const links = JSON.parse(JSON.stringify(sourceLinks)).filter(link => link && String(link.url || '').trim());
+    const customYoutube = String(settings.youtubeUrl || '').trim();
+    if (!customYoutube) return links;
+    const index = links.findIndex(link => /youtube|유튜브/i.test(`${link.title || ''} ${link.url || ''}`));
+    const next = { title:'유튜브', url:customYoutube };
+    if (index >= 0) links[index] = next;
+    else links.push(next);
+    return links;
+}
+
+async function loadMemberPageSettingsFromFirebase() {
+    try {
+        const snap = await getDocs(collection(db, 'memberPageSettings'));
+        memberPageSettings = {};
+        snap.forEach(item => { memberPageSettings[item.id] = item.data() || {}; });
+        members.forEach(member => {
+            const savedImages = getMemberPageImageUrls(member.name, false);
+            const imageUrl = savedImages[0] || String(memberPageSettings[member.name]?.imageUrl || '').trim();
+            if (imageUrl) member.img = imageUrl;
+        });
+    } catch (e) {
+        console.error('개인 페이지 설정 로드 실패:', e);
+    }
+}
+
+function parseMemberPageImageUrls(value) {
+    const source = Array.isArray(value) ? value : String(value || '').split(/[\r\n,]+/);
+    return [...new Set(source.map(url => String(url || '').trim()).filter(url => /^https?:\/\//i.test(url)))];
+}
+
+function getMemberPageImageUrls(memberName, includeFallback = true) {
+    const settings = memberPageSettings[memberName] || {};
+    const urls = parseMemberPageImageUrls(settings.imageUrls || []);
+    if (settings.imageUrl) urls.push(...parseMemberPageImageUrls(settings.imageUrl));
+    if (includeFallback && !urls.length) {
+        const member = members.find(item => item.name === memberName);
+        if (member?.img) urls.push(member.img);
+    }
+    return [...new Set(urls)];
+}
 let upLinksList = [];
 // 마감일이 지난 UP 링크는 사이트에서 보이지 않도록 필터링
 function getVisibleUpLinks() {
@@ -1588,25 +1665,16 @@ const ADMIN_ACCOUNTS = Object.freeze({
     'jkolpc@gmail.com': 'jkolpc'
 });
 
-// 기존 이메일 관리자 로그인과 별개로, SOOP 확장프로그램 로그인 시 대조할 관리자 아이디
-const ADMIN_SOOP_ACCOUNTS = Object.freeze({
-    'kjhh0029': '카나시',
-    'dalta20': '달타',
-    'choiagain': '최또',
-    'daarung22': '다룽',
-    'jkolpc': '관리자'
-});
-
 function setAdminUserFromSoop(user) {
     const soopId = String(user?.uid || '').trim().toLowerCase();
-    const name = ADMIN_SOOP_ACCOUNTS[soopId];
-    isAdmin = !!name;
-    loggedInUser = name ? {
+    const isServerApprovedAdmin = user?.role === 'admin';
+    isAdmin = isServerApprovedAdmin;
+    loggedInUser = isServerApprovedAdmin ? {
         uid: soopId,
         id: soopId,
         email: '',
-        name,
-        img: user?.photoURL || user?.imgUrl || members.find(m => m.name === name)?.img || ''
+        name: user?.displayName || soopId,
+        img: user?.photoURL || user?.imgUrl || ''
     } : null;
     refreshAuthUI();
     return isAdmin;
@@ -1654,7 +1722,10 @@ async function checkPassword() {
 
 async function logoutUser() {
     try {
-        await signOut(auth);
+        await Promise.allSettled([
+            signOut(auth),
+            fetch('/api/auth/soop/logout', { method: 'POST', credentials: 'same-origin' })
+        ]);
     } catch (e) {
         console.error("유저 로그아웃 에러:", e);
     } finally {
@@ -1768,10 +1839,10 @@ async function mergeLocalLikesIntoAccount(uid, accountLikedSongs, collectionName
 function renderLoggedOutAuthHtml(scope) {
     const isDesktop = scope === 'desktop';
     const btnClass = isDesktop
-        ? 'font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm'
+        ? 'desktop-login-button font-paperozi'
         : 'font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm';
 
-    return `<button class="${btnClass}" onclick="handleAdminClick()">로그인</button>`;
+    return `<button class="${btnClass}" onclick="handleAdminClick()">${isDesktop ? '<i class="fi fi-rr-user"></i>' : ''}<span>로그인</span></button>`;
 }
 
 window.openRecapFromSite = function() {
@@ -1781,16 +1852,18 @@ window.openRecapFromSite = function() {
 
 function renderAdminAuthHtml(scope, user) {
     const isDesktop = scope === 'desktop';
+    const memberManageItem = `<button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>`;
+    const memberManageItemMobile = `<button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>`;
     if (isDesktop) {
         return `
             <div class="relative inline-block text-left group z-[2000]">
-                <div class="flex items-center gap-2 cursor-pointer bg-white border-2 border-gray-200 shadow-sm px-4 py-1.5 rounded-xl font-bold" onclick="toggleProfileDropdown('desktopProfileMenu')">
+                <div class="desktop-account-button flex items-center gap-2 cursor-pointer font-bold" onclick="toggleProfileDropdown('desktopProfileMenu')">
                     <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover border-2 border-[#5D4037]">
                     <span class="text-lg text-[#5D4037] font-paperozi">${user.name}</span>
                     <i class="fi fi-rr-caret-down text-[#5D4037]"></i>
                 </div>
-                <div id="desktopProfileMenu" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
-                    <button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
+                <div id="desktopProfileMenu" class="desktop-account-menu hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                    ${memberManageItem}
                     <button onclick="openManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                     <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
@@ -1803,7 +1876,7 @@ function renderAdminAuthHtml(scope, user) {
                 <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-[20px] h-[20px] rounded-full object-cover border border-[#5D4037]">
             </div>
             <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
-                <button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>
+                ${memberManageItemMobile}
                 <button onclick="openManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                 <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
             </div>
@@ -1829,11 +1902,11 @@ function renderUserAuthHtml(scope, user) {
     if (isDesktop) {
         return `
             <div class="relative inline-block text-left z-[2000]">
-                <div class="flex items-center gap-2 cursor-pointer bg-white border-2 border-gray-200 shadow-sm px-4 py-1.5 rounded-xl font-bold" onclick="toggleProfileDropdown('${menuId}')">
+                <div class="desktop-account-button flex items-center gap-2 cursor-pointer font-bold" onclick="toggleProfileDropdown('${menuId}')">
                     <img src="${photo}" class="w-8 h-8 rounded-full object-cover border-2 border-gray-200">
                     <span class="text-lg text-[#5D4037] font-paperozi max-w-[100px] truncate">${name}</span>
                 </div>
-                <div id="${menuId}" class="hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                <div id="${menuId}" class="desktop-account-menu hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
                     ${linkMenuItem}
                     <button onclick="logoutUser()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
                 </div>
@@ -1913,7 +1986,6 @@ onAuthStateChanged(auth, async (user) => {
                 };
                 isSoopSession = true;
                 soopSessionViaGoogleLink = true; // 구글 로그인이 SOOP 계정에 연동되어 자동으로 채워진 세션
-                saveSoopSession(currentUser, true); // 새로고침해도 로그인 유지
                 refreshAuthUI();
                 loadAndMergeSoopLikes(soopId);
                 flushPendingLoginNotifications();
@@ -1988,8 +2060,10 @@ function openManageModal(tab = 'link') {
     cancelEditDday();
     renderInfoManagePanel();
     renderHomeManagePanel();
+    renderMemberPageManagePanel();
     if (typeof renderUpdateManagePanel === 'function') renderUpdateManagePanel();
     if (typeof resetUpdateImageForm === 'function') resetUpdateImageForm();
+    ['link','up','dday','home','update'].forEach(key => document.getElementById(`manageTabBtn_${key}`)?.classList.remove('hidden'));
     document.getElementById('manageModal').classList.replace('hidden', 'flex');
     switchManageTab(tab);
 
@@ -2006,8 +2080,8 @@ function closeManageModal() {
 }
 
 function switchManageTab(tab) {
-    const panels = { link: document.getElementById('manageTabPanel_link'), up: document.getElementById('manageTabPanel_up'), dday: document.getElementById('manageTabPanel_dday'), home: document.getElementById('manageTabPanel_home'), info: document.getElementById('manageTabPanel_info'), update: document.getElementById('manageTabPanel_update') };
-    const btns = { link: document.getElementById('manageTabBtn_link'), up: document.getElementById('manageTabBtn_up'), dday: document.getElementById('manageTabBtn_dday'), home: document.getElementById('manageTabBtn_home'), info: document.getElementById('manageTabBtn_info'), update: document.getElementById('manageTabBtn_update') };
+    const panels = { link: document.getElementById('manageTabPanel_link'), up: document.getElementById('manageTabPanel_up'), dday: document.getElementById('manageTabPanel_dday'), home: document.getElementById('manageTabPanel_home'), memberPage: document.getElementById('manageTabPanel_memberPage'), info: document.getElementById('manageTabPanel_info'), update: document.getElementById('manageTabPanel_update') };
+    const btns = { link: document.getElementById('manageTabBtn_link'), up: document.getElementById('manageTabBtn_up'), dday: document.getElementById('manageTabBtn_dday'), home: document.getElementById('manageTabBtn_home'), memberPage: document.getElementById('manageTabBtn_memberPage'), info: document.getElementById('manageTabBtn_info'), update: document.getElementById('manageTabBtn_update') };
     
     Object.keys(panels).forEach(key => {
         if (!panels[key] || !btns[key]) return;
@@ -2019,6 +2093,155 @@ function switchManageTab(tab) {
         btns[key].classList.toggle('hover:bg-gray-100', !active);
         btns[key].classList.toggle('is-active', active);
     });
+    if (tab === 'memberPage') renderMemberPageManagePanel();
+}
+
+function getLoggedInMemberAdmin() {
+    return members.some(member => member.name === loggedInUser?.name) ? loggedInUser.name : '';
+}
+
+function renderMemberPageManagePanel() {
+    const select = document.getElementById('memberPageTarget');
+    if (!select || !loggedInUser) return;
+    const ownMember = getLoggedInMemberAdmin();
+    const allowedMembers = ownMember ? members.filter(member => member.name === ownMember) : members;
+    const previous = select.value;
+    select.innerHTML = allowedMembers.map(member => `<option value="${member.name}">${member.name}</option>`).join('');
+    select.disabled = !!ownMember;
+    const memberName = allowedMembers.some(member => member.name === previous) ? previous : allowedMembers[0]?.name;
+    if (!memberName) return;
+    select.value = memberName;
+    const settings = memberPageSettings[memberName] || {};
+    const member = members.find(item => item.name === memberName);
+    const colors = settings.typeColors || {};
+    const savedImages = getMemberPageImageUrls(memberName, false);
+    document.getElementById('memberPageImageUrl').value = (savedImages.length ? savedImages : [settings.imageUrl || member?.img || '']).filter(Boolean).join('\n');
+    document.getElementById('memberPageYoutubeUrl').value = settings.youtubeUrl || (getMemberDisplayLinks(memberName).find(link => /youtube|유튜브/i.test(`${link.title || ''} ${link.url || ''}`))?.url || '');
+    const visibility = getMemberVisibility(memberName);
+    const menuInputs = { calendar:'memberMenuCalendar', songbook:'memberMenuSongbook', clips:'memberMenuClips', upbo:'memberMenuUpbo', links:'memberMenuLinks' };
+    const homeInputs = { hero:'memberHomeHero', today:'memberHomeToday', week:'memberHomeWeek', notice:'memberHomeNotice', cafe:'memberHomeCafe', requested:'memberHomeRequested' };
+    Object.entries(menuInputs).forEach(([key, id]) => { const input = document.getElementById(id); if (input) input.checked = visibility.menu[key] !== false; });
+    Object.entries(homeInputs).forEach(([key, id]) => { const input = document.getElementById(id); if (input) input.checked = visibility.home[key] !== false; });
+    renderMemberPageLinkEditor(memberName);
+    document.getElementById('memberColorDefault').value = colors.default || themeColors[memberName] || '#5D4037';
+    document.getElementById('memberColorOff').value = colors.off || MEMBER_SCHEDULE_COLOR_DEFAULTS.off;
+    document.getElementById('memberColorCollab').value = colors.collab || MEMBER_SCHEDULE_COLOR_DEFAULTS.collab;
+    document.getElementById('memberColorSignal').value = colors.signal || MEMBER_SCHEDULE_COLOR_DEFAULTS.signal;
+    document.getElementById('memberColorBus').value = colors.bus || MEMBER_SCHEDULE_COLOR_DEFAULTS.bus;
+    document.getElementById('memberColorPrivate').value = colors.private || MEMBER_SCHEDULE_COLOR_DEFAULTS.private;
+    previewMemberPageSettings();
+}
+
+function renderMemberPageLinkEditor(memberName) {
+    const list = document.getElementById('memberPageLinkList');
+    if (!list) return;
+    const links = getMemberDisplayLinks(memberName);
+    list.innerHTML = links.length ? links.map((link, index) => `
+        <div class="admin-member-link-row" data-member-link-row>
+            <span class="admin-member-link-order">${index + 1}</span>
+            <input type="text" data-link-title value="${escapeHtml(String(link.title || ''))}" placeholder="버튼 이름 (예: 카페)">
+            <input type="url" data-link-url value="${escapeHtml(String(link.url || ''))}" placeholder="https://...">
+            <button type="button" onclick="removeMemberPageLink(this)" aria-label="링크 삭제" title="삭제"><i class="fi fi-rr-trash"></i></button>
+        </div>`).join('') : '<div class="admin-member-link-empty">등록된 링크 버튼이 없습니다.</div>';
+}
+
+function addMemberPageLink() {
+    const list = document.getElementById('memberPageLinkList');
+    if (!list) return;
+    list.querySelector('.admin-member-link-empty')?.remove();
+    const index = list.querySelectorAll('[data-member-link-row]').length;
+    list.insertAdjacentHTML('beforeend', `<div class="admin-member-link-row" data-member-link-row><span class="admin-member-link-order">${index + 1}</span><input type="text" data-link-title placeholder="버튼 이름 (예: 카페)"><input type="url" data-link-url placeholder="https://..."><button type="button" onclick="removeMemberPageLink(this)" aria-label="링크 삭제" title="삭제"><i class="fi fi-rr-trash"></i></button></div>`);
+    list.querySelector('[data-member-link-row]:last-child [data-link-title]')?.focus();
+}
+
+function removeMemberPageLink(button) {
+    const row = button?.closest('[data-member-link-row]');
+    if (!row) return;
+    const matchText = `${row.querySelector('[data-link-title]')?.value || ''} ${row.querySelector('[data-link-url]')?.value || ''}`;
+    if (/youtube|youtu\.be|유튜브/i.test(matchText)) {
+        const youtubeInput = document.getElementById('memberPageYoutubeUrl');
+        if (youtubeInput) youtubeInput.value = '';
+    }
+    row.remove();
+    const list = document.getElementById('memberPageLinkList');
+    const rows = [...(list?.querySelectorAll('[data-member-link-row]') || [])];
+    rows.forEach((item, index) => { const order = item.querySelector('.admin-member-link-order'); if (order) order.textContent = String(index + 1); });
+    if (list && !rows.length) list.innerHTML = '<div class="admin-member-link-empty">등록된 링크 버튼이 없습니다.</div>';
+}
+
+function collectMemberPageLinks() {
+    return [...document.querySelectorAll('#memberPageLinkList [data-member-link-row]')].map(row => ({
+        title:String(row.querySelector('[data-link-title]')?.value || '').trim(),
+        url:String(row.querySelector('[data-link-url]')?.value || '').trim()
+    })).filter(link => link.title || link.url);
+}
+
+function previewMemberPageSettings() {
+    const preview = document.getElementById('memberPageImagePreview');
+    const select = document.getElementById('memberPageTarget');
+    const input = document.getElementById('memberPageImageUrl');
+    if (!preview || !select || !input) return;
+    const member = members.find(item => item.name === select.value);
+    const urls = parseMemberPageImageUrls(input.value);
+    const src = urls[0] || member?.img || '';
+    preview.innerHTML = src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(select.value)} 미리보기" onerror="this.style.display='none'"><span><strong>${escapeHtml(select.value)}</strong><small>${urls.length > 1 ? `${urls.length}장 슬라이드쇼` : '개인 페이지 대표 이미지'}</small></span>` : '';
+}
+
+async function saveMemberPageSettings() {
+    if (!isAdmin || !loggedInUser) return;
+    const memberName = document.getElementById('memberPageTarget')?.value;
+    const ownMember = getLoggedInMemberAdmin();
+    if (!memberName || (ownMember && ownMember !== memberName)) return alert('본인 페이지만 수정할 수 있습니다.');
+    const imageUrls = parseMemberPageImageUrls(document.getElementById('memberPageImageUrl').value);
+    const imageUrl = imageUrls[0] || '';
+    const youtubeUrl = document.getElementById('memberPageYoutubeUrl').value.trim();
+    if (youtubeUrl && !/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(youtubeUrl)) return alert('올바른 유튜브 링크를 입력해주세요.');
+    const links = collectMemberPageLinks();
+    if (links.some(link => !link.title || !/^https?:\/\//i.test(link.url))) return alert('링크 버튼의 이름과 http:// 또는 https:// 주소를 모두 입력해주세요.');
+    const settings = {
+        imageUrl,
+        imageUrls,
+        youtubeUrl,
+        links,
+        menuVisibility: {
+            calendar:document.getElementById('memberMenuCalendar')?.checked !== false,
+            songbook:document.getElementById('memberMenuSongbook')?.checked !== false,
+            clips:document.getElementById('memberMenuClips')?.checked !== false,
+            upbo:document.getElementById('memberMenuUpbo')?.checked !== false,
+            links:document.getElementById('memberMenuLinks')?.checked !== false
+        },
+        homeVisibility: {
+            hero:document.getElementById('memberHomeHero')?.checked !== false,
+            today:document.getElementById('memberHomeToday')?.checked !== false,
+            week:document.getElementById('memberHomeWeek')?.checked !== false,
+            notice:document.getElementById('memberHomeNotice')?.checked !== false,
+            cafe:document.getElementById('memberHomeCafe')?.checked !== false,
+            requested:document.getElementById('memberHomeRequested')?.checked !== false
+        },
+        typeColors: {
+            default:document.getElementById('memberColorDefault').value,
+            off:document.getElementById('memberColorOff').value,
+            collab:document.getElementById('memberColorCollab').value,
+            signal:document.getElementById('memberColorSignal').value,
+            bus:document.getElementById('memberColorBus').value,
+            private:document.getElementById('memberColorPrivate').value
+        },
+        updatedAt:Date.now(),
+        updatedBy:loggedInUser.email || loggedInUser.id || ''
+    };
+    try {
+        await setDoc(doc(db, 'memberPageSettings', memberName), settings, { merge:true });
+        memberPageSettings[memberName] = settings;
+        const member = members.find(item => item.name === memberName);
+        if (member && imageUrl) member.img = imageUrl;
+        renderMemberPageManagePanel();
+        renderHeaderTabs();
+        render();
+        alert(`${memberName} 개인 페이지 설정을 저장했습니다.`);
+    } catch (e) {
+        console.error('개인 페이지 설정 저장 실패:', e);
+        alert('저장에 실패했습니다. Firestore 권한을 확인해주세요.');
+    }
 }
 
 function renderInfoManagePanel() {
@@ -2296,6 +2519,11 @@ function formatRelativeTime(date) {
     return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function formatPostClock(date) {
+    if (!date || Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 // 4명의 스트리머 API 정보 배열
 const soopBoards = [
     { name: '달타', userId: 'dalta20', color: '#FBC02D', apiUrl: 'https://api-channel.sooplive.com/v1.1/channel/dalta20/board?perPage=20&startDate=&endDate=&field=title,contents,user_nick,user_id,hashtags&keyword=&type=all&orderBy=reg_date&page=1&bbsNo=89892972' },
@@ -2328,7 +2556,21 @@ async function fetchAndRenderAllNotices() {
             });
             
             const data = await res.json();
-            const posts = data?.data?.list || data?.data?.posts || data?.data || data?.posts || data?.contents || data?.list || (Array.isArray(data) ? data : []) || [];
+            const normalPostsRaw = data?.data?.list || data?.data?.posts || data?.data?.contents || data?.posts || data?.contents || data?.list || (Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []));
+            const noticePostsRaw = data?.data?.noticeData || data?.noticeData || data?.data?.notices || data?.notices || [];
+            const normalPosts = Array.isArray(normalPostsRaw) ? normalPostsRaw : [];
+            const noticePosts = Array.isArray(noticePostsRaw) ? noticePostsRaw : [];
+            // SOOP은 제목 앞에 '공지' 배지가 붙는 고정 글을 contents가 아닌 noticeData에
+            // 따로 내려준다. 두 목록을 합치되 같은 글이 양쪽에 있으면 글 번호로 중복 제거한다.
+            const seenPostIds = new Set();
+            const posts = [...noticePosts, ...normalPosts].filter(post => {
+                const id = post?.title_no || post?.titleNo || post?.no || post?.id || post?.post_id || post?.postId;
+                if (id == null) return true;
+                const key = String(id);
+                if (seenPostIds.has(key)) return false;
+                seenPostIds.add(key);
+                return true;
+            });
 
             if (!res.ok) {
                 console.warn(`${board.name} API 응답 오류 (status ${res.status})`, data);
@@ -2499,9 +2741,13 @@ async function fetchAndRenderAllNotices() {
         const postUrl = `https://sooplive.com/station/${encodeURIComponent(board.userId)}/post/${encodeURIComponent(postNo ?? '')}`;
 
         const timeLabel = formatRelativeTime(date);
+        const postClock = formatPostClock(date);
+        const postDateKey = date && !Number.isNaN(date.getTime())
+            ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+            : '';
 
         const rowHtml = `
-            <div class="kakao-msg-row" data-post-url="${escapeHtml(postUrl)}" onclick="window.open(this.dataset.postUrl, '_blank')">
+            <div class="kakao-msg-row" data-post-url="${escapeHtml(postUrl)}" data-post-date="${postDateKey}" data-post-clock="${escapeHtml(postClock)}" onclick="window.open(this.dataset.postUrl, '_blank')">
                 <img src="${safeProfileImg}" alt="${safeNickname}" loading="lazy" decoding="async" class="kakao-avatar" style="background-color:${board.color};" onerror="this.style.display='none'">
                 <div class="kakao-msg-col">
                     <span class="kakao-nick" style="color:#000000;">${safeNickname}</span>
@@ -2703,7 +2949,7 @@ async function renderHomeYoutubeBox() {
 function applyHomeYoutubeBoxVisibility() {
     const box = document.getElementById('homeYoutubeBox');
     if (!box) return;
-    if (currentPage === '홈' && !isMobile) {
+    if (false) {
         const wasHidden = box.style.display === 'none';
         box.style.display = homeBoxShouldShow ? '' : 'none';
         // 박스가 숨김→표시로 바뀌는 순간에는 그 전에 시도된 스크롤이 무시됐을 수 있어 다시 시도
@@ -2736,6 +2982,7 @@ async function saveHomeYoutubeLink() {
         alert('링크가 저장되었습니다.');
         renderHomeManagePanel();
         renderHomeYoutubeBox();
+        if (currentPage === '홈') render();
     } catch (e) { console.error(e); alert('저장 실패: ' + e.message); }
 }
 
@@ -2748,6 +2995,7 @@ async function deleteHomeYoutubeLink() {
         if (input) input.value = '';
         renderHomeManagePanel();
         renderHomeYoutubeBox();
+        if (currentPage === '홈') render();
     } catch (e) { console.error(e); alert('삭제 실패: ' + e.message); }
 }
 
@@ -2760,6 +3008,7 @@ async function loadHomeSettingsFromFirebase() {
     } catch (e) { console.error('홈 설정 로드 실패:', e); homeYoutubeUrl = ''; ddayBgImageUrl = ''; }
     renderHomeYoutubeBox();
     renderHomeDdayBox();
+    if (currentPage === '홈') render();
 }
 
 async function loadLinksFromFirebase() {
@@ -2806,8 +3055,8 @@ async function loadLinksFromFirebase() {
 // 입장 팝업에 띄울 디데이 목록 - 홈탭 디데이 박스와 동일하게 D-15~D-day 범위만, 가까운 순 정렬
 function getPopupDdayItems(today) {
     return ddaysList
-        .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.date, today) }))
-        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 15)
+        .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.monthDay || d.date, today) }))
+        .filter(d => (d.monthDay || d.date) && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 15)
         .sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
@@ -2968,19 +3217,20 @@ async function openRollingTopicFromPopup(id) {
 
 function renderHeaderTabs() {
     const desktopContainer = document.getElementById('headerNavTabs');
-    const mobileNav = document.getElementById('mobileBottomNav');
+    const mobileNav = document.getElementById('mobileMemberTabList') || document.getElementById('mobileBottomNav');
     
     const tabs = ['달타', '다룽', '최또', '카나시', '시그널', '추가기능'];
     const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '시그널': '#FF5252', '추가기능': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '업보정리': '#8B5CF6' };
 
     if (desktopContainer) {
+        const memberRouteOwner = currentPage === '노래책' ? songbookMember : (currentPage === '클립' ? currentClipStreamer : (currentPage === '업보정리' ? upboCurrentMember : currentPage));
         let html = `
-            <div class="relative cursor-pointer hover:scale-105 mr-1" onclick="openUpdateModal()">
+            <div class="desktop-signal-logo relative cursor-pointer mr-1" onclick="openUpdateModal()">
                 <img src="./images/logo.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;">
                 <span id="desktopLogoNewBadge" class="hidden absolute -top-1 -right-2.5 bg-[#FF5252] text-white text-[9px] font-black px-1.5 py-[1px] rounded-full shadow-md font-paperozi tracking-wider z-10">NEW</span>
             </div>
-            <button class="font-paperozi px-5 py-2.5 bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg hover:border-[#FF5252] hover:text-[#FF5252] transition-all duration-200 flex items-center justify-center" onclick="executeDesktopTabChange('홈')">
-                <i class="fi fi-rr-home text-2xl"></i>
+            <button class="desktop-home-tab ${currentPage === '홈' ? 'is-active' : ''}" onclick="executeDesktopTabChange('홈')">
+                <i class="fi fi-rr-home"></i><span>홈</span>
             </button>
         `;
         
@@ -2990,38 +3240,44 @@ function renderHeaderTabs() {
             let mainLinkHtml = '';
             let btnContent = tab;
             let clickAction = `onclick="executeDesktopTabChange('${tab}')"`;
+            const tabActive = ['달타', '다룽', '최또', '카나시'].includes(tab)
+                ? memberRouteOwner === tab
+                : (tab === '시그널' ? currentPage === '시그널' : ['롤링페이퍼', '사다리타기', '파트분배기'].includes(currentPage));
             
             if (tab === '추가기능') {
                 btnContent = `<i class="fi fi-rr-menu-dots text-2xl mt-1"></i>`;
                 clickAction = `onclick="toggleDesktopExtraMenu(event)"`; 
                 mainLinkHtml = `
-                    <a href="#" onclick="executeDesktopTabChange('클립'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">클립 모아보기</a>
                     <a href="#" onclick="executeDesktopTabChange('롤링페이퍼'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">롤링페이퍼</a>
-                    <a href="#" onclick="executeDesktopTabChange('업보정리'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">업보정리</a>
                     <a href="#" onclick="executeDesktopTabChange('사다리타기'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">사다리타기</a>
                     <a href="#" onclick="executeDesktopTabChange('파트분배기'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center" style="--dynamic-hover-color:${hoverColor}">파트분배기</a>
                 `;
             } else if (tab === '시그널') {
                 clickAction = `onclick="executeDesktopTabChange('시그널')"`;
             } else {
-                const links = dynamicLinks[tab] || [];
-                mainLinkHtml = `<a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors border-b border-gray-100 text-center" style="--dynamic-hover-color:${hoverColor}">일정표</a>`;
-                const songbookHtml = `<a href="#" onclick="executeDesktopTabChange('노래책_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">노래책</a>`;
-                dropdownHtml = songbookHtml + links.map(link => `
+                const links = getMemberDisplayLinks(tab);
+                const visibility = getMemberVisibility(tab).menu;
+                mainLinkHtml = visibility.calendar ? `<a href="#" onclick="executeDesktopTabChange('${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors border-b border-gray-100 text-center" style="--dynamic-hover-color:${hoverColor}">일정표</a>` : '';
+                const memberToolHtml = [
+                    visibility.songbook ? `<a href="#" onclick="executeDesktopTabChange('노래책_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">노래책</a>` : '',
+                    visibility.clips ? `<a href="#" onclick="executeDesktopTabChange('클립_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">클립 모아보기</a>` : '',
+                    visibility.upbo ? `<a href="#" onclick="executeDesktopTabChange('업보정리_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">업보정리</a>` : ''
+                ].join('');
+                dropdownHtml = memberToolHtml + (visibility.links ? links.map(link => `
                     <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">${link.title}</a>
-                `).join('');
+                `).join('') : '');
             }
             
             if (tab === '시그널' || ['달타', '다룽', '최또', '카나시'].includes(tab)) {
                 html += `
                     <div class="relative flex items-center">
-                        <button class="dynamic-member-button font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg transition-all duration-200 flex items-center justify-center" style="--dynamic-hover-color:${hoverColor}" ${clickAction}>${btnContent}</button>
+                        <button class="dynamic-member-button desktop-primary-tab ${tabActive ? 'is-active' : ''}" style="--dynamic-hover-color:${hoverColor}" ${clickAction}>${btnContent}</button>
                     </div>
                 `;
             } else {
                 html += `
                     <div id="desktopExtraMenuWrap" class="relative group flex items-center">
-                        <button class="dynamic-member-button font-paperozi px-4 py-2.5 text-lg bg-transparent border-2 border-transparent text-[#5D4037] font-bold rounded-lg transition-all duration-200 flex items-center justify-center" style="--dynamic-hover-color:${hoverColor}" ${clickAction}>${btnContent}</button>
+                        <button class="dynamic-member-button desktop-primary-tab ${tabActive ? 'is-active' : ''}" style="--dynamic-hover-color:${hoverColor}" ${clickAction}>${btnContent}</button>
                         <div id="desktopExtraMenu" class="absolute left-1/2 -translate-x-1/2 top-full pt-1 w-36 hidden group-hover:block z-[2000]">
                             <div class="bg-white flex flex-col shadow-xl rounded-2xl border border-[#ECEDFA] overflow-hidden py-1" style="box-shadow: 0 20px 45px -20px rgba(70,60,160,0.22);">
                                 ${mainLinkHtml}${dropdownHtml}
@@ -3036,27 +3292,42 @@ function renderHeaderTabs() {
     }
 
     if (mobileNav) {
-        const homeActive = currentPage === '홈';
-        const clipActive = currentPage === '클립';
-        const moreActive = ['롤링페이퍼', '업보정리', '업보선택', '사다리타기', '파트분배기'].includes(currentPage);
-        mobileNav.innerHTML = `
-            <button class="mobile-main-nav-btn ${homeActive ? 'is-active' : ''}" onclick="executeDesktopTabChange('홈')" aria-label="홈">
-                <i class="fi fi-${homeActive ? 'sr' : 'rr'}-home"></i><span>홈</span>
-            </button>
-            <button class="mobile-main-nav-btn ${clipActive ? 'is-active' : ''}" onclick="executeMobileTabChange('클립')" aria-label="클립 모아보기">
-                <i class="fi fi-${clipActive ? 'sr' : 'rr'}-play-alt"></i><span>클립 모아보기</span>
-            </button>
-            <button class="mobile-main-nav-btn" onclick="openMobileHomeNotice()" aria-label="공지">
-                <i class="fi fi-rr-comment-alt-middle" data-regular="fi-rr-comment-alt-middle" data-solid="fi-sr-comment-alt-middle"></i><span>공지</span>
-            </button>
-            <button class="mobile-main-nav-btn ${moreActive ? 'is-active' : ''}" onclick="openMobileTabMenu('추가기능')" aria-label="더보기">
-                <i class="fi fi-${moreActive ? 'sr' : 'rr'}-menu-dots"></i><span>더보기</span>
-            </button>
-            <button class="mobile-main-nav-btn ${typeof isAdmin !== 'undefined' && isAdmin ? 'is-admin-profile' : ''}" onclick="${typeof isAdmin !== 'undefined' && isAdmin ? 'openMobileAdminPage()' : 'handleAdminClick()'}" aria-label="${typeof isAdmin !== 'undefined' && isAdmin ? '관리 메뉴' : '로그인'}">
-                ${typeof isAdmin !== 'undefined' && isAdmin && loggedInUser ? `<img class="mobile-nav-admin-avatar" src="${escapeHtml(loggedInUser.img || 'https://via.placeholder.com/48')}" alt="${escapeHtml(loggedInUser.name || '관리자')}">` : '<i class="fi fi-rr-user"></i>'}<span>${typeof isAdmin !== 'undefined' && isAdmin ? '관리' : '로그인'}</span>
-            </button>`;
+        const memberRouteOwner = currentPage === '노래책' ? songbookMember : (currentPage === '클립' ? currentClipStreamer : (currentPage === '업보정리' ? upboCurrentMember : currentPage));
+        const mobileTabs = ['홈', '달타', '다룽', '최또', '카나시', '시그널'];
+        mobileNav.innerHTML = mobileTabs.map(tab => {
+            const active = tab === '홈' ? currentPage === '홈' : (['달타', '다룽', '최또', '카나시'].includes(tab) ? memberRouteOwner === tab : currentPage === tab);
+            return `<button class="mobile-member-tab ${active ? 'is-active' : ''}" onclick="closeMobileMainMenu(); executeDesktopTabChange('${tab}')" aria-label="${tab}">${tab}</button>`;
+        }).join('');
     }
 }
+
+function toggleMobileMainMenu(event) {
+    if (event) event.stopPropagation();
+    const panel = document.getElementById('mobileBottomNav');
+    const backdrop = document.getElementById('mobileMainMenuBackdrop');
+    const button = document.getElementById('mobileMainMenuBtn');
+    if (!panel || !backdrop || !button) return;
+    const shouldOpen = !panel.classList.contains('is-open');
+    panel.classList.toggle('is-open', shouldOpen);
+    backdrop.classList.toggle('is-open', shouldOpen);
+    button.classList.toggle('is-active', shouldOpen);
+    button.setAttribute('aria-expanded', String(shouldOpen));
+    button.setAttribute('aria-label', shouldOpen ? '메뉴 닫기' : '메뉴 열기');
+}
+
+function closeMobileMainMenu() {
+    const panel = document.getElementById('mobileBottomNav');
+    const backdrop = document.getElementById('mobileMainMenuBackdrop');
+    const button = document.getElementById('mobileMainMenuBtn');
+    panel?.classList.remove('is-open');
+    backdrop?.classList.remove('is-open');
+    button?.classList.remove('is-active');
+    button?.setAttribute('aria-expanded', 'false');
+    button?.setAttribute('aria-label', '메뉴 열기');
+}
+
+window.toggleMobileMainMenu = toggleMobileMainMenu;
+window.closeMobileMainMenu = closeMobileMainMenu;
 
 function openMobileAdminPage() {
     forceCloseMobileTabMenu();
@@ -3125,7 +3396,6 @@ function openMobileTabMenu(tab) {
     if (tab === '추가기능') {
         const extraItems = [
             ['롤링페이퍼', 'fi-rr-envelope', '마음을 담은 메시지를 남기고 확인합니다.'],
-            ['업보정리', 'fi-rr-box-open', '등록된 업보를 멤버별로 정리합니다.'],
             ['사다리타기', 'ladder', '이름과 결과를 넣어 사다리게임을 진행합니다.'],
             ['파트분배기', 'fi-rr-microphone-alt', '노래 파트를 멤버들에게 나누어 배정합니다.']
         ];
@@ -3172,13 +3442,15 @@ function openMobileTabMenu(tab) {
 
     if (tab === '추가기능') {
         html += iconBtn("executeMobileTabChange('롤링페이퍼')", 'fi-rr-envelope', '롤링페이퍼', color);
-        html += iconBtn("executeMobileTabChange('업보정리')", 'fi-rr-box-open', '업보정리', color);
         html += iconBtn("executeMobileTabChange('사다리타기')", 'fi-rr-ladder', '사다리타기', color);
         html += iconBtn("executeMobileTabChange('파트분배기')", 'fi-rr-microphone-alt', '파트분배기', color);
     } else {
-        html += iconBtn(`executeMobileTabChange('${tab}')`, 'fi-rr-calendar', '일정표', color);
-        html += iconBtn(`executeMobileTabChange('노래책_${tab}')`, 'fi-rr-music-alt', '노래책', color);
-        const links = dynamicLinks[tab] || [];
+        const visibility = getMemberVisibility(tab).menu;
+        if (visibility.calendar) html += iconBtn(`executeMobileTabChange('${tab}')`, 'fi-rr-calendar', '일정표', color);
+        if (visibility.songbook) html += iconBtn(`executeMobileTabChange('노래책_${tab}')`, 'fi-rr-music-alt', '노래책', color);
+        if (visibility.clips) html += iconBtn(`executeMobileTabChange('클립_${tab}')`, 'fi-rr-play-alt', '클립', color);
+        if (visibility.upbo) html += iconBtn(`executeMobileTabChange('업보정리_${tab}')`, 'fi-rr-box-open', '업보', color);
+        const links = visibility.links ? getMemberDisplayLinks(tab) : [];
         links.forEach(l => {
             const isCafe = (l.url || '').toLowerCase().includes('cafe.naver.com');
             const label = isCafe ? '카페' : l.title;
@@ -3318,7 +3590,7 @@ function renderLadderPage() {
     if (!ladderNames.length) resizeLadderArrays();
     if (!ladderRungsData.length) ladderRungsData = generateLadderRungs(ladderCount, ladderRowCount);
 
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+    content.className = 'signal-centered-content signal-utility-content shrink-0 transition-all duration-300 w-full max-w-full mx-auto pb-6';
 
     const html = `<div class="big-white-box relative theme-rolling" style="min-height: 900px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">
         <div class="mb-6 flex items-center gap-2">
@@ -3847,7 +4119,7 @@ function renderPartDividerPage() {
             partDividerEnterRoom(false);
         }, 50);
     }
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+    content.className = 'signal-centered-content signal-utility-content shrink-0 transition-all duration-300 w-full max-w-full mx-auto pb-6';
 
     const bodyHtml = partDividerView === 'room' ? getPartDividerRoomHtml() : getPartDividerLobbyHtml();
 
@@ -5710,9 +5982,28 @@ async function deleteUpLink(upId, source = 'uplinks') {
 // =========================================================================
 
 // 기준일 대비 남은 일수 계산 (KST 자정 기준, 지난 날짜는 음수)
+function getDdayMonthDay(dateStr) {
+    const match = String(dateStr || '').trim().match(/(?:\d{4}-)?(\d{1,2})-(\d{1,2})$/);
+    if (!match) return '';
+    return `${String(Number(match[1])).padStart(2,'0')}-${String(Number(match[2])).padStart(2,'0')}`;
+}
+
+function getNextAnnualDdayDate(dateStr, todayStr = getTodayYYYYMMDD()) {
+    const monthDay = getDdayMonthDay(dateStr);
+    if (!monthDay) return null;
+    const [month, day] = monthDay.split('-').map(Number);
+    const today = new Date(`${todayStr}T00:00:00+09:00`);
+    for (let year = today.getFullYear(); year <= today.getFullYear() + 8; year++) {
+        const target = new Date(`${year}-${monthDay}T00:00:00+09:00`);
+        if (target.getFullYear() !== year || target.getMonth() + 1 !== month || target.getDate() !== day) continue;
+        if (target >= today) return target;
+    }
+    return null;
+}
+
 function getDdayDaysLeft(dateStr, todayStr = getTodayYYYYMMDD()) {
-    if (!dateStr) return NaN;
-    const target = new Date(`${dateStr}T00:00:00+09:00`);
+    const target = getNextAnnualDdayDate(dateStr, todayStr);
+    if (!target) return NaN;
     const today = new Date(`${todayStr}T00:00:00+09:00`);
     return Math.round((target - today) / (24 * 60 * 60 * 1000));
 }
@@ -5765,8 +6056,8 @@ function renderHomeDdayBox() {
 
     const todayStr = getTodayYYYYMMDD();
     const items = ddaysList
-        .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.date, todayStr) }))
-        .filter(d => d.date && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 15)
+        .map(d => ({ ...d, daysLeft: getDdayDaysLeft(d.monthDay || d.date, todayStr) }))
+        .filter(d => (d.monthDay || d.date) && !isNaN(d.daysLeft) && d.daysLeft >= 0 && d.daysLeft <= 15)
         .sort((a, b) => a.daysLeft - b.daysLeft);
 
     if (items.length === 0) {
@@ -5778,7 +6069,7 @@ function renderHomeDdayBox() {
     }
 
 const rowsHtml = items.map(d => {
-        const dateLabel = (d.date || '').replaceAll('-', '.');
+        const dateLabel = getDdayMonthDay(d.monthDay || d.date).replace('-', '.');
         const isToday = d.daysLeft === 0;
         const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
         // 물 빠지는 정도: D-15이면 100%(가득 참), D-day면 0%(완전히 빠짐)
@@ -5960,11 +6251,12 @@ function renderDdayManagePanel() {
     }
 
     const todayStr = getTodayYYYYMMDD();
-    const sorted = [...ddaysList].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const sorted = [...ddaysList].sort((a, b) => getDdayMonthDay(a.monthDay || a.date).localeCompare(getDdayMonthDay(b.monthDay || b.date)));
 
     container.innerHTML = sorted.map(d => {
-        const daysLeft = getDdayDaysLeft(d.date, todayStr);
-        const label = daysLeft === 0 ? 'D-DAY' : (daysLeft > 0 ? `D-${daysLeft}` : `D+${Math.abs(daysLeft)}`);
+        const monthDay = getDdayMonthDay(d.monthDay || d.date);
+        const daysLeft = getDdayDaysLeft(monthDay, todayStr);
+        const label = daysLeft === 0 ? 'D-DAY' : `D-${daysLeft}`;
         const theme = DDAY_COLOR_THEMES[d.color] || DDAY_COLOR_THEMES.pink;
         const thumb = d.image
             ? `<img src="${d.image}" class="w-10 h-10 rounded-lg object-cover border-2 border-gray-200 shrink-0">`
@@ -5978,7 +6270,7 @@ function renderDdayManagePanel() {
                     <span class="text-[11px] font-bold shrink-0 text-blue-600">${label}</span>
                     <div class="font-bold text-[14px] text-[#5D4037] truncate">${escapeHtml(d.title || '기념일')}</div>
                 </div>
-                <div class="text-[11.5px] text-gray-400 font-bold mt-0.5">${d.date}${d.message ? ' · ' + escapeHtml(d.message) : ''}</div>
+                <div class="text-[11.5px] text-gray-400 font-bold mt-0.5">매년 ${monthDay.replace('-', '월 ')}일${d.message ? ' · ' + escapeHtml(d.message) : ''}</div>
             </div>
             <button onclick="startEditDday('${d.id}')" class="text-white bg-blue-500 w-6 h-6 rounded flex items-center justify-center hover:bg-blue-600 transition shrink-0"><i class="fi fi-rr-edit"></i></button>
             <button onclick="deleteDday('${d.id}')" class="text-white bg-red-500 w-6 h-6 rounded flex items-center justify-center hover:bg-red-600 transition shrink-0"><i class="fi fi-br-cross-small"></i></button>
@@ -5992,13 +6284,13 @@ async function addDday() {
     const messageInput = document.getElementById('ddayMessage');
     const rollingSeqInput = document.getElementById('ddayRollingSeq');
     const title = titleInput.value.trim();
-    const date = dateInput.value;
+    const monthDay = getDdayMonthDay(dateInput.value);
     const message = messageInput ? messageInput.value.trim() : '';
     const rollingSeqRaw = rollingSeqInput ? rollingSeqInput.value.trim() : '';
     const rollingSeq = rollingSeqRaw ? parseInt(rollingSeqRaw, 10) : null;
     const color = DDAY_COLOR_THEMES[selectedDdayColor] ? selectedDdayColor : 'pink';
 
-    if (!date) return alert('날짜를 선택하세요.');
+    if (!monthDay || !getNextAnnualDdayDate(monthDay)) return alert('월-일을 05-23처럼 정확히 입력하세요.');
     if (!title) return alert('기념일 제목을 입력하세요.');
 
     let imageUrl = document.getElementById('ddayImageUrlText') ? document.getElementById('ddayImageUrlText').value.trim() : '';
@@ -6024,14 +6316,14 @@ async function addDday() {
 
         if (editingDdayId) {
             // 수정 모드: 기존 문서를 갱신
-            const updatedDday = { title, date, color, message, image: imageUrl, imagePos, rollingSeq };
+            const updatedDday = { title, date: monthDay, monthDay, annual: true, color, message, image: imageUrl, imagePos, rollingSeq };
             await updateDoc(doc(db, 'ddays', editingDdayId), updatedDday);
             const idx = ddaysList.findIndex(d => d.id === editingDdayId);
             if (idx !== -1) ddaysList[idx] = { ...ddaysList[idx], ...updatedDday };
             alert('디데이가 수정되었습니다.');
         } else {
             // 신규 등록 모드
-            const newDday = { title, date, color, message, image: imageUrl, imagePos, rollingSeq, timestamp: Date.now() };
+            const newDday = { title, date: monthDay, monthDay, annual: true, color, message, image: imageUrl, imagePos, rollingSeq, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'ddays'), newDday);
             ddaysList.push({ id: docRef.id, ...newDday });
             alert('디데이가 추가되었습니다.');
@@ -6059,7 +6351,7 @@ function startEditDday(ddayId) {
     const messageInput = document.getElementById('ddayMessage');
     const rollingSeqInput = document.getElementById('ddayRollingSeq');
     if (titleInput) titleInput.value = d.title || '';
-    if (dateInput) dateInput.value = d.date || '';
+    if (dateInput) dateInput.value = getDdayMonthDay(d.monthDay || d.date);
     if (messageInput) messageInput.value = d.message || '';
     if (rollingSeqInput) rollingSeqInput.value = d.rollingSeq || '';
 
@@ -7581,14 +7873,32 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
 }
 
 async function changeTab(tabName) {
-    if (tabName === '업보정리') {
+    const clipMatch = String(tabName).match(/^클립_(달타|다룽|최또|카나시)$/);
+    const calendarMatch = String(tabName).match(/^(달타|다룽|최또|카나시)_calendar$/);
+    if (clipMatch) {
+        currentPage = '클립';
+        currentClipStreamer = clipMatch[1];
+        const memberSlug = {'달타':'dalta','다룽':'darung','최또':'choiagain','카나시':'kanashi'}[currentClipStreamer];
+        window.location.hash = `#member/${memberSlug}/clips`;
+    } else if (calendarMatch) {
+        currentPage = calendarMatch[1];
+        memberViewMode = 'calendar';
+        signalMobileWeekOffset = 0;
+        const memberSlug = {'달타':'dalta','다룽':'darung','최또':'choiagain','카나시':'kanashi'}[currentPage];
+        window.location.hash = `#member/${memberSlug}/calendar`;
+    } else if (['달타','다룽','최또','카나시'].includes(tabName)) {
+        currentPage = tabName;
+        memberViewMode = 'home';
+        const memberSlug = {'달타':'dalta','다룽':'darung','최또':'choiagain','카나시':'kanashi'}[currentPage];
+        window.location.hash = `#member/${memberSlug}/home`;
+    } else if (tabName === '업보정리') {
         currentPage = '업보선택';
         window.location.hash = '#upbolist';
     } else if (tabName.startsWith('업보정리_')) {
         currentPage = '업보정리';
         upboCurrentMember = tabName.split('_')[1];
         const m2e = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
-        window.location.hash = '#list' + m2e[upboCurrentMember];
+        window.location.hash = `#member/${m2e[upboCurrentMember]}/upbo`;
     } else if (tabName.startsWith('노래책')) {
         currentPage = '노래책';
         songbookMember = tabName.split('_')[1] || '달타';
@@ -7799,14 +8109,20 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
         finalTextColor = '#a21caf';
         textColor = 'border-color: #e29fee !important;'; 
     } else if (isSignalHabBang) {
-        bgColor = '#ffdddd'; 
-        finalTextColor = '#ff6767';
+        bgColor = `color-mix(in srgb, ${SIGNAL_COLLAB_COLOR} 22%, #fff)`;
+        finalTextColor = SIGNAL_COLLAB_COLOR;
     } else if (isCheonTaBus) {
         bgColor = '#c8f0f5'; 
         finalTextColor = '#0891b2';
     } else if (isBibangSchedule) {
         bgColor = '#D2C9CA'; 
         finalTextColor = '#4A3B36';
+    }
+    if (memberPageSettings[memberName]?.typeColors) {
+        const customColor = signalScheduleColor(sch, memberName);
+        bgColor = `color-mix(in srgb, ${customColor} 22%, #fff)`;
+        finalTextColor = customColor;
+        textColor = `border-color:color-mix(in srgb,${customColor} 55%,#fff) !important;`;
     }
 
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
@@ -7861,14 +8177,15 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 
 function render() {
     const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '업보선택': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF', '파트분배기': '#F3E8FF' };
-    const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage;
+    const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage === '클립' ? currentClipStreamer : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
     document.documentElement.style.setProperty('--theme-color', currentPage === '업보선택' ? '#8B5CF6' : (themeColors[activeThemeMember] || '#8B5CF6'));
     document.body.className = document.body.className.replace(/theme-\S+/g, '');
-    const themeClass = (currentPage === '업보정리' || currentPage === '업보선택') ? 'rolling' : currentPage === '노래책' ? getThemeClassForMember(songbookMember) : getThemeClassForMember(activeThemeMember);
+    const themeClass = currentPage === '업보선택' ? 'rolling' : currentPage === '노래책' ? getThemeClassForMember(songbookMember) : getThemeClassForMember(activeThemeMember);
     document.body.classList.add('theme-' + themeClass);
     document.body.classList.toggle('mobile-home-page', isMobile && currentPage === '홈');
-    document.body.classList.toggle('mobile-member-page', isMobile && (['달타', '다룽', '최또', '카나시'].includes(currentPage) || currentPage === '노래책'));
+    // Member pages now share the same visual system on desktop and mobile.
+    document.body.classList.remove('mobile-member-page');
     
     const mBtnContainer = document.getElementById('mobileHeaderRightBtn');
     const dBtnContainer = document.getElementById('dynamicSideBtn');
@@ -7877,11 +8194,7 @@ function render() {
     // 모바일에서는 상단바 우측 영역에, 데스크톱은 각 캘린더 컨테이너 내부에서 렌더링.
     const isMemberPage = ['달타', '다룽', '최또', '카나시'].includes(currentPage);
     if (mBtnContainer) mBtnContainer.innerHTML = '';
-    if (dBtnContainer) {
-        if (!isMobile && isMemberPage) dBtnContainer.innerHTML = buildMemberQuickMenuHtml(currentPage, 'schedule');
-        else if (!isMobile && currentPage === '노래책') dBtnContainer.innerHTML = buildMemberQuickMenuHtml(songbookMember, 'songbook');
-        else dBtnContainer.innerHTML = '';
-    }
+    if (dBtnContainer) dBtnContainer.innerHTML = '';
     
     const content = document.getElementById('mainContent'); if(!content) return; content.innerHTML = '';
 
@@ -7935,7 +8248,7 @@ function render() {
     }
 
     // 홈탭일 때만 라이브 방송 상태를 주기적으로 확인 (다른 탭에서는 불필요한 요청 중지)
-    if (currentPage === '홈') {
+    if (currentPage === '홈' || (memberViewMode === 'home' && ['달타','다룽','최또','카나시'].includes(currentPage))) {
         startLiveStatusPolling();
     } else {
         stopLiveStatusPolling();
@@ -7982,7 +8295,7 @@ function buildMemberQuickMenuHtml(member, activeMenu = 'schedule') {
         return 'fi-rr-link';
     };
 
-    const shortcutHtml = (dynamicLinks[member] || []).map(link => {
+    const shortcutHtml = getMemberDisplayLinks(member).map(link => {
         const lowerTitle = String(link.title || '').toLowerCase();
         const lowerUrl = String(link.url || '').toLowerCase();
         const isSoop = lowerTitle.includes('soop') || lowerUrl.includes('sooplive');
@@ -8012,11 +8325,50 @@ function buildMemberQuickMenuHtml(member, activeMenu = 'schedule') {
                 <button type="button" class="member-quick-menu-btn ${activeMenu === 'songbook' ? 'is-current' : ''}" style="--member-accent: ${memberColor};" onclick="executeDesktopTabChange('노래책_${member}')" title="노래책" aria-label="노래책">
                     <i class="fi fi-rr-music-alt"></i>
                 </button>
+                <button type="button" class="member-quick-menu-btn ${activeMenu === 'clips' ? 'is-current' : ''}" style="--member-accent: ${memberColor};" onclick="executeDesktopTabChange('클립_${member}')" title="클립 모아보기" aria-label="클립 모아보기">
+                    <i class="fi fi-rr-play-alt"></i>
+                </button>
+                <button type="button" class="member-quick-menu-btn ${activeMenu === 'upbo' ? 'is-current' : ''}" style="--member-accent: ${memberColor};" onclick="executeDesktopTabChange('업보정리_${member}')" title="업보정리" aria-label="업보정리">
+                    <i class="fi fi-rr-box-open"></i>
+                </button>
                 ${shortcutHtml}
             </div>
         </div>
     `;
 }
+
+function buildMemberTopNavigation(member, activeMenu = 'home') {
+    const memberColor = themeColors[member] || '#5D4037';
+    const visibility = getMemberVisibility(member).menu;
+    const toolItems = [
+        { key:'home', label:'개인 홈', icon:'fi-rr-home', action:member },
+        { key:'calendar', label:isMobile ? '주간 일정' : '월간 일정', icon:'fi-rr-calendar', action:`${member}_calendar` },
+        { key:'songbook', label:'노래책', icon:'fi-rr-music-alt', action:`노래책_${member}` },
+        { key:'clips', label:'클립', icon:'fi-rr-play-alt', action:`클립_${member}` },
+        { key:'upbo', label:'업보정리', icon:'fi-rr-box-open', action:`업보정리_${member}` }
+    ].filter(item => item.key === 'home' || visibility[item.key] !== false);
+    const toolsHtml = toolItems.map(item => `<button type="button" class="${activeMenu === item.key ? 'is-current' : ''}" onclick="changeTab('${item.action}')"><i class="fi ${item.icon}"></i><span>${item.label}</span></button>`).join('');
+    const linksHtml = visibility.links === false ? '' : getMemberDisplayLinks(member).map(link => {
+        const title = String(link.title || '바로가기');
+        const target = String(link.url || '').replace(/'/g, "\\'");
+        const matchText = `${title} ${link.url || ''}`;
+        const isYoutube = /youtube|유튜브/i.test(matchText);
+        const isSoop = /soop|숲/i.test(matchText);
+        const isCafe = /cafe\.naver|카페/i.test(matchText);
+        const image = isYoutube ? memberChannelImages[member]?.youtube : (isSoop ? memberChannelImages[member]?.soop : (isCafe ? memberNoticeImages[member] : ''));
+        const label = isYoutube ? '유튜브' : (isSoop ? 'SOOP' : (isCafe ? '카페' : title));
+        return `<button type="button" class="is-external ${image ? 'has-image' : ''}" onclick="event.stopPropagation();openSmartLink('${target}');this.closest('.signal-member-top-navigation-links')?.classList.remove('is-open')" title="${escapeHtml(label)}">${image ? `<img src="${escapeHtml(image)}" alt="">` : '<i class="fi fi-rr-link"></i>'}<span>${escapeHtml(label)}</span></button>`;
+    }).join('');
+    const linkBlock = !linksHtml ? '' : (isMobile
+        ? `<div class="signal-member-top-navigation-links"><button type="button" class="signal-member-links-toggle" onclick="event.stopPropagation();this.parentElement.classList.toggle('is-open')" aria-label="외부 링크 열기"><i class="fi fi-rr-link"></i><span>링크</span></button><div class="signal-member-links-popup">${linksHtml}</div></div>`
+        : `<div class="signal-member-top-navigation-links">${linksHtml}</div>`);
+    return `<nav class="signal-member-top-navigation" style="--member-accent:${memberColor}" aria-label="${member} 개인 메뉴"><div class="signal-member-top-navigation-main">${toolsHtml}</div>${linkBlock}</nav>`;
+}
+
+document.addEventListener('click', event => {
+    if (event.target.closest('.signal-member-top-navigation-links')) return;
+    document.querySelectorAll('.signal-member-top-navigation-links.is-open').forEach(element => element.classList.remove('is-open'));
+});
 
 function buildMemoCinetiButtonsHtml(variant) {
     if (variant === 'mobileHeader') {
@@ -8128,28 +8480,17 @@ const memberNoticeImages = {
 function renderSongbook() {
     const content = document.getElementById('mainContent');
     if (!content) return;
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+    content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full max-w-full mx-auto pb-6';
     const theme = getSongbookTheme(songbookMember);
     const profileMember = members.find(m => m.name === songbookMember) || members[0];
     const profileLinks = dynamicLinks[songbookMember] || [];
     const profileSoopUrl = (profileLinks.find(l => /soop|숲/i.test(l.title || '')) || {}).url || `https://www.sooplive.com/station/${memberSoopIdMap[songbookMember] || ''}`;
     const profileYoutubeUrl = (profileLinks.find(l => /유튜브|youtube/i.test(l.title || '')) || {}).url || '';
     const profileChannelImages = memberChannelImages[songbookMember] || {};
-    const mobileProfileNav = isMobile ? `<section class="member-instagram-profile member-songbook-profile" style="--profile-theme:${theme.color}">
-        <div class="member-instagram-head"><img src="${profileMember.img}" alt="${songbookMember}"><div><h1>${songbookMember}</h1><p>노래책</p></div></div>
-        <div class="member-instagram-highlights">
-            <a href="${profileSoopUrl}" target="_blank" rel="noopener"><span id="memberSoopRing-${songbookMember}" class="member-channel-ring member-channel-ring-soop"><img src="${profileChannelImages.soop || ''}" alt="SOOP"></span><b>SOOP</b></a>
-            <a href="${profileYoutubeUrl}" target="_blank" rel="noopener"><span id="memberYoutubeRing-${songbookMember}" class="member-channel-ring member-channel-ring-youtube"><img src="${profileChannelImages.youtube || ''}" alt="유튜브"></span><b>유튜브</b></a>
-            <button type="button" onclick="openMobileMemberNotice('${songbookMember}')" aria-label="${songbookMember} 팬카페"><span class="member-channel-ring member-channel-ring-notice"><img src="${memberNoticeImages[songbookMember] || ''}" alt="" loading="lazy"></span><b>팬카페</b></button>
-        </div>
-        <div class="member-profile-tabs">
-            <button onclick="showMobileMemberView('${songbookMember}','schedule')"><i class="fi fi-rr-calendar"></i><span>일정</span></button>
-            <button onclick="showMobileMemberView('${songbookMember}','memo')"><i class="fi fi-rr-edit"></i><span>메모</span></button>
-            <button class="is-active" onclick="changeTab('노래책_${songbookMember}')"><i class="fi fi-rr-music-alt"></i><span>노래책</span></button>
-        </div>
-    </section>${mobileNoticeModalHtml()}` : '';
+    const mobileProfileNav = '';
 
-    let html = `${mobileProfileNav}<div class="big-white-box relative theme-${getThemeClassForMember(songbookMember)}" style="min-height:900px; padding:${isMobile ? '20px' : '40px'}; width:100%; box-sizing:border-box; align-items:stretch; display:block; --songbook-accent:${theme.color}; --songbook-soft:${theme.soft}; --songbook-border:${theme.border};">
+    const desktopSongbookBar = !isMobile ? `<div class="signal-songbook-routebar" style="--songbook-accent:${theme.color}"><strong>${songbookMember} 노래책</strong></div>` : '';
+    let html = `${buildMemberTopNavigation(songbookMember, 'songbook')}${mobileProfileNav}${desktopSongbookBar}<div class="big-white-box signal-songbook-shell relative theme-${getThemeClassForMember(songbookMember)}" style="min-height:900px; padding:${isMobile ? '20px' : '40px'}; width:100%; box-sizing:border-box; align-items:stretch; display:block; --songbook-accent:${theme.color}; --songbook-soft:${theme.soft}; --songbook-border:${theme.border};">
         <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
             <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi flex items-center gap-2">
                 <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" style="display:inline-block;">
@@ -8184,7 +8525,6 @@ function renderSongbook() {
     renderSongList();
     renderGenreFilters();
     renderArtistSidePanel();
-    if (isMobile) refreshMemberChannelRings(songbookMember, profileYoutubeUrl);
 }
 
 window.openSongRandomModal = function() {
@@ -8199,24 +8539,28 @@ window.openSongRandomModal = function() {
     modal.innerHTML = `
         <div class="song-random-dialog" role="dialog" aria-modal="true" aria-labelledby="songRandomTitle">
             <button type="button" class="song-random-close" onclick="closeSongRandomModal()" aria-label="닫기">&times;</button>
-            <h2 id="songRandomTitle">노래 랜덤 뽑기</h2>
-            <p>장르와 카드 수를 고르고 뽑기를 눌러 주세요. 카드를 누르면 노래가 공개됩니다.</p>
+            <header class="song-random-header">
+                <span class="song-random-header-icon"><i class="fi fi-rr-shuffle"></i></span>
+                <div><small>RANDOM PICK</small><h2 id="songRandomTitle">오늘은 어떤 노래?</h2><p>원하는 장르를 고르고 랜덤으로 노래를 뽑아보세요.</p></div>
+            </header>
             <div class="song-random-controls">
-                <span class="song-random-genre-label" id="songRandomGenreLabel">장르</span>
+                <span class="song-random-genre-label" id="songRandomGenreLabel"><b>장르 선택</b><small>여러 장르를 함께 선택할 수 있어요</small></span>
                 <div class="song-random-options">
                     <div id="songRandomGenres" class="song-random-genres" role="group" aria-labelledby="songRandomGenreLabel">
                         <button type="button" class="song-random-genre is-selected" data-genre="all" aria-pressed="true">전체 (${songs.length})</button>
                         ${genres.map(([genre, count], index) => `<button type="button" class="song-random-genre" data-genre="${index}" aria-pressed="false">${escapeHtml(genre)} (${count})</button>`).join('')}
                     </div>
                     <div class="song-random-count">
-                        <label for="songRandomCount">카드 수</label>
+                        <label for="songRandomCount">뽑을 카드</label>
                         <select id="songRandomCount">${[1, 2, 3, 4, 5, 6].map(count => `<option value="${count}" ${count === 3 ? 'selected' : ''}>${count}장</option>`).join('')}</select>
                     </div>
                 </div>
             </div>
-            <div id="songRandomMessage" class="song-random-message" aria-live="polite">${songs.length ? '' : '노래를 불러오는 중이거나 등록된 노래가 없습니다.'}</div>
-            <div id="songRandomCards" class="song-random-cards"></div>
-            <div class="song-random-draw-wrap"><button id="songRandomDraw" type="button" onclick="drawRandomSongs()">뽑기</button></div>
+            <section class="song-random-result-stage">
+                <div id="songRandomMessage" class="song-random-message" aria-live="polite">${songs.length ? '아래 버튼을 누르면 카드가 나타나요.' : '노래를 불러오는 중이거나 등록된 노래가 없습니다.'}</div>
+                <div id="songRandomCards" class="song-random-cards"><div class="song-random-empty"><i class="fi fi-rr-music-alt"></i><strong>랜덤 노래를 기다리고 있어요</strong><span>뽑은 카드를 누르면 노래가 공개됩니다</span></div></div>
+            </section>
+            <div class="song-random-draw-wrap"><button id="songRandomDraw" type="button" onclick="drawRandomSongs()"><i class="fi fi-rr-shuffle"></i><span>랜덤 노래 뽑기</span></button></div>
         </div>`;
     modal.addEventListener('click', event => { if (event.target === modal) window.closeSongRandomModal(); });
     document.body.appendChild(modal);
@@ -8261,7 +8605,7 @@ window.drawRandomSongs = function() {
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     const picks = shuffled.slice(0, requestedCount);
-    modal.querySelector('#songRandomDraw').textContent = '다시 뽑기';
+    modal.querySelector('#songRandomDraw').innerHTML = '<i class="fi fi-rr-refresh"></i><span>다시 뽑기</span>';
     message.textContent = picks.length < requestedCount ? `등록된 노래가 ${picks.length}곡이라 ${picks.length}장만 뽑았습니다.` : '카드를 눌러 결과를 확인하세요.';
     picks.forEach((song, index) => {
         const card = document.createElement('button');
@@ -8271,7 +8615,7 @@ window.drawRandomSongs = function() {
         const albumArt = song.albumArt
             ? `<img class="song-random-album-art" src="${escapeHtml(song.albumArt)}" alt="${escapeHtml(song.title || '노래')} 앨범 아트" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'song-random-album-fallback',textContent:'🎵'}))">`
             : '<span class="song-random-album-fallback">🎵</span>';
-        card.innerHTML = `<span class="song-random-card-inner"><span class="song-random-card-back"><img src="./images/logo.webp" alt="시그널 로고"><small>눌러서 공개</small></span><span class="song-random-card-front"><small>${index + 1}번 노래</small>${albumArt}<strong>${escapeHtml(song.title || '제목 없음')}</strong><span>${escapeHtml(song.artist || '가수 미상')}</span></span></span>`;
+        card.innerHTML = `<span class="song-random-card-inner"><span class="song-random-card-back"><b>${index + 1}</b><img src="./images/logo.webp" alt="시그널 로고"><small><i class="fi fi-rr-hand-pointer"></i> 눌러서 공개</small></span><span class="song-random-card-front"><small>RANDOM SONG · ${index + 1}</small>${albumArt}<strong>${escapeHtml(song.title || '제목 없음')}</strong><span>${escapeHtml(song.artist || '가수 미상')}</span></span></span>`;
         card.addEventListener('click', () => {
             card.classList.add('is-revealed');
             card.setAttribute('aria-label', `${index + 1}번 카드: ${song.title || '제목 없음'}, ${song.artist || '가수 미상'}`);
@@ -8324,7 +8668,7 @@ function renderSongList() {
                 : [];
 
             html += `
-                <div class="song-card group relative flex flex-col cursor-pointer" onclick="openSongInfoModal('${song.id}')" title="클릭하면 노래 정보와 가사를 볼 수 있어요">
+                <div class="song-card group relative flex flex-col cursor-pointer" onclick="openSongInfoModal('${song.id}')" aria-label="${escapeHtml(song.title)} 노래 정보 보기">
                     <div class="song-art relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-gray-200 bg-gray-50 shrink-0">
                         ${artHtml}
                         <button onclick="event.stopPropagation(); toggleLikeSong('${song.id}')" class="absolute top-2 right-2 min-h-8 px-2 rounded-full bg-white/90 backdrop-blur flex items-center gap-1 shadow-md transition cursor-pointer ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}">
@@ -8462,12 +8806,14 @@ window.selectArtistFilterIdx = function(idx) {
     songArtistFilter = (songArtistFilter === artist) ? null : artist;
     renderSongList();
     renderArtistSidePanel();
+    if (isMobile) document.getElementById('songbookArtistColumn')?.classList.add('mobile-collapsed');
 };
 
 window.clearArtistFilter = function() {
     songArtistFilter = null;
     renderSongList();
     renderArtistSidePanel();
+    if (isMobile) document.getElementById('songbookArtistColumn')?.classList.add('mobile-collapsed');
 };
 
 let songGenreOptionsCache = [];
@@ -8957,11 +9303,11 @@ function renderUpboPage() {
         `;
     }
 
-    let mainHtml = `<div class="big-white-box upbo-box relative mx-auto" style="min-height: 850px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; ${isMobile ? 'min-width: 0;' : ''} box-sizing: border-box;">`;
+    let mainHtml = `${buildMemberTopNavigation(upboCurrentMember, 'upbo')}<div class="signal-member-tool-routebar" style="--member-accent:${themeColor}"><strong>${upboCurrentMember} 업보정리</strong></div><div class="big-white-box upbo-box signal-member-tool-shell relative mx-auto" style="min-height: 850px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; ${isMobile ? 'min-width: 0;' : ''} box-sizing: border-box; --member-accent:${themeColor};">`;
     mainHtml += `
         <div class="flex flex-col md:flex-row md:items-center justify-between w-full gap-4 mb-6 pb-5 border-b border-[#ECEDFA]">
             <div class="flex justify-start">
-                <button onclick="changeTab('업보정리')" class="text-[20px] font-bold text-gray-400 hover:text-[#5D4037] transition-colors mb-1 inline-flex items-center gap-1"><i class="fi fi-rr-angle-small-left"></i> 멤버 목록으로</button>
+                <strong class="text-[23px] font-bold text-[#5D4037] font-paperozi">${upboCurrentMember} 업보정리</strong>
             </div>
             <div class="flex justify-end md:ml-auto">
                 ${toggleBtnHtml}
@@ -9106,7 +9452,7 @@ function renderUpboPage() {
 
     mainHtml += `</div>`;
     content.innerHTML = mainHtml;
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-max lg:min-w-[1200px] lg:mx-auto pb-6 upbo-content-wrap';
+    content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full mx-auto pb-6 upbo-content-wrap';
 
     if (isAdmin && upboViewMode === 'admin') { renderUpboAdminTable(); renderUpboMenuAdminList(); }
 }
@@ -9759,7 +10105,7 @@ function renderRollingPaper() {
     }
     html += `</div>`;
     content.innerHTML = html;
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+    content.className = 'signal-centered-content signal-utility-content shrink-0 transition-all duration-300 w-full max-w-full mx-auto pb-6';
 }
 
 function openRollingTopicModal() {
@@ -10619,13 +10965,8 @@ function renderMobileHome(grouped) {
         const daySchedules = grouped[key] || [];
         const feedItems = daySchedules.length ? daySchedules : [{ id: '', title: '등록된 일정이 없어요', detail: '새로운 일정을 기다리고 있어요.', globalType: '일정 없음' }];
         const typeColor = sch => {
-            if (sch.globalType === '휴방') return '#aeb4bd';
-            if (sch.broadType === '합방') return '#dca9e7';
-            if (sch.broadType === '시그널합방') return '#f2a7a7';
-            if (sch.broadType === '천타버스') return '#8fcbd3';
-            if (sch.broadType === '비방일정') return '#a99d9f';
             if (sch.globalType === '일정 없음') return '#c7cbd1';
-            return themeColors[member.name];
+            return signalScheduleColor(sch, member.name);
         };
         const participantProfiles = tag => {
             if (!tag || typeof parseMembers !== 'function') return '';
@@ -10725,7 +11066,7 @@ function renderMobileIndividual(grouped) {
             let color = themeColor;
             if (sch.globalType === '휴방') color = '#aeb4bd';
             else if (sch.broadType === '합방') color = '#dca9e7';
-            else if (sch.broadType === '시그널합방') color = '#f2a7a7';
+            else if (sch.broadType === '시그널합방') color = SIGNAL_COLLAB_COLOR;
             else if (sch.broadType === '천타버스') color = '#8fcbd3';
             else if (sch.broadType === '비방일정') color = '#a99d9f';
             return `<div class="member-week-schedule-row" style="--schedule-color:${color}">
@@ -10769,6 +11110,8 @@ function renderMobileIndividual(grouped) {
             <button class="${!isMemoView ? 'is-active' : ''}" onclick="showMobileMemberView('${currentPage}','schedule')"><i class="fi fi-rr-calendar"></i><span>일정</span></button>
             <button class="${isMemoView ? 'is-active' : ''}" onclick="showMobileMemberView('${currentPage}','memo')"><i class="fi fi-rr-edit"></i><span>메모</span></button>
             <button onclick="changeTab('노래책_${currentPage}')"><i class="fi fi-rr-music-alt"></i><span>노래책</span></button>
+            <button onclick="changeTab('클립_${currentPage}')"><i class="fi fi-rr-play-alt"></i><span>클립</span></button>
+            <button onclick="changeTab('업보정리_${currentPage}')"><i class="fi fi-rr-box-open"></i><span>업보</span></button>
         </div>
         ${isMemoView ? memoHtml : scheduleBody}
     </section>${mobileNoticeModalHtml()}`;
@@ -10838,7 +11181,7 @@ function renderDesktopHome(grouped) {
                 <div class="flex items-start gap-3">${weekRowsHtml}</div>
             </div>`;
 
-        const memberLinks = dynamicLinks[member.name] || [];
+        const memberLinks = getMemberDisplayLinks(member.name);
         const soopUrl = (memberLinks.find(l => l.title === 'SOOP') || {}).url || '';
         const youtubeUrl = (memberLinks.find(l => l.title === '유튜브') || {}).url || '';
 
@@ -10941,7 +11284,7 @@ function renderDesktopIndividual(grouped) {
     `).join('');
 
     const memoSectionHtml = `
-        <div class="w-[360px] shrink-0 flex flex-col pl-8 border-l-[2px] border-dashed border-gray-200 ml-8 relative pt-0">
+        <div class="signal-calendar-memo w-[360px] shrink-0 flex flex-col pl-8 border-l-[2px] border-dashed border-gray-200 ml-8 relative pt-0">
             <!-- 캘린더 타이틀 높이와 완벽하게 동기화하기 위한 투명 더미 요소 -->
             <div class="nav-container" style="visibility: hidden; pointer-events: none;" aria-hidden="true">
                 <button class="nav-btn"><i class="fi fi-rr-caret-left"></i></button>
@@ -10968,7 +11311,7 @@ function renderDesktopIndividual(grouped) {
     `;
 
     const calendarSectionHtml = `
-        <div class="flex flex-col items-center flex-1 relative ml-6">
+        <div class="signal-calendar-main flex flex-col items-center flex-1 relative ml-6">
             <div class="nav-container"><button class="nav-btn" onclick="changeMonth(-1)"><i class="fi fi-rr-caret-left"></i></button><div class="w-[330px] flex justify-center items-center"><div class="text-[40px] font-normal cursor-pointer hover-theme-text leading-none" style="font-family: 'Paperozi', sans-serif;" onclick="openMonthPicker()">${currentYear}년 ${currentMonth}월</div></div><button class="nav-btn" onclick="changeMonth(1)"><i class="fi fi-rr-caret-right"></i></button></div>
             <div class="header-days-container mb-2">${['월','화','수','목','금','토','일'].map(d=>`<div class="header-days-cell" style="padding:22px 0;">${d}</div>`).join('')}</div>
             <div class="big-box-container" style="grid-template-rows: repeat(${weeksNeeded}, 198px);">${cellsHtml}</div>
@@ -11139,6 +11482,382 @@ function buildTimeStr(ampm, hh, mm) {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
+// -------------------------------------------------------------------------
+// 2026-10 SIGNAL layout refresh
+// The data/admin flows above stay intact. Only the Home and member landing
+// pages are composed again here so both desktop and mobile share one clear
+// information hierarchy.
+// -------------------------------------------------------------------------
+function signalDateKey(date, memberName) {
+    return `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}-${memberName}`;
+}
+
+function signalScheduleColor(schedule, memberName) {
+    const colors = memberPageSettings[memberName]?.typeColors || {};
+    if (schedule.globalType === '휴방') return colors.off || MEMBER_SCHEDULE_COLOR_DEFAULTS.off;
+    if (schedule.broadType === '합방') return colors.collab || MEMBER_SCHEDULE_COLOR_DEFAULTS.collab;
+    if (schedule.broadType === '시그널합방') return SIGNAL_COLLAB_COLOR;
+    if (schedule.broadType === '천타버스') return colors.bus || MEMBER_SCHEDULE_COLOR_DEFAULTS.bus;
+    if (schedule.broadType === '비방일정') return colors.private || MEMBER_SCHEDULE_COLOR_DEFAULTS.private;
+    return colors.default || themeColors[memberName] || '#5D4037';
+}
+
+function signalScheduleRows(schedules, memberName, date, compact = false) {
+    if (!schedules.length) return `<button class="signal-empty-schedule" onclick="handleDayClick(${date.getFullYear()},${date.getMonth()+1},${date.getDate()},'${memberName}')"><span>—</span><strong>오늘은 등록된 일정이 없어요</strong><small>일정 추가하기</small></button>`;
+    return schedules.map(schedule => {
+        const title = schedule.title || schedule.globalType || '일정';
+        const time = schedule.globalStartTime || schedule.time;
+        const typeLabel = schedule.globalType === '휴방' ? '휴방' : (schedule.broadType || schedule.globalType || '일정');
+        const click = schedule.id ? `openDetailModal(event,'${schedule.id}')` : `handleDayClick(${date.getFullYear()},${date.getMonth()+1},${date.getDate()},'${memberName}')`;
+        return `<button class="signal-schedule-line ${compact ? 'is-compact' : ''}" style="--schedule-accent:${signalScheduleColor(schedule, memberName)}" onclick="${click}">
+            <em class="signal-schedule-type">${escapeHtml(typeLabel)}</em>
+            <time>${time ? formatTime12(time) : ''}</time>
+            <span><strong>${escapeHtml(title)}</strong>${schedule.detail ? `<small>${escapeHtml(schedule.detail)}</small>` : ''}</span>
+            <i class="fi fi-rr-arrow-up-right"></i>
+        </button>`;
+    }).join('');
+}
+
+function getSignalMemberRequestedContents(memberName = '') {
+    const normalizedMember = String(memberName || '').trim();
+    return getVisibleUpLinks()
+        .filter(item => !normalizedMember || String(item.member || '').trim() === normalizedMember)
+        .sort(sortUpLinksComparator);
+}
+
+function signalRequestedContentsHtml(memberName, compact = false) {
+    const items = getSignalMemberRequestedContents(memberName);
+    if (!items.length) return '';
+    const containerId = compact ? 'signal-home-up-cards' : 'signal-member-up-cards';
+    return `<section class="${compact ? 'signal-home-requested' : 'signal-member-content-list'}">
+        <header><div><small>UP LINK</small><h2>신청한 콘텐츠</h2></div><span>멤버 순위와 좋아요 현황</span></header>
+        <div id="${containerId}" class="${compact ? 'signal-home-requested-list' : 'signal-member-requested-list'}"><div class="signal-requested-loading">순위를 불러오는 중이에요.</div></div>
+    </section>`;
+}
+
+async function hydrateSignalRequestedContents(containerId, memberName = '') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const items = getSignalMemberRequestedContents(memberName);
+    if (!items.length) return;
+    await ensureMemberLoginImgMap();
+    if (!container.isConnected) return;
+    renderUpLinkCardsProgressive(container, items, () => container.isConnected);
+}
+
+function signalNewsPlaceholder() {
+    return `<div class="signal-news-empty"><i class="fi fi-rr-comment-alt"></i><span>새소식을 불러오는 중이에요.</span></div>`;
+}
+
+function signalHomeMediaHtml() {
+    const videoId = getYoutubeVideoId(homeYoutubeUrl);
+    if (videoId) return `<div class="signal-home-media-frame"><iframe src="https://www.youtube.com/embed/${videoId}" title="시그널 유튜브 영상" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+    if (homeYoutubeUrl && isImageUrl(homeYoutubeUrl)) return `<div class="signal-home-media-frame"><img src="${escapeHtml(homeYoutubeUrl)}" alt="홈 등록 이미지"></div>`;
+    return `<a class="signal-home-media-empty" href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" rel="noopener"><i class="fi fi-brands-youtube"></i><strong>시그널 유튜브</strong><span>등록된 영상이 없어요. 공식 채널 보러 가기</span></a>`;
+}
+
+function syncSignalNewsFromCache() {
+    const list = document.getElementById('signal-news-list');
+    if (!list) return;
+    const todayKey = getTodayYYYYMMDD();
+    const rows = soopBoards.flatMap(board => {
+        const entries = cachedPerMemberNoticeHtml[board.name] || [];
+        return entries.map(entry => {
+            const holder = document.createElement('div');
+            holder.innerHTML = entry;
+            const postDate = holder.firstElementChild?.dataset?.postDate || '';
+            const relativeTime = holder.querySelector('.kakao-time')?.textContent?.trim() || '';
+            const time = holder.firstElementChild?.dataset?.postClock || relativeTime;
+            if (postDate ? postDate !== todayKey : !/(방금 전|분 전|시간 전)/.test(relativeTime)) return '';
+            const title = holder.querySelector('.kakao-bubble-title')?.textContent?.trim() || '새 공지';
+            const source = holder.firstElementChild?.dataset?.postUrl || '#';
+            const member = members.find(item => item.name === board.name);
+            return `<button class="signal-news-row" onclick="openSmartLink('${source.replace(/'/g, "\\'")}')">
+                <img src="${member?.img || ''}" alt=""><span><small>${board.name} · 공지</small><strong>${escapeHtml(title)}</strong></span><time>${escapeHtml(time)}</time><i class="fi fi-rr-angle-small-right"></i>
+            </button>`;
+        });
+    }).filter(Boolean).join('');
+    list.innerHTML = rows || signalNewsPlaceholder();
+}
+
+function renderSignalHome(grouped) {
+    stopSignalMemberSlideshow();
+    const content = document.getElementById('mainContent');
+    const selected = new Date(homeTargetDate);
+    const today = new Date();
+    const isToday = selected.toDateString() === today.toDateString();
+    const dayLabel = ['일','월','화','수','목','금','토'][selected.getDay()];
+    const cards = members.map(member => {
+        const schedules = grouped[signalDateKey(selected, member.name)] || [];
+        return `<article class="signal-home-member" style="--member-accent:${themeColors[member.name] || '#5D4037'}">
+            <button class="signal-member-profile" onclick="changeTab('${member.name}')">
+                <img src="${memberHomeImageMap[member.name] || member.img}" alt="${member.name}">
+                <span><strong>${member.name}</strong></span>
+            </button>
+            <div class="signal-member-schedules">${signalScheduleRows(schedules, member.name, selected, true)}</div>
+        </article>`;
+    }).join('');
+
+    const ddayItems = getPopupDdayItems(getTodayYYYYMMDD());
+    const ddaySection = ddayItems.length ? `<section class="signal-dday-banner" aria-label="다가오는 일정"><div class="signal-dday-grid">${ddayItems.map(item => {
+        const theme = DDAY_COLOR_THEMES[item.color] || DDAY_COLOR_THEMES.pink;
+        const label = item.daysLeft === 0 ? 'D-DAY' : `D-${item.daysLeft}`;
+        const imageStyle = item.image ? `background-image:linear-gradient(90deg,rgba(25,20,20,.7),rgba(25,20,20,.12)),url('${String(item.image).replace(/'/g, "\\'")}');background-position:${item.imagePos || '50% 50%'};` : `background:${theme.swatch};`;
+        return `<button class="signal-dday-card ${item.image ? 'has-image' : ''}" style="${imageStyle}" onclick="goToDdayRolling(${JSON.stringify(item.rollingSeq || null)})"><span><strong>${escapeHtml(item.title || '기념일')}</strong>${item.message ? `<p>${escapeHtml(item.message)}</p>` : ''}</span><b>${label}</b><i class="fi fi-rr-arrow-up-right"></i></button>`;
+    }).join('')}</div></section>` : '';
+
+    content.innerHTML = `<main class="signal-layout signal-home-layout">
+        ${ddaySection}
+        <section class="signal-section signal-today-section">
+            <header><div><time class="signal-home-date-label">${selected.getMonth()+1}월 ${selected.getDate()}일 ${dayLabel}요일${isToday ? ' <em>TODAY</em>' : ''}</time></div><nav><button onclick="changeHomeDate(-1)" aria-label="이전 날"><i class="fi fi-rr-angle-left"></i></button><button onclick="changeHomeDate(1)" aria-label="다음 날"><i class="fi fi-rr-angle-right"></i></button></nav></header>
+            <div class="signal-home-grid">${cards}</div>
+            ${signalRequestedContentsHtml('', true)}
+        </section>
+        <section class="signal-section signal-home-information">
+            <article class="signal-home-media"><header><small>YOUTUBE</small><h2>유튜브</h2></header>${signalHomeMediaHtml()}</article>
+            <article class="signal-home-news"><header><small>LATEST NOTICE</small><h2>공지</h2></header><div id="signal-news-list" class="signal-news-list">${signalNewsPlaceholder()}</div></article>
+        </section>
+    </main>${mobileNoticeModalHtml()}`;
+    content.className = 'signal-home-content shrink-0 transition-all duration-300 w-full';
+    hydrateSignalRequestedContents('signal-home-up-cards');
+    syncSignalNewsFromCache();
+    if (!noticeFetchAttempted) fetchAndRenderAllNotices().then(syncSignalNewsFromCache);
+}
+
+function renderSignalMember(grouped) {
+    const content = document.getElementById('mainContent');
+    const member = members.find(item => item.name === currentPage) || members[0];
+    const accent = themeColors[member.name] || '#5D4037';
+    const today = new Date();
+    const current = new Date(individualTargetDate || today);
+    const dow = current.getDay();
+    const monday = new Date(current.getFullYear(), current.getMonth(), current.getDate() - dow + (dow === 0 ? -6 : 1));
+    const weekDates = Array.from({length: 7}, (_, i) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i));
+    const todaySchedules = grouped[signalDateKey(today, member.name)] || [];
+    const memberLinks = getMemberDisplayLinks(member.name);
+    const soopUrl = (memberLinks.find(link => /soop|숲/i.test(link.title || '')) || {}).url || `https://www.sooplive.com/station/${memberSoopIdMap[member.name] || ''}`;
+    const youtubeUrl = (memberLinks.find(link => /유튜브|youtube/i.test(link.title || '')) || {}).url || '';
+    const weekHtml = weekDates.map(date => {
+        const schedules = grouped[signalDateKey(date, member.name)] || [];
+        const isToday = date.toDateString() === today.toDateString();
+        return `<button class="signal-week-day ${isToday ? 'is-today' : ''}" onclick="handleDayClick(${date.getFullYear()},${date.getMonth()+1},${date.getDate()},'${member.name}')">
+            <span><b>${['일','월','화','수','목','금','토'][date.getDay()]}</b><strong>${date.getDate()}</strong></span>
+            <div>${schedules.length ? schedules.map(schedule => `<p style="--schedule-accent:${signalScheduleColor(schedule, member.name)}">${schedule.globalStartTime || schedule.time ? `<time>${formatTime12(schedule.globalStartTime || schedule.time)}</time>` : ''}<b>${escapeHtml(schedule.title || schedule.globalType || '일정')}</b></p>`).join('') : '<small>등록된 일정이 없어요</small>'}</div>
+        </button>`;
+    }).join('');
+
+    content.innerHTML = `<main class="signal-layout signal-member-layout" style="--member-accent:${accent}">
+        <header class="signal-member-topbar"><button onclick="changeTab('홈')"><i class="fi fi-rr-arrow-left"></i> SIGNAL</button><span>${member.name}</span></header>
+        <section class="signal-member-hero">
+            <div class="signal-member-intro"><h1>${member.name}</h1><nav><a href="${soopUrl}" target="_blank" rel="noopener"><i class="fi fi-rr-video-camera"></i> SOOP</a>${youtubeUrl ? `<a href="${youtubeUrl}" target="_blank" rel="noopener"><i class="fi fi-brands-youtube"></i> YOUTUBE</a>` : ''}<button onclick="changeTab('노래책_${member.name}')"><i class="fi fi-rr-music-alt"></i> 노래책</button></nav></div>
+            <div class="signal-member-portrait"><span>${member.name}</span><img src="${member.img}" alt="${member.name}"></div>
+            <article class="signal-member-today"><header><div><small>${today.getMonth()+1}월 ${today.getDate()}일</small><h2>오늘의 일정</h2></div><button onclick="handleDayClick(${today.getFullYear()},${today.getMonth()+1},${today.getDate()},'${member.name}')">전체 보기 →</button></header>${signalScheduleRows(todaySchedules, member.name, today)}</article>
+        </section>
+        <section class="signal-section signal-week-section"><header><div><small>${weekDates[0].getFullYear()}. ${weekDates[0].getMonth()+1}. ${weekDates[0].getDate()} — ${weekDates[6].getMonth()+1}. ${weekDates[6].getDate()}</small><h2>이번 주 일정</h2></div><nav><button onclick="changeIndividualWeek(-7)"><i class="fi fi-rr-angle-left"></i></button><button onclick="changeIndividualWeek(7)"><i class="fi fi-rr-angle-right"></i></button></nav></header><div class="signal-week-grid">${weekHtml}</div></section>
+    </main>${mobileNoticeModalHtml()}`;
+    content.className = `shrink-0 transition-all duration-300 w-full member-profile-page theme-${member.name === '달타'?'dalta':member.name === '다룽'?'darung':member.name === '최또'?'choitto':'kanasi'}`;
+}
+
+const renderDesktopIndividualCalendar = renderDesktopIndividual;
+const renderMobileIndividualOriginal = renderMobileIndividual;
+
+let signalMemberSlideTimer = null;
+let signalMemberSlideIndex = 0;
+
+function stopSignalMemberSlideshow() {
+    if (signalMemberSlideTimer) clearInterval(signalMemberSlideTimer);
+    signalMemberSlideTimer = null;
+    signalMemberSlideIndex = 0;
+}
+
+function signalMemberSlideshowHtml(member) {
+    const images = getMemberPageImageUrls(member.name);
+    return `<div class="signal-member-addon-portrait signal-member-slideshow" data-slide-count="${images.length}">
+        <div class="signal-member-slides">${images.map((url, index) => `<img class="signal-member-slide ${index === 0 ? 'is-active' : ''}" src="${escapeHtml(url)}" alt="${escapeHtml(member.name)} 이미지 ${index + 1}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" onerror="this.classList.add('is-error')">`).join('')}</div>
+        ${images.length > 1 ? `<button type="button" class="signal-member-slide-arrow is-prev" onclick="changeSignalMemberSlide(-1)" aria-label="이전 이미지"><i class="fi fi-rr-angle-left"></i></button><button type="button" class="signal-member-slide-arrow is-next" onclick="changeSignalMemberSlide(1)" aria-label="다음 이미지"><i class="fi fi-rr-angle-right"></i></button><div class="signal-member-slide-dots">${images.map((_, index) => `<button type="button" class="${index === 0 ? 'is-active' : ''}" onclick="changeSignalMemberSlideTo(${index})" aria-label="${index + 1}번 이미지"></button>`).join('')}</div>` : ''}
+    </div>`;
+}
+
+function showSignalMemberSlide(index) {
+    const root = document.querySelector('.signal-member-slideshow');
+    if (!root) return;
+    const slides = [...root.querySelectorAll('.signal-member-slide')];
+    if (slides.length < 2) return;
+    signalMemberSlideIndex = (index + slides.length) % slides.length;
+    slides.forEach((slide, idx) => slide.classList.toggle('is-active', idx === signalMemberSlideIndex));
+    root.querySelectorAll('.signal-member-slide-dots button').forEach((dot, idx) => dot.classList.toggle('is-active', idx === signalMemberSlideIndex));
+}
+
+function startSignalMemberSlideshow() {
+    stopSignalMemberSlideshow();
+    const root = document.querySelector('.signal-member-slideshow');
+    if (!root || Number(root.dataset.slideCount || 0) < 2) return;
+    signalMemberSlideTimer = setInterval(() => {
+        if (!document.querySelector('.signal-member-slideshow')) return stopSignalMemberSlideshow();
+        showSignalMemberSlide(signalMemberSlideIndex + 1);
+    }, 5000);
+}
+
+function changeSignalMemberSlide(step) {
+    showSignalMemberSlide(signalMemberSlideIndex + step);
+    startSignalMemberSlideshow();
+}
+
+function changeSignalMemberSlideTo(index) {
+    showSignalMemberSlide(index);
+    startSignalMemberSlideshow();
+}
+
+window.changeSignalMemberSlide = changeSignalMemberSlide;
+window.changeSignalMemberSlideTo = changeSignalMemberSlideTo;
+
+function signalMemberHomeAddon(grouped, weekOffset = 0) {
+    const member = members.find(item => item.name === currentPage) || members[0];
+    const accent = themeColors[member.name] || '#5D4037';
+    const today = new Date();
+    const schedules = grouped[signalDateKey(today, member.name)] || [];
+    const memberLinks = getMemberDisplayLinks(member.name);
+    const homeVisibility = getMemberVisibility(member.name).home;
+    const cafeLink = homeVisibility.cafe ? memberLinks.find(link => /cafe\.naver\.com/i.test(String(link.url || ''))) : null;
+    const soopUrl = (memberLinks.find(link => /soop|숲/i.test(link.title || '')) || {}).url || `https://www.sooplive.com/station/${memberSoopIdMap[member.name] || ''}`;
+    const youtubeUrl = (memberLinks.find(link => /유튜브|youtube/i.test(link.title || '')) || {}).url || '';
+    const weekDay = today.getDay();
+    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - weekDay + (weekDay === 0 ? -6 : 1) + (weekOffset * 7));
+    const weekDates = Array.from({ length: 7 }, (_, i) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i));
+    const weekHtml = weekDates.map(date => {
+        const rows = grouped[signalDateKey(date, member.name)] || [];
+        const isToday = date.toDateString() === today.toDateString();
+        const isHubang = rows.some(schedule => schedule.globalType === '휴방');
+        const statusImage = rows.length ? (isHubang ? memberCardImages[member.name]?.hubang : memberCardImages[member.name]?.bangon) : '';
+        return `<button class="signal-addon-week-day signal-addon-week-image-card ${isToday ? 'is-today' : ''}" onclick="handleDayClick(${date.getFullYear()},${date.getMonth()+1},${date.getDate()},'${member.name}')">
+            <span><b>${['일','월','화','수','목','금','토'][date.getDay()]}</b><strong>${date.getDate()}</strong></span>
+            <div class="signal-addon-week-visual">${statusImage ? `<img src="${escapeHtml(statusImage)}" alt="${isHubang ? '휴방' : '뱅온'}" loading="lazy" decoding="async">` : '<em>—</em>'}</div>
+            <div class="signal-addon-week-details">${rows.length ? rows.slice(0, 2).map(schedule => `<p style="--schedule-accent:${signalScheduleColor(schedule, member.name)}">${schedule.globalStartTime || schedule.time ? `<time>${formatTime12(schedule.globalStartTime || schedule.time)}</time>` : ''}<b>${escapeHtml(schedule.title || schedule.globalType || '일정')}</b></p>`).join('') : '<small>일정 없음</small>'}</div>
+        </button>`;
+    }).join('');
+    const contentHtml = homeVisibility.requested ? signalRequestedContentsHtml(member.name) : '';
+    const weekActionHtml = isMobile && memberViewMode === 'calendar'
+        ? `<div class="signal-mobile-week-controls"><button type="button" onclick="changeSignalMobileWeek(-1)" aria-label="이전 주"><i class="fi fi-rr-angle-left"></i></button><button type="button" onclick="resetSignalMobileWeek()">이번 주</button><button type="button" onclick="changeSignalMobileWeek(1)" aria-label="다음 주"><i class="fi fi-rr-angle-right"></i></button></div>`
+        : `<button onclick="changeTab('${member.name}_calendar')">월간 일정 보기 →</button>`;
+    return `${buildMemberTopNavigation(member.name, 'home')}<section class="signal-member-addon" style="--member-accent:${accent}">
+        <div class="signal-member-addon-copy">
+            <h1>${member.name}</h1>
+        </div>
+        ${homeVisibility.hero ? signalMemberSlideshowHtml(member) : ''}
+        ${homeVisibility.today ? `<article class="signal-member-addon-today">
+            <div id="signal-member-live-card" class="signal-member-live-card hidden" data-member="${member.name}"></div>
+            <header><div><small>${today.getMonth()+1}월 ${today.getDate()}일</small><h2>오늘의 일정</h2></div><button onclick="handleDayClick(${today.getFullYear()},${today.getMonth()+1},${today.getDate()},'${member.name}')">전체 보기 →</button></header>
+            ${signalScheduleRows(schedules, member.name, today)}
+        </article>` : ''}
+        ${homeVisibility.week ? `<section class="signal-addon-week"><header><div><small>${weekDates[0].getMonth()+1}.${weekDates[0].getDate()} — ${weekDates[6].getMonth()+1}.${weekDates[6].getDate()}</small><h2>${weekOffset === 0 ? '이번 주 일정' : '주간 일정'}</h2></div>${weekActionHtml}</header><div class="signal-addon-week-grid">${weekHtml}</div></section>` : ''}
+        <section id="signal-member-dynamic" class="signal-member-dynamic ${(homeVisibility.notice || cafeLink || contentHtml) ? '' : 'hidden'}">${homeVisibility.notice ? '<div id="signal-member-today-notice" class="hidden"></div>' : ''}${cafeLink ? `<div id="signal-member-cafe-posts" class="signal-member-cafe-posts" data-cafe-url="${escapeHtml(cafeLink.url)}"><header><h2>카페 새 글</h2><button onclick="openSmartLink('${String(cafeLink.url).replace(/'/g, "\\'")}')">카페 바로가기 →</button></header><div class="signal-member-cafe-post-list"><div class="signal-member-cafe-loading"><i class="fi fi-rr-refresh"></i><span>새 글을 불러오는 중이에요</span></div></div></div>` : ''}${contentHtml}</section>
+    </section>`;
+}
+
+function changeSignalMobileWeek(step) {
+    signalMobileWeekOffset += Number(step) || 0;
+    render();
+}
+
+function resetSignalMobileWeek() {
+    signalMobileWeekOffset = 0;
+    render();
+}
+
+window.changeSignalMobileWeek = changeSignalMobileWeek;
+window.resetSignalMobileWeek = resetSignalMobileWeek;
+
+const signalCafePostCache = new Map();
+
+async function loadSignalMemberCafePosts(memberName) {
+    const section = document.getElementById('signal-member-cafe-posts');
+    const list = section?.querySelector('.signal-member-cafe-post-list');
+    const cafeUrl = section?.dataset.cafeUrl || '';
+    if (!section || !list || !cafeUrl) return;
+    try {
+        let posts = signalCafePostCache.get(cafeUrl);
+        if (!posts) {
+            const response = await fetch(`/api/cafe-posts?url=${encodeURIComponent(cafeUrl)}&v=2`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+            if (!response.ok) throw new Error(`Cafe API ${response.status}`);
+            const data = await response.json();
+            posts = Array.isArray(data.posts) ? data.posts : [];
+            signalCafePostCache.set(cafeUrl, posts);
+        }
+        if (!section.isConnected || currentPage !== memberName) return;
+        list.innerHTML = posts.length ? posts.map(post => `<a class="signal-member-cafe-post" href="${escapeHtml(post.url || cafeUrl)}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(post.title || '제목 없음')}</strong><i class="fi fi-rr-arrow-up-right"></i></a>`).join('') : `<div class="signal-member-cafe-empty"><span>표시할 공개 게시글이 없어요.</span><a href="${escapeHtml(cafeUrl)}" target="_blank" rel="noopener noreferrer">카페에서 보기</a></div>`;
+    } catch (error) {
+        console.warn('카페 새 글 불러오기 실패:', error);
+        if (!section.isConnected) return;
+        list.innerHTML = `<div class="signal-member-cafe-empty"><span>카페 글을 불러오지 못했어요.</span><button type="button" onclick="signalCafePostCache.delete('${String(cafeUrl).replace(/'/g, "\\'")}'); loadSignalMemberCafePosts('${String(memberName).replace(/'/g, "\\'")}')">다시 불러오기</button><a href="${escapeHtml(cafeUrl)}" target="_blank" rel="noopener noreferrer">카페에서 보기</a></div>`;
+    }
+}
+
+function syncSignalMemberTodayNotice(memberName) {
+    const root = document.getElementById('signal-member-dynamic');
+    const target = document.getElementById('signal-member-today-notice');
+    if (!root || !target) return;
+    const notices = cachedPerMemberNoticeHtml[memberName] || [];
+    const todayKey = getTodayYYYYMMDD();
+    const cards = notices.map(entry => {
+        const holder = document.createElement('div');
+        holder.innerHTML = entry;
+        const postDate = holder.firstElementChild?.dataset?.postDate || '';
+        const time = holder.querySelector('.kakao-time')?.textContent?.trim() || '';
+        if (postDate ? postDate !== todayKey : !/(방금 전|분 전|시간 전)/.test(time)) return '';
+        const title = holder.querySelector('.kakao-bubble-title')?.textContent?.trim() || '오늘 공지';
+        const body = holder.querySelector('.kakao-bubble-body')?.textContent?.trim() || '';
+        const url = holder.firstElementChild?.dataset?.postUrl || '#';
+        return `<button class="signal-member-notice-card" onclick="openSmartLink('${url.replace(/'/g, "\\'")}')"><span><strong>${escapeHtml(title)}</strong>${body ? `<p>${escapeHtml(body)}</p>` : ''}<time>${escapeHtml(time)}</time></span><i class="fi fi-rr-arrow-up-right"></i></button>`;
+    }).filter(Boolean).join('');
+    if (cards) {
+        target.innerHTML = `<header><h2>오늘 공지</h2></header><div class="signal-member-notice-list">${cards}</div>`;
+        target.classList.remove('hidden');
+    } else {
+        target.innerHTML = '';
+        target.classList.add('hidden');
+    }
+    root.classList.toggle('hidden', target.classList.contains('hidden') && !root.querySelector('.signal-member-content-list') && !root.querySelector('.signal-member-cafe-posts:not(.hidden)'));
+}
+
+function renderSignalDesktopIndividualRoute(grouped) {
+    if (memberViewMode === 'calendar') {
+        stopSignalMemberSlideshow();
+        if (isMobile) {
+            const content = document.getElementById('mainContent');
+            content.innerHTML = signalMemberHomeAddon(grouped, signalMobileWeekOffset);
+            content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full mx-auto signal-member-combined-page signal-mobile-week-route';
+            const nav = content.querySelector('.signal-member-top-navigation');
+            if (nav) nav.outerHTML = buildMemberTopNavigation(currentPage, 'calendar');
+            content.querySelectorAll('.signal-member-addon > :not(.signal-addon-week)').forEach(element => element.remove());
+            content.querySelector('.signal-member-addon')?.classList.add('signal-member-week-only');
+            document.scrollingElement.scrollLeft = 0;
+            return;
+        }
+        renderDesktopIndividualCalendar(grouped);
+        const content = document.getElementById('mainContent');
+        content.classList.add('signal-centered-content');
+        content.querySelector('.big-white-box')?.classList.add('signal-calendar-shell');
+        content.insertAdjacentHTML('afterbegin', `${buildMemberTopNavigation(currentPage, 'calendar')}<div class="signal-calendar-routebar"><strong>${currentPage} 월간 일정</strong></div>`);
+        return;
+    }
+    const content = document.getElementById('mainContent');
+    content.innerHTML = signalMemberHomeAddon(grouped);
+    content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full mx-auto signal-member-combined-page';
+    document.scrollingElement.scrollLeft = 0;
+    const homeVisibility = getMemberVisibility(currentPage).home;
+    if (homeVisibility.today) applySignalMemberLiveCard();
+    if (homeVisibility.hero) startSignalMemberSlideshow();
+    if (homeVisibility.notice) syncSignalMemberTodayNotice(currentPage);
+    if (homeVisibility.cafe) loadSignalMemberCafePosts(currentPage);
+    if (homeVisibility.requested) hydrateSignalRequestedContents('signal-member-up-cards', currentPage);
+    if (homeVisibility.notice && !noticeFetchAttempted) fetchAndRenderAllNotices().then(() => syncSignalMemberTodayNotice(currentPage));
+}
+
+renderDesktopHome = renderSignalHome;
+renderMobileHome = renderSignalHome;
+renderDesktopIndividual = renderSignalDesktopIndividualRoute;
+renderMobileIndividual = renderSignalDesktopIndividualRoute;
+
 function toggleAmpm(btn) { btn.innerText = btn.innerText === '오후' ? '오전' : '오후'; }
 function isDateStrInRange(targetDateStr, startStr, endStr) {
     const t = new Date(targetDateStr).setHours(0,0,0,0); const s = new Date(startStr).setHours(0,0,0,0); const e = new Date(endStr).setHours(0,0,0,0);
@@ -11181,6 +11900,7 @@ async function logoutAdmin() {
 }
 
 function openPasswordModal() { 
+    closeMobileMainMenu();
     document.getElementById('passwordModal').classList.replace('hidden', 'flex'); 
 }
 
@@ -11525,7 +12245,7 @@ function renderSchedulesInModal(schedules, y, m, d, member) {
             if (broadText === '합방') {
                 broadStyle = 'background-color: #c026d3; color: #ffffff;'; 
             } else if (broadText === '시그널합방') {
-                broadStyle = 'background-color: #ef4444; color: #ffffff;'; 
+                broadStyle = `background-color: ${SIGNAL_COLLAB_COLOR}; color: #ffffff;`;
             } else if (broadText === '천타버스') {
                 broadStyle = 'background-color: #0891b2; color: #ffffff;'; 
             } else if (broadText === '시네티') {
@@ -11672,14 +12392,28 @@ async function initApp() {
     const today = getTodayYYYYMMDD();
     let initialTab = '홈';
 
+    // 개인 페이지 이미지·유튜브·유형 색상을 첫 렌더 전에 불러온다.
+    await loadMemberPageSettingsFromFirebase();
+
     // ?room=코드 초대 링크로 접속한 경우, 해시 라우팅보다 우선하여 파트분배기 방으로 바로 진입시킨다.
     const partDividerInviteCode = new URLSearchParams(window.location.search).get('room');
 
     const currentHash = window.location.hash;
     const currentHashPath = currentHash.split('?')[0];
+    const memberRouteMatch = currentHashPath.match(/^#member\/(dalta|darung|choiagain|kanashi)\/(home|calendar|clips|upbo)$/);
     if (partDividerInviteCode) {
         currentPage = '파트분배기';
         initialTab = '파트분배기';
+    } else if (memberRouteMatch) {
+        const slugToMember = { dalta:'달타', darung:'다룽', choiagain:'최또', kanashi:'카나시' };
+        const routeMember = slugToMember[memberRouteMatch[1]];
+        const routeView = memberRouteMatch[2];
+        currentPage = routeMember;
+        memberViewMode = routeView;
+        if (routeView === 'calendar') initialTab = `${routeMember}_calendar`;
+        else if (routeView === 'clips') initialTab = `클립_${routeMember}`;
+        else if (routeView === 'upbo') initialTab = `업보정리_${routeMember}`;
+        else initialTab = routeMember;
     } else if (currentHashPath && hashToTab[currentHashPath]) {
         let mapped = hashToTab[currentHashPath];
         if (mapped === '업보정리') {
@@ -11753,6 +12487,9 @@ async function initApp() {
         checkAndShowPopup(today);
         if (currentPage === '홈') {
             renderHomeYoutubeBox();
+            render();
+        } else if (['달타', '다룽', '최또', '카나시'].includes(currentPage) && memberViewMode === 'home') {
+            render();
         }
         }).catch(e => console.error("지연 로딩 에러:", e));
 }
@@ -13251,24 +13988,18 @@ window.fetchStreamerClips = async function(streamerName, isLoadMore = false) {
 window.renderClipPage = function() {
     const content = document.getElementById('mainContent');
     const isMobile = window.innerWidth <= 1050;
-    // 탭에 들어올 때는 최또 검색 결과부터 바로 보여준다.
-    currentClipStreamer = '최또';
+    if (!members.some(member => member.name === currentClipStreamer)) currentClipStreamer = '달타';
     currentClipPage = 1;
     currentClipCursor = null;
     hasMoreClips = true;
     currentClipLoadedCount = 0;
     
     let html = `
-    <div class="big-white-box relative flex flex-col bg-[#fafafa]" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box;">
+    ${buildMemberTopNavigation(currentClipStreamer, 'clips')}
+    <div class="signal-member-tool-routebar" style="--member-accent:${themeColors[currentClipStreamer] || '#8B5CF6'}"><strong>${currentClipStreamer} 클립 모아보기</strong></div>
+    <div class="big-white-box signal-member-tool-shell relative flex flex-col bg-[#fafafa]" style="min-height: 85vh; padding: ${isMobile ? '20px' : '40px'}; width: 100%; box-sizing: border-box; --member-accent:${themeColors[currentClipStreamer] || '#8B5CF6'};">
         <div class="mb-6 shrink-0 border-b border-gray-200 pb-5">
-            <h2 class="text-[24px] lg:text-[27px] font-bold text-gray-900">클립 모아보기</h2>
-        </div>
-        
-        <div class="flex gap-2 overflow-x-auto pb-5 hide-scrollbar shrink-0">
-            <button class="clip-streamer-btn bg-violet-600 text-white border-violet-600 px-5 py-2 rounded-lg font-bold text-[14px] border shadow-sm transition whitespace-nowrap shrink-0" data-id="최또" onclick="window.changeClipStreamerNative('최또')">최또</button>
-            <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="달타" onclick="window.changeClipStreamerNative('달타')">달타</button>
-            <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="다룽" onclick="window.changeClipStreamerNative('다룽')">다룽</button>
-            <button class="clip-streamer-btn bg-white text-gray-700 border-gray-200 px-5 py-2 rounded-lg font-bold text-[14px] border hover:bg-gray-50 transition whitespace-nowrap shrink-0" data-id="카나시" onclick="window.changeClipStreamerNative('카나시')">카나시</button>
+            <h2 class="text-[24px] lg:text-[27px] font-bold text-gray-900">${currentClipStreamer} 클립</h2>
         </div>
 
         <div class="flex items-center justify-between mb-3">
@@ -13285,7 +14016,7 @@ window.renderClipPage = function() {
     </div>`;
     
     content.innerHTML = html;
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+    content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full max-w-full mx-auto pb-6';
 
     window.fetchStreamerClips(currentClipStreamer, false);
 };

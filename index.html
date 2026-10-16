@@ -35,7 +35,7 @@
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-brands/css/uicons-brands.css'>
-    <link rel="stylesheet" href="style.css?v=20261011-5">
+    <link rel="stylesheet" href="style.css?v=20261015-layout">
 
     <!-- 외부 리소스 렌더링 사전 연결 -->
     <link rel="preconnect" href="https://i.postimg.cc">
@@ -73,60 +73,60 @@
         })();
     </script>
 
-    <header class="fixed top-0 left-0 w-full h-[70px] bg-white shadow-md z-[1000] hidden lg:flex items-center min-w-[1850px]">
-        <div class="flex justify-between items-center w-[1795px] mx-auto px-4">
+    <header class="desktop-global-header fixed top-0 left-0 w-full h-[76px] z-[1000] hidden lg:flex items-center min-w-[1850px]">
+        <div class="desktop-global-header-inner flex justify-between items-center w-[1795px] mx-auto px-4">
             <div id="headerNavTabs" class="flex items-center gap-2"></div>
-            <div class="flex items-center gap-3">
-                <a href="https://rnskrns.github.io/signalVOD/" target="_blank" class="h-[42px] px-4 bg-black text-[#3B82F6] font-bold rounded-xl hover:brightness-125 transition-all flex items-center justify-center shadow-sm" title="VOD">
-                    VOD
-                </a>
-                <a href="https://cafe.naver.com/restormy" target="_blank" class="w-[42px] h-[42px] bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center shadow-sm" title="팬카페">
-                    <img src="./images/cafe.png" class="w-[22px] h-[22px] object-contain">
-                </a>
-                <a href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" class="w-[42px] h-[42px] bg-[#FF0000] text-white rounded-xl hover:brightness-110 transition-all flex items-center justify-center shadow-sm text-xl" title="유튜브">
-                    <i class="fi fi-brands-youtube mt-1"></i>
-                </a>
+            <div class="desktop-header-actions flex items-center gap-2">
                 <div id="desktopAuthContainer" class="ml-1 relative">
                     <button class="font-paperozi bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold text-lg text-[#5D4037] hover:bg-[#5D4037] hover:border-[#5D4037] hover:text-white transition-all duration-200 shadow-sm" onclick="handleAdminClick()">로그인</button>
                 </div>
                 <button id="notifBellBtn" class="notif-bell-btn" onclick="toggleNotifPanel(event)" title="알림">
                     <i class="fi fi-rr-bell"></i>
+                    <span class="desktop-action-label">알림</span>
                     <span id="notifBellBadge" class="notif-bell-badge hidden"></span>
                 </button>
                 <button class="dark-mode-toggle-btn" onclick="toggleDarkMode()" title="다크모드 전환">
                     <i class="fi fi-rr-sun fi-sun"></i>
                     <i class="fi fi-rr-moon fi-moon"></i>
+                    <span class="desktop-theme-label desktop-theme-label-light">라이트</span>
+                    <span class="desktop-theme-label desktop-theme-label-dark">다크</span>
                 </button>
             </div>
         </div>
     </header>
 
     <header class="mobile-main-header fixed top-0 left-0 w-full h-[60px] bg-white shadow-sm z-[1000] flex lg:hidden items-center px-3">
-        <div class="mobile-header-social flex items-center gap-1.5 shrink-0">
-            <a href="https://cafe.naver.com/restormy" target="_blank" class="w-[32px] h-[32px] bg-white border border-gray-200 rounded-lg flex items-center justify-center shadow-sm"><img src="./images/cafe.png" class="w-[18px] h-[18px] object-contain"></a>
-            <a href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" class="w-[32px] h-[32px] bg-[#FF0000] text-white rounded-lg flex items-center justify-center shadow-sm text-lg"><i class="fi fi-brands-youtube mt-0.5"></i></a>
-        </div>
+        <div class="mobile-header-social w-[70px] shrink-0"></div>
         <div class="mobile-header-logo absolute left-1/2 -translate-x-1/2 flex items-center cursor-pointer" onclick="openUpdateModal()">
             <img src="./images/logo.webp" class="h-[30px]">
             <span id="mobileLogoNewBadge" class="hidden absolute -top-1.5 -right-3.5 bg-[#FF5252] text-white text-[9px] font-black px-1.5 py-[1px] rounded-full shadow-md z-10 font-paperozi tracking-wider">NEW</span>
         </div>
         <div class="mobile-header-actions ml-auto flex items-center gap-1.5 shrink-0">
-            <div id="mobileAuthContainer" class="shrink-0 relative">
-                <button class="font-paperozi bg-white border border-gray-200 px-2 py-[5px] rounded-lg font-bold text-[13px] text-[#5D4037] hover:bg-[#5D4037] hover:text-white transition-all shadow-sm" onclick="handleAdminClick()">로그인</button>
-            </div>
             <button id="notifBellBtnMobile" class="notif-bell-btn-mobile" onclick="toggleNotifPanel(event)" title="알림">
                 <i class="fi fi-rr-bell"></i>
                 <span id="notifBellBadgeMobile" class="notif-bell-badge hidden"></span>
             </button>
-            <button class="dark-mode-toggle-btn-mobile" onclick="toggleDarkMode()" title="다크모드 전환">
-                <i class="fi fi-rr-sun fi-sun"></i>
-                <i class="fi fi-rr-moon fi-moon"></i>
+            <button id="mobileMainMenuBtn" class="mobile-main-menu-btn" onclick="toggleMobileMainMenu(event)" title="메뉴" aria-label="메뉴 열기" aria-expanded="false">
+                <i class="fi fi-rr-menu-burger"></i>
             </button>
             <div id="mobileHeaderRightBtn" class="hidden"></div>
         </div>
     </header>
 
-    <nav id="mobileBottomNav" class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 z-[2000] flex lg:hidden justify-around items-center h-[70px] pb-2 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]"></nav>
+    <button id="mobileMainMenuBackdrop" class="mobile-main-menu-backdrop lg:hidden" onclick="closeMobileMainMenu()" aria-label="메뉴 닫기"></button>
+    <nav id="mobileBottomNav" class="mobile-member-tabs mobile-main-menu-panel fixed bg-white z-[950] lg:hidden" aria-label="모바일 메뉴">
+        <div id="mobileMemberTabList" class="mobile-main-menu-tabs" aria-label="멤버 탭"></div>
+        <div class="mobile-main-menu-footer">
+            <div id="mobileAuthContainer" class="mobile-main-menu-auth relative">
+                <button class="font-paperozi" onclick="handleAdminClick()"><i class="fi fi-rr-user"></i><span>로그인</span></button>
+            </div>
+            <button class="dark-mode-toggle-btn-mobile" onclick="toggleDarkMode()" title="다크모드 전환">
+                <i class="fi fi-rr-sun fi-sun"></i>
+                <i class="fi fi-rr-moon fi-moon"></i>
+                <span class="mobile-theme-label">다크모드</span>
+            </button>
+        </div>
+    </nav>
 
     <section id="mobileAdminPage" class="mobile-admin-page hidden lg:hidden">
         <header><strong>관리자 메뉴</strong></header>
@@ -154,7 +154,7 @@
                     <button type="button" class="notif-tab" data-notif-tab="cafe" onclick="setNotifTab('cafe')">카페</button>
                 </div>
                 <div class="relative">
-                    <button type="button" class="notif-sort-btn" onclick="toggleNotifSortMenu(event)">
+                    <button type="button" class="notif-sort-btn" onclick="toggleNotifSortMenu(event)" aria-expanded="false" aria-controls="notifSortMenu">
                         <span id="notifSortLabel">시간순</span><i class="fi fi-rr-angle-small-down"></i>
                     </button>
                     <div id="notifSortMenu" class="notif-dropdown-menu notif-dropdown-menu-right hidden">
@@ -202,6 +202,13 @@
 
         <div id="sideExpansionPanel" class="border border-[#ECEDFA] fixed bottom-0 left-0 w-full z-[4000] lg:absolute lg:top-[245px] lg:right-0 lg:bottom-auto lg:w-[420px] lg:z-auto hidden flex-col opacity-0 lg:opacity-100 bg-[#FFFDF5] rounded-t-[26px] lg:rounded-[26px] overflow-hidden transition-all duration-300 transform translate-y-full lg:translate-y-0 h-[85vh] lg:h-[890px] lg:origin-top" style="box-shadow: 0 26px 60px -24px rgba(90,80,190,0.20), 0 2px 10px rgba(90,80,190,0.05);">        </div>
     </div>
+    </div>
+
+    <footer class="signal-global-footer">
+        <a href="https://cafe.naver.com/restormy" target="_blank" rel="noopener"><span class="signal-footer-icon"><img src="./images/cafe.png" alt=""></span><span><strong>팬카페</strong><small>시그널 팬카페 바로가기</small></span><i class="fi fi-rr-arrow-up-right"></i></a>
+        <a href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" rel="noopener"><span class="signal-footer-icon is-youtube" aria-hidden="true"><svg viewBox="0 0 24 24" role="img"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4L15.8 12l-6.2 3.6Z"/></svg></span><span><strong>유튜브</strong><small>시그널 공식 채널</small></span><i class="fi fi-rr-arrow-up-right"></i></a>
+        <a href="https://rnskrns.github.io/signalVOD/" target="_blank" rel="noopener"><span class="signal-footer-icon is-vod">VOD</span><span><strong>VOD</strong><small>다시보기 모아보기</small></span><i class="fi fi-rr-arrow-up-right"></i></a>
+    </footer>
 
     <div id="mobilePanelOverlay" class="fixed inset-0 bg-black/60 z-[3900] hidden lg:hidden" onclick="closeSidePanelUser()"></div>
 
@@ -255,6 +262,7 @@
                     <button id="manageTabBtn_up" onclick="switchManageTab('up')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">업링크 관리</button>
                     <button id="manageTabBtn_dday" onclick="switchManageTab('dday')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">디데이 관리</button>
                     <button id="manageTabBtn_home" onclick="switchManageTab('home')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">홈 관리</button>
+                    <button id="manageTabBtn_memberPage" onclick="switchManageTab('memberPage')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">개인 페이지 꾸미기</button>
                     <button id="manageTabBtn_info" onclick="switchManageTab('info')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">정보 관리</button>
                     <button id="manageTabBtn_update" onclick="switchManageTab('update')" class="text-left px-3 py-3 rounded-lg font-bold text-[14px] font-paperozi transition">업데이트 관리</button>
                 </div>
@@ -307,7 +315,7 @@
                         <div class="text-[12.5px] text-gray-500 mb-3 font-bold">등록한 기념일은 디데이 15일 전(D-15)부터 홈탭 UP 버튼 위쪽에 자동으로 표시돼요.</div>
                         <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
                             <input type="text" id="ddayTitle" placeholder="기념일 제목 (예: 데뷔 1주년)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
-                            <input type="date" id="ddayDate" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
+                            <input type="text" id="ddayDate" inputmode="numeric" maxlength="5" placeholder="월-일 (예: 05-23)" class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                             <input type="text" id="ddayMessage" placeholder="(선택) 미입력시 빈칸으로 표시 됩니다." class="border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                             <div>
                                 <div class="text-[12px] text-gray-500 font-bold mb-1.5">연결할 롤링페이퍼 번호 (선택, 미입력 시 카드 클릭 시 목록으로 이동)</div>
@@ -327,7 +335,7 @@
                                 </div>
                                 <div id="ddayImagePreviewWrap" class="hidden mt-2">
                                     <div class="text-[11px] text-gray-400 font-bold mb-1">이미지를 드래그해서 카드에 보여줄 위치를 조절하세요</div>
-                                    <div id="ddayImagePreview" class="relative w-full aspect-[16/9] rounded-lg border-2 border-gray-200 bg-gray-100 bg-cover bg-no-repeat cursor-move overflow-hidden select-none touch-none" style="background-position:50% 50%;">
+                                    <div id="ddayImagePreview" class="dday-home-card-preview relative w-full border-2 border-gray-200 bg-gray-100 bg-cover bg-no-repeat cursor-move overflow-hidden select-none touch-none" style="background-position:50% 50%;">
                                         <div id="ddayImagePreviewDot" class="absolute w-4 h-4 rounded-full bg-white border-2 border-[#5D4037] shadow pointer-events-none" style="left:50%; top:50%; transform:translate(-50%,-50%);"></div>
                                     </div>
                                 </div>
@@ -352,7 +360,7 @@
                     </div>
                     <div id="manageTabPanel_home" class="hidden">
                         <h3 class="text-lg font-bold text-[#5D4037] mb-3 border-b-2 border-dashed border-gray-300 pb-2">홈 화면 유튜브 영상 / 이미지</h3>
-                        <div class="text-[12.5px] text-gray-500 mb-3 font-bold">큰 박스 오른쪽 영역에 표시될 유튜브 영상 링크 또는 이미지 링크를 등록하세요. (유튜브: 일반 영상/쇼츠/라이브 링크 모두 가능 · 이미지: jpg, png, gif, webp 등 이미지 파일 직링크)</div>
+                        <div class="text-[12.5px] text-gray-500 mb-3 font-bold">홈탭 새소식 영역의 왼쪽에 표시될 유튜브 영상 링크 또는 이미지 링크를 등록하세요. 오른쪽에는 멤버 공지가 표시됩니다. (유튜브: 일반 영상/쇼츠/라이브 링크 모두 가능 · 이미지: jpg, png, gif, webp 등 이미지 파일 직링크)</div>
                         <div class="flex flex-col gap-3 mb-2 bg-white p-4 rounded-xl border-2 border-gray-200">
                             <input type="text" id="homeYoutubeUrlInput" placeholder="유튜브 링크 또는 이미지 링크 입력 (예: https://www.youtube.com/watch?v=... 또는 https://.../image.png)" class="w-full border-2 border-[#5D4037] rounded-lg p-2 text-sm outline-none focus:border-blue-400">
                             <div class="flex gap-2">
@@ -360,6 +368,53 @@
                                 <button onclick="deleteHomeYoutubeLink()" class="flex-1 bg-red-500 text-white py-2.5 rounded-lg font-bold text-sm hover:brightness-110 transition">삭제</button>
                             </div>
                             <div id="homeYoutubeCurrentInfo" class="text-xs text-gray-500 font-bold"></div>
+                        </div>
+                    </div>
+                    <div id="manageTabPanel_memberPage" class="hidden">
+                        <div class="admin-panel-heading"><small>MEMBER PAGE</small><h3>개인 페이지 꾸미기</h3><p>대표 이미지, 메뉴와 홈에 표시할 요소를 설정합니다.</p></div>
+                        <div class="admin-custom-card">
+                            <label class="admin-field"><span>꾸밀 멤버</span><select id="memberPageTarget" onchange="renderMemberPageManagePanel()"></select></label>
+                            <label class="admin-field"><span>대표 이미지 URL (한 줄에 하나씩)</span><textarea id="memberPageImageUrl" rows="5" placeholder="https://.../banner-01.webp&#10;https://.../banner-02.webp" oninput="previewMemberPageSettings()"></textarea><small>여러 장을 등록하면 개인페이지에서 5초마다 자동으로 전환됩니다.</small></label>
+                            <div id="memberPageImagePreview" class="admin-member-preview"></div>
+                            <label class="admin-field"><span>유튜브 링크</span><input type="url" id="memberPageYoutubeUrl" placeholder="https://www.youtube.com/@channel"></label>
+                            <div class="admin-visibility-section">
+                                <div class="admin-visibility-heading"><strong>개인 메뉴 표시</strong><small>끄면 개인 페이지의 상단 메뉴와 멤버 드롭다운에서 사라집니다.</small></div>
+                                <div class="admin-visibility-grid">
+                                    <label class="admin-toggle-row"><span><b>일정</b><small>주간/월간 일정 메뉴</small></span><input type="checkbox" id="memberMenuCalendar"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>노래책</b><small>노래책 메뉴</small></span><input type="checkbox" id="memberMenuSongbook"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>클립</b><small>클립 모아보기 메뉴</small></span><input type="checkbox" id="memberMenuClips"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>업보정리</b><small>업보정리 메뉴</small></span><input type="checkbox" id="memberMenuUpbo"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>외부 링크</b><small>카페·SOOP·유튜브 링크 메뉴</small></span><input type="checkbox" id="memberMenuLinks"><i></i></label>
+                                </div>
+                            </div>
+                            <div class="admin-visibility-section">
+                                <div class="admin-visibility-heading"><strong>개인 홈 요소 표시</strong><small>원하지 않는 콘텐츠는 불러오지 않고 홈에서도 숨깁니다.</small></div>
+                                <div class="admin-visibility-grid">
+                                    <label class="admin-toggle-row"><span><b>대표 이미지</b><small>상단 이미지 슬라이드</small></span><input type="checkbox" id="memberHomeHero"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>오늘의 일정</b><small>라이브 상태와 오늘 일정</small></span><input type="checkbox" id="memberHomeToday"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>이번 주 일정</b><small>주간 일정 카드</small></span><input type="checkbox" id="memberHomeWeek"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>오늘 공지</b><small>멤버별 오늘 공지</small></span><input type="checkbox" id="memberHomeNotice"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>카페 새 글</b><small>카페 글 가져오기</small></span><input type="checkbox" id="memberHomeCafe"><i></i></label>
+                                    <label class="admin-toggle-row"><span><b>신청 콘텐츠</b><small>UP·신청 콘텐츠 영역</small></span><input type="checkbox" id="memberHomeRequested"><i></i></label>
+                                </div>
+                            </div>
+                            <div class="admin-visibility-section">
+                                <div class="admin-visibility-heading"><strong>링크 버튼 관리</strong><small>버튼 이름과 주소를 추가하거나 삭제할 수 있습니다. 목록 순서대로 표시됩니다.</small></div>
+                                <div id="memberPageLinkList" class="admin-member-link-list"></div>
+                                <button type="button" class="admin-add-link-action" onclick="addMemberPageLink()"><i class="fi fi-rr-plus"></i> 링크 버튼 추가</button>
+                            </div>
+                            <div class="admin-color-section">
+                                <strong>일정 유형 색상</strong>
+                                <div class="admin-color-grid">
+                                    <label><span>기본 일정</span><input type="color" id="memberColorDefault"></label>
+                                    <label><span>휴방</span><input type="color" id="memberColorOff"></label>
+                                    <label><span>합방</span><input type="color" id="memberColorCollab"></label>
+                                    <label><span>시그널합방</span><input type="color" id="memberColorSignal"></label>
+                                    <label><span>천타버스</span><input type="color" id="memberColorBus"></label>
+                                    <label><span>비방일정</span><input type="color" id="memberColorPrivate"></label>
+                                </div>
+                            </div>
+                            <button type="button" class="admin-primary-action" onclick="saveMemberPageSettings()">꾸미기 저장</button>
                         </div>
                     </div>
                     <div id="manageTabPanel_info" class="hidden max-w-[400px]">
@@ -440,32 +495,41 @@
         </div>
     </div>
 
-    <div id="passwordModal" class="hidden fixed inset-0 bg-black/50 items-center justify-center z-[5000]">
-        <div class="modal-content bg-white p-6 rounded-xl w-[340px] shadow-xl border border-[#ECEDFA] relative">
-            <button class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-red-500 transition cursor-pointer" onclick="closePasswordModal()"><i class="fi fi-br-cross-small"></i></button>
-            <h2 class="text-xl font-bold mb-4 text-center text-[#5D4037]">로그인</h2>
-
-            <button type="button" onclick="closePasswordModal(); loginWithSoopExtension();" class="w-full flex items-center justify-center gap-2 border-2 border-[#57d5ff] rounded-lg py-2.5 mb-2 font-bold text-[14px] text-[#0a0a0f] bg-[#e6f9ff] hover:bg-[#cceeff] transition cursor-pointer">
-                <img src="https://res.sooplive.com/images/common/thumb_profile.gif" class="w-4 h-4 rounded-full object-cover"> SOOP 계정으로 간편 로그인
-            </button>
-            <button type="button" onclick="closePasswordModal(); loginWithGoogle();" class="w-full flex items-center justify-center gap-2 border-2 border-gray-300 rounded-lg py-2.5 mb-4 font-bold text-[14px] text-[#5D4037] bg-white hover:bg-gray-50 transition cursor-pointer">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4 object-contain"> 구글 계정으로 로그인
-            </button>
-            <div class="text-[11px] text-gray-400 text-center mb-4 -mt-2">구글 로그인은 프로필에서 SOOP 계정과 연동해야 같은 정보를 볼 수 있어요</div>
-            <div class="relative flex items-center mb-4">
-                <div class="flex-grow border-t border-gray-300"></div>
-                <span class="flex-shrink-0 mx-3 text-gray-400 text-[12px] font-bold">또는 관리자 아이디로 로그인</span>
-                <div class="flex-grow border-t border-gray-300"></div>
+    <div id="passwordModal" class="hidden fixed inset-0 items-center justify-center z-[5000]" onclick="if(event.target===this) closePasswordModal()">
+        <div class="modal-content login-modal-card" role="dialog" aria-modal="true" aria-labelledby="loginModalTitle">
+            <button class="login-modal-close" onclick="closePasswordModal()" aria-label="로그인 창 닫기"><i class="fi fi-br-cross-small"></i></button>
+            <div class="login-modal-heading">
+                <div class="login-modal-mark"><i class="fi fi-rr-user"></i></div>
+                <div>
+                    <span>WELCOME TO SIGNAL</span>
+                    <h2 id="loginModalTitle">로그인</h2>
+                    <p>사용할 계정으로 간편하게 시작해 보세요.</p>
+                </div>
             </div>
 
-            <input type="text" id="idInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-2 text-center text-[15px] mt-2 font-bold outline-none focus:border-blue-400" placeholder="아이디 또는 이메일">
-            <input type="password" id="pwInput" class="w-full border-2 border-[#5D4037] rounded p-2 mb-4 text-center text-[15px] font-bold outline-none focus:border-blue-400" placeholder="비밀번호" onkeypress="if(event.key==='Enter') checkPassword()">
-            
-            <div class="flex items-center gap-2 mb-4 justify-center">
-                <input type="checkbox" id="autoLoginCheck" class="w-4 h-4 cursor-pointer accent-[#5D4037]">
-                <label for="autoLoginCheck" class="text-[14px] text-[#5D4037] font-bold cursor-pointer">로그인 상태 유지</label>
+            <div class="login-provider-list">
+                <button type="button" onclick="closePasswordModal(); loginWithSoopOAuth();" class="login-provider-button is-soop">
+                    <span class="login-provider-icon"><img src="./images/soop-symbol-blue.svg" alt="SOOP"></span>
+                    <span><b>SOOP 계정으로 계속하기</b><small>SOOP 프로필과 활동 정보를 그대로 사용해요</small></span>
+                    <i class="fi fi-rr-angle-small-right"></i>
+                </button>
+                <button type="button" onclick="closePasswordModal(); loginWithGoogle();" class="login-provider-button is-google">
+                    <span class="login-provider-icon"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt=""></span>
+                    <span><b>Google 계정으로 계속하기</b><small>연동된 SOOP 계정과 같은 정보를 불러와요</small></span>
+                    <i class="fi fi-rr-angle-small-right"></i>
+                </button>
             </div>
-            <button class="w-full bg-[#5D4037] text-white py-3 rounded-lg font-bold hover:brightness-110 transition cursor-pointer text-lg" onclick="checkPassword()">로그인</button>
+
+            <div class="login-modal-divider"><span>관리자 로그인</span></div>
+            <div class="login-admin-fields">
+                <label for="idInput"><span>아이디 또는 이메일</span><span class="login-input-wrap"><i class="fi fi-rr-user"></i><input type="text" id="idInput" placeholder="아이디 또는 이메일" autocomplete="username"></span></label>
+                <label for="pwInput"><span>비밀번호</span><span class="login-input-wrap"><i class="fi fi-rr-lock"></i><input type="password" id="pwInput" placeholder="비밀번호" autocomplete="current-password" onkeypress="if(event.key==='Enter') checkPassword()"></span></label>
+            </div>
+            <div class="login-modal-options">
+                <input type="checkbox" id="autoLoginCheck">
+                <label for="autoLoginCheck">로그인 상태 유지</label>
+            </div>
+            <button class="login-admin-submit" onclick="checkPassword()"><span>관리자로 로그인</span><i class="fi fi-rr-arrow-right"></i></button>
         </div>
     </div>
 
@@ -749,7 +813,7 @@
         </div>
     </div>
 
-    <script type="module" src="script.js?v=20261011-5"></script>
+    <script type="module" src="script.js?v=20261015-layout"></script>
 
 </body>
 </html>
