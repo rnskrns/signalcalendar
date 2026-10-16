@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc, setDoc, increment, orderBy, limit, startAfter, onSnapshot } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, updatePassword } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, updatePassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 import { getDatabase, ref, set, get, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 import { loadScript } from "./modules/vendor-loader.js";
 
@@ -734,6 +734,7 @@ window.toggleAmpm = toggleAmpm; window.handleAdminClick = handleAdminClick; wind
 window.logoutUser = logoutUser;
 window.cancelUserProfileSetup = cancelUserProfileSetup; window.submitUserProfileSetup = submitUserProfileSetup;
 window.openPasswordModal = openPasswordModal; window.closePasswordModal = closePasswordModal; window.closeLogoutModal = closeLogoutModal;
+window.openAdminAvatarModal = openAdminAvatarModal; window.closeAdminAvatarModal = closeAdminAvatarModal; window.selectAdminAvatar = selectAdminAvatar; window.saveAdminAvatarChoice = saveAdminAvatarChoice;
 window.handleDayClick = handleDayClick; window.handleDayRightClick = handleDayRightClick; window.editFromMenu = editFromMenu;
 window.closeEditModal = closeEditModal; window.saveEditedSchedule = saveEditedSchedule; window.deleteScheduleAction = deleteScheduleAction; window.openDetailModal = openDetailModal; window.closeDetailModal = closeDetailModal;
 window.openAllSchedulesModal = openAllSchedulesModal; window.changeTab = changeTab; window.changeMonth = changeMonth; window.openMonthPicker = openMonthPicker;
@@ -1664,6 +1665,89 @@ const ADMIN_ACCOUNTS = Object.freeze({
     'rnskrns@gmail.com': 'rnskrns',
     'jkolpc@gmail.com': 'jkolpc'
 });
+let selectedAdminAvatarMember = '';
+
+function isGeneralAdminUser(user = loggedInUser) {
+    return !!(isAdmin && user && !members.some(member => member.name === user.name));
+}
+
+function getAdminAvatarStorageKey(user = loggedInUser) {
+    return user?.email ? `signalAdminAvatar:${String(user.email).toLowerCase()}` : '';
+}
+
+function getStoredAdminAvatar(user = loggedInUser) {
+    const key = getAdminAvatarStorageKey(user);
+    if (!key) return null;
+    try {
+        const saved = JSON.parse(localStorage.getItem(key) || 'null');
+        return saved && members.some(member => member.name === saved.member) ? saved : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function loadAdminAvatarPreference(authUser) {
+    if (!isGeneralAdminUser() || !authUser?.uid) return;
+    try {
+        const snap = await getDoc(doc(db, 'adminProfiles', authUser.uid));
+        if (!snap.exists()) return;
+        const data = snap.data() || {};
+        const member = members.find(item => item.name === data.avatarMember);
+        if (!member) return;
+        loggedInUser.img = member.img;
+        loggedInUser.avatarMember = member.name;
+        const key = getAdminAvatarStorageKey(loggedInUser);
+        if (key) localStorage.setItem(key, JSON.stringify({ member:member.name, img:member.img }));
+        refreshAuthUI();
+    } catch (e) {
+        console.warn('관리자 프사 설정 로드 실패:', e);
+    }
+}
+
+function openAdminAvatarModal() {
+    if (!isGeneralAdminUser()) return;
+    const modal = document.getElementById('adminAvatarModal');
+    const choices = document.getElementById('adminAvatarChoices');
+    if (!modal || !choices) return;
+    selectedAdminAvatarMember = loggedInUser.avatarMember || getStoredAdminAvatar()?.member || members.find(member => member.img === loggedInUser.img)?.name || '';
+    choices.innerHTML = members.map(member => `<button type="button" class="admin-avatar-choice ${selectedAdminAvatarMember === member.name ? 'is-selected' : ''}" data-avatar-member="${escapeHtml(member.name)}" onclick="selectAdminAvatar('${String(member.name).replace(/'/g, "\\'")}')"><span><img src="${escapeHtml(member.img)}" alt="${escapeHtml(member.name)}"></span><b>${escapeHtml(member.name)}</b><i class="fi fi-sr-check-circle"></i></button>`).join('');
+    modal.classList.replace('hidden', 'flex');
+    ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+}
+
+function closeAdminAvatarModal() {
+    document.getElementById('adminAvatarModal')?.classList.replace('flex', 'hidden');
+}
+
+function selectAdminAvatar(memberName) {
+    if (!members.some(member => member.name === memberName)) return;
+    selectedAdminAvatarMember = memberName;
+    document.querySelectorAll('#adminAvatarChoices .admin-avatar-choice').forEach(button => button.classList.toggle('is-selected', button.dataset.avatarMember === memberName));
+}
+
+async function saveAdminAvatarChoice() {
+    if (!isGeneralAdminUser()) return;
+    const member = members.find(item => item.name === selectedAdminAvatarMember);
+    if (!member) return alert('사용할 멤버 프사를 선택해주세요.');
+    const key = getAdminAvatarStorageKey(loggedInUser);
+    if (key) localStorage.setItem(key, JSON.stringify({ member:member.name, img:member.img }));
+    loggedInUser.img = member.img;
+    loggedInUser.avatarMember = member.name;
+    refreshAuthUI();
+    closeAdminAvatarModal();
+    try {
+        const absoluteImageUrl = new URL(member.img, window.location.href).href;
+        const results = await Promise.allSettled([
+            auth.currentUser ? updateProfile(auth.currentUser, { photoURL:absoluteImageUrl }) : Promise.reject(new Error('관리자 인증 정보가 없습니다.')),
+            setDoc(doc(db, 'adminProfiles', loggedInUser.uid), { avatarMember:member.name, updatedAt:Date.now() }, { merge:true })
+        ]);
+        if (results.every(result => result.status === 'rejected')) throw results[0].reason;
+        alert(`관리자 프로필 멤버를 ${member.name}(으)로 변경했습니다.`);
+    } catch (e) {
+        console.error('관리자 멤버 변경 저장 실패:', e);
+        alert('이 기기에는 변경됐지만 계정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
+}
 
 function setAdminUserFromSoop(user) {
     const soopId = String(user?.uid || '').trim().toLowerCase();
@@ -1689,8 +1773,17 @@ function setAdminUser(user) {
     const email = (user?.email || '').toLowerCase();
     const name = ADMIN_ACCOUNTS[email];
     isAdmin = !!name;
+    const memberAccount = members.find(member => member.name === name);
     loggedInUser = name ? { uid: user.uid, id: email.split('@')[0], email, name,
-        img: user.photoURL || members.find(m => m.name === name)?.img || '' } : null;
+        img: memberAccount?.img || user.photoURL || '' } : null;
+    const storedAvatar = memberAccount ? null : getStoredAdminAvatar(loggedInUser);
+    if (loggedInUser && storedAvatar) {
+        const member = members.find(item => item.name === storedAvatar.member);
+        if (member) {
+            loggedInUser.img = member.img;
+            loggedInUser.avatarMember = member.name;
+        }
+    }
     refreshAuthUI();
     return isAdmin;
 }
@@ -1708,6 +1801,7 @@ async function checkPassword() {
         await setPersistence(auth, isAutoLogin ? browserLocalPersistence : browserSessionPersistence);
         const credential = await signInWithEmailAndPassword(auth, email, inputPw);
         setAdminUser(credential.user);
+        await loadAdminAvatarPreference(credential.user);
         alert(`${loggedInUser.name}님 환영합니다!`);
         document.getElementById('idInput').value = '';
         document.getElementById('pwInput').value = '';
@@ -1852,6 +1946,12 @@ window.openRecapFromSite = function() {
 
 function renderAdminAuthHtml(scope, user) {
     const isDesktop = scope === 'desktop';
+    const memberSwitchItem = isGeneralAdminUser(user)
+        ? `<button onclick="openAdminAvatarModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버변경</button>`
+        : '';
+    const memberSwitchItemMobile = isGeneralAdminUser(user)
+        ? `<button onclick="openAdminAvatarModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버변경</button>`
+        : '';
     const memberManageItem = `<button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>`;
     const memberManageItemMobile = `<button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>`;
     if (isDesktop) {
@@ -1863,6 +1963,7 @@ function renderAdminAuthHtml(scope, user) {
                     <i class="fi fi-rr-caret-down text-[#5D4037]"></i>
                 </div>
                 <div id="desktopProfileMenu" class="desktop-account-menu hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                    ${memberSwitchItem}
                     ${memberManageItem}
                     <button onclick="openManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                     <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -1876,6 +1977,7 @@ function renderAdminAuthHtml(scope, user) {
                 <img src="${user.img || 'https://via.placeholder.com/40'}" class="w-[20px] h-[20px] rounded-full object-cover border border-[#5D4037]">
             </div>
             <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
+                ${memberSwitchItemMobile}
                 ${memberManageItemMobile}
                 <button onclick="openManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                 <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -1967,6 +2069,7 @@ onAuthStateChanged(auth, async (user) => {
     if (setAdminUser(user)) {
         clearSoopSession();
         currentUser = null;
+        await loadAdminAvatarPreference(user);
         return;
     }
 

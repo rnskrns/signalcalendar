@@ -533,6 +533,15 @@
         </div>
     </div>
 
+    <div id="adminAvatarModal" class="hidden fixed inset-0 items-center justify-center z-[5100] admin-avatar-modal" onclick="if(event.target===this) closeAdminAvatarModal()">
+        <div class="admin-avatar-card" role="dialog" aria-modal="true" aria-labelledby="adminAvatarTitle">
+            <button type="button" class="admin-avatar-close" onclick="closeAdminAvatarModal()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button>
+            <div class="admin-avatar-heading"><small>ADMIN MEMBER</small><h2 id="adminAvatarTitle">멤버 변경</h2><p>관리자 프로필에 표시할 멤버를 골라주세요.</p></div>
+            <div id="adminAvatarChoices" class="admin-avatar-choices"></div>
+            <button type="button" class="admin-avatar-save" onclick="saveAdminAvatarChoice()">선택한 멤버로 변경</button>
+        </div>
+    </div>
+
     <!-- 일정 추가 모달 -->
     <div id="scheduleModal" class="hidden fixed inset-0 bg-black/50 z-[5000] overflow-y-auto flex-col items-center py-10 px-4">
         <div class="modal-content bg-[#FFFDF5] p-8 rounded-3xl w-full max-w-[680px] shadow-2xl flex flex-col relative border border-[#ECEDFA] shrink-0 my-auto">
