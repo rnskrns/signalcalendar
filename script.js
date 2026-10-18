@@ -1295,7 +1295,43 @@ function selectDdayColor(color) {
 const scheduleCacheStorageKey = 'signal_schedule_cache_v2';
 // sessionStorage는 새 탭/임베드(iframe)마다 매번 비어있어 캐시가 사실상 무력화되므로
 // 탭 간에도 유지되는 localStorage를 쓰고, 대신 TTL을 두어 데이터가 너무 오래 묵지 않게 한다.
-const SCHEDULE_CACHE_TTL_MS = 7 * 60 * 1000; // 7분
+// 방문자가 페이지를 새로 열 때마다 8개의 일정/메모 컬렉션 전체를 다시 읽지 않도록
+// 일정 캐시는 한 시간 동안 재사용한다. 관리자가 데이터를 추가/수정/삭제하면 아래의
+// saveScheduleCache()가 즉시 최신 상태로 덮어쓰므로 같은 브라우저 화면은 바로 갱신된다.
+const SCHEDULE_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
+const FIRESTORE_BOOT_CACHE_PREFIX = 'signal_firestore_boot_cache_v1:';
+const FIRESTORE_BOOT_CACHE_TTL_MS = 30 * 60 * 1000; // 설정성 데이터는 30분 재사용
+const FIRESTORE_SONG_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 노래 목록은 변경 빈도가 낮아 6시간
+
+function readFirestoreBootCache(key, ttlMs = FIRESTORE_BOOT_CACHE_TTL_MS) {
+    try {
+        const raw = localStorage.getItem(`${FIRESTORE_BOOT_CACHE_PREFIX}${key}`);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.data) || typeof parsed.savedAt !== 'number') return null;
+        if (Date.now() - parsed.savedAt > ttlMs) return null;
+        return parsed.data;
+    } catch (e) {
+        console.warn('Firestore 보조 캐시 읽기 실패:', key, e);
+        return null;
+    }
+}
+
+function writeFirestoreBootCache(key, data) {
+    try {
+        localStorage.setItem(`${FIRESTORE_BOOT_CACHE_PREFIX}${key}`, JSON.stringify({
+            data: Array.isArray(data) ? data : [],
+            savedAt: Date.now()
+        }));
+    } catch (e) {
+        console.warn('Firestore 보조 캐시 저장 실패:', key, e);
+    }
+}
+
+function invalidateFirestoreBootCache(key) {
+    try { localStorage.removeItem(`${FIRESTORE_BOOT_CACHE_PREFIX}${key}`); }
+    catch (e) { console.warn('Firestore 보조 캐시 삭제 실패:', key, e); }
+}
 
 function getDefaultMemoState() {
     return { '달타':[], '다룽':[], '최또':[], '카나시':[] };
@@ -1380,6 +1416,32 @@ let upboData = {
     '최또': { products: [], records: [] },
     '카나시': { products: [], records: [] }
 };
+let upboSavedSnapshots = {};
+
+function getUpboSnapshot(member = upboCurrentMember) {
+    return JSON.stringify(upboData[member] || { products: [], records: [] });
+}
+
+function rememberUpboSavedState(member = upboCurrentMember) {
+    if (member) upboSavedSnapshots[member] = getUpboSnapshot(member);
+}
+
+function hasUnsavedUpboChanges() {
+    if (!isAdmin || currentPage !== '업보정리' || upboViewMode !== 'admin' || !upboCurrentMember) return false;
+    syncUpboDomToState();
+    return upboSavedSnapshots[upboCurrentMember] !== getUpboSnapshot(upboCurrentMember);
+}
+
+function confirmDiscardUpboChanges() {
+    if (!hasUnsavedUpboChanges()) return true;
+    return confirm('아직 저장하지 않은 변경사항이 있습니다. 저장하지 않고 이 페이지를 벗어나시겠습니까?');
+}
+
+window.addEventListener('beforeunload', (event) => {
+    if (!hasUnsavedUpboChanges()) return;
+    event.preventDefault();
+    event.returnValue = '';
+});
 let upboCurrentMember = '달타';
 let upboViewMode = 'search'; // 'search' or 'admin'
 
@@ -1713,9 +1775,25 @@ function getMemberDisplayLinks(memberName) {
 
 async function loadMemberPageSettingsFromFirebase() {
     try {
+        const cached = readFirestoreBootCache('memberPageSettings');
+        if (cached) {
+            memberPageSettings = Object.fromEntries(cached.map(item => [item.id, item.data || {}]));
+            members.forEach(member => {
+                const savedImages = getMemberPageImageUrls(member.name, false);
+                const imageUrl = savedImages[0] || String(memberPageSettings[member.name]?.imageUrl || '').trim();
+                if (imageUrl) member.img = imageUrl;
+            });
+            return;
+        }
         const snap = await getDocs(collection(db, 'memberPageSettings'));
         memberPageSettings = {};
-        snap.forEach(item => { memberPageSettings[item.id] = item.data() || {}; });
+        const cacheRows = [];
+        snap.forEach(item => {
+            const data = item.data() || {};
+            memberPageSettings[item.id] = data;
+            cacheRows.push({ id: item.id, data });
+        });
+        writeFirestoreBootCache('memberPageSettings', cacheRows);
         members.forEach(member => {
             const savedImages = getMemberPageImageUrls(member.name, false);
             const imageUrl = savedImages[0] || String(memberPageSettings[member.name]?.imageUrl || '').trim();
@@ -2446,6 +2524,7 @@ async function saveMemberPageSettings() {
     try {
         await setDoc(doc(db, 'memberPageSettings', memberName), settings, { merge:true });
         memberPageSettings[memberName] = settings;
+        writeFirestoreBootCache('memberPageSettings', Object.entries(memberPageSettings).map(([id, data]) => ({ id, data })));
         const member = members.find(item => item.name === memberName);
         if (member && imageUrl) member.img = imageUrl;
         renderMemberPageManagePanel();
@@ -2570,6 +2649,7 @@ async function savePopupImage() {
         newPopup.id = docRef.id;
         
         popupImagesList.unshift(newPopup);
+        writeFirestoreBootCache('popupImages', popupImagesList);
         alert('팝업 이미지 예약이 등록되었습니다.');
         
         if(urlInput) urlInput.value = '';
@@ -2608,6 +2688,7 @@ async function deletePopupImage(id) {
     try {
         await deleteDoc(doc(db, 'popupImages', id));
         popupImagesList = popupImagesList.filter(img => img.id !== id);
+        writeFirestoreBootCache('popupImages', popupImagesList);
         alert('팝업 이미지 예약이 삭제되었습니다.');
         renderPopupImgCurrentInfo();
     } catch(e) { console.error(e); alert('삭제 실패: ' + e.message); }
@@ -2615,12 +2696,18 @@ async function deletePopupImage(id) {
 
 async function loadPopupImagesFromFirebase() {
     try {
+        const cached = readFirestoreBootCache('popupImages');
+        if (cached) {
+            popupImagesList = cached;
+            return;
+        }
         const snap = await getDocs(collection(db, 'popupImages'));
         popupImagesList = [];
         snap.forEach(doc => {
             popupImagesList.push({ id: doc.id, ...doc.data() });
         });
         popupImagesList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        writeFirestoreBootCache('popupImages', popupImagesList);
     } catch(e) { console.error('팝업 이미지 목록 로드 실패:', e); popupImagesList = []; }
 }
 
@@ -3227,6 +3314,13 @@ async function loadHomeSettingsFromFirebase() {
 
 async function loadLinksFromFirebase() {
     try {
+        const cached = readFirestoreBootCache('upLinks');
+        if (cached) {
+            upLinksList = cached;
+            dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
+            renderHeaderTabs();
+            return;
+        }
         const todayYYYYMMDD = getTodayYYYYMMDD();
         upLinksList = [];
         
@@ -3262,6 +3356,7 @@ async function loadLinksFromFirebase() {
         // 메뉴 링크는 더 이상 Firebase에서 불러오거나 관리자 화면에서 추가/수정하지 않고,
         // 코드에 하드코딩된 defaultMemberLinks 값을 그대로 사용한다.
         dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
+        writeFirestoreBootCache('upLinks', upLinksList);
         renderHeaderTabs();
     } catch(e) { console.error("링크 로드 실패:", e); }
 }
@@ -6224,8 +6319,15 @@ function getDdayDaysLeft(dateStr, todayStr = getTodayYYYYMMDD()) {
 
 async function loadDdaysFromFirebase() {
     try {
+        const cached = readFirestoreBootCache('ddays');
+        if (cached) {
+            ddaysList = cached;
+            renderHomeDdayBox();
+            return;
+        }
         const snap = await getDocs(collection(db, 'ddays'));
         ddaysList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        writeFirestoreBootCache('ddays', ddaysList);
     } catch (e) {
         console.error('디데이 로드 실패:', e);
         ddaysList = [];
@@ -6543,6 +6645,8 @@ async function addDday() {
             alert('디데이가 추가되었습니다.');
         }
 
+        writeFirestoreBootCache('ddays', ddaysList);
+
         cancelEditDday();
         renderDdayManagePanel();
         renderHomeDdayBox();
@@ -6617,6 +6721,7 @@ async function deleteDday(ddayId) {
     try {
         await deleteDoc(doc(db, 'ddays', ddayId));
         ddaysList = ddaysList.filter(d => d.id !== ddayId);
+        writeFirestoreBootCache('ddays', ddaysList);
         if (editingDdayId === ddayId) cancelEditDday();
         renderDdayManagePanel();
         renderHomeDdayBox();
@@ -7785,11 +7890,18 @@ function sortRollingTopics() {
 // 빈 주제 목록이 캐시에 남아 실제 등록된 주제가 보이지 않는 문제를 방지한다.
 async function loadRollingTopicsFromFirebase() {
     try {
+        const cached = readFirestoreBootCache('rollingTopics');
+        if (cached) {
+            rollingTopics = cached;
+            sortRollingTopics();
+            return true;
+        }
         const topicSnap = await getDocs(collection(db, 'rollingTopics'));
         const freshTopics = [];
         topicSnap.forEach(docSnap => freshTopics.push({ id: docSnap.id, ...docSnap.data() }));
         rollingTopics = freshTopics;
         sortRollingTopics();
+        writeFirestoreBootCache('rollingTopics', rollingTopics);
         saveScheduleCache();
         return true;
     } catch (e) {
@@ -7819,6 +7931,7 @@ async function loadUpboDataFromFirebase() {
         }
         upboData = freshUpboData;
         await loadKanashiUpboFromGoogleSheet();
+        Object.keys(upboData).forEach(memberName => rememberUpboSavedState(memberName));
         return true;
     } catch (e) {
         console.error("업보데이터 로드 에러:", e);
@@ -8046,6 +8159,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
                 rollingTopics = [];
                 topicResult.value.forEach(doc => rollingTopics.push({ id: doc.id, ...doc.data() }));
                 sortRollingTopics();
+                writeFirestoreBootCache('rollingTopics', rollingTopics);
             } else {
                 console.error('롤링 주제 로드 에러:', topicResult.reason);
             }
@@ -8087,6 +8201,8 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
 }
 
 async function changeTab(tabName) {
+    const currentUpboTab = currentPage === '업보정리' ? `업보정리_${upboCurrentMember}` : '';
+    if (currentUpboTab && tabName !== currentUpboTab && !confirmDiscardUpboChanges()) return false;
     const clipMatch = String(tabName).match(/^클립_(달타|다룽|최또|카나시)$/);
     const calendarMatch = String(tabName).match(/^(달타|다룽|최또|카나시)_calendar$/);
     if (clipMatch) {
@@ -9415,6 +9531,7 @@ window.saveSong = async function() {
         }
         
         setActiveSongs(member);
+        writeFirestoreBootCache(`songs:${getSongCollectionName(member)}`, songsByMember[member] || []);
         closeSongAddModal();
         renderSongList();
         renderGenreFilters();
@@ -9567,6 +9684,7 @@ window.deleteSong = async function(id) {
         const member = songbookMember || '달타';
         await deleteDoc(doc(db, getSongCollectionName(member), id));
         songsByMember[member] = (songsByMember[member] || []).filter(s => s.id !== id);
+        writeFirestoreBootCache(`songs:${getSongCollectionName(member)}`, songsByMember[member]);
         setActiveSongs(member);
         const liked = getLikedSongIds(member);
         if (liked.has(id)) { liked.delete(id); saveLikedSongIds(liked, member); }
@@ -9584,11 +9702,26 @@ window.deleteSong = async function(id) {
 async function loadSongsFromFirebase(member = songbookMember) {
     try {
         const collectionName = getSongCollectionName(member);
+        const cached = readFirestoreBootCache(`songs:${collectionName}`, FIRESTORE_SONG_CACHE_TTL_MS);
+        if (cached) {
+            songsByMember[member] = cached;
+            if (songbookMember === member) {
+                setActiveSongs(member);
+                if (currentPage === '노래책') {
+                    renderSongList();
+                    renderGenreFilters();
+                    renderArtistSidePanel();
+                    populateSongGenreDatalist();
+                }
+            }
+            return;
+        }
         const snap = await getDocs(collection(db, collectionName));
         songsByMember[member] = snap.docs.map(d => {
             const data = d.data() || {};
             return { id: d.id, ...data, likes: Number(data.likes || 0) };
         });
+        writeFirestoreBootCache(`songs:${collectionName}`, songsByMember[member]);
         if (songbookMember === member) {
             setActiveSongs(member);
             if (currentPage === '노래책') {
@@ -9606,6 +9739,7 @@ async function loadSongsFromFirebase(member = songbookMember) {
 
 function toggleUpboViewMode(mode) {
     if (!isAdmin) return;
+    if (upboViewMode === 'admin' && mode !== 'admin' && !confirmDiscardUpboChanges()) return;
     upboViewMode = mode;
     renderUpboPage();
 }
@@ -10500,6 +10634,7 @@ async function saveRollingTopic() {
         const docRef = await addDoc(collection(db, 'rollingTopics'), newTopic);
         rollingTopics.push({ id: docRef.id, ...newTopic });
         sortRollingTopics();
+        writeFirestoreBootCache('rollingTopics', rollingTopics);
         saveScheduleCache();
         closeRollingTopicModal();
         renderHeaderTabs(); 
@@ -10512,6 +10647,7 @@ async function deleteRollingTopic(id) {
     try {
         await deleteDoc(doc(db, 'rollingTopics', id));
         rollingTopics = rollingTopics.filter(t => t.id !== id);
+        writeFirestoreBootCache('rollingTopics', rollingTopics);
         rollingEntries = rollingEntries.filter(e => e.topicId !== id);
         saveScheduleCache();
         renderHeaderTabs(); 
