@@ -7912,6 +7912,9 @@ async function loadRollingTopicsFromFirebase() {
 
 // 업보관리 데이터는 로컬(세션 캐시)에 저장하지 않고, 호출될 때마다 Firebase에서 즉시 최신 데이터를 가져온다.
 async function loadUpboDataFromFirebase() {
+    // 업보 데이터(카나시 외부 시트 포함)는 업보정리 탭에 실제로 들어왔을 때만 읽는다.
+    // 초기 화면이나 다른 탭의 백그라운드 로딩에서는 Firestore 읽기를 만들지 않는다.
+    if (currentPage !== '업보정리') return false;
     try {
         const upboSnap = await getDocs(collection(db, 'upboData'));
         const mapToKor = {'dalta':'달타', 'darung':'다룽', 'choiagain':'최또', 'kanashi':'카나시'};
@@ -9700,6 +9703,9 @@ window.deleteSong = async function(id) {
 };
 
 async function loadSongsFromFirebase(member = songbookMember) {
+    // 노래 목록은 용량이 크므로 노래책 탭에 실제로 들어왔을 때만 읽는다.
+    // 캐시가 있더라도 다른 탭에서는 로드/복원 작업 자체를 하지 않는다.
+    if (currentPage !== '노래책') return false;
     try {
         const collectionName = getSongCollectionName(member);
         const cached = readFirestoreBootCache(`songs:${collectionName}`, FIRESTORE_SONG_CACHE_TTL_MS);
@@ -9886,7 +9892,7 @@ function renderUpboPage() {
                         </div>
                         <input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
                             
-                        <button onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
+                        <button type="button" onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
                         <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
                     </div>
                 </div>
@@ -10003,6 +10009,7 @@ function renderKanashiUpboTable(query = '', targetId = 'upboSearchResult', edita
     const target = document.getElementById(targetId);
     if (!target) return;
     const normalizedQuery = normalizeUpboSearchText(query);
+    const products = upboData['카나시']?.products || [];
     const records = (upboData['카나시']?.records || []).filter(record => {
         if (!normalizedQuery) return true;
         return [record.nickname, record.uid, record.category, record.memo, record.roulette]
@@ -10013,12 +10020,17 @@ function renderKanashiUpboTable(query = '', targetId = 'upboSearchResult', edita
         const stationUrl = record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '');
         const message = [record.memo, record.roulette].filter(Boolean).join(' / ');
         if (editable) {
+            const productCells = products.map((product, productIndex) => {
+                const value = record.items?.[product] ?? '';
+                return `<td><textarea class="upbo-qty" data-product-idx="${productIndex}" rows="1" placeholder="-">${escapeHtml(String(value))}</textarea></td>`;
+            }).join('');
             return `<tr class="upbo-data-row">
                 <td class="kanashi-check-cell"><input type="checkbox" class="upbo-row-checkbox" aria-label="행 선택"></td>
                 <td><input class="upbo-nick" value="${escapeHtml(record.nickname || '')}" placeholder="닉네임"></td>
                 <td><input class="upbo-uid" value="${escapeHtml(record.uid || '')}" placeholder="SOOP 아이디"></td>
                 <td><input type="number" min="0" class="upbo-donation-count" value="${Number(record.donationCount || 0)}"></td>
                 <td><textarea class="upbo-category" rows="1" placeholder="품목">${escapeHtml(record.category || '')}</textarea></td>
+                ${productCells}
                 <td><textarea class="upbo-memo" rows="1" placeholder="메시지/룰렛 결과">${escapeHtml(message)}</textarea><textarea class="upbo-roulette hidden"></textarea></td>
                 <td><input type="button" class="upbo-status kanashi-status-btn ${record.status === '배송완료' ? 'is-complete' : 'is-shipping'}" value="${record.status === '배송완료' ? '배송완료' : '배송중'}" onclick="toggleKanashiTableStatus(this)"></td>
                 <td><input type="hidden" class="upbo-station-url" value="${escapeHtml(stationUrl)}"><button type="button" class="kanashi-station-link" onclick="openKanashiTableStation(this)"><i class="fi fi-rr-link-alt"></i> 이동</button></td>
@@ -10034,10 +10046,11 @@ function renderKanashiUpboTable(query = '', targetId = 'upboSearchResult', edita
             <td>${stationUrl ? `<a class="kanashi-station-link" href="${escapeHtml(stationUrl)}" target="_blank" rel="noopener"><i class="fi fi-rr-link-alt"></i> 이동</a>` : '-'}</td>
         </tr>`;
     }).join('');
+    const productHeaders = products.map((product, productIndex) => `<th><div class="flex items-center gap-1"><input type="text" class="upbo-product-header min-w-[70px] bg-transparent text-center outline-none" data-idx="${productIndex}" value="${escapeHtml(product)}" placeholder="상품명"><button type="button" onclick="removeUpboProduct(${productIndex})" title="상품 삭제"><i class="fi fi-br-cross-small"></i></button></div></th>`).join('');
     const header = editable
-        ? `<tr><th class="kanashi-check-cell"><input type="checkbox" id="upboCheckAll" aria-label="전체 선택" onclick="toggleAllUpboCheckboxes(this.checked)"></th><th>닉네임</th><th>SOOP 아이디</th><th>후원수</th><th>품목</th><th>메시지/룰렛 결과</th><th>상태</th><th>방송국 주소</th><th>삭제</th></tr>`
+        ? `<tr><th class="kanashi-check-cell"><input type="checkbox" id="upboCheckAll" aria-label="전체 선택" onclick="toggleAllUpboCheckboxes(this.checked)"></th><th>닉네임</th><th>SOOP 아이디</th><th>후원수</th><th>품목</th>${productHeaders}<th>메시지/룰렛 결과</th><th>상태</th><th>방송국 주소</th><th>삭제</th></tr>`
         : `<tr><th>닉네임</th><th>SOOP 아이디</th><th>후원수</th><th>품목</th><th>메시지/룰렛 결과</th><th>방송국 주소</th></tr>`;
-    const columnCount = editable ? 9 : 6;
+    const columnCount = editable ? 9 + products.length : 6;
     const markup = `<thead>${header}</thead><tbody>${rows || `<tr><td colspan="${columnCount}" class="kanashi-table-empty">표시할 데이터가 없습니다.</td></tr>`}</tbody>`;
     if (table) table.innerHTML = markup;
     else target.innerHTML = `<div class="kanashi-upbo-table-wrap"><table class="kanashi-upbo-table">${markup}</table></div>`;
@@ -10223,8 +10236,15 @@ function addUpboRow() {
 
 function addUpboProduct() {
     syncUpboDomToState();
+    if (!upboData[upboCurrentMember]) upboData[upboCurrentMember] = { products: [], records: [] };
+    if (!Array.isArray(upboData[upboCurrentMember].products)) upboData[upboCurrentMember].products = [];
     upboData[upboCurrentMember].products.push('새 상품');
     renderUpboAdminTable();
+    requestAnimationFrame(() => {
+        const inputs = document.querySelectorAll('#upboAdminTable .upbo-product-header');
+        const lastInput = inputs[inputs.length - 1];
+        if (lastInput) { lastInput.focus(); lastInput.select(); }
+    });
 }
 
 function removeUpboProduct(idx) {
@@ -10402,6 +10422,7 @@ async function saveUpboData() {
             }
         }
         saveScheduleCache();
+        rememberUpboSavedState(upboCurrentMember);
         alert(upboCurrentMember === '카나시' ? "카나시 데이터가 성공적으로 저장·동기화되었습니다!" : "데이터가 성공적으로 저장되었습니다!");
     } catch(e) {
         console.error(e);
