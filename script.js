@@ -10546,7 +10546,7 @@ function searchUpbo() {
 function renderRollingPaper() {
     const content = document.getElementById('mainContent');
     const bgClass = isMobile ? 'p-4' : 'p-10';
-    let html = `<div class="big-white-box relative theme-rolling" style="min-height: 1200px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">`;
+    let html = `<div class="big-white-box relative theme-rolling rolling-shell" style="min-height: 1200px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">`;
     const todayStr = getTodayYYYYMMDD();
 
     const addTopicBtnHtml = isAdmin ? `
@@ -10561,7 +10561,7 @@ function renderRollingPaper() {
                 <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi">롤링페이퍼 주제 목록</h2>
                 ${addTopicBtnHtml}
             </div>
-            <div class="flex flex-wrap justify-start gap-6">
+            <div class="rolling-topic-list flex flex-wrap justify-start gap-6">
         `;
         rollingTopics.forEach(topic => {
             const isExpired = topic.date < todayStr;
@@ -10576,7 +10576,7 @@ function renderRollingPaper() {
                         <button onclick="event.stopPropagation(); deleteRollingTopic('${topic.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
                     </div>
                     ` : ''}
-                    <div class="text-[24px] font-bold text-[#5D4037] mb-4 font-paperozi line-clamp-2">${badgeHtml}${escapeHtml(topic.title)}</div>
+                    <div class="rolling-topic-title text-[24px] font-bold text-[#5D4037] mb-4 font-paperozi line-clamp-2">${badgeHtml}${escapeHtml(topic.title)}</div>
                     <div class="text-gray-500 font-bold text-[17px]">${topic.date}</div>
                 </div>
             `;
@@ -10592,14 +10592,14 @@ function renderRollingPaper() {
             : `<button onclick="openRollingEntryModal()" class="px-6 py-3 bg-[#8B5CF6] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-lg shrink-0"><i class="fi fi-rr-edit"></i> 작성하기</button>`;
 
         html += `
-            <div class="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b border-[#ECEDFA] pb-5 gap-4">
-                <div class="flex items-center gap-3">
+            <div class="rolling-topic-header flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b border-[#ECEDFA] pb-5 gap-4">
+                <div class="rolling-topic-heading flex items-center gap-3">
                     <button onclick="closeRollingTopic()" class="text-3xl text-[#5D4037] hover:scale-110 transition"><i class="fi fi-rr-angle-left"></i></button>
                     <h2 class="text-[24px] lg:text-3xl font-bold text-[#5D4037] font-paperozi line-clamp-1">${escapeHtml(currentRollingTopic.title)}</h2>
                 </div>
                 ${actionBtn}
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div class="rolling-entry-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         `;
         
         currentTopicEntries.forEach((entry, idx) => {
@@ -10610,7 +10610,7 @@ function renderRollingPaper() {
             const nickStyle = entry.imageUrl ? `color: #e5e7eb; border-top-color: rgba(255,255,255,0.4);` : `color: #6b7280; border-top-color: #d1d5db;`;
 
             html += `
-                <div class="rolling-entry-card rounded-2xl p-5 cursor-pointer relative flex flex-col h-[400px] shadow-[0_8px_22px_rgba(93,64,55,0.10)] hover:shadow-[0_14px_30px_rgba(93,64,55,0.16)] hover:-translate-y-1 transition" style="${bgStyle}" onclick="openRollingDetailModal(${idx})">
+                <div class="rolling-entry-card ${entry.imageUrl ? 'has-image' : 'is-plain'} rounded-2xl p-5 cursor-pointer relative flex flex-col h-[400px] shadow-[0_8px_22px_rgba(93,64,55,0.10)] hover:shadow-[0_14px_30px_rgba(93,64,55,0.16)] hover:-translate-y-1 transition" style="${bgStyle}" onclick="openRollingDetailModal(${idx})">
                     ${(isAdmin || (currentUser && entry.authorUid && entry.authorUid === currentUser.uid)) ? `
                     <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
                         <button onclick="event.stopPropagation(); openEditRollingEntryModal('${entry.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
@@ -10618,8 +10618,8 @@ function renderRollingPaper() {
                     </div>
                     ` : ''}
                     <div class="absolute bottom-2 left-2 z-10 min-w-[26px] h-[26px] px-1.5 flex items-center justify-center rounded-full text-[13px] font-bold pointer-events-none" style="background: rgba(0,0,0,0.45); color: #ffffff;">${idx + 1}</div>
-                    <div class="text-[16px] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words ${entry.imageUrl ? '' : 'dm-text-brown'}" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical; ${textStyle}">${escapeHtml(entry.content)}</div>
-                    <div class="text-right text-[14px] font-bold mt-3 pt-2 border-t-2 border-dashed pointer-events-none shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>
+                    <div class="rolling-entry-content text-[16px] font-medium whitespace-pre-wrap flex-1 overflow-hidden pointer-events-none mt-2 break-words ${entry.imageUrl ? '' : 'dm-text-brown'}" style="display: -webkit-box; -webkit-line-clamp: 14; -webkit-box-orient: vertical; ${textStyle}">${escapeHtml(entry.content)}</div>
+                    <div class="rolling-entry-author text-right text-[14px] font-bold mt-3 pt-2 border-t-2 border-dashed pointer-events-none shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>
                 </div>
             `;
         });
@@ -10936,7 +10936,7 @@ function buildRollingPageHTML(entry) {
     return `
         <div class="w-full h-full flex items-center justify-center" style="${bgStyle}">
             <div class="w-full max-w-[720px] h-full md:h-auto md:max-h-[85vh] flex flex-col p-8 pt-24 pb-10 md:p-16 mx-4 overflow-hidden">
-                <div class="text-[20px] md:text-[26px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words drop-shadow-sm ${entry.imageUrl ? '' : 'dm-text-brown'}" style="${textStyle}">${escapeHtml(entry.content)}</div>
+                <div class="rolling-detail-scroll text-[20px] md:text-[26px] font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 min-h-0 modal-scroll break-words drop-shadow-sm ${entry.imageUrl ? '' : 'dm-text-brown'}" style="${textStyle}">${escapeHtml(entry.content)}</div>
                 <div class="text-right text-[18px] md:text-[20px] font-bold mt-6 pt-4 border-t-2 border-dashed drop-shadow-sm shrink-0" style="${nickStyle}">- ${escapeHtml(entry.nickname) || '익명'}</div>
             </div>
         </div>
@@ -11007,9 +11007,11 @@ function rollingDetailKeyHandler(e) {
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navigateRollingDetail(-1);
 }
 
-// 휠 스크롤로 다음/이전 글 넘기기 (모션이 끝나기 전 중복 입력은 무시)
+// 본문 안의 휠은 긴 글을 스크롤하고, 본문 바깥의 휠만 이전/다음 글 이동에 사용한다.
+// 모션이 끝나기 전 바깥 영역의 중복 입력은 무시한다.
 let rollingWheelBusy = false;
 document.getElementById('rollingDetailModal').addEventListener('wheel', function(e) {
+    if (e.target.closest('.rolling-detail-scroll')) return;
     e.preventDefault();
     if (rollingWheelBusy || Math.abs(e.deltaY) < 4) return;
     rollingWheelBusy = true;

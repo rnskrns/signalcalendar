@@ -1398,6 +1398,101 @@ body.admin-mode {
     border-radius: 26px;
 }
 
+/* 롤링페이퍼의 긴 문장/URL이 Grid 최소 너비를 키워 페이지를 옆으로 미는 것을 방지 */
+.rolling-shell,
+.rolling-topic-list,
+.rolling-topic-header,
+.rolling-topic-heading,
+.rolling-entry-grid,
+.rolling-topic-card,
+.rolling-entry-card {
+    min-width: 0;
+    max-width: 100%;
+}
+.rolling-shell { overflow-x: clip; }
+.rolling-topic-list,
+.rolling-entry-grid { width: 100%; }
+.rolling-topic-card,
+.rolling-entry-card { overflow: hidden; }
+.rolling-topic-heading { flex: 1 1 auto; }
+.rolling-topic-heading h2,
+.rolling-topic-title,
+.rolling-entry-content,
+.rolling-entry-author {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* 롤링페이퍼 목록 미리보기 전용 다크모드 */
+html.dark-mode .rolling-shell {
+    background: var(--card-bg-white) !important;
+}
+html.dark-mode .rolling-topic-header {
+    border-color: var(--dm-border-soft) !important;
+}
+html.dark-mode .rolling-topic-header h2,
+html.dark-mode .rolling-topic-header button,
+html.dark-mode .rolling-topic-title {
+    color: var(--dm-text-main) !important;
+}
+html.dark-mode .rolling-topic-card,
+html.dark-mode .rolling-entry-card.is-plain {
+    background: var(--dm-surface-raised) !important;
+    border: 1px solid var(--dm-border-soft);
+    box-shadow: 0 10px 28px -20px rgba(0,0,0,.85) !important;
+}
+html.dark-mode .rolling-entry-card.is-plain .rolling-entry-content {
+    color: #eee8eb !important;
+}
+html.dark-mode .rolling-entry-card.is-plain .rolling-entry-author {
+    color: #c8bdc3 !important;
+    border-top-color: #5a515b !important;
+}
+html.dark-mode .rolling-entry-card.is-plain:hover,
+html.dark-mode .rolling-topic-card:hover {
+    background: color-mix(in srgb, #8B5CF6 8%, var(--dm-surface-raised)) !important;
+    border-color: color-mix(in srgb, #8B5CF6 35%, var(--dm-border-soft));
+}
+
+/* 롤링페이퍼는 레거시 사이드 레일의 폭과 무관하게 뷰포트 정중앙에 고정한다. */
+html:has(#mainContent > .rolling-shell),
+body:has(#mainContent > .rolling-shell) {
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+}
+.planner-container:has(> #mainContent > .rolling-shell) {
+    display: block !important;
+    width: 100vw !important;
+    max-width: none !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+}
+.planner-container:has(> #mainContent > .rolling-shell) > #sideWrapper {
+    display: none !important;
+    width: 0 !important;
+}
+#mainContent.signal-utility-content:has(> .rolling-shell) {
+    display: block !important;
+    width: 100vw !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+}
+#mainContent.signal-utility-content > .rolling-shell {
+    width: min(1795px, calc(100vw - 64px)) !important;
+    min-width: 0 !important;
+    margin-right: auto !important;
+    margin-left: auto !important;
+}
+@media (max-width: 1050px) {
+    #mainContent.signal-utility-content > .rolling-shell { width: 100% !important; }
+}
+
 /* 시그널 탭 전용 흰색 박스 테마 */
 .theme-signal {
     background-color: var(--card-bg-white) !important;
@@ -1408,6 +1503,11 @@ body.admin-mode {
 /* ===== 롤링페이퍼 전체화면 상세보기: 위에서 아래로 내려오는 느낌의 모션 ===== */
 #rollingPageStage {
     overflow: hidden;
+}
+.rolling-detail-scroll {
+    overscroll-behavior-y: contain;
+    overflow-wrap: anywhere;
+    scrollbar-gutter: stable;
 }
 .rolling-page {
     position: absolute;
