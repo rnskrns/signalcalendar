@@ -3101,6 +3101,14 @@ html:not(.dark-mode) .dday-hero-card-img .dday-hero-badge {
 .signal-member-top-navigation-links button:hover img { box-shadow:0 0 0 2px var(--member-accent); }
 #mainContent.signal-centered-content { flex:1 1 100%; min-width:0; width:100% !important; }
 #mainContent.signal-centered-content + #sideWrapper { display:none; }
+/* 개인 월간 일정에서는 사이드 레일을 숨기되, 시네티 팝업을 열 때만 그 호스트를 복원한다. */
+body.cineti-panel-open #mainContent.signal-centered-content + #sideWrapper {
+    display: block !important;
+    position: static !important;
+    width: 0 !important;
+    height: 0 !important;
+    flex: 0 0 0 !important;
+}
 #mainContent.signal-centered-content > .signal-calendar-routebar,
 #mainContent.signal-centered-content > .signal-songbook-routebar,
 #mainContent.signal-centered-content > .signal-member-tool-routebar,

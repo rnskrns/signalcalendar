@@ -7108,6 +7108,7 @@ function closeSidePanel(instant = false) {
     sidePanelMode = null;
     const panel = document.getElementById('sideExpansionPanel');
     const mobileOverlay = document.getElementById('mobilePanelOverlay');
+    document.body.classList.remove('cineti-panel-open');
     
     if(isMobile) {
         panel.classList.remove('translate-y-0', 'opacity-100');
@@ -7342,6 +7343,7 @@ function openSidePanel(mode) {
     sidePanelMode = mode;
     const panel = document.getElementById('sideExpansionPanel');
     const mobileOverlay = document.getElementById('mobilePanelOverlay');
+    document.body.classList.toggle('cineti-panel-open', mode === 'CINETI');
     
     panel.classList.remove('hidden'); panel.classList.add('flex');
     if(isMobile && mobileOverlay) { mobileOverlay.classList.remove('hidden'); mobileOverlay.classList.add('block'); }
