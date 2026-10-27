@@ -1820,6 +1820,12 @@ function getMemberPageImageUrls(memberName, includeFallback = true) {
     return [...new Set(urls)];
 }
 let upLinksList = [];
+// 기존 업링크 캐시에 누락된 cutLine 값과 오래된 변경 데이터가 남아 있을 수 있어
+// 전용 버전 키를 사용한다. 업링크를 변경할 때마다 이 캐시도 즉시 갱신한다.
+const UPLINKS_CACHE_KEY = 'upLinks:v2';
+function syncUpLinksCache() {
+    writeFirestoreBootCache(UPLINKS_CACHE_KEY, upLinksList);
+}
 // 마감일이 지난 UP 링크는 사이트에서 보이지 않도록 필터링
 function getVisibleUpLinks() {
     const today = getTodayYYYYMMDD();
@@ -1897,6 +1903,7 @@ function openAdminAvatarModal() {
     if (!modal || !choices) return;
     selectedAdminAvatarMember = loggedInUser.avatarMember || getStoredAdminAvatar()?.member || members.find(member => member.img === loggedInUser.img)?.name || '';
     choices.innerHTML = members.map(member => `<button type="button" class="admin-avatar-choice ${selectedAdminAvatarMember === member.name ? 'is-selected' : ''}" data-avatar-member="${escapeHtml(member.name)}" onclick="selectAdminAvatar('${String(member.name).replace(/'/g, "\\'")}')"><span><img src="${escapeHtml(member.img)}" alt="${escapeHtml(member.name)}"></span><b>${escapeHtml(member.name)}</b><i class="fi fi-sr-check-circle"></i></button>`).join('');
+    updateAdminAvatarSaveButton();
     modal.classList.replace('hidden', 'flex');
     ['desktopProfileMenu', 'mobileProfileMenu'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
 }
@@ -1907,15 +1914,40 @@ function closeAdminAvatarModal() {
 
 function selectAdminAvatar(memberName) {
     if (!members.some(member => member.name === memberName)) return;
-    selectedAdminAvatarMember = memberName;
-    document.querySelectorAll('#adminAvatarChoices .admin-avatar-choice').forEach(button => button.classList.toggle('is-selected', button.dataset.avatarMember === memberName));
+    selectedAdminAvatarMember = selectedAdminAvatarMember === memberName ? '' : memberName;
+    document.querySelectorAll('#adminAvatarChoices .admin-avatar-choice').forEach(button => button.classList.toggle('is-selected', button.dataset.avatarMember === selectedAdminAvatarMember));
+    updateAdminAvatarSaveButton();
+}
+
+function updateAdminAvatarSaveButton() {
+    const button = document.getElementById('adminAvatarSaveBtn');
+    if (!button) return;
+    button.textContent = selectedAdminAvatarMember ? '선택한 멤버로 변경' : '선택 해제 적용';
 }
 
 async function saveAdminAvatarChoice() {
     if (!isGeneralAdminUser()) return;
     const member = members.find(item => item.name === selectedAdminAvatarMember);
-    if (!member) return alert('사용할 멤버 프사를 선택해주세요.');
     const key = getAdminAvatarStorageKey(loggedInUser);
+    if (!member) {
+        if (key) localStorage.removeItem(key);
+        loggedInUser.img = '';
+        delete loggedInUser.avatarMember;
+        refreshAuthUI();
+        closeAdminAvatarModal();
+        try {
+            const results = await Promise.allSettled([
+                auth.currentUser ? updateProfile(auth.currentUser, { photoURL:null }) : Promise.reject(new Error('관리자 인증 정보가 없습니다.')),
+                setDoc(doc(db, 'adminProfiles', loggedInUser.uid), { avatarMember:'', updatedAt:Date.now() }, { merge:true })
+            ]);
+            if (results.every(result => result.status === 'rejected')) throw results[0].reason;
+            alert('관리자 프로필의 멤버 선택을 해제했습니다.');
+        } catch (e) {
+            console.error('관리자 멤버 선택 해제 저장 실패:', e);
+            alert('이 기기에서는 선택이 해제됐지만 계정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        }
+        return;
+    }
     if (key) localStorage.setItem(key, JSON.stringify({ member:member.name, img:member.img }));
     loggedInUser.img = member.img;
     loggedInUser.avatarMember = member.name;
@@ -3314,7 +3346,7 @@ async function loadHomeSettingsFromFirebase() {
 
 async function loadLinksFromFirebase() {
     try {
-        const cached = readFirestoreBootCache('upLinks');
+        const cached = readFirestoreBootCache(UPLINKS_CACHE_KEY);
         if (cached) {
             upLinksList = cached;
             dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
@@ -3339,6 +3371,7 @@ async function loadLinksFromFirebase() {
                 title: data.title,
                 url: data.link,
                 deadline: data.deadline,
+                cutLine: data.cutLine ?? null,
                 timestamp: data.updated_at && data.updated_at.toMillis ? data.updated_at.toMillis() : Date.now()
             });
         }
@@ -3356,7 +3389,7 @@ async function loadLinksFromFirebase() {
         // 메뉴 링크는 더 이상 Firebase에서 불러오거나 관리자 화면에서 추가/수정하지 않고,
         // 코드에 하드코딩된 defaultMemberLinks 값을 그대로 사용한다.
         dynamicLinks = JSON.parse(JSON.stringify(defaultMemberLinks));
-        writeFirestoreBootCache('upLinks', upLinksList);
+        syncUpLinksCache();
         renderHeaderTabs();
     } catch(e) { console.error("링크 로드 실패:", e); }
 }
@@ -6236,6 +6269,7 @@ window.saveUpLinkGroupInfo = async function(stationId, postId) {
             return updateDoc(doc(db, colName, up.id), { title, deadline, cutLine });
         }));
         targets.forEach(up => { up.title = title; up.deadline = deadline; up.cutLine = cutLine; });
+        syncUpLinksCache();
 
         renderUpLinksPanel();
         if (isUpModeModalOpen()) renderUpModeModalContent();
@@ -6264,6 +6298,7 @@ async function addUpLink() {
     try {
         const docRef = await addDoc(collection(db, 'uplinks'), newUp);
         upLinksList.push({ id: docRef.id, source: 'uplinks', ...newUp });
+        syncUpLinksCache();
         alert('업링크가 추가되었습니다.');
         document.getElementById('upTitle').value = ''; 
         document.getElementById('upUrl').value = ''; 
@@ -6280,6 +6315,7 @@ async function deleteUpLink(upId, source = 'uplinks') {
         await deleteDoc(doc(db, colName, upId));
         
         upLinksList = upLinksList.filter(u => u.id !== upId);
+        syncUpLinksCache();
         renderUpLinksPanel();
         if (isUpModeModalOpen()) renderUpModeModalContent();
         renderUpLinkManagePanel();
@@ -7579,7 +7615,9 @@ function parseSoopPostUrl(url) {
     if (!url) return null;
     const m = url.match(/station\/([^\/?#]+)\/post\/(\d+)/);
     if (!m) return null;
-    const hashMatch = url.match(/comment_noti(\d+)/);
+    // SOOP에서 사용하는 두 댓글 앵커 형식을 모두 지원한다.
+    // 예: #comment_noti123456, #comment123456
+    const hashMatch = url.match(/comment(?:_noti)?(\d+)/i);
     return {
         stationId: m[1],
         postId: m[2],
@@ -13073,6 +13111,7 @@ window.saveEditUpLink = async function() {
             upItem.url = newUrl;
             upItem.deadline = newDeadline;
         }
+        syncUpLinksCache();
 
         renderUpLinksPanel();
         if (isUpModeModalOpen()) renderUpModeModalContent();
