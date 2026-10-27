@@ -1846,6 +1846,13 @@ const ADMIN_ACCOUNTS = Object.freeze({
     'rnskrns@gmail.com': 'rnskrns',
     'jkolpc@gmail.com': 'jkolpc'
 });
+const ADMIN_DEFAULT_PROFILE_IMAGES = Object.freeze({
+    'jkolpc@gmail.com': 'images/admin/jkolpc-profile.png'
+});
+
+function getAdminDefaultProfileImage(user = loggedInUser) {
+    return ADMIN_DEFAULT_PROFILE_IMAGES[String(user?.email || '').toLowerCase()] || '';
+}
 let selectedAdminAvatarMember = '';
 let adminMemberPromptUid = '';
 
@@ -1884,6 +1891,17 @@ async function loadAdminAvatarPreference(authUser) {
         const snap = await getDoc(doc(db, 'adminProfiles', authUser.uid));
         if (!snap.exists()) return;
         const data = snap.data() || {};
+        // avatarMember가 빈 값으로 저장돼 있으면 사용자가 멤버 선택을 명시적으로
+        // 해제한 상태다. Firebase Auth에 예전 멤버 사진이 남아 있더라도 다시
+        // 멤버로 추정하지 않도록 프로필 표시를 먼저 초기화한다.
+        if (Object.hasOwn(data, 'avatarMember') && !data.avatarMember) {
+            loggedInUser.img = getAdminDefaultProfileImage(loggedInUser);
+            delete loggedInUser.avatarMember;
+            const key = getAdminAvatarStorageKey(loggedInUser);
+            if (key) localStorage.removeItem(key);
+            refreshAuthUI();
+            return;
+        }
         const member = members.find(item => item.name === data.avatarMember);
         if (!member) return;
         loggedInUser.img = member.img;
@@ -1931,7 +1949,7 @@ async function saveAdminAvatarChoice() {
     const key = getAdminAvatarStorageKey(loggedInUser);
     if (!member) {
         if (key) localStorage.removeItem(key);
-        loggedInUser.img = '';
+        loggedInUser.img = getAdminDefaultProfileImage(loggedInUser);
         delete loggedInUser.avatarMember;
         refreshAuthUI();
         closeAdminAvatarModal();
@@ -1993,7 +2011,7 @@ function setAdminUser(user) {
     isAdmin = !!name;
     const memberAccount = members.find(member => member.name === name);
     loggedInUser = name ? { uid: user.uid, id: email.split('@')[0], email, name,
-        img: memberAccount?.img || user.photoURL || '' } : null;
+        img: memberAccount?.img || ADMIN_DEFAULT_PROFILE_IMAGES[email] || user.photoURL || '' } : null;
     const storedAvatar = memberAccount ? null : getStoredAdminAvatar(loggedInUser);
     if (loggedInUser && storedAvatar) {
         const member = members.find(item => item.name === storedAvatar.member);
