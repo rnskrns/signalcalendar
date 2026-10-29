@@ -1424,6 +1424,31 @@ body.admin-mode {
     overflow-wrap: anywhere;
     word-break: break-word;
 }
+.rolling-topic-copy-link {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 12px;
+    border: 1px solid #ddd2f5;
+    border-radius: 12px;
+    background: #f5f0ff;
+    color: #7446cf;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.rolling-topic-copy-link:hover {
+    transform: translateY(-2px);
+    background: #ede4ff;
+    box-shadow: 0 7px 16px rgba(116,70,207,.16);
+}
+.rolling-topic-copy-link:active { transform: translateY(0); }
 
 /* 롤링페이퍼 목록 미리보기 전용 다크모드 */
 html.dark-mode .rolling-shell {
@@ -1454,6 +1479,16 @@ html.dark-mode .rolling-entry-card.is-plain:hover,
 html.dark-mode .rolling-topic-card:hover {
     background: color-mix(in srgb, #8B5CF6 8%, var(--dm-surface-raised)) !important;
     border-color: color-mix(in srgb, #8B5CF6 35%, var(--dm-border-soft));
+}
+html.dark-mode .rolling-topic-copy-link {
+    border-color: #55446f;
+    background: #342a40;
+    color: #cdb4ff;
+}
+html.dark-mode .rolling-topic-copy-link:hover { background: #40324f; }
+@media (max-width: 640px) {
+    .rolling-topic-copy-link { right: 14px; bottom: 14px; padding: 9px 10px; }
+    .rolling-topic-copy-link span { display: none; }
 }
 
 /* 롤링페이퍼는 레거시 사이드 레일의 폭과 무관하게 뷰포트 정중앙에 고정한다. */

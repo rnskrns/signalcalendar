@@ -9905,6 +9905,27 @@ function showToast(msg) {
     }, 1800);
 }
 
+window.copyRollingTopicLink = function(topicId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const topic = rollingTopics.find(item => item.id === topicId);
+    if (!topic || !Number.isInteger(Number(topic.seq)) || Number(topic.seq) <= 0) {
+        showToast('롤링페이퍼 링크를 만들 수 없습니다.');
+        return;
+    }
+    const url = new URL(window.location.href);
+    url.hash = `rolling?seq=${Number(topic.seq)}`;
+    const link = url.toString();
+    const copied = () => showToast('롤링페이퍼 링크를 복사했습니다.');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(copied).catch(() => prompt('아래 링크를 복사하세요:', link));
+    } else {
+        prompt('아래 링크를 복사하세요:', link);
+    }
+};
+
 window.copySongToClipboard = function(id, event) {
     if (event) event.stopPropagation();
     const song = songs.find(s => s.id === id);
@@ -10860,6 +10881,7 @@ function renderRollingPaper() {
                     ` : ''}
                     <div class="rolling-topic-title text-[24px] font-bold text-[#5D4037] mb-4 font-paperozi line-clamp-2">${badgeHtml}${escapeHtml(topic.title)}</div>
                     <div class="text-gray-500 font-bold text-[17px]">${topic.date}</div>
+                    ${!isExpired ? `<button type="button" class="rolling-topic-copy-link" onclick="copyRollingTopicLink('${topic.id}', event)" aria-label="${escapeHtml(topic.title)} 링크 복사" title="링크 복사"><i class="fi fi-rr-link-alt"></i><span>링크 복사</span></button>` : ''}
                 </div>
             `;
         });
