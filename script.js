@@ -863,6 +863,7 @@ window.closeUpPopup = closeUpPopup;
 window.openMemoAddModal = openMemoAddModal; window.openMemoEditModal = openMemoEditModal; 
 window.closeMemoModal = closeMemoModal; window.saveMemoAction = saveMemoAction; window.deleteMemo = deleteMemo;
 window.openSmartLink = openSmartLink;
+window.openVrCareerDetail = openVrCareerDetail; window.closeVrCareerDetail = closeVrCareerDetail;
 window.handleProfileClick = handleProfileClick;
 
 window.openRollingTopicModal = openRollingTopicModal; window.closeRollingTopicModal = closeRollingTopicModal; window.saveRollingTopic = saveRollingTopic;
@@ -1265,6 +1266,12 @@ const SIGNAL_RECORDS_PAGE_SIZE = 30;
 let signalRecordsCursorDate = null;
 let signalRecordsHasMore = true;
 let signalRecordsLoadingMore = false;
+let signalArchiveMemberFilter = '전체 일정';
+let signalArchiveMonthFilter = '';
+let signalArchiveOverrides = {};
+let signalArchiveOverridesLoaded = false;
+let editingSignalArchiveDate = '';
+let editingSignalArchiveMembers = new Set();
 
 let customMembers = []; 
 let memberGroups = []; // { id, name, memberIds: [] }
@@ -1453,6 +1460,7 @@ const tabToHash = {
     '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
     '롤링페이퍼': 'rolling', '업보정리': 'upbolist', '업보정리_달타': 'listdalta', '업보정리_다룽': 'listdarung', '업보정리_최또': 'listchoiagain', '업보정리_카나시': 'listkanashi',
     '노래책_달타': 'songbook_dalta', '노래책_다룽': 'songbook_darung', '노래책_최또': 'songbook_choitto', '노래책_카나시': 'songbook_kanashi',
+    'VR경력_달타': 'vr_dalta', 'VR경력_다룽': 'vr_darung', 'VR경력_최또': 'vr_choiagain', 'VR경력_카나시': 'vr_kanashi',
     '시그널': 'signal',
     '클립': 'clip',
     '사다리타기': 'ladder',
@@ -1462,6 +1470,7 @@ const hashToTab = {
     '#home': '홈', '#dalta': '달타', '#darung': '다룽', '#choiagain': '최또', '#kanashi': '카나시', 
     '#rolling': '롤링페이퍼', '#upbolist': '업보정리', '#list': '업보정리_달타', '#listdalta': '업보정리_달타', '#listdarung': '업보정리_다룽', '#listchoiagain': '업보정리_최또', '#listkanashi': '업보정리_카나시',
     '#songbook_dalta': '노래책_달타', '#songbook_darung': '노래책_다룽', '#songbook_choitto': '노래책_최또', '#songbook_kanashi': '노래책_카나시',
+    '#vr_dalta': 'VR경력_달타', '#vr_darung': 'VR경력_다룽', '#vr_choiagain': 'VR경력_최또', '#vr_kanashi': 'VR경력_카나시',
     '#signal': '시그널',
     '#clip': '클립',
     '#ladder': '사다리타기',
@@ -1478,6 +1487,110 @@ let currentEditingSongId = null;
 let songArtistsCache = [];
 let songGenreFilter = null;
 let songGenresCache = [];
+
+// =========================================================================
+// VR 대회 경력
+// =========================================================================
+let vrCareerMember = '달타';
+// 대회 로고는 멤버와 무관하게 공통으로 사용한다. 다른 멤버의 경력 데이터도
+// 같은 competition id를 사용하면 별도 이미지 등록 없이 자동으로 연결된다.
+const VR_COMPETITION_LOGOS = {
+    'waktaverse-sports-2024':'./images/vr-career/common/waktaverse-athletics-2024-transparent.png',
+    'lildongpa':'./images/vr-career/common/lildongpa-1-transparent.png',
+    'lildongpa-1':'./images/vr-career/common/lildongpa-1-transparent.png',
+    'virtual-athletics-2025':'./images/vr-career/common/virtual-athletics-2025-transparent.png',
+    'sbo':'./images/vr-career/common/sbo-transparent.png',
+    'lildongpa-2':'./images/vr-career/common/lildongpa-2-transparent.png',
+    'lilpa-point-curling':'./images/vr-career/common/vr-point-curling-transparent.png',
+    'wbd':'./images/vr-career/common/wbd-transparent.png'
+};
+
+// 팀 로고는 모든 멤버의 VR 경력에서 공통으로 사용한다.
+// 팀명에 포함된 공백은 비교할 때 제거하므로 표마다 띄어쓰기가 달라도 같은 로고가 연결된다.
+const VR_TEAM_LOGOS = {
+    '왁린스만':'./images/vr-career/teams/waklinsmann.webp',
+    '왁린스만국':'./images/vr-career/teams/waklinsmann.webp',
+    '천양키즈':'./images/vr-career/teams/chunyang-kids.webp',
+    '뎅꿀':'./images/vr-career/teams/daengggul.png',
+    '타요스타포스':'./images/vr-career/teams/tayo-starforce.webp',
+    '달아이스':'./images/vr-career/teams/dal-ice.webp',
+    '레드힐즈':'./images/vr-career/teams/red-heels.webp',
+    '말복':'./images/vr-career/teams/malbok.webp',
+    '레드윙즈':'./images/vr-career/teams/red-wings.webp',
+    '무파자이언츠':'./images/vr-career/teams/moopa-giants.webp',
+    '유기농':'./images/vr-career/teams/organic.webp'
+};
+
+function getVrTeamLogo(teamName) {
+    return VR_TEAM_LOGOS[String(teamName || '').replace(/\s+/g, '')] || '';
+}
+
+const VR_CAREER_DATA = {
+    '달타': [
+        { id:'waktaverse-sports-2024', name:'2024 왁타버스 체육대회', team:'왁린스만국', directors:[], players:['냐냐','니즈','달타','단츄','빈스','사이다','임재천','로에'], coaches:[], event:'권총 사격\n조정', individual:'권총 사격 - 예선 탈락\n조정 - 은메달\n종합 - 최종 공동 25위', rank:'6위' },
+        { id:'lildongpa', name:'릴파 버츄얼 동계 스포츠 대회 (릴동파)', team:'달아이스', directors:['천양'], players:['단즈','단츄','달타','빙밍','설채이','제갈금자'], coaches:[], event:'아이스 골프\n봅슬레이\n포인트 컬링', individual:'아이스 골프 - 예선 탈락\n봅슬레이 - 예선 탈락\n포인트 컬링 - 금메달\n종합 - 최종 공동 12위', rank:'3위' },
+        { id:'wbd', name:'VR챗 왁타버스 야구 대회 (WBD)', team:'천 양키즈', directors:['천양'], players:['고여름','나솜','냐냐','녹초','달타','리냐','마다옴','망야','미르','아오이 히로','유샥크','카나시'], coaches:[], event:'3루수', individual:'—', rank:'4강' },
+        { id:'lilpa-point-curling', name:'릴파 VR 포인트컬링 대회', team:'뎅꿀', directors:[], players:['달타','스위데'], coaches:[], event:'포인트 컬링', individual:'—', rank:'우승' },
+        {
+            id:'sbo', name:'Segu Baseball Online (SBO)', team:'타요 스타포스', directors:['타요'], players:['난워니','누눙지','달타','빅토리','뽀린걸','유샥크','카린야','카푸','플리','한둬얼','햇비','힌콕'], coaches:['드라구노프','얼그레','추시우'], event:'3루수',
+            individual:'', rank:'우승',
+            batting:{ avg:'.357', obp:'.357', slg:'.357' },
+            games:[
+                { date:'10월 22일', hitAtBat:'2 / 4', avg:'.500', result:'2–4' },
+                { date:'10월 23일', hitAtBat:'0 / 3', avg:'.000', result:'0–3' },
+                { date:'10월 24일', hitAtBat:'0 / 3', avg:'.000', result:'0–3' },
+                { date:'10월 25일', hitAtBat:'3 / 4', avg:'.750', result:'3–4' },
+                { date:'합계', hitAtBat:'5 / 14', avg:'.357', result:'4경기', total:true }
+            ]
+        }
+    ],
+    '다룽': [],
+    '최또': [
+        {
+            id:'lildongpa', name:'릴파 버츄얼 동계 스포츠 대회 (릴동파)', team:'레드힐즈',
+            directors:['머독'], players:['따린','양도끼','유샥크','최또','카린야','햇비'], coaches:[],
+            event:'피겨 스케이팅\n고드름 다트',
+            individual:'피겨 스케이팅 - 5위\n고드름 다트 - 동메달\n종합 - 최종 공동 25위', rank:'5위'
+        },
+        {
+            id:'virtual-athletics-2025', name:'2025 버츄얼 육상 선수권 대회 (버육대)', team:'말복',
+            directors:['비챤'], players:['말왕','비몽','최또','치요','쿠우'], coaches:[],
+            event:'양궁\n역도\n권총 사격\n카레이싱',
+            individual:'양궁 - 은메달\n역도 - 최종 공동 6위\n권총 사격 - 예선 탈락\n카레이싱 - 금메달\n종합 - 최종 공동 4위', rank:'1위'
+        },
+        {
+            id:'lildongpa-2', name:'릴파 버츄얼 동계 스포츠 대회 2 (릴동파2)', team:'레드윙즈',
+            directors:['머독'], players:['강희또','따린','민결희','아르바','유현규','최또','햇비'], coaches:['미르','양도끼','호발'],
+            event:'아이스 골프\n봅슬레이',
+            individual:'아이스 골프 - 예선 탈락\n봅슬레이 - 금메달\n종합 - 최종 공동 6위', rank:'6위'
+        },
+        {
+            id:'sbo', name:'Segu Baseball Online (SBO)', team:'무파 자이언츠',
+            directors:['봉준'], players:['김세노','깡담비','독고혜지','릴파','마왕','매지','여르미','연토리뿡치','유키라','최또','카노','히루'], coaches:['대월향','시리안 레인','진호'],
+            event:'좌익수', individual:'', rank:'3위',
+            batting:{ avg:'.250', obp:'.250', slg:'.250' },
+            games:[
+                { date:'10월 22일', hitAtBat:'1 / 3', avg:'.333', result:'1–3' },
+                { date:'10월 23일', hitAtBat:'1 / 2', avg:'.500', result:'1–2' },
+                { date:'10월 24일', hitAtBat:'0 / 3', avg:'.000', result:'0–3' },
+                { date:'합계', hitAtBat:'2 / 8', avg:'.250', result:'3경기', total:true }
+            ]
+        }
+    ],
+    '카나시': [
+        {
+            id:'lildongpa', name:'릴파 버츄얼 동계 스포츠 대회 (릴동파)', team:'유기농',
+            directors:['우왁굳'], players:['마이곰이','스위데','여르미','채은채','카나시','호발'], coaches:[],
+            event:'봅슬레이\n바이애슬론',
+            individual:'봅슬레이 - 은메달\n바이애슬론 - 예선 탈락\n종합 - 최종 공동 12위', rank:'4위'
+        },
+        {
+            id:'wbd', name:'VR챗 왁타버스 야구 대회 (WBD)', team:'천 양키즈',
+            directors:['천양'], players:['고여름','나솜','냐냐','녹초','달타','리냐','마다옴','망야','미르','아오이 히로','유샥크','카나시'], coaches:[],
+            event:'유격수', individual:'—', rank:'4강'
+        }
+    ]
+};
 let songLikedOnlyFilter = false;
 let likeInProgress = new Set();
 
@@ -3583,7 +3696,7 @@ function renderHeaderTabs() {
     const colors = { '달타': '#FBC02D', '다룽': '#1E88E5', '최또': '#ff7fd9', '카나시': '#F57C00', '시그널': '#FF5252', '추가기능': '#8B5CF6', '롤링페이퍼': '#8B5CF6', '업보정리': '#8B5CF6' };
 
     if (desktopContainer) {
-        const memberRouteOwner = currentPage === '노래책' ? songbookMember : (currentPage === '클립' ? currentClipStreamer : (currentPage === '업보정리' ? upboCurrentMember : currentPage));
+        const memberRouteOwner = currentPage === '노래책' ? songbookMember : (currentPage === '클립' ? currentClipStreamer : (currentPage === '업보정리' ? upboCurrentMember : (currentPage === 'VR경력' ? vrCareerMember : currentPage)));
         let html = `
             <div class="desktop-signal-logo relative cursor-pointer mr-1" onclick="openUpdateModal()">
                 <img src="./images/logo.webp" alt="SIGNAL Logo" style="height: 36px; object-fit: contain; transition: transform 0.2s;">
@@ -3621,7 +3734,8 @@ function renderHeaderTabs() {
                 const memberToolHtml = [
                     visibility.songbook ? `<a href="#" onclick="executeDesktopTabChange('노래책_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">노래책</a>` : '',
                     visibility.clips ? `<a href="#" onclick="executeDesktopTabChange('클립_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">클립 모아보기</a>` : '',
-                    visibility.upbo ? `<a href="#" onclick="executeDesktopTabChange('업보정리_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">업보정리</a>` : ''
+                    visibility.upbo ? `<a href="#" onclick="executeDesktopTabChange('업보정리_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">업보정리</a>` : '',
+                    `<a href="#" onclick="executeDesktopTabChange('VR경력_${tab}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">VR 대회 경력</a>`
                 ].join('');
                 dropdownHtml = memberToolHtml + (visibility.links ? links.map(link => `
                     <a href="#" onclick="openSmartLink('${link.url}'); event.preventDefault();" class="dynamic-member-hover block px-4 py-2 text-[14.5px] font-bold text-gray-700 hover:bg-gray-100 transition-colors text-center border-b border-gray-100" style="--dynamic-hover-color:${hoverColor}">${link.title}</a>
@@ -3652,7 +3766,7 @@ function renderHeaderTabs() {
     }
 
     if (mobileNav) {
-        const memberRouteOwner = currentPage === '노래책' ? songbookMember : (currentPage === '클립' ? currentClipStreamer : (currentPage === '업보정리' ? upboCurrentMember : currentPage));
+        const memberRouteOwner = currentPage === '노래책' ? songbookMember : (currentPage === '클립' ? currentClipStreamer : (currentPage === '업보정리' ? upboCurrentMember : (currentPage === 'VR경력' ? vrCareerMember : currentPage)));
         const mobileTabs = ['홈', '달타', '다룽', '최또', '카나시', '시그널'];
         mobileNav.innerHTML = mobileTabs.map(tab => {
             const active = tab === '홈' ? currentPage === '홈' : (['달타', '다룽', '최또', '카나시'].includes(tab) ? memberRouteOwner === tab : currentPage === tab);
@@ -8230,9 +8344,8 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
             rollingEntries = [];
             loadedRollingTopicIds = new Set();
 
-            try {
-                await loadSignalRecordsFirstPage();
-            } catch (e) { console.error("시그널 데이터 로드 에러:", e); }
+            // 시그널 탭은 별도 signal_records 컬렉션을 사용하지 않고 월간 일정의
+            // '시그널합방' 유형을 자동으로 모아 보여준다.
 
         }
 
@@ -8266,7 +8379,13 @@ async function changeTab(tabName) {
     if (currentUpboTab && tabName !== currentUpboTab && !confirmDiscardUpboChanges()) return false;
     const clipMatch = String(tabName).match(/^클립_(달타|다룽|최또|카나시)$/);
     const calendarMatch = String(tabName).match(/^(달타|다룽|최또|카나시)_calendar$/);
-    if (clipMatch) {
+    const vrCareerMatch = String(tabName).match(/^VR경력_(달타|다룽|최또|카나시)$/);
+    if (vrCareerMatch) {
+        currentPage = 'VR경력';
+        vrCareerMember = vrCareerMatch[1];
+        const memberSlug = {'달타':'dalta','다룽':'darung','최또':'choiagain','카나시':'kanashi'}[vrCareerMember];
+        window.location.hash = `#member/${memberSlug}/career`;
+    } else if (clipMatch) {
         currentPage = '클립';
         currentClipStreamer = clipMatch[1];
         const memberSlug = {'달타':'dalta','다룽':'darung','최또':'choiagain','카나시':'kanashi'}[currentClipStreamer];
@@ -8327,6 +8446,22 @@ async function changeTab(tabName) {
     stopRollingEntriesWatcher();
     currentRollingTopic = null;
 
+    // VR 경력은 일정/메모 데이터와 무관한 정적 페이지다. 로컬 미리보기에서
+    // Firestore 또는 일정 캐시 요청이 지연돼도 본문이 비지 않도록 즉시 렌더링한다.
+    if (currentPage === 'VR경력') {
+        renderHeaderTabs();
+        render();
+        // VR 경력의 팀 구성은 멤버 관리 프로필을 사용한다. 본문은 먼저 즉시 보여주고,
+        // 이 탭에 실제로 들어왔을 때만 최신 멤버 목록을 읽어 사진을 다시 연결한다.
+        const requestedVrMember = vrCareerMember;
+        const memberOk = await loadCustomMembersFromFirebase();
+        if (memberOk && currentPage === 'VR경력' && vrCareerMember === requestedVrMember) {
+            saveScheduleCache();
+            render();
+        }
+        return true;
+    }
+
     if (['달타', '다룽', '최또', '카나시'].includes(currentPage)) {
         await loadSchedulesFromFirebase({ member: currentPage });
 
@@ -8341,9 +8476,10 @@ async function changeTab(tabName) {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
         // 업보관리 데이터는 로컬에 기억해두지 않고 탭에 들어올 때마다 항상 최신 데이터를 즉시 불러온다.
         await loadUpboDataFromFirebase();
-    } else if (currentPage === '홈') {
+    } else if (currentPage === '홈' || currentPage === '시그널') {
         // 홈은 모든 멤버의 일정을 합쳐서 보여주므로, 캐시에 전체 멤버 데이터가 없다면 새로 불러온다.
         await loadSchedulesFromFirebase();
+        if (currentPage === '시그널') await loadSignalArchiveOverrides();
     } else {
         await loadSchedulesFromFirebase({ useCacheOnly: true });
     }
@@ -8568,7 +8704,7 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 
 function render() {
     const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '업보선택': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF', '파트분배기': '#F3E8FF' };
-    const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage === '클립' ? currentClipStreamer : currentPage;
+    const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage === '클립' ? currentClipStreamer : currentPage === 'VR경력' ? vrCareerMember : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
     document.body.style.setProperty('--page-accent', themeColors[activeThemeMember] || '#FF5252');
     document.documentElement.style.setProperty('--theme-color', currentPage === '업보선택' ? '#8B5CF6' : (themeColors[activeThemeMember] || '#8B5CF6'));
@@ -8588,7 +8724,21 @@ function render() {
     if (mBtnContainer) mBtnContainer.innerHTML = '';
     if (dBtnContainer) dBtnContainer.innerHTML = '';
     
-    const content = document.getElementById('mainContent'); if(!content) return; content.innerHTML = '';
+    const content = document.getElementById('mainContent');
+    if(!content) return;
+    // 데스크톱 월간 달력의 매우 넓은 max-content 폭이 VR 경력 탭까지 남으면
+    // 경력 본문이 화면 오른쪽 바깥에 배치된다. 전용 클래스로 뷰포트 폭을 복원한다.
+    const isVrCareerRoute = currentPage === 'VR경력';
+    content.classList.toggle('vr-career-route', isVrCareerRoute);
+    const vrRouteInlineStyles = {
+        width:'100vw', minWidth:'0', maxWidth:'100vw', flex:'0 0 100vw',
+        marginLeft:'0', marginRight:'0', paddingLeft:'0', paddingRight:'0', overflowX:'hidden'
+    };
+    Object.entries(vrRouteInlineStyles).forEach(([property, value]) => {
+        if (isVrCareerRoute) content.style.setProperty(property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`), value, 'important');
+        else content.style.removeProperty(property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`));
+    });
+    content.innerHTML = '';
 
     try {
         const grouped = {};
@@ -8611,6 +8761,8 @@ function render() {
             renderUpboSelectPage();
         } else if (currentPage === '노래책') {
             renderSongbook();
+        } else if (currentPage === 'VR경력') {
+            renderVrCareerPage();
         } else if (currentPage === '시그널') {
             renderSignalPage();
         } else if (currentPage === '사다리타기') {
@@ -8659,6 +8811,76 @@ function render() {
 function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+function renderVrCareerPage() {
+    const content = document.getElementById('mainContent');
+    if (!content) return;
+    const member = vrCareerMember;
+    const careers = VR_CAREER_DATA[member] || [];
+    const cards = careers.map(career => {
+        const logo = VR_COMPETITION_LOGOS[career.id] || '';
+        return `<article class="vr-career-card" role="button" tabindex="0" onclick="openVrCareerDetail('${member}','${career.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openVrCareerDetail('${member}','${career.id}')}" aria-label="${escapeHtml(career.name)} 상세 보기">
+            <div class="vr-career-card-logo">${logo ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(career.name)} 로고" loading="lazy">` : `<div class="vr-career-logo-placeholder"><i class="fi fi-rr-trophy-star"></i><span>LOGO 준비 중</span></div>`}</div>
+            <h3>${escapeHtml(career.name)}</h3>
+        </article>`;
+    }).join('');
+    content.innerHTML = `<section class="vr-career-page" style="--member-accent:${themeColors[member] || '#5D4037'}">
+        ${buildMemberTopNavigation(member, 'career')}
+        <header class="vr-career-heading"><div><span>VR COMPETITION CAREER</span><h1>${escapeHtml(member)}의 VR 대회 경력</h1></div><p>카드를 선택하면 팀, 포지션과 대회 성적을 볼 수 있습니다.</p></header>
+        ${cards ? `<div class="vr-career-grid">${cards}</div>` : `<div class="vr-career-empty"><i class="fi fi-rr-trophy"></i><strong>등록된 대회 경력이 없습니다.</strong><span>멤버별 경력표가 준비되면 이곳에 추가됩니다.</span></div>`}
+    </section>`;
+}
+
+function resolveVrCareerRosterMember(nickname) {
+    const name = String(nickname || '').trim();
+    if (!name) return null;
+    const managed = customMembers.find(member => String(member.nickname || '').trim() === name);
+    if (managed) return { nickname:name, imageUrl:managed.imageUrl || managed.img || managed.profilePic || '', matched:true };
+    const builtin = members.find(member => String(member.name || '').trim() === name);
+    if (builtin) return { nickname:name, imageUrl:builtin.img || '', matched:true };
+    return { nickname:name, imageUrl:'', matched:false };
+}
+
+function buildVrCareerRosterChips(names) {
+    return (names || []).map(name => {
+        const member = resolveVrCareerRosterMember(name);
+        if (!member) return '';
+        const fallback = escapeHtml(member.nickname.slice(0, 1) || '?');
+        const avatar = member.imageUrl
+            ? `<img src="${escapeHtml(member.imageUrl)}" alt="${escapeHtml(member.nickname)}" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">`
+            : '';
+        return `<span class="vr-career-roster-chip ${member.matched ? 'is-matched' : 'is-unmatched'}" title="${member.matched ? '멤버 관리 프로필 연결됨' : '멤버 관리에 등록되지 않은 닉네임'}">${avatar}<i style="${member.imageUrl ? 'display:none' : 'display:grid'}">${fallback}</i><b>${escapeHtml(member.nickname)}</b></span>`;
+    }).join('');
+}
+
+function buildVrCareerRoster(career) {
+    const roles = [
+        { label:'감독', names:career.directors || [] },
+        { label:'선수', names:career.players || [] },
+        { label:'코치', names:career.coaches || [] }
+    ].filter(role => role.names.length > 0);
+    if (!roles.length) return '';
+    return `<section class="vr-career-roster"><h3>팀 구성</h3>${roles.map(role => `<div class="vr-career-roster-row"><strong>${role.label}</strong><div>${buildVrCareerRosterChips(role.names)}</div></div>`).join('')}</section>`;
+}
+
+function openVrCareerDetail(member, competitionId) {
+    const career = (VR_CAREER_DATA[member] || []).find(item => item.id === competitionId);
+    const modal = document.getElementById('vrCareerDetailModal');
+    const body = document.getElementById('vrCareerDetailBody');
+    if (!career || !modal || !body) return;
+    const games = career.games ? `<section class="vr-career-games"><h3>경기 날짜별 타격 기록</h3><div class="vr-career-table-wrap"><table><thead><tr><th>경기 날짜</th><th>안타 / 타수</th><th>타율</th><th>경기 결과</th></tr></thead><tbody>${career.games.map(game => `<tr class="${game.total ? 'is-total' : ''}"><td>${escapeHtml(game.date)}</td><td>${escapeHtml(game.hitAtBat)}</td><td>${escapeHtml(game.avg)}</td><td>${escapeHtml(game.result)}</td></tr>`).join('')}</tbody></table></div></section>` : '';
+    const batting = career.batting ? `<section class="vr-career-batting"><h3>타격 기록</h3><div><span><small>타율 AVG</small><b>${escapeHtml(career.batting.avg)}</b></span><span><small>출루율 OBP</small><b>${escapeHtml(career.batting.obp)}</b></span><span><small>장타율 SLG</small><b>${escapeHtml(career.batting.slg)}</b></span></div></section>` : '';
+    const roster = buildVrCareerRoster(career);
+    const teamLogo = getVrTeamLogo(career.team);
+    const teamLogoHtml = teamLogo ? `<div class="vr-career-team-logo"><img src="${escapeHtml(teamLogo)}" alt="${escapeHtml(career.team)} 팀 로고" loading="eager" decoding="async"></div>` : '';
+    body.innerHTML = `<div class="vr-career-detail-title"><span>${escapeHtml(member)} · VR 대회 경력</span><h2>${escapeHtml(career.name)}</h2></div>${teamLogoHtml}<dl class="vr-career-detail-grid"><div><dt>소속 팀</dt><dd>${escapeHtml(career.team)}</dd></div><div><dt>출전 종목 / 포지션</dt><dd>${escapeHtml(career.event)}</dd></div><div><dt>개인 성적</dt><dd>${escapeHtml(career.individual)}</dd></div><div><dt>팀 순위</dt><dd>${escapeHtml(career.rank)}</dd></div></dl>${roster}${batting}${games}`;
+    modal.classList.replace('hidden', 'flex');
+}
+
+function closeVrCareerDetail() {
+    document.getElementById('vrCareerDetailModal')?.classList.replace('flex', 'hidden');
+}
+
 
 function buildMemberQuickMenuHtml(member, activeMenu = 'schedule') {
     const memberColor = themeColors[member] || '#5D4037';
@@ -8740,7 +8962,8 @@ function buildMemberTopNavigation(member, activeMenu = 'home') {
         { key:'calendar', label:isMobile ? '주간 일정' : '월간 일정', icon:'fi-rr-calendar', action:`${member}_calendar` },
         { key:'songbook', label:'노래책', icon:'fi-rr-music-alt', action:`노래책_${member}` },
         { key:'clips', label:'클립', icon:'fi-rr-play-alt', action:`클립_${member}` },
-        { key:'upbo', label:'업보정리', icon:'fi-rr-box-open', action:`업보정리_${member}` }
+        { key:'upbo', label:'업보정리', icon:'fi-rr-box-open', action:`업보정리_${member}` },
+        { key:'career', label:'VR 대회 경력', icon:'fi-rr-trophy-star', action:`VR경력_${member}` }
     ].filter(item => item.key === 'home' || visibility[item.key] !== false);
     const toolsHtml = toolItems.map(item => `<button type="button" class="${activeMenu === item.key ? 'is-current' : ''}" onclick="changeTab('${item.action}')"><i class="fi ${item.icon}"></i><span>${item.label}</span></button>`).join('');
     const linksHtml = visibility.links === false ? '' : getMemberDisplayLinks(member).map(link => {
@@ -8763,6 +8986,7 @@ function appendMobileMemberChannelFooter() {
     const member = currentPage === '노래책' ? songbookMember
         : currentPage === '클립' ? currentClipStreamer
         : currentPage === '업보정리' ? upboCurrentMember
+        : currentPage === 'VR경력' ? vrCareerMember
         : (['달타', '다룽', '최또', '카나시'].includes(currentPage) ? currentPage : '');
     const content = document.getElementById('mainContent');
     if (!member || !content || content.querySelector('.signal-member-channel-footer')) return;
@@ -11132,77 +11356,257 @@ async function loadMoreSignalRecords() {
 }
 window.loadMoreSignalRecords = loadMoreSignalRecords;
 
+const SIGNAL_ARCHIVE_MEMBERS = ['달타', '다룽', '최또', '카나시'];
+
+async function loadSignalArchiveOverrides(forceReload = false) {
+    if (signalArchiveOverridesLoaded && !forceReload) return true;
+    try {
+        const snapshot = await getDocs(collection(db, 'signalArchiveOverrides'));
+        signalArchiveOverrides = {};
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const date = data.date || docSnap.id;
+            if (date) signalArchiveOverrides[date] = { ...data, date };
+        });
+        signalArchiveOverridesLoaded = true;
+        return true;
+    } catch (error) {
+        console.error('시그널 전용 수정 데이터 로드 실패:', error);
+        return false;
+    }
+}
+
+function getSignalArchiveEntries() {
+    // 같은 날짜에 멤버별로 각각 등록된 일정은 한 날짜의 대표 카드로 합친다.
+    // 원본 일정 객체는 절대 수정하지 않고, 화면용 새 객체만 만든다.
+    const groupedByDate = new Map();
+    scheduleList.filter(schedule => schedule.broadType === '시그널합방').forEach(schedule => {
+        const startDate = schedule.startDate || schedule.date || '';
+        const endDate = schedule.endDate || startDate;
+        if (!startDate) return;
+        const title = String(schedule.title || '제목 없는 시그널 합방').trim();
+        const time = String(schedule.globalStartTime || schedule.time || '').trim();
+        const participants = new Set();
+        if (SIGNAL_ARCHIVE_MEMBERS.includes(schedule.tabOrMember)) participants.add(schedule.tabOrMember);
+        parseMembers(schedule.memberTag || '').forEach(member => {
+            if (SIGNAL_ARCHIVE_MEMBERS.includes(member.nickname)) participants.add(member.nickname);
+        });
+        if (!groupedByDate.has(startDate)) groupedByDate.set(startDate, []);
+        groupedByDate.get(startDate).push({ title, startDate, endDate, time, participants });
+    });
+
+    const entries = Array.from(groupedByDate.entries()).map(([date, candidates]) => {
+        const mergedParticipants = new Set();
+        candidates.forEach(candidate => candidate.participants.forEach(member => mergedParticipants.add(member)));
+        // 참여 멤버 정보가 가장 풍부한 일정을 기본 대표로 사용한다. 동률이면 시간이 있는 일정을 우선한다.
+        const representative = [...candidates].sort((a, b) =>
+            b.participants.size - a.participants.size || Number(Boolean(b.time)) - Number(Boolean(a.time))
+        )[0];
+        const override = signalArchiveOverrides[date];
+        const overrideMembers = Array.isArray(override?.members)
+            ? override.members.filter(member => SIGNAL_ARCHIVE_MEMBERS.includes(member))
+            : null;
+        return {
+            key: date,
+            title: String(override?.title || representative.title || '제목 없는 시그널 합방').trim(),
+            startDate: date,
+            endDate: representative.endDate || date,
+            time: representative.time,
+            participants: new Set(overrideMembers || [...mergedParticipants]),
+            month: date.slice(0, 7)
+        };
+    });
+    return entries.sort((a, b) => {
+        const dateDiff = b.startDate.localeCompare(a.startDate);
+        return dateDiff || b.time.localeCompare(a.time) || a.title.localeCompare(b.title, 'ko');
+    });
+}
+
+function formatSignalArchiveDate(entry) {
+    const toLabel = value => {
+        const [, month, day] = String(value).split('-').map(Number);
+        return `${month}월 ${day}일`;
+    };
+    return entry.startDate === entry.endDate
+        ? toLabel(entry.startDate)
+        : `${toLabel(entry.startDate)} – ${toLabel(entry.endDate)}`;
+}
+
+function formatSignalArchiveMonth(monthKey) {
+    const [year, month] = monthKey.split('-').map(Number);
+    return `${year}년 ${month}월`;
+}
+
+window.setSignalArchiveMemberFilter = function(member) {
+    signalArchiveMemberFilter = member;
+    signalArchiveMonthFilter = '';
+    renderSignalPage();
+};
+
+window.setSignalArchiveMonthFilter = function(month) {
+    signalArchiveMonthFilter = month;
+    renderSignalPage();
+};
+
+window.openSignalArchiveEditModal = function(date) {
+    if (!isAdmin) return;
+    const entry = getSignalArchiveEntries().find(item => item.startDate === date);
+    if (!entry) return;
+    editingSignalArchiveDate = date;
+    editingSignalArchiveMembers = new Set(entry.participants);
+    let modal = document.getElementById('signalArchiveEditModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'signalArchiveEditModal';
+        modal.className = 'signal-archive-edit-modal hidden';
+        modal.addEventListener('click', event => {
+            if (event.target === modal) closeSignalArchiveEditModal();
+        });
+        document.body.appendChild(modal);
+    }
+    modal.innerHTML = `<div class="signal-archive-edit-card" onclick="event.stopPropagation()">
+        <button type="button" class="signal-archive-edit-close" onclick="closeSignalArchiveEditModal()" aria-label="닫기"><i class="fi fi-rr-cross-small"></i></button>
+        <span class="signal-archive-edit-kicker">SIGNAL ARCHIVE EDIT</span>
+        <h2>대표 일정 수정</h2>
+        <p>${formatSignalArchiveDate(entry)} · 이 수정은 시그널 탭에만 적용됩니다.</p>
+        <label class="signal-archive-edit-field"><span>제목</span><input id="signalArchiveEditTitle" type="text" maxlength="80" value="${escapeHtml(entry.title)}"></label>
+        <div class="signal-archive-edit-field"><span>참여 멤버</span><div id="signalArchiveEditMembers" class="signal-archive-edit-members"></div></div>
+        <div class="signal-archive-edit-note"><i class="fi fi-rr-info"></i><span>원본 월간 일정의 제목과 참여 멤버는 변경되지 않습니다.</span></div>
+        <div class="signal-archive-edit-actions"><button type="button" onclick="closeSignalArchiveEditModal()">취소</button><button type="button" class="is-primary" onclick="saveSignalArchiveOverride()">시그널 탭에 저장</button></div>
+    </div>`;
+    renderSignalArchiveEditMembers();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+};
+
+function renderSignalArchiveEditMembers() {
+    const container = document.getElementById('signalArchiveEditMembers');
+    if (!container) return;
+    container.innerHTML = SIGNAL_ARCHIVE_MEMBERS.map(member => {
+        const selected = editingSignalArchiveMembers.has(member);
+        const profile = members.find(item => item.name === member);
+        return `<button type="button" class="signal-archive-edit-member${selected ? ' is-selected' : ''}" onclick="toggleSignalArchiveEditMember('${member}')">
+            <span class="signal-archive-edit-avatar"><img src="${escapeHtml(profile?.img || '')}" alt=""></span>
+            <strong>${member}</strong><i class="fi fi-sr-check-circle"></i>
+        </button>`;
+    }).join('');
+}
+
+window.toggleSignalArchiveEditMember = function(member) {
+    if (!SIGNAL_ARCHIVE_MEMBERS.includes(member)) return;
+    if (editingSignalArchiveMembers.has(member)) editingSignalArchiveMembers.delete(member);
+    else editingSignalArchiveMembers.add(member);
+    renderSignalArchiveEditMembers();
+};
+
+window.closeSignalArchiveEditModal = function() {
+    const modal = document.getElementById('signalArchiveEditModal');
+    if (modal) {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+    editingSignalArchiveDate = '';
+    editingSignalArchiveMembers = new Set();
+    document.body.style.overflow = '';
+};
+
+window.saveSignalArchiveOverride = async function() {
+    if (!isAdmin || !loggedInUser || !editingSignalArchiveDate) return alert('관리자 로그인 후 수정할 수 있습니다.');
+    const titleInput = document.getElementById('signalArchiveEditTitle');
+    const title = String(titleInput?.value || '').trim();
+    if (!title) return alert('제목을 입력해 주세요.');
+    const date = editingSignalArchiveDate;
+    const data = {
+        date,
+        title,
+        members: SIGNAL_ARCHIVE_MEMBERS.filter(member => editingSignalArchiveMembers.has(member)),
+        updatedAt: Date.now(),
+        updatedBy: loggedInUser.uid || ''
+    };
+    try {
+        // 원본 일정 컬렉션이 아닌 시그널 화면 전용 컬렉션에만 저장한다.
+        await setDoc(doc(db, 'signalArchiveOverrides', date), data, { merge: true });
+        signalArchiveOverrides[date] = data;
+        signalArchiveOverridesLoaded = true;
+        closeSignalArchiveEditModal();
+        renderSignalPage();
+        if (typeof showToast === 'function') showToast('시그널 대표 일정이 수정되었습니다.');
+    } catch (error) {
+        console.error('시그널 대표 일정 저장 실패:', error);
+        alert('수정 내용을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+};
+
 function renderSignalPage() {
     const content = document.getElementById('mainContent');
-    const bgClass = isMobile ? 'p-4' : 'p-10';
+    const allEntries = getSignalArchiveEntries();
+    const memberEntries = signalArchiveMemberFilter === '전체 일정'
+        ? allEntries
+        : allEntries.filter(entry => entry.participants.has(signalArchiveMemberFilter));
+    const months = [...new Set(memberEntries.map(entry => entry.month))].sort((a, b) => b.localeCompare(a));
+    if (!months.includes(signalArchiveMonthFilter)) signalArchiveMonthFilter = months[0] || '';
+    const visibleEntries = signalArchiveMonthFilter
+        ? memberEntries.filter(entry => entry.month === signalArchiveMonthFilter)
+        : [];
+    const counts = Object.fromEntries(SIGNAL_ARCHIVE_MEMBERS.map(member => [
+        member,
+        allEntries.filter(entry => entry.participants.has(member)).length
+    ]));
 
-    // 캐시가 깨졌거나(네트워크 오류 등으로 목록은 비어있는데 "더 보기" 상태만 true로 남은 경우)
-    // 사용자가 직접 "더 보기"를 눌러야만 목록이 나타나는 문제를 막기 위해 자동으로 한 번 더 불러온다.
-    if (signalRecords.length === 0 && signalRecordsHasMore && !signalRecordsLoadingMore) {
-        setTimeout(() => loadMoreSignalRecords(), 0);
-    }
-
-    const addBtnHtml = isAdmin ? `
-        <button onclick="openSignalAddModal()" class="px-4 py-2.5 md:px-6 md:py-3 bg-[#FF5252] text-white font-bold rounded-xl shadow-[2px_2px_0px_0px_rgba(93,64,55,1)] hover:brightness-110 hover:-translate-y-1 transition font-paperozi text-[15px] md:text-lg shrink-0 flex items-center gap-1.5">
-            <i class="fi fi-br-plus"></i> 추가
-        </button>
-    ` : '';
-
-    let html = `<div class="big-white-box relative theme-signal" style="min-height: 1200px; padding: ${isMobile ? '20px' : '40px'}; width: 100%; display: block; box-sizing: border-box;">`;
-    html += `
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-[28px] lg:text-3xl font-bold text-[#5D4037] font-paperozi">시그널</h2>
-            ${addBtnHtml}
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-    `;
-
-    signalRecords.forEach(record => {
-        const thumb = record.imageUrl || 'https://via.placeholder.com/400x300/ffdddd/FF5252?text=SIGNAL';
-        
-        // 쉼표나 공백으로 구분된 멤버들을 각각 분리하여 뱃지 생성
-        const memberNames = (record.member || '').split(/[, ]+/).filter(Boolean);
-        const memberBadgesHtml = memberNames.map(m => {
-            const mColor = themeColors[m] || '#FF5252';
-            return `<span class="text-[11px] md:text-[12px] font-bold px-2 py-0.5 rounded-full" style="color:${mColor}; background-color:${hexToRgba(mColor, 0.14)};">${escapeHtml(m)}</span>`;
-        }).join(' ');
-
-        html += `
-            <div class="rounded-2xl overflow-hidden bg-white shadow-md cursor-pointer hover:-translate-y-1 transition relative group flex flex-col" onclick="openSignalDetailModal('${record.id}')" oncontextmenu="if(typeof isAdmin !== 'undefined' && isAdmin) { event.preventDefault(); event.stopPropagation(); openSignalEditModal('${record.id}'); }">
-                ${isAdmin ? `
-                <div class="absolute top-2 right-2 flex gap-1 z-10 bg-[#FFFDF5]/90 rounded-md px-1">
-                    <button onclick="event.stopPropagation(); openSignalEditModal('${record.id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fi fi-rr-edit"></i></button>
-                    <button onclick="event.stopPropagation(); deleteSignalRecord('${record.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fi fi-br-cross-small"></i></button>
-                </div>
-                ` : ''}
-                <div class="w-full aspect-video overflow-hidden bg-gray-100">
-                    <img src="${thumb}" class="w-full h-full object-cover" alt="${escapeHtml(record.title || '')}" loading="lazy" decoding="async">
-                </div>
-                <div class="p-3 md:p-4 flex flex-col gap-1.5 flex-1">
-                    <div class="text-[14px] md:text-[16px] font-bold text-[#5D4037] font-paperozi line-clamp-1">${escapeHtml(record.title || '')}</div>
-                    <div class="flex items-center justify-between mt-auto pt-1 gap-1 flex-wrap">
-                        <span class="text-[12px] md:text-[13px] font-bold text-gray-400">${escapeHtml(record.date || '')}</span>
-                        <div class="flex items-center gap-1 flex-wrap">${memberBadgesHtml}</div>
-                    </div>
+    const memberButtons = ['전체 일정', ...SIGNAL_ARCHIVE_MEMBERS].map(member => {
+        const count = member === '전체 일정' ? allEntries.length : counts[member];
+        const active = signalArchiveMemberFilter === member ? ' is-active' : '';
+        return `<button type="button" class="signal-archive-member${active}" onclick="setSignalArchiveMemberFilter('${member}')">
+            <span>${member}</span><strong>${count}</strong>
+        </button>`;
+    }).join('');
+    const monthButtons = months.map(month => `
+        <button type="button" class="signal-archive-month${signalArchiveMonthFilter === month ? ' is-active' : ''}" onclick="setSignalArchiveMonthFilter('${month}')">
+            ${formatSignalArchiveMonth(month)}
+        </button>`).join('');
+    const cards = visibleEntries.map(entry => {
+        const people = SIGNAL_ARCHIVE_MEMBERS.filter(member => entry.participants.has(member));
+        return `<article class="signal-archive-card${isAdmin ? ' is-admin-editable' : ''}" ${isAdmin ? `oncontextmenu="event.preventDefault(); event.stopPropagation(); openSignalArchiveEditModal('${entry.startDate}')" title="마우스 오른쪽 버튼으로 대표 일정 수정"` : ''}>
+            <div class="signal-archive-date">
+                <strong>${formatSignalArchiveDate(entry)}</strong>
+                <span>${escapeHtml(entry.time || '시간 미정')}</span>
+            </div>
+            <div class="signal-archive-info">
+                <h3>${escapeHtml(entry.title)}</h3>
+                <div class="signal-archive-participants">
+                    ${people.map(member => `<span style="--member-color:${themeColors[member] || '#FF5252'}">${member}</span>`).join('') || '<span class="is-empty">참여 멤버 미등록</span>'}
                 </div>
             </div>
-        `;
-    });
-    if (signalRecords.length === 0) {
-        html += `<div class="col-span-full text-center text-gray-400 font-bold py-16 text-lg">등록된 시그널 기록이 없습니다.</div>`;
-    }
-    html += `</div>`;
-    if (signalRecordsHasMore) {
-        html += `
-        <div class="flex justify-center mt-8">
-            <button onclick="loadMoreSignalRecords()" ${signalRecordsLoadingMore ? 'disabled' : ''} class="px-6 py-2.5 bg-white border-2 border-[#5D4037] text-[#5D4037] font-bold rounded-xl hover:bg-[#5D4037] hover:text-white transition font-paperozi text-[14px] disabled:opacity-50">
-                ${signalRecordsLoadingMore ? '불러오는 중...' : '더 보기'}
-            </button>
-        </div>`;
-    }
-    html += `</div>`;
-    content.innerHTML = html;
-    content.className = 'shrink-0 transition-all duration-300 w-full lg:w-[1795px] max-w-full lg:mx-auto pb-6';
+        </article>`;
+    }).join('');
+
+    content.innerHTML = `<div class="signal-archive-page theme-signal">
+        <header class="signal-archive-header">
+            <div>
+                <span class="signal-archive-kicker">SIGNAL COLLAB ARCHIVE</span>
+                <h2>시그널 합방 모아보기</h2>
+                <p>월간 일정에 등록된 시그널 합방을 멤버와 월별로 한눈에 확인하세요.</p>
+            </div>
+            <div class="signal-archive-total"><strong>${allEntries.length}</strong><span>전체 일정</span></div>
+        </header>
+        <div class="signal-archive-layout">
+            <aside class="signal-archive-sidebar">
+                <h3>멤버</h3>
+                <div class="signal-archive-members">${memberButtons}</div>
+            </aside>
+            <section class="signal-archive-main">
+                <div class="signal-archive-toolbar">
+                    <div><span>선택한 멤버</span><strong>${signalArchiveMemberFilter}</strong></div>
+                    <div class="signal-archive-months">${monthButtons}</div>
+                </div>
+                <div class="signal-archive-list">
+                    ${cards || `<div class="signal-archive-empty"><i class="fi fi-rr-calendar-clock"></i><strong>표시할 시그널 합방이 없습니다.</strong><span>월간 일정에서 유형을 ‘시그널합방’으로 등록하면 자동으로 나타납니다.</span></div>`}
+                </div>
+            </section>
+        </div>
+    </div>`;
+    content.className = 'shrink-0 transition-all duration-300 w-full max-w-full pb-6';
 }
 
 function previewSignalImageFile(input) {
@@ -12982,7 +13386,7 @@ async function initApp() {
 
     const currentHash = window.location.hash;
     const currentHashPath = currentHash.split('?')[0];
-    const memberRouteMatch = currentHashPath.match(/^#member\/(dalta|darung|choiagain|kanashi)\/(home|calendar|clips|upbo)$/);
+    const memberRouteMatch = currentHashPath.match(/^#member\/(dalta|darung|choiagain|kanashi)\/(home|calendar|clips|upbo|career)$/);
     if (partDividerInviteCode) {
         currentPage = '파트분배기';
         initialTab = '파트분배기';
@@ -12995,6 +13399,7 @@ async function initApp() {
         if (routeView === 'calendar') initialTab = `${routeMember}_calendar`;
         else if (routeView === 'clips') initialTab = `클립_${routeMember}`;
         else if (routeView === 'upbo') initialTab = `업보정리_${routeMember}`;
+        else if (routeView === 'career') initialTab = `VR경력_${routeMember}`;
         else initialTab = routeMember;
     } else if (currentHashPath && hashToTab[currentHashPath]) {
         let mapped = hashToTab[currentHashPath];
@@ -15102,4 +15507,14 @@ function partDividerSyncMembersToFirebase() {
 }
 
 // 🚨 주의: 아래 코드가 반드시 위의 클립 코드들보다 "더 밑에(맨 끝에)" 있어야 합니다! 🚨
+// VR 경력 직접 주소는 Firebase 초기화보다 먼저 정적 본문을 표시한다.
+// VS Code Live Preview/Live Server에서 외부 요청이 늦어져도 빈 화면이 남지 않는다.
+const earlyVrCareerRoute = window.location.hash.split('?')[0].match(/^#member\/(dalta|darung|choiagain|kanashi)\/career$/);
+if (earlyVrCareerRoute) {
+    const earlySlugToMember = { dalta:'달타', darung:'다룽', choiagain:'최또', kanashi:'카나시' };
+    vrCareerMember = earlySlugToMember[earlyVrCareerRoute[1]];
+    currentPage = 'VR경력';
+    renderHeaderTabs();
+    render();
+}
 initApp().finally(hidePageLoadingScreen);

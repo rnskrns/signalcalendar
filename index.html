@@ -38,7 +38,7 @@
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css'>
     <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/uicons-brands/css/uicons-brands.css'>
-    <link rel="stylesheet" href="style.css?v=20261023-cineti-panel-fix">
+    <link rel="stylesheet" href="style.css?v=20261030-signal-archive-edit">
 
     <!-- 외부 리소스 렌더링 사전 연결 -->
     <link rel="preconnect" href="https://i.postimg.cc">
@@ -825,7 +825,14 @@
         </div>
     </div>
 
-    <script type="module" src="script.js?v=20261028-jkolpc-profile"></script>
+    <div id="vrCareerDetailModal" class="hidden vr-career-modal" onclick="if(event.target===this) closeVrCareerDetail()">
+        <div class="vr-career-modal-panel" role="dialog" aria-modal="true" aria-label="VR 대회 경력 상세">
+            <button type="button" class="vr-career-modal-close" onclick="closeVrCareerDetail()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button>
+            <div id="vrCareerDetailBody"></div>
+        </div>
+    </div>
+
+    <script type="module" src="script.js?v=20261030-signal-archive-edit"></script>
 
 </body>
 </html>
