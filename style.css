@@ -4854,7 +4854,7 @@ html.dark-mode .vr-career-page{color:#f5efec}html.dark-mode .vr-career-heading p
 .signal-archive-total strong { display:block; color:#ff5252; font-size:28px; line-height:1; }
 .signal-archive-total span { display:block; margin-top:7px; color:#9a6e67; font-size:12px; font-weight:800; }
 .signal-archive-layout { display:grid; grid-template-columns:230px minmax(0,1fr); gap:28px; padding-top:30px; }
-.signal-archive-sidebar { padding:22px; border:1px solid #eee1dc; border-radius:22px; background:#fff; align-self:start; }
+.signal-archive-sidebar { position:sticky; top:84px; max-height:calc(100vh - 104px); padding:22px; overflow-y:auto; border:1px solid #eee1dc; border-radius:22px; background:#fff; align-self:start; scrollbar-width:thin; scrollbar-color:#e7d9d4 transparent; }
 .signal-archive-sidebar h3 { margin:0 0 14px; font-size:13px; color:#a38b84; font-weight:900; letter-spacing:.08em; }
 .signal-archive-members { display:flex; flex-direction:column; gap:8px; }
 .signal-archive-member { display:flex; align-items:center; justify-content:space-between; width:100%; padding:13px 14px; border:0; border-radius:13px; background:transparent; color:#66514b; font-size:14px; font-weight:800; cursor:pointer; transition:.18s ease; }
@@ -4949,7 +4949,7 @@ html.dark-mode .signal-archive-edit-actions .is-primary { background:#d95b59; co
   .signal-archive-total { min-width:72px; padding:12px 10px; }
   .signal-archive-total strong { font-size:22px; }
   .signal-archive-layout { display:block; padding-top:20px; }
-  .signal-archive-sidebar { padding:0; border:0; background:transparent; }
+  .signal-archive-sidebar { position:static; max-height:none; padding:0; overflow:visible; border:0; background:transparent; }
   html.dark-mode .signal-archive-sidebar { background:transparent; }
   .signal-archive-sidebar h3 { display:none; }
   .signal-archive-members { flex-direction:row; overflow-x:auto; padding-bottom:8px; scrollbar-width:none; }
