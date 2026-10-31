@@ -1268,6 +1268,8 @@ let signalRecordsHasMore = true;
 let signalRecordsLoadingMore = false;
 let signalArchiveMemberFilter = '전체 일정';
 let signalArchiveMonthFilter = '';
+let signalArchiveInitialScrollPending = true;
+let signalArchiveScrollHandler = null;
 let signalArchiveOverrides = {};
 let signalArchiveOverridesLoaded = false;
 let editingSignalArchiveDate = '';
@@ -8420,7 +8422,10 @@ async function changeTab(tabName) {
         loadSongsFromFirebase(songbookMember);
     } else {
         currentPage = tabName; 
-        if (tabName === '시그널') signalArchiveMonthFilter = getTodayYYYYMMDD().slice(0, 7);
+        if (tabName === '시그널') {
+            signalArchiveMonthFilter = getTodayYYYYMMDD().slice(0, 7);
+            signalArchiveInitialScrollPending = true;
+        }
         if (tabName === '롤링페이퍼' && rollingPendingAutoJoinSeq !== null) {
             const params = new URLSearchParams({ seq: String(rollingPendingAutoJoinSeq) });
             if (rollingPendingEntryNumber !== null) params.set('entry', String(rollingPendingEntryNumber));
@@ -8704,6 +8709,10 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 }
 
 function render() {
+    if (currentPage !== '시그널' && signalArchiveScrollHandler) {
+        window.removeEventListener('scroll', signalArchiveScrollHandler);
+        signalArchiveScrollHandler = null;
+    }
     const tabBackgrounds = { '홈': '#ffdddd', '달타': '#FFFDE7', '다룽': '#E3F2FD', '최또': '#FCE4EC', '카나시': '#FFF3E0', '롤링페이퍼': '#F3E8FF', '업보정리': '#FFFDF5', '업보선택': '#FFFDF5', '시그널': '#ffdddd', '클립': '#F3E8FF', '사다리타기': '#F3E8FF', '파트분배기': '#F3E8FF' };
     const activeThemeMember = currentPage === '업보정리' ? upboCurrentMember : currentPage === '노래책' ? songbookMember : currentPage === '클립' ? currentClipStreamer : currentPage === 'VR경력' ? vrCareerMember : currentPage;
     document.body.style.backgroundColor = tabBackgrounds[activeThemeMember] || '#ffdddd';
@@ -11462,14 +11471,53 @@ function formatSignalArchiveMonth(monthKey) {
 
 window.setSignalArchiveMemberFilter = function(member) {
     signalArchiveMemberFilter = member;
-    signalArchiveMonthFilter = '';
+    signalArchiveMonthFilter = getTodayYYYYMMDD().slice(0, 7);
+    signalArchiveInitialScrollPending = true;
     renderSignalPage();
 };
 
 window.setSignalArchiveMonthFilter = function(month) {
     signalArchiveMonthFilter = month;
-    renderSignalPage();
+    updateSignalArchiveMonthButtons(month);
+    const section = document.querySelector(`.signal-archive-month-section[data-month="${month}"]`);
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
+
+function updateSignalArchiveMonthButtons(month) {
+    document.querySelectorAll('.signal-archive-month').forEach(button => {
+        button.classList.toggle('is-active', button.dataset.month === month);
+    });
+}
+
+function setupSignalArchiveScrollSpy(currentMonthKey) {
+    if (signalArchiveScrollHandler) window.removeEventListener('scroll', signalArchiveScrollHandler);
+    const sections = Array.from(document.querySelectorAll('.signal-archive-month-section'));
+    const toolbar = document.querySelector('.signal-archive-toolbar');
+    signalArchiveScrollHandler = () => {
+        if (!sections.length || !document.body.contains(sections[0])) return;
+        const marker = (toolbar?.getBoundingClientRect().bottom || 90) + 24;
+        let active = sections[0];
+        sections.forEach(section => {
+            if (section.getBoundingClientRect().top <= marker) active = section;
+        });
+        const month = active.dataset.month || '';
+        if (month && month !== signalArchiveMonthFilter) {
+            signalArchiveMonthFilter = month;
+            updateSignalArchiveMonthButtons(month);
+        }
+    };
+    window.addEventListener('scroll', signalArchiveScrollHandler, { passive: true });
+    if (signalArchiveInitialScrollPending) {
+        signalArchiveInitialScrollPending = false;
+        requestAnimationFrame(() => {
+            const currentSection = document.querySelector(`.signal-archive-month-section[data-month="${currentMonthKey}"]`);
+            if (currentSection) currentSection.scrollIntoView({ behavior: 'auto', block: 'start' });
+            signalArchiveScrollHandler();
+        });
+    } else {
+        requestAnimationFrame(signalArchiveScrollHandler);
+    }
+}
 
 window.openSignalArchiveEditModal = function(date) {
     if (!isAdmin) return;
@@ -11572,9 +11620,6 @@ function renderSignalPage() {
     // 현재 월에 일정이 하나도 없어도 월 버튼과 빈 상태를 표시해 기준 월이 바뀌지 않게 한다.
     const months = [...new Set([currentMonthKey, ...memberEntries.map(entry => entry.month)])].sort((a, b) => b.localeCompare(a));
     if (!months.includes(signalArchiveMonthFilter)) signalArchiveMonthFilter = currentMonthKey;
-    const visibleEntries = signalArchiveMonthFilter
-        ? memberEntries.filter(entry => entry.month === signalArchiveMonthFilter)
-        : [];
     const counts = Object.fromEntries(SIGNAL_ARCHIVE_MEMBERS.map(member => [
         member,
         allEntries.filter(entry => entry.participants.has(member)).length
@@ -11588,10 +11633,10 @@ function renderSignalPage() {
         </button>`;
     }).join('');
     const monthButtons = months.map(month => `
-        <button type="button" class="signal-archive-month${signalArchiveMonthFilter === month ? ' is-active' : ''}" onclick="setSignalArchiveMonthFilter('${month}')">
+        <button type="button" data-month="${month}" class="signal-archive-month${signalArchiveMonthFilter === month ? ' is-active' : ''}" onclick="setSignalArchiveMonthFilter('${month}')">
             ${formatSignalArchiveMonth(month)}
         </button>`).join('');
-    const cards = visibleEntries.map(entry => {
+    const renderCard = entry => {
         const people = SIGNAL_ARCHIVE_MEMBERS.filter(member => entry.participants.has(member));
         return `<article class="signal-archive-card${isAdmin ? ' is-admin-editable' : ''}" ${isAdmin ? `oncontextmenu="event.preventDefault(); event.stopPropagation(); openSignalArchiveEditModal('${entry.startDate}')" title="마우스 오른쪽 버튼으로 대표 일정 수정"` : ''}>
             <div class="signal-archive-date">
@@ -11605,6 +11650,15 @@ function renderSignalPage() {
                 </div>
             </div>
         </article>`;
+    };
+    const monthSections = months.map(month => {
+        const entries = memberEntries.filter(entry => entry.month === month);
+        return `<section class="signal-archive-month-section" data-month="${month}">
+            <div class="signal-archive-month-heading"><h3>${formatSignalArchiveMonth(month)}</h3><span>${entries.length}개 일정</span></div>
+            <div class="signal-archive-month-cards">
+                ${entries.map(renderCard).join('') || `<div class="signal-archive-empty is-month-empty"><i class="fi fi-rr-calendar-clock"></i><strong>이 달의 시그널 합방이 없습니다.</strong></div>`}
+            </div>
+        </section>`;
     }).join('');
 
     content.innerHTML = `<div class="signal-archive-page theme-signal">
@@ -11627,12 +11681,13 @@ function renderSignalPage() {
                     <div class="signal-archive-months">${monthButtons}</div>
                 </div>
                 <div class="signal-archive-list">
-                    ${cards || `<div class="signal-archive-empty"><i class="fi fi-rr-calendar-clock"></i><strong>표시할 시그널 합방이 없습니다.</strong><span>월간 일정에서 유형을 ‘시그널합방’으로 등록하면 자동으로 나타납니다.</span></div>`}
+                    ${monthSections}
                 </div>
             </section>
         </div>
     </div>`;
     content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full max-w-full pb-6';
+    setupSignalArchiveScrollSpy(currentMonthKey);
 }
 
 function previewSignalImageFile(input) {
