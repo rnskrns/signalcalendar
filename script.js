@@ -8420,6 +8420,7 @@ async function changeTab(tabName) {
         loadSongsFromFirebase(songbookMember);
     } else {
         currentPage = tabName; 
+        if (tabName === '시그널') signalArchiveMonthFilter = getTodayYYYYMMDD().slice(0, 7);
         if (tabName === '롤링페이퍼' && rollingPendingAutoJoinSeq !== null) {
             const params = new URLSearchParams({ seq: String(rollingPendingAutoJoinSeq) });
             if (rollingPendingEntryNumber !== null) params.set('entry', String(rollingPendingEntryNumber));
@@ -11566,8 +11567,11 @@ function renderSignalPage() {
     const memberEntries = signalArchiveMemberFilter === '전체 일정'
         ? allEntries
         : allEntries.filter(entry => entry.participants.has(signalArchiveMemberFilter));
-    const months = [...new Set(memberEntries.map(entry => entry.month))].sort((a, b) => b.localeCompare(a));
-    if (!months.includes(signalArchiveMonthFilter)) signalArchiveMonthFilter = months[0] || '';
+    const currentMonthKey = getTodayYYYYMMDD().slice(0, 7);
+    // 미래 일정이 있어도 시그널 탭에 처음 들어왔을 때는 항상 오늘이 속한 월부터 보여준다.
+    // 현재 월에 일정이 하나도 없어도 월 버튼과 빈 상태를 표시해 기준 월이 바뀌지 않게 한다.
+    const months = [...new Set([currentMonthKey, ...memberEntries.map(entry => entry.month)])].sort((a, b) => b.localeCompare(a));
+    if (!months.includes(signalArchiveMonthFilter)) signalArchiveMonthFilter = currentMonthKey;
     const visibleEntries = signalArchiveMonthFilter
         ? memberEntries.filter(entry => entry.month === signalArchiveMonthFilter)
         : [];
@@ -11628,7 +11632,7 @@ function renderSignalPage() {
             </section>
         </div>
     </div>`;
-    content.className = 'shrink-0 transition-all duration-300 w-full max-w-full pb-6';
+    content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full max-w-full pb-6';
 }
 
 function previewSignalImageFile(input) {
