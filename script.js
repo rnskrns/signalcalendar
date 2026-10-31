@@ -12689,10 +12689,13 @@ function resetCalendarIndexFilters() {
 
 function positionCalendarIndexRemote() {
     const panel = document.querySelector('.calendar-index-remote');
-    const calendar = document.querySelector('.signal-calendar-main');
-    if (!panel || !calendar || isMobile) return;
-    const calendarRect = calendar.getBoundingClientRect();
-    const left = Math.max(14, calendarRect.left - panel.offsetWidth + 24);
+    const shell = document.querySelector('.signal-calendar-shell');
+    if (!panel || !shell || isMobile) return;
+    const shellRect = shell.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const displayScale = panel.offsetWidth ? panelRect.width / panel.offsetWidth : 1;
+    const targetViewportLeft = shellRect.left - panelRect.width - 6;
+    const left = Math.max(14, targetViewportLeft / displayScale);
     panel.style.left = `${left}px`;
 }
 
