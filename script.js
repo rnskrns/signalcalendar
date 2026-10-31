@@ -1216,6 +1216,8 @@ restoreSoopSession();
 let currentPage = '홈';
 let memberViewMode = 'home';
 let signalMobileWeekOffset = 0;
+const calendarIndexState = Object.create(null);
+let calendarIndexSearchTimer = null;
 let mobileMemberView = 'schedule';
 let songbookMember = '달타';
 let currentYear = new Date().getFullYear();
@@ -12303,7 +12305,7 @@ function renderDesktopIndividual(grouped) {
         const day = i - startIdx + 1;
         if (day > 0 && day <= daysInMonth) {
             const key = `${currentYear}-${currentMonth}-${day}-${currentPage}`; 
-            const daySchedules = grouped[key] || [];
+            const daySchedules = (grouped[key] || []).filter(schedule => calendarScheduleMatchesFilters(schedule, currentPage));
             const schedulesHtml = daySchedules.map(sch => buildScheduleCardHtml(sch, false)).join('');
             const isToday = currentYear === realToday.getFullYear() && currentMonth === realToday.getMonth() + 1 && day === realToday.getDate();
             
@@ -12389,6 +12391,7 @@ function renderDesktopIndividual(grouped) {
     `;
 
     content.innerHTML = `<div class="big-white-box relative theme-${currentPage === '달타'?'dalta':currentPage === '다룽'?'darung':currentPage === '최또'?'choitto':'kanasi'}" style="flex-direction: row; align-items: stretch; width: max-content; padding: 55px 65px 55px 75px; --member-accent: ${themeColors[currentPage] || '#5D4037'}">
+        ${buildCalendarIndexRemote(currentPage)}
         ${calendarSectionHtml}
         ${memoSectionHtml}
     </div>`;
@@ -12571,6 +12574,133 @@ function signalScheduleColor(schedule, memberName) {
     if (schedule.broadType === '비방일정') return colors.private || MEMBER_SCHEDULE_COLOR_DEFAULTS.private;
     return colors.default || themeColors[memberName] || '#5D4037';
 }
+
+function getCalendarScheduleType(schedule) {
+    if (schedule?.globalType === '휴방') return '휴방';
+    return String(schedule?.broadType || schedule?.globalType || '개인방송').trim() || '개인방송';
+}
+
+function getCalendarScheduleTypeLabel(type) {
+    const labels = {
+        '시그널합방':'시그널 합방',
+        '개인방송':'개인방송',
+        '비방일정':'비방일정',
+        '천타버스':'천타버스'
+    };
+    return labels[type] || type;
+}
+
+function getCalendarIndexState(memberName) {
+    if (!calendarIndexState[memberName]) calendarIndexState[memberName] = { types:[], query:'' };
+    if (!Array.isArray(calendarIndexState[memberName].types)) {
+        calendarIndexState[memberName].types = calendarIndexState[memberName].type ? [calendarIndexState[memberName].type] : [];
+        delete calendarIndexState[memberName].type;
+    }
+    return calendarIndexState[memberName];
+}
+
+function getCalendarIndexOptions(memberName) {
+    const preferredOrder = ['합방','시그널합방','휴방','비방일정','천타버스','개인방송'];
+    const options = new Map();
+    scheduleList.filter(schedule => schedule.tabOrMember === memberName).forEach(schedule => {
+        const type = getCalendarScheduleType(schedule);
+        if (!options.has(type)) options.set(type, {
+            type,
+            label:getCalendarScheduleTypeLabel(type),
+            color:signalScheduleColor(schedule, memberName)
+        });
+    });
+    return [...options.values()].sort((a, b) => {
+        const ai = preferredOrder.indexOf(a.type);
+        const bi = preferredOrder.indexOf(b.type);
+        if (ai !== bi) return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+        return a.label.localeCompare(b.label, 'ko');
+    });
+}
+
+function calendarScheduleMatchesFilters(schedule, memberName) {
+    const state = getCalendarIndexState(memberName);
+    if (state.types.length && !state.types.includes(getCalendarScheduleType(schedule))) return false;
+    const query = String(state.query || '').trim().toLocaleLowerCase('ko');
+    if (!query) return true;
+    const searchable = [
+        schedule.title,
+        schedule.detail,
+        schedule.memberTag,
+        schedule.broadType,
+        schedule.globalType,
+        schedule.tabOrMember
+    ].filter(Boolean).join(' ').toLocaleLowerCase('ko');
+    return searchable.includes(query);
+}
+
+function buildCalendarIndexRemote(memberName) {
+    const state = getCalendarIndexState(memberName);
+    const options = getCalendarIndexOptions(memberName);
+    const availableTypes = new Set(options.map(option => option.type));
+    state.types = state.types.filter(type => availableTypes.has(type));
+    const optionButtons = options.map(option => {
+        const active = state.types.includes(option.type);
+        return `<button type="button" class="calendar-index-option ${active ? 'is-active' : ''}" style="--index-color:${escapeHtml(option.color)}" onclick="setCalendarTypeFilter('${escapeHtml(option.type)}')" aria-pressed="${active}"><i></i><span>${escapeHtml(option.label)}</span><b class="fi fi-rr-check"></b></button>`;
+    }).join('');
+    return `<aside class="calendar-index-remote" aria-label="일정 색인 및 검색">
+        <label class="calendar-index-search"><i class="fi fi-rr-search"></i><input type="search" value="${escapeHtml(state.query)}" placeholder="일정 검색" aria-label="일정 제목, 상세 내용, 멤버 검색" oninput="setCalendarSearchFilter(this.value)">${state.query ? '<button type="button" onclick="clearCalendarSearchFilter()" aria-label="검색어 지우기"><i class="fi fi-rr-cross-small"></i></button>' : ''}</label>
+        <div class="calendar-index-options">${optionButtons || '<p>등록된 일정 유형이 없습니다.</p>'}</div>
+        <button type="button" class="calendar-index-reset ${!state.types.length && !state.query ? 'is-disabled' : ''}" onclick="resetCalendarIndexFilters()"><i class="fi fi-rr-refresh"></i> 전체 보기</button>
+    </aside>`;
+}
+
+function setCalendarTypeFilter(type) {
+    const state = getCalendarIndexState(currentPage);
+    state.types = state.types.includes(type)
+        ? state.types.filter(selectedType => selectedType !== type)
+        : [...state.types, type];
+    render();
+}
+
+function setCalendarSearchFilter(value) {
+    const memberName = currentPage;
+    getCalendarIndexState(memberName).query = String(value || '');
+    clearTimeout(calendarIndexSearchTimer);
+    calendarIndexSearchTimer = setTimeout(() => {
+        if (currentPage !== memberName || memberViewMode !== 'calendar') return;
+        render();
+        requestAnimationFrame(() => {
+            const input = document.querySelector('.calendar-index-search input');
+            if (input) {
+                input.focus({ preventScroll:true });
+                input.setSelectionRange(input.value.length, input.value.length);
+            }
+        });
+    }, 160);
+}
+
+function clearCalendarSearchFilter() {
+    getCalendarIndexState(currentPage).query = '';
+    render();
+}
+
+function resetCalendarIndexFilters() {
+    const state = getCalendarIndexState(currentPage);
+    state.types = [];
+    state.query = '';
+    render();
+}
+
+function positionCalendarIndexRemote() {
+    const panel = document.querySelector('.calendar-index-remote');
+    const calendar = document.querySelector('.signal-calendar-main');
+    if (!panel || !calendar || isMobile) return;
+    const calendarRect = calendar.getBoundingClientRect();
+    const left = Math.max(14, calendarRect.left - panel.offsetWidth + 24);
+    panel.style.left = `${left}px`;
+}
+
+window.setCalendarTypeFilter = setCalendarTypeFilter;
+window.setCalendarSearchFilter = setCalendarSearchFilter;
+window.clearCalendarSearchFilter = clearCalendarSearchFilter;
+window.resetCalendarIndexFilters = resetCalendarIndexFilters;
+window.addEventListener('resize', () => requestAnimationFrame(positionCalendarIndexRemote));
 
 function signalScheduleRows(schedules, memberName, date, compact = false) {
     if (!schedules.length) return `<button class="signal-empty-schedule" onclick="handleDayClick(${date.getFullYear()},${date.getMonth()+1},${date.getDate()},'${memberName}')"><span>—</span><strong>오늘은 등록된 일정이 없어요</strong><small>일정 추가하기</small></button>`;
@@ -12902,6 +13032,7 @@ function renderSignalDesktopIndividualRoute(grouped) {
         content.classList.add('signal-centered-content');
         content.querySelector('.big-white-box')?.classList.add('signal-calendar-shell');
         content.insertAdjacentHTML('afterbegin', `${buildMemberTopNavigation(currentPage, 'calendar')}<div class="signal-calendar-routebar"><strong>${currentPage} 월간 일정</strong></div>`);
+        requestAnimationFrame(positionCalendarIndexRemote);
         return;
     }
     const content = document.getElementById('mainContent');
