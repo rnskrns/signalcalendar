@@ -2012,20 +2012,9 @@ function getAdminDefaultProfileImage(user = loggedInUser) {
     return ADMIN_DEFAULT_PROFILE_IMAGES[String(user?.email || '').toLowerCase()] || '';
 }
 let selectedAdminAvatarMember = '';
-let adminMemberPromptUid = '';
 
 function isGeneralAdminUser(user = loggedInUser) {
     return !!(isAdmin && user && !members.some(member => member.name === user.name));
-}
-
-function promptAdminMemberChoice() {
-    if (!isGeneralAdminUser()) return;
-    const uid = String(loggedInUser?.uid || loggedInUser?.email || 'admin');
-    if (adminMemberPromptUid === uid) return;
-    adminMemberPromptUid = uid;
-    setTimeout(() => {
-        if (isGeneralAdminUser() && String(loggedInUser?.uid || loggedInUser?.email || 'admin') === uid) openAdminAvatarModal();
-    }, 150);
 }
 
 function getAdminAvatarStorageKey(user = loggedInUser) {
@@ -2200,7 +2189,6 @@ async function checkPassword() {
         document.getElementById('idInput').value = '';
         document.getElementById('pwInput').value = '';
         closePasswordModal();
-        promptAdminMemberChoice();
     } catch (e) { 
         console.error("로그인 에러:", e); 
         document.getElementById('pwInput').value = '';
@@ -2447,7 +2435,6 @@ onAuthStateChanged(auth, async (user) => {
     if (isLinkingGoogleAccount) return;
 
     if (!user) {
-        adminMemberPromptUid = '';
         isAdmin = false;
         loggedInUser = null;
         // ⭐ 신규: SOOP 로그인 세션이 복원되어 있는 상태라면, Firebase의 '로그아웃 상태'로 덮어쓰지 않음
@@ -2466,7 +2453,6 @@ onAuthStateChanged(auth, async (user) => {
         clearSoopSession();
         currentUser = null;
         await loadAdminAvatarPreference(user);
-        promptAdminMemberChoice();
         return;
     }
 
