@@ -1185,8 +1185,8 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// 멤버관리(스케줄 멤버) 전용 데이터베이스 - 별도 Firebase 프로젝트 연결
-// 멤버 그룹(memberGroups)은 기존 데이터베이스(db)를 그대로 사용합니다.
+// 파트분배기(싱크룸) 전용 Firebase 프로젝트 연결
+// 멤버 관리는 Supabase members 테이블을 사용하고, 멤버 그룹은 기존 Firestore를 유지합니다.
 const memberFirebaseConfig = {
     apiKey: "AIzaSyDVBD4FnLGFcUXqLWJyVOuZELCP-8jFO2E",
     authDomain: "memberlist-2e19f.firebaseapp.com",
@@ -1199,10 +1199,51 @@ const memberFirebaseConfig = {
 };
 
 const memberApp = initializeApp(memberFirebaseConfig, "memberApp");
-const memberDb = getFirestore(memberApp);
 
 // 파트분배기(싱크룸) 전용 실시간 데이터베이스 - memberApp에 이미 설정된 databaseURL을 재사용
 const partDividerDb = getDatabase(memberApp);
+
+const SUPABASE_MEMBERS_URL = 'https://yxpifubcykpwazjhisak.supabase.co/rest/v1/members';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_7Rtd60BWnbA3zIAgVdUBqQ_AskVdf31';
+
+async function requestSupabaseMembers(path = '', options = {}) {
+    const headers = new Headers(options.headers || {});
+    headers.set('apikey', SUPABASE_PUBLISHABLE_KEY);
+    headers.set('Accept', 'application/json');
+
+    // 조회는 publishable key만으로 가능하고, 쓰기는 Supabase의 Firebase JWT RLS 정책을 통과해야 합니다.
+    let bearerToken = SUPABASE_PUBLISHABLE_KEY;
+    const method = String(options.method || 'GET').toUpperCase();
+    if (method !== 'GET' && auth.currentUser) {
+        try { bearerToken = await auth.currentUser.getIdToken(); }
+        catch (error) { console.warn('멤버 관리 인증 토큰을 가져오지 못했습니다.', error); }
+    }
+    headers.set('Authorization', `Bearer ${bearerToken}`);
+
+    const response = await fetch(`${SUPABASE_MEMBERS_URL}${path}`, { ...options, headers });
+    if (!response.ok) {
+        let detail = '';
+        try {
+            const payload = await response.json();
+            detail = payload.message || payload.details || payload.hint || '';
+        } catch (_) { detail = await response.text().catch(() => ''); }
+        throw new Error(`Supabase members 요청 실패 (${response.status})${detail ? `: ${detail}` : ''}`);
+    }
+    if (response.status === 204) return null;
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+}
+
+function mapSupabaseMember(row) {
+    return {
+        id: String(row.id),
+        nickname: row.name || '',
+        soopId: row.soop_id || '',
+        imageUrl: row.img || 'https://via.placeholder.com/60',
+        isCrew: row.type === 'crew',
+        timestamp: row.created_at ? new Date(row.created_at).getTime() : 0
+    };
+}
 
 let scheduleList = []; 
 let memoList = { '달타':[], '다룽':[], '최또':[], '카나시':[] };
@@ -1404,7 +1445,7 @@ function hydrateScheduleCache(cache) {
     // 업보관리 데이터는 로컬 캐시에 저장/복원하지 않는다. 항상 loadUpboDataFromFirebase()로 즉시 최신 데이터를 받아온다.
     loadedMemberPages = new Set(Array.isArray(cache.loadedMemberPages) ? cache.loadedMemberPages : []);
 
-    // 이전에 멤버관리(memberDb) 목록을 불러오다 실패해서 빈 배열([])로 캐시된 경우,
+    // 이전에 Supabase 멤버 목록을 불러오다 실패해서 빈 배열([])로 캐시된 경우,
     // 캐시가 만료(최대 7분)되기 전까지 계속 사진이 안 뜨는 문제가 생길 수 있다.
     // 그래서 캐시를 그대로 사용하더라도 멤버 목록이 비어 있으면 조용히 한 번 더 불러와 복구한다.
     if (customMembers.length === 0 && typeof loadCustomMembersFromFirebase === 'function') {
@@ -5651,21 +5692,20 @@ function partDividerOpenBugsSearchFromInfo() {
 
 // 크루 멤버 프로필(이름 -> 프로필 사진 URL) 데이터를 최초 1회만 불러와 캐싱
 // (주의) 예전 코드는 존재하지 않는 Realtime Database 경로('crew/members')를 조회하고 있어 프사를 못 가져오는 버그가 있었다.
-// 실제 크루 멤버 프로필은 ① 기본 크루(하드코딩된 members 배열) + ② 멤버관리 화면에서 등록한 멤버(Firestore memberDb - 'members' 컬렉션) 두 곳에 있으므로 둘 다 합쳐서 조회한다.
+// 실제 크루 멤버 프로필은 ① 기본 크루(하드코딩된 members 배열) + ② Supabase 멤버 목록을 합쳐서 조회한다.
 function partDividerLoadMemberProfiles() {
     if (partDividerMemberProfiles) return Promise.resolve(partDividerMemberProfiles);
     if (partDividerMemberProfilesLoading) return partDividerMemberProfilesLoading;
 
-    partDividerMemberProfilesLoading = getDocs(collection(memberDb, 'members'))
-        .then(snap => {
+    partDividerMemberProfilesLoading = requestSupabaseMembers('?select=name,img&order=name.asc')
+        .then(rows => {
             const profiles = {};
 
             // 1) 기본 크루 멤버(달타/다룽/최또/카나시 등)를 먼저 채워둔다
             members.forEach(m => { profiles[m.name] = m.img; });
 
-            // 2) 멤버관리(Firestore memberDb - 'members' 컬렉션)에서 등록한 멤버로 덮어쓰거나 추가한다
-            snap.forEach(docSnap => {
-                const data = docSnap.data();
+            // 2) Supabase 멤버 관리에 등록한 프로필로 덮어쓰거나 추가한다
+            (rows || []).forEach(data => {
                 const name = data && data.name;
                 if (!name) return;
                 profiles[name] = (data.img && data.img.trim()) ? data.img : (profiles[name] || null);
@@ -5675,7 +5715,7 @@ function partDividerLoadMemberProfiles() {
             return profiles;
         })
         .catch(err => {
-            console.error('크루 멤버 프로필 로드 실패 (memberDb - members 컬렉션):', err);
+            console.error('크루 멤버 프로필 로드 실패 (Supabase members):', err);
             // Firestore 조회가 실패해도 최소한 기본 크루 멤버 프로필은 보여준다
             const fallback = {};
             members.forEach(m => { fallback[m.name] = m.img; });
@@ -8155,28 +8195,16 @@ async function loadKanashiUpboFromGoogleSheet() {
 }
 window.loadUpboDataFromFirebase = loadUpboDataFromFirebase;
 
-// 멤버관리(memberDb - members 컬렉션) 목록을 불러오는 전용 함수.
+// Supabase members 테이블에서 멤버 관리 목록을 불러오는 전용 함수.
 // 네트워크 지연/타이밍 문제로 가끔 한 번에 실패하는 경우가 있어, 실패 시 짧은 간격으로 재시도하고
 // 그래도 실패하면 잠시 후 백그라운드에서 한 번 더 시도해 사진(프로필 이미지)이 자동으로 복구되게 한다.
 async function loadCustomMembersFromFirebase(retriesLeft = 2) {
     try {
-        const smSnap = await getDocs(collection(memberDb, 'members'));
-        const loaded = [];
-        smSnap.forEach(docSnap => {
-            const data = docSnap.data();
-            loaded.push({
-                id: docSnap.id,
-                nickname: data.name || '',
-                soopId: data.soopId || '',
-                imageUrl: data.img || 'https://via.placeholder.com/60',
-                isCrew: data.type === 'crew',
-                timestamp: data.timestamp || 0
-            });
-        });
-        customMembers = loaded;
+        const rows = await requestSupabaseMembers('?select=id,name,type,img,soop_id,created_at&order=name.asc');
+        customMembers = (rows || []).map(mapSupabaseMember);
         return true;
     } catch (memberErr) {
-        console.error('멤버관리 데이터 로드 실패 (memberDb - members 컬렉션):', memberErr);
+        console.error('멤버관리 데이터 로드 실패 (Supabase members):', memberErr);
         if (retriesLeft > 0) {
             await new Promise(res => setTimeout(res, 700));
             return loadCustomMembersFromFirebase(retriesLeft - 1);
@@ -8319,7 +8347,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         }
 
         if (!cached) {
-            // 멤버관리 DB(memberDb)만 실패해도 스케줄 등 나머지 데이터 로드/렌더는 계속 진행되도록
+            // Supabase 멤버 목록만 실패해도 스케줄 등 나머지 데이터 로드/렌더는 계속 진행되도록
             // 별도 함수(재시도 + 백그라운드 자동 복구 포함)로 분리 처리
             await loadCustomMembersFromFirebase();
 
@@ -13786,7 +13814,7 @@ window.openMemberManageModal = async function() {
         if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
     });
 
-    // 모달을 열 때마다 멤버관리 DB(memberDb)에서 최신 멤버 목록을 다시 불러온다.
+    // 모달을 열 때마다 Supabase에서 최신 멤버 목록을 다시 불러온다.
     // (스케줄 캐시 로직 때문에 customMembers가 갱신되지 않고 비어 보이는 문제를 방지하기 위함)
     // loadCustomMembersFromFirebase 내부에서 실패 시 자동 재시도 + 백그라운드 복구까지 처리한다.
     const memberOk = await loadCustomMembersFromFirebase();
@@ -13832,16 +13860,12 @@ window.addCustomMember = async function() {
     }
     
     try {
-        const newMem = { nickname, soopId, imageUrl, isCrew, timestamp: Date.now() };
-        const docId = `member_${nickname}`;
-        await setDoc(doc(memberDb, 'members', docId), {
-            name: nickname,
-            soopId,
-            img: imageUrl,
-            type: isCrew ? 'crew' : 'member',
-            timestamp: newMem.timestamp
+        const rows = await requestSupabaseMembers('', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ name: nickname, soop_id: soopId, img: imageUrl, type: isCrew ? 'crew' : 'member' })
         });
-        customMembers.push({ id: docId, ...newMem });
+        customMembers.push(mapSupabaseMember(rows[0]));
         saveScheduleCache();
         
         document.getElementById('newMemberNickname').value = '';
@@ -13880,7 +13904,7 @@ window.parseMembers = function(tagString) {
 window.deleteCustomMember = async function(id) {
     if(!confirm("이 멤버를 삭제하시겠습니까?")) return;
     try {
-        await deleteDoc(doc(memberDb, 'members', id));
+        await requestSupabaseMembers(`?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
         customMembers = customMembers.filter(m => m.id !== id);
         saveScheduleCache();
         renderCustomMembersList();
@@ -13994,16 +14018,12 @@ window.importMembersListFile = async function(event) {
             }
 
             try {
-                const newMem = { nickname, soopId, imageUrl, isCrew: false, timestamp: Date.now() };
-                const docId = `member_${nickname}`;
-                await setDoc(doc(memberDb, 'members', docId), {
-                    name: nickname,
-                    soopId,
-                    img: imageUrl,
-                    type: 'member',
-                    timestamp: newMem.timestamp
+                const rows = await requestSupabaseMembers('', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ name: nickname, soop_id: soopId, img: imageUrl, type: 'member' })
                 });
-                customMembers.push({ id: docId, ...newMem });
+                customMembers.push(mapSupabaseMember(rows[0]));
                 addedCount++;
             } catch (err) {
                 console.error('멤버 불러오기 실패:', nickname, err);
@@ -15733,3 +15753,4 @@ if (earlyVrCareerRoute) {
     render();
 }
 initApp().finally(hidePageLoadingScreen);
+
