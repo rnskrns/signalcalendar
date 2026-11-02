@@ -13177,7 +13177,25 @@ function getScheduleMemberSuggestions(query) {
     return { memberMatches, groupMatches };
 }
 
-function renderScheduleMemberSuggestions(input) {
+let scheduleMemberGroupsRefreshPromise = null;
+let scheduleMemberGroupsRefreshedAt = 0;
+
+async function refreshScheduleMemberGroups() {
+    if (memberGroups.length > 0 && Date.now() - scheduleMemberGroupsRefreshedAt < 30000) return;
+    if (scheduleMemberGroupsRefreshPromise) return scheduleMemberGroupsRefreshPromise;
+    scheduleMemberGroupsRefreshPromise = getDocs(collection(db, 'memberGroups'))
+        .then(snapshot => {
+            memberGroups = [];
+            snapshot.forEach(docSnap => memberGroups.push({ id: docSnap.id, ...docSnap.data() }));
+            scheduleMemberGroupsRefreshedAt = Date.now();
+            saveScheduleCache();
+        })
+        .catch(error => console.error('일정 멤버 자동완성 그룹 로드 실패:', error))
+        .finally(() => { scheduleMemberGroupsRefreshPromise = null; });
+    return scheduleMemberGroupsRefreshPromise;
+}
+
+async function renderScheduleMemberSuggestions(input) {
     const dropdown = input?.parentElement?.querySelector('.schedule-member-suggestions');
     if (!dropdown) return;
 
@@ -13191,30 +13209,43 @@ function renderScheduleMemberSuggestions(input) {
         dropdown.innerHTML = '';
         return;
     }
+    await refreshScheduleMemberGroups();
+    if (query !== getScheduleMemberSearchQuery(input) || document.activeElement !== input) return;
+
     const { memberMatches, groupMatches } = getScheduleMemberSuggestions(query);
-    const resultRows = [];
+    const groupRows = [];
+    const memberRows = [];
+
+    groupMatches.forEach(({ group, groupMembers, matchingMembers }) => {
+        const previewMembers = (matchingMembers.length ? matchingMembers : groupMembers).slice(0, 4);
+        const previewText = previewMembers.map(member => member?.nickname).filter(Boolean).join(', ');
+        groupRows.push(`
+            <button type="button" class="schedule-member-suggestion flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#F3EEFF] transition" data-suggestion-value="${encodeURIComponent(group.name)}" onmousedown="event.preventDefault()" onclick="selectScheduleMemberSuggestion(this)">
+                <span class="flex -space-x-2 w-12 shrink-0">
+                    ${groupMembers.slice(0, 3).map(member => `<img src="${escapeHtml(member.imageUrl || 'https://via.placeholder.com/32')}" class="w-8 h-8 rounded-full object-cover border-2 border-white" onerror="this.src='https://via.placeholder.com/32'">`).join('') || '<span class="w-8 h-8 rounded-full bg-[#EEE7F8]"></span>'}
+                </span>
+                <span class="min-w-0 flex-1"><b class="block text-[13px] text-[#5D4037] truncate">${escapeHtml(group.name)}</b><small class="block text-[10px] text-[#7B61A8] truncate">그룹 · ${escapeHtml(previewText || `${groupMembers.length}명`)}</small></span>
+            </button>`);
+    });
 
     memberMatches.forEach(member => {
-        resultRows.push(`
+        memberRows.push(`
             <button type="button" class="schedule-member-suggestion flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#F7F2EF] transition" data-suggestion-value="${encodeURIComponent(member.nickname)}" onmousedown="event.preventDefault()" onclick="selectScheduleMemberSuggestion(this)">
                 <img src="${escapeHtml(member.imageUrl || 'https://via.placeholder.com/36')}" class="w-9 h-9 rounded-full object-cover border border-gray-200 shrink-0" onerror="this.src='https://via.placeholder.com/36'">
                 <span class="min-w-0"><b class="block text-[13px] text-[#5D4037] truncate">${escapeHtml(member.nickname)}</b><small class="block text-[10px] text-gray-400">멤버${member.soopId ? ` · ${escapeHtml(member.soopId)}` : ''}</small></span>
             </button>`);
     });
 
-    groupMatches.forEach(({ group, groupMembers, matchingMembers }) => {
-        const previewMembers = (matchingMembers.length ? matchingMembers : groupMembers).slice(0, 4);
-        const previewText = previewMembers.map(member => member?.nickname).filter(Boolean).join(', ');
-        resultRows.push(`
-            <button type="button" class="schedule-member-suggestion flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#F3EEFF] transition" data-suggestion-value="${encodeURIComponent(group.name)}" onmousedown="event.preventDefault()" onclick="selectScheduleMemberSuggestion(this)">
-                <span class="w-9 h-9 rounded-full bg-[#EEE7F8] text-[#6F4A8E] flex items-center justify-center shrink-0"><i class="fi fi-rr-users-alt"></i></span>
-                <span class="min-w-0 flex-1"><b class="block text-[13px] text-[#5D4037] truncate">${escapeHtml(group.name)}</b><small class="block text-[10px] text-gray-400 truncate">그룹 · ${escapeHtml(previewText || `${groupMembers.length}명`)}</small></span>
-            </button>`);
-    });
-
-    dropdown.innerHTML = resultRows.length
-        ? resultRows.join('')
+    const resultHtml = `${groupRows.length ? `<div class="px-3 py-1.5 bg-[#F8F5FC] text-[10px] text-[#7B61A8] font-bold">소속 그룹</div>${groupRows.join('')}` : ''}${memberRows.length ? `<div class="px-3 py-1.5 bg-gray-50 text-[10px] text-gray-400 font-bold">멤버</div>${memberRows.join('')}` : ''}`;
+    dropdown.innerHTML = resultHtml
+        ? resultHtml
         : '<div class="px-4 py-3 text-[12px] text-gray-400 font-bold text-center">일치하는 멤버나 그룹이 없습니다.</div>';
+
+    const rect = input.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    dropdown.style.left = `${Math.max(8, rect.left)}px`;
+    dropdown.style.width = `${Math.min(rect.width, window.innerWidth - 16)}px`;
+    dropdown.style.top = `${spaceBelow >= 220 ? rect.bottom + 6 : Math.max(8, rect.top - 262)}px`;
     dropdown.classList.remove('hidden');
 }
 
@@ -13233,7 +13264,7 @@ function selectScheduleMemberSuggestion(button) {
     input.focus();
 }
 
-function handleScheduleMemberSuggestionKeydown(event, input) {
+async function handleScheduleMemberSuggestionKeydown(event, input) {
     const dropdown = input?.parentElement?.querySelector('.schedule-member-suggestions');
     if (!dropdown) return;
     if (event.key === 'Escape') {
@@ -13242,7 +13273,7 @@ function handleScheduleMemberSuggestionKeydown(event, input) {
     }
     if (event.key === 'ArrowDown') {
         event.preventDefault();
-        if (dropdown.classList.contains('hidden')) renderScheduleMemberSuggestions(input);
+        if (dropdown.classList.contains('hidden')) await renderScheduleMemberSuggestions(input);
         dropdown.querySelector('.schedule-member-suggestion')?.focus();
     }
 }
@@ -13339,7 +13370,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
                 <label class="${labelBase}">함께하는 멤버 / 크루 (선택)</label>
                 <div class="relative">
                     <input type="text" class="sch-mem ${inputBase}" autocomplete="off" placeholder="멤버 또는 그룹 이름 입력" value="${escapeHtml(mem)}" oninput="renderScheduleMemberSuggestions(this)" onkeydown="handleScheduleMemberSuggestionKeydown(event, this)" onblur="setTimeout(() => this.parentElement.querySelector('.schedule-member-suggestions')?.classList.add('hidden'), 120)">
-                    <div class="schedule-member-suggestions hidden absolute left-0 right-0 top-[calc(100%+6px)] z-[80] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl divide-y divide-gray-100"></div>
+                    <div class="schedule-member-suggestions hidden fixed z-[5400] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl divide-y divide-gray-100"></div>
                 </div>
             </div>
 
@@ -14183,16 +14214,6 @@ function resolveGroupMembers(memberIds) {
     }).filter(Boolean);
 }
 
-function normalizeGroupMemberIdsForSelection(memberIds) {
-    const allMembers = getGroupAllMembers();
-    return (memberIds || []).map(id => {
-        const memberId = String(id || '');
-        if (memberId.startsWith('__builtin__')) return memberId;
-        const resolved = resolveGroupMembers([memberId])[0];
-        return allMembers.find(member => member.nickname === resolved?.nickname)?.id || memberId;
-    }).filter(id => allMembers.some(member => String(member.id) === String(id)));
-}
-
 let groupCheckboxSelectedIds = new Set();
 
 function resetGroupEditorForm() {
@@ -14264,14 +14285,6 @@ window.removeGroupSelectedMember = function(id) {
     renderSelectedGroupMembersChips();
 };
 
-window.selectExistingGroupMembers = function(groupId) {
-    const group = memberGroups.find(item => item.id === groupId);
-    if (!group) return;
-    normalizeGroupMemberIdsForSelection(group.memberIds).forEach(id => groupCheckboxSelectedIds.add(String(id)));
-    const searchInput = document.getElementById('groupMemberSearchInput');
-    renderGroupMemberCheckboxes(null, searchInput?.value || '');
-};
-
 window.renderGroupMemberCheckboxes = function(preCheckedIds = null, filterText = '') {
     const container = document.getElementById('groupMemberCheckboxes');
     if (!container) return;
@@ -14283,49 +14296,21 @@ window.renderGroupMemberCheckboxes = function(preCheckedIds = null, filterText =
     const query = filterText.toLowerCase();
     const allMembers = getGroupAllMembers();
     const filtered = query ? allMembers.filter(m => m.nickname.toLowerCase().includes(query)) : allMembers;
-    const matchingGroups = memberGroups.filter(group => {
-        if (!query) return true;
-        if (String(group.name || '').toLowerCase().includes(query)) return true;
-        return resolveGroupMembers(group.memberIds).some(member =>
-            String(member.nickname || '').toLowerCase().includes(query)
-        );
-    });
 
     renderSelectedGroupMembersChips();
 
-    if (filtered.length === 0 && matchingGroups.length === 0) {
+    if (filtered.length === 0) {
         container.innerHTML = `<div class="text-center text-gray-400 font-bold text-[12px] py-3 w-full">검색 결과가 없습니다.</div>`;
         return;
     }
 
-    const groupsHtml = matchingGroups.length ? `
-        <div class="w-full text-[11px] text-gray-400 font-bold mb-0.5">그룹</div>
-        ${matchingGroups.map(group => {
-            const groupMembers = resolveGroupMembers(group.memberIds);
-            const normalizedIds = normalizeGroupMemberIdsForSelection(group.memberIds);
-            const allSelected = normalizedIds.length > 0 && normalizedIds.every(id => groupCheckboxSelectedIds.has(String(id)));
-            return `
-                <button type="button" onclick="selectExistingGroupMembers('${group.id}')" class="flex items-center gap-2 bg-[#F6F1EE] border border-[#D9CBC4] rounded-xl px-2.5 py-2 cursor-pointer hover:border-[#5D4037] transition text-left">
-                    <span class="flex -space-x-2 shrink-0">
-                        ${groupMembers.slice(0, 3).map(member => `<img src="${escapeHtml(member.imageUrl || 'https://via.placeholder.com/24')}" class="w-6 h-6 rounded-full object-cover border-2 border-white" onerror="this.src='https://via.placeholder.com/24'">`).join('') || '<span class="w-6 h-6 rounded-full bg-white border border-gray-200"></span>'}
-                    </span>
-                    <span class="min-w-0"><b class="block text-[12px] text-[#5D4037] truncate">${escapeHtml(group.name)}</b><small class="block text-[9px] text-gray-400">${groupMembers.length}명${allSelected ? ' · 선택됨' : ' · 전체 선택'}</small></span>
-                </button>`;
-        }).join('')}
-    ` : '';
-
-    const membersHtml = filtered.length ? `
-        <div class="w-full text-[11px] text-gray-400 font-bold mt-1 mb-0.5">멤버</div>
-        ${filtered.map(m => `
-            <label class="flex items-center gap-1.5 bg-white border-2 border-gray-200 rounded-xl px-2 py-1.5 cursor-pointer hover:border-[#5D4037] transition text-[12px] font-bold text-[#5D4037]">
-                <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${escapeHtml(m.nickname)}" onchange="toggleGroupMemberCheckbox(this)" ${groupCheckboxSelectedIds.has(String(m.id)) ? 'checked' : ''}>
-                <img src="${escapeHtml(m.imageUrl || 'https://via.placeholder.com/24')}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
-                ${escapeHtml(m.nickname)}
-            </label>
-        `).join('')}
-    ` : '';
-
-    container.innerHTML = groupsHtml + membersHtml;
+    container.innerHTML = filtered.map(m => `
+        <label class="flex items-center gap-1.5 bg-white border-2 border-gray-200 rounded-xl px-2 py-1.5 cursor-pointer hover:border-[#5D4037] transition text-[12px] font-bold text-[#5D4037]">
+            <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${escapeHtml(m.nickname)}" onchange="toggleGroupMemberCheckbox(this)" ${groupCheckboxSelectedIds.has(String(m.id)) ? 'checked' : ''}>
+            <img src="${escapeHtml(m.imageUrl || 'https://via.placeholder.com/24')}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
+            ${escapeHtml(m.nickname)}
+        </label>
+    `).join('');
 };
 
 window.filterGroupMemberCheckboxes = function() {
@@ -14396,7 +14381,13 @@ window.startEditGroup = function(id) {
 
     const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
     if (groupMemberSearchInput) groupMemberSearchInput.value = '';
-    const selectedIds = normalizeGroupMemberIdsForSelection(group.memberIds);
+    const allMembers = getGroupAllMembers();
+    const selectedIds = (group.memberIds || []).map(id => {
+        const memberId = String(id || '');
+        if (memberId.startsWith('__builtin__')) return memberId;
+        const resolved = resolveGroupMembers([memberId])[0];
+        return allMembers.find(member => member.nickname === resolved?.nickname)?.id || memberId;
+    });
     renderGroupMemberCheckboxes(selectedIds);
 
     const addBtn = document.getElementById('groupAddBtn');
