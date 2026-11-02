@@ -1463,6 +1463,7 @@ const KANASHI_UPBO_ACCESS_KEY = 'kanashi-kk1231567-2026';
 // 최또 업보정리 관리 저장 시에만 추가 동기화하는 Google Apps Script.
 // 기존 Firebase(upboData/choiagain) 읽기·쓰기는 그대로 유지한다.
 const CHOI_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbz3e0zyL-xkIMlKjS0PzVinrDKVGk87r8fm11Z-HapEI5BWjB7u4QX1CRMqqYzFG8Kovw/exec';
+const CHOI_UPBO_ACCESS_KEY = 'tto-room-db-19l1uc-2026';
 
 const tabToHash = { 
     '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
@@ -10710,6 +10711,7 @@ function renderUpboMenuAdminList() {
 async function saveUpboData() {
     syncUpboDomToState();
     const dataToSave = upboData[upboCurrentMember];
+    let choiExternalSynced = false;
 
     try {
         const memberToEng = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
@@ -10721,42 +10723,40 @@ async function saveUpboData() {
         if (upboCurrentMember === '최또') {
             const exportedAt = new Date().toISOString();
             const records = Array.isArray(dataToSave.records) ? dataToSave.records : [];
-            const payload = {
-                member: '최또',
-                memberId: 'choiagain',
-                exportedAt,
-                products: Array.isArray(dataToSave.products) ? dataToSave.products : [],
-                records,
-                menu: Array.isArray(dataToSave.menu) ? dataToSave.menu : [],
-                menuImage: dataToSave.menuImage || '',
-                menuListImage: dataToSave.menuListImage || '',
-                data: dataToSave,
-                rows: records.map(record => ({
-                    exportedAt,
-                    collectedAt: record.collectedAt || '',
-                    source: record.source || 'SIGNAL 업보정리',
-                    nickname: record.nickname || '',
-                    userId: record.uid || '',
-                    donationCount: Number(record.donationCount || 0),
-                    category: record.category || '',
-                    items: record.items || {},
-                    roulette: record.roulette || '',
-                    message: record.memo || '',
-                    status: record.status || '배송중',
-                    stationUrl: record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '')
-                }))
-            };
+            if (records.length > 0) {
+                const rows = records.map(record => {
+                    const itemText = record.category || Object.entries(record.items || {})
+                        .filter(([, value]) => value !== '' && value != null)
+                        .map(([name, value]) => `${name}: ${value}`)
+                        .join(', ');
+                    return {
+                        exportedAt,
+                        collectedAt: record.collectedAt || '',
+                        source: record.source || 'SIGNAL 업보정리',
+                        nickname: record.nickname || '',
+                        userId: record.uid || '',
+                        donationCount: Number(record.donationCount || 0),
+                        items: itemText,
+                        message: [record.memo, record.roulette].filter(Boolean).join(' / '),
+                        stationUrl: record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '')
+                    };
+                });
 
-            const choiApiResponse = await fetch(CHOI_UPBO_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            });
-            const choiApiText = await choiApiResponse.text();
-            let choiApiResult = null;
-            try { choiApiResult = choiApiText ? JSON.parse(choiApiText) : null; } catch (_) {}
-            if (!choiApiResponse.ok || choiApiResult?.ok === false) {
-                throw new Error(choiApiResult?.message || `최또 DB 연결 실패 (HTTP ${choiApiResponse.status})`);
+                const choiApiResponse = await fetch(CHOI_UPBO_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        accessKey: CHOI_UPBO_ACCESS_KEY,
+                        rows
+                    })
+                });
+                const choiApiText = await choiApiResponse.text();
+                let choiApiResult = null;
+                try { choiApiResult = choiApiText ? JSON.parse(choiApiText) : null; } catch (_) {}
+                if (!choiApiResponse.ok || !choiApiResult || choiApiResult.ok === false) {
+                    throw new Error(choiApiResult?.message || `최또 DB 연결 실패 (HTTP ${choiApiResponse.status})`);
+                }
+                choiExternalSynced = true;
             }
         }
 
@@ -10790,7 +10790,9 @@ async function saveUpboData() {
             upboCurrentMember === '카나시'
                 ? "카나시 데이터가 성공적으로 저장·동기화되었습니다!"
                 : upboCurrentMember === '최또'
-                    ? "최또 데이터가 Firebase와 외부 DB에 성공적으로 저장·동기화되었습니다!"
+                    ? choiExternalSynced
+                        ? "최또 데이터가 Firebase와 외부 DB에 성공적으로 저장·동기화되었습니다!"
+                        : "최또 데이터가 Firebase에 저장되었습니다. 외부 DB로 보낼 행은 없습니다."
                     : "데이터가 성공적으로 저장되었습니다!"
         );
     } catch(e) {
