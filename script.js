@@ -13179,6 +13179,24 @@ function getScheduleMemberSuggestions(query) {
 
 let scheduleMemberGroupsRefreshPromise = null;
 let scheduleMemberGroupsRefreshedAt = 0;
+let scheduleMemberSuggestionsDropdown = null;
+
+function getScheduleMemberSuggestionsDropdown(input) {
+    if (!scheduleMemberSuggestionsDropdown) {
+        scheduleMemberSuggestionsDropdown = document.createElement('div');
+        scheduleMemberSuggestionsDropdown.className = 'schedule-member-suggestions hidden fixed z-[5400] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl divide-y divide-gray-100';
+        document.body.appendChild(scheduleMemberSuggestionsDropdown);
+    }
+    scheduleMemberSuggestionsDropdown._scheduleInput = input;
+    return scheduleMemberSuggestionsDropdown;
+}
+
+function hideScheduleMemberSuggestions(input = null) {
+    const dropdown = scheduleMemberSuggestionsDropdown;
+    if (!dropdown || (input && dropdown._scheduleInput !== input)) return;
+    dropdown.classList.add('hidden');
+    dropdown._scheduleInput = null;
+}
 
 async function refreshScheduleMemberGroups() {
     if (memberGroups.length > 0 && Date.now() - scheduleMemberGroupsRefreshedAt < 30000) return;
@@ -13196,12 +13214,8 @@ async function refreshScheduleMemberGroups() {
 }
 
 async function renderScheduleMemberSuggestions(input) {
-    const dropdown = input?.parentElement?.querySelector('.schedule-member-suggestions');
-    if (!dropdown) return;
-
-    document.querySelectorAll('.schedule-member-suggestions').forEach(item => {
-        if (item !== dropdown) item.classList.add('hidden');
-    });
+    if (!input) return;
+    const dropdown = getScheduleMemberSuggestionsDropdown(input);
 
     const query = getScheduleMemberSearchQuery(input);
     if (!query) {
@@ -13251,7 +13265,7 @@ async function renderScheduleMemberSuggestions(input) {
 
 function selectScheduleMemberSuggestion(button) {
     const dropdown = button.closest('.schedule-member-suggestions');
-    const input = dropdown?.parentElement?.querySelector('.sch-mem');
+    const input = dropdown?._scheduleInput;
     if (!input) return;
 
     const selectedValue = decodeURIComponent(button.dataset.suggestionValue || '');
@@ -13265,8 +13279,9 @@ function selectScheduleMemberSuggestion(button) {
 }
 
 async function handleScheduleMemberSuggestionKeydown(event, input) {
-    const dropdown = input?.parentElement?.querySelector('.schedule-member-suggestions');
-    if (!dropdown) return;
+    const dropdown = scheduleMemberSuggestionsDropdown?._scheduleInput === input
+        ? scheduleMemberSuggestionsDropdown
+        : getScheduleMemberSuggestionsDropdown(input);
     if (event.key === 'Escape') {
         dropdown.classList.add('hidden');
         return;
@@ -13281,6 +13296,7 @@ async function handleScheduleMemberSuggestionKeydown(event, input) {
 window.renderScheduleMemberSuggestions = renderScheduleMemberSuggestions;
 window.selectScheduleMemberSuggestion = selectScheduleMemberSuggestion;
 window.handleScheduleMemberSuggestionKeydown = handleScheduleMemberSuggestionKeydown;
+window.hideScheduleMemberSuggestions = hideScheduleMemberSuggestions;
 
 function getScheduleFormHTML(data, isDeletable = true) {
     const id = data.id || ''; 
@@ -13369,8 +13385,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
             <div class="mb-5 optional-field">
                 <label class="${labelBase}">함께하는 멤버 / 크루 (선택)</label>
                 <div class="relative">
-                    <input type="text" class="sch-mem ${inputBase}" autocomplete="off" placeholder="멤버 또는 그룹 이름 입력" value="${escapeHtml(mem)}" oninput="renderScheduleMemberSuggestions(this)" onkeydown="handleScheduleMemberSuggestionKeydown(event, this)" onblur="setTimeout(() => this.parentElement.querySelector('.schedule-member-suggestions')?.classList.add('hidden'), 120)">
-                    <div class="schedule-member-suggestions hidden fixed z-[5400] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl divide-y divide-gray-100"></div>
+                    <input type="text" class="sch-mem ${inputBase}" autocomplete="off" placeholder="멤버 또는 그룹 이름 입력" value="${escapeHtml(mem)}" oninput="renderScheduleMemberSuggestions(this)" onkeydown="handleScheduleMemberSuggestionKeydown(event, this)" onblur="setTimeout(() => hideScheduleMemberSuggestions(this), 120)">
                 </div>
             </div>
 
@@ -13537,7 +13552,10 @@ function addScheduleInputBlock() {
     syncDarkModeSurfaces();
 }
 
-function closeScheduleModal() { document.getElementById('scheduleModal').classList.replace('flex', 'hidden'); }
+function closeScheduleModal() {
+    hideScheduleMemberSuggestions();
+    document.getElementById('scheduleModal').classList.replace('flex', 'hidden');
+}
 
 function editFromMenu() {
     if(!contextTargetId) return; 
