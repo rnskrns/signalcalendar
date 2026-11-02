@@ -14183,6 +14183,16 @@ function resolveGroupMembers(memberIds) {
     }).filter(Boolean);
 }
 
+function normalizeGroupMemberIdsForSelection(memberIds) {
+    const allMembers = getGroupAllMembers();
+    return (memberIds || []).map(id => {
+        const memberId = String(id || '');
+        if (memberId.startsWith('__builtin__')) return memberId;
+        const resolved = resolveGroupMembers([memberId])[0];
+        return allMembers.find(member => member.nickname === resolved?.nickname)?.id || memberId;
+    }).filter(id => allMembers.some(member => String(member.id) === String(id)));
+}
+
 let groupCheckboxSelectedIds = new Set();
 
 function resetGroupEditorForm() {
@@ -14254,6 +14264,14 @@ window.removeGroupSelectedMember = function(id) {
     renderSelectedGroupMembersChips();
 };
 
+window.selectExistingGroupMembers = function(groupId) {
+    const group = memberGroups.find(item => item.id === groupId);
+    if (!group) return;
+    normalizeGroupMemberIdsForSelection(group.memberIds).forEach(id => groupCheckboxSelectedIds.add(String(id)));
+    const searchInput = document.getElementById('groupMemberSearchInput');
+    renderGroupMemberCheckboxes(null, searchInput?.value || '');
+};
+
 window.renderGroupMemberCheckboxes = function(preCheckedIds = null, filterText = '') {
     const container = document.getElementById('groupMemberCheckboxes');
     if (!container) return;
@@ -14265,21 +14283,49 @@ window.renderGroupMemberCheckboxes = function(preCheckedIds = null, filterText =
     const query = filterText.toLowerCase();
     const allMembers = getGroupAllMembers();
     const filtered = query ? allMembers.filter(m => m.nickname.toLowerCase().includes(query)) : allMembers;
+    const matchingGroups = memberGroups.filter(group => {
+        if (!query) return true;
+        if (String(group.name || '').toLowerCase().includes(query)) return true;
+        return resolveGroupMembers(group.memberIds).some(member =>
+            String(member.nickname || '').toLowerCase().includes(query)
+        );
+    });
 
     renderSelectedGroupMembersChips();
 
-    if (filtered.length === 0) {
+    if (filtered.length === 0 && matchingGroups.length === 0) {
         container.innerHTML = `<div class="text-center text-gray-400 font-bold text-[12px] py-3 w-full">검색 결과가 없습니다.</div>`;
         return;
     }
 
-    container.innerHTML = filtered.map(m => `
-        <label class="flex items-center gap-1.5 bg-white border-2 border-gray-200 rounded-xl px-2 py-1.5 cursor-pointer hover:border-[#5D4037] transition text-[12px] font-bold text-[#5D4037]">
-            <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${m.nickname}" onchange="toggleGroupMemberCheckbox(this)" ${groupCheckboxSelectedIds.has(m.id) ? 'checked' : ''}>
-            <img src="${m.imageUrl}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
-            ${m.nickname}
-        </label>
-    `).join('');
+    const groupsHtml = matchingGroups.length ? `
+        <div class="w-full text-[11px] text-gray-400 font-bold mb-0.5">그룹</div>
+        ${matchingGroups.map(group => {
+            const groupMembers = resolveGroupMembers(group.memberIds);
+            const normalizedIds = normalizeGroupMemberIdsForSelection(group.memberIds);
+            const allSelected = normalizedIds.length > 0 && normalizedIds.every(id => groupCheckboxSelectedIds.has(String(id)));
+            return `
+                <button type="button" onclick="selectExistingGroupMembers('${group.id}')" class="flex items-center gap-2 bg-[#F6F1EE] border border-[#D9CBC4] rounded-xl px-2.5 py-2 cursor-pointer hover:border-[#5D4037] transition text-left">
+                    <span class="flex -space-x-2 shrink-0">
+                        ${groupMembers.slice(0, 3).map(member => `<img src="${escapeHtml(member.imageUrl || 'https://via.placeholder.com/24')}" class="w-6 h-6 rounded-full object-cover border-2 border-white" onerror="this.src='https://via.placeholder.com/24'">`).join('') || '<span class="w-6 h-6 rounded-full bg-white border border-gray-200"></span>'}
+                    </span>
+                    <span class="min-w-0"><b class="block text-[12px] text-[#5D4037] truncate">${escapeHtml(group.name)}</b><small class="block text-[9px] text-gray-400">${groupMembers.length}명${allSelected ? ' · 선택됨' : ' · 전체 선택'}</small></span>
+                </button>`;
+        }).join('')}
+    ` : '';
+
+    const membersHtml = filtered.length ? `
+        <div class="w-full text-[11px] text-gray-400 font-bold mt-1 mb-0.5">멤버</div>
+        ${filtered.map(m => `
+            <label class="flex items-center gap-1.5 bg-white border-2 border-gray-200 rounded-xl px-2 py-1.5 cursor-pointer hover:border-[#5D4037] transition text-[12px] font-bold text-[#5D4037]">
+                <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${escapeHtml(m.nickname)}" onchange="toggleGroupMemberCheckbox(this)" ${groupCheckboxSelectedIds.has(String(m.id)) ? 'checked' : ''}>
+                <img src="${escapeHtml(m.imageUrl || 'https://via.placeholder.com/24')}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
+                ${escapeHtml(m.nickname)}
+            </label>
+        `).join('')}
+    ` : '';
+
+    container.innerHTML = groupsHtml + membersHtml;
 };
 
 window.filterGroupMemberCheckboxes = function() {
@@ -14350,13 +14396,7 @@ window.startEditGroup = function(id) {
 
     const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
     if (groupMemberSearchInput) groupMemberSearchInput.value = '';
-    const allMembers = getGroupAllMembers();
-    const selectedIds = (group.memberIds || []).map(id => {
-        const memberId = String(id || '');
-        if (memberId.startsWith('__builtin__')) return memberId;
-        const resolved = resolveGroupMembers([memberId])[0];
-        return allMembers.find(member => member.nickname === resolved?.nickname)?.id || memberId;
-    });
+    const selectedIds = normalizeGroupMemberIdsForSelection(group.memberIds);
     renderGroupMemberCheckboxes(selectedIds);
 
     const addBtn = document.getElementById('groupAddBtn');
