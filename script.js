@@ -13941,6 +13941,7 @@ window.openMemberManageModal = async function() {
 };
 
 window.closeMemberManageModal = function() {
+    if (!document.getElementById('groupEditorModal')?.classList.contains('hidden')) window.closeGroupEditorModal();
     document.getElementById('memberManageModal').classList.replace('flex', 'hidden');
     if (isMobile && isAdmin) openMobileAdminPage();
 };
@@ -14156,8 +14157,6 @@ window.switchMemberManageTab = function(tab) {
         groupBtn.classList.add('bg-[#5D4037]', 'text-white'); groupBtn.classList.remove('bg-white', 'text-[#5D4037]');
         memberBtn.classList.remove('bg-[#5D4037]', 'text-white'); memberBtn.classList.add('bg-white', 'text-[#5D4037]');
         groupBtn.classList.add('is-active'); memberBtn.classList.remove('is-active');
-        editingGroupId = null;
-        renderGroupMemberCheckboxes([]);
         renderMemberGroupsList();
     }
 };
@@ -14185,6 +14184,35 @@ function resolveGroupMembers(memberIds) {
 }
 
 let groupCheckboxSelectedIds = new Set();
+
+function resetGroupEditorForm() {
+    editingGroupId = null;
+    const nameInput = document.getElementById('newGroupName');
+    const searchInput = document.getElementById('groupMemberSearchInput');
+    const title = document.getElementById('groupEditorTitle');
+    const addBtn = document.getElementById('groupAddBtn');
+    if (nameInput) nameInput.value = '';
+    if (searchInput) searchInput.value = '';
+    if (title) title.textContent = '새 그룹 만들기';
+    if (addBtn) {
+        addBtn.textContent = '그룹 추가';
+        addBtn.classList.replace('bg-blue-600', 'bg-[#5D4037]');
+    }
+    renderGroupMemberCheckboxes([]);
+}
+
+window.openGroupEditorModal = function() {
+    resetGroupEditorForm();
+    const modal = document.getElementById('groupEditorModal');
+    if (modal) modal.classList.replace('hidden', 'flex');
+    setTimeout(() => document.getElementById('newGroupName')?.focus(), 50);
+};
+
+window.closeGroupEditorModal = function() {
+    const modal = document.getElementById('groupEditorModal');
+    if (modal) modal.classList.replace('flex', 'hidden');
+    resetGroupEditorForm();
+};
 
 window.toggleGroupMemberCheckbox = function(cb) {
     if (cb.checked) {
@@ -14286,26 +14314,29 @@ window.renderMemberGroupsList = function(filterText = '') {
     container.innerHTML = filtered.map(g => {
         const groupMems = resolveGroupMembers(g.memberIds);
         return `
-        <div class="bg-white border-2 border-[#5D4037] rounded-xl p-3 relative">
-            <div class="flex items-center justify-between mb-2 pr-1">
-                <div class="font-bold text-[#5D4037] text-[15px] font-paperozi flex items-center gap-1.5">
-                    <i class="fi fi-rr-users-alt text-[13px]"></i> ${g.name}
-                    <span class="text-[11px] text-gray-400 font-bold ml-1">(${groupMems.length}명)</span>
-                </div>
-                <div class="flex items-center gap-1">
-                    <button onclick="startEditGroup('${g.id}')" class="text-[#5D4037] hover:text-blue-500 transition p-1" title="수정"><i class="fi fi-rr-edit text-[13px]"></i></button>
-                    <button onclick="deleteMemberGroup('${g.id}')" class="text-red-400 hover:text-red-600 transition p-1" title="삭제"><i class="fi fi-br-cross-small text-[11px]"></i></button>
-                </div>
-            </div>
-            <div class="flex flex-wrap gap-2 mb-2">
-                ${groupMems.map(m => `
-                    <div class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2 py-1">
-                        <img src="${m.imageUrl}" loading="lazy" decoding="async" class="w-5 h-5 rounded-full object-cover" onerror="this.src='https://via.placeholder.com/20'">
-                        <span class="text-[11px] font-bold text-[#5D4037]">${m.nickname || '크루'}</span>
+        <div class="group-gallery-card bg-white border border-gray-200 rounded-2xl p-4 relative shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[180px] flex flex-col">
+            <div class="flex items-start justify-between mb-4 gap-2">
+                <div class="min-w-0">
+                    <div class="font-bold text-[#5D4037] text-[16px] font-paperozi flex items-center gap-2 min-w-0">
+                        <span class="w-8 h-8 rounded-xl bg-[#F1EAE6] flex items-center justify-center shrink-0"><i class="fi fi-rr-users-alt text-[14px]"></i></span>
+                        <span class="truncate">${escapeHtml(g.name)}</span>
                     </div>
-                `).join('')}
+                    <div class="text-[11px] text-gray-400 font-bold mt-1 ml-10">${groupMems.length}명</div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="startEditGroup('${g.id}')" class="w-8 h-8 rounded-lg bg-gray-50 text-[#5D4037] hover:bg-blue-50 hover:text-blue-500 transition flex items-center justify-center" title="수정"><i class="fi fi-rr-edit text-[13px]"></i></button>
+                    <button onclick="deleteMemberGroup('${g.id}')" class="w-8 h-8 rounded-lg bg-gray-50 text-red-400 hover:bg-red-50 hover:text-red-600 transition flex items-center justify-center" title="삭제"><i class="fi fi-br-cross-small text-[11px]"></i></button>
+                </div>
             </div>
-            <div class="text-[11px] text-gray-400 font-bold">멤버 태그에 <span class="text-[#5D4037] font-bold">"${g.name}"</span> 입력하면 적용됩니다</div>
+            <div class="flex flex-wrap gap-2.5 content-start flex-1">
+                ${groupMems.length ? groupMems.map(m => `
+                    <div class="group-gallery-member flex flex-col items-center gap-1 w-[52px]" title="${escapeHtml(m.nickname || '크루')}">
+                        <img src="${escapeHtml(m.imageUrl || 'https://via.placeholder.com/44')}" loading="lazy" decoding="async" class="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-gray-200" onerror="this.src='https://via.placeholder.com/44'">
+                        <span class="text-[10px] font-bold text-[#5D4037] truncate w-full text-center">${escapeHtml(m.nickname || '크루')}</span>
+                    </div>
+                `).join('') : '<div class="w-full flex-1 min-h-[72px] rounded-xl bg-gray-50 text-gray-400 text-[12px] font-bold flex items-center justify-center">등록된 멤버가 없습니다.</div>'}
+            </div>
+            <div class="text-[10px] text-gray-400 font-bold mt-4 pt-3 border-t border-gray-100">일정 멤버 입력에서 <span class="text-[#5D4037]">${escapeHtml(g.name)}</span> 선택</div>
         </div>`;
     }).join('');
 };
@@ -14313,39 +14344,35 @@ window.renderMemberGroupsList = function(filterText = '') {
 window.startEditGroup = function(id) {
     const group = memberGroups.find(g => g.id === id);
     if (!group) return;
+    window.openGroupEditorModal();
     editingGroupId = id;
 
     document.getElementById('newGroupName').value = group.name;
 
     const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
     if (groupMemberSearchInput) groupMemberSearchInput.value = '';
-    renderGroupMemberCheckboxes(group.memberIds || []);
+    const allMembers = getGroupAllMembers();
+    const selectedIds = (group.memberIds || []).map(id => {
+        const memberId = String(id || '');
+        if (memberId.startsWith('__builtin__')) return memberId;
+        const resolved = resolveGroupMembers([memberId])[0];
+        return allMembers.find(member => member.nickname === resolved?.nickname)?.id || memberId;
+    });
+    renderGroupMemberCheckboxes(selectedIds);
 
     const addBtn = document.getElementById('groupAddBtn');
     if (addBtn) {
         addBtn.textContent = '수정 저장';
         addBtn.classList.replace('bg-[#5D4037]', 'bg-blue-600');
     }
-    const cancelBtn = document.getElementById('groupEditCancelBtn');
-    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    const title = document.getElementById('groupEditorTitle');
+    if (title) title.textContent = '그룹 수정';
 
     document.getElementById('newGroupName').focus();
-    document.getElementById('newGroupName').scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
 window.cancelEditGroup = function() {
-    editingGroupId = null;
-    document.getElementById('newGroupName').value = '';
-    const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
-    if (groupMemberSearchInput) groupMemberSearchInput.value = '';
-    renderGroupMemberCheckboxes([]);
-    const addBtn = document.getElementById('groupAddBtn');
-    if (addBtn) {
-        addBtn.textContent = '그룹 추가';
-        addBtn.classList.replace('bg-blue-600', 'bg-[#5D4037]');
-    }
-    const cancelBtn = document.getElementById('groupEditCancelBtn');
-    if (cancelBtn) cancelBtn.classList.add('hidden');
+    window.closeGroupEditorModal();
 };
 
 window.addMemberGroup = async function() {
@@ -14364,10 +14391,7 @@ window.addMemberGroup = async function() {
             const newGroup = { name, memberIds, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'memberGroups'), newGroup);
             memberGroups.push({ id: docRef.id, ...newGroup });
-            document.getElementById('newGroupName').value = '';
-            const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
-            if (groupMemberSearchInput) groupMemberSearchInput.value = '';
-            renderGroupMemberCheckboxes([]);
+            window.closeGroupEditorModal();
         }
         renderMemberGroupsList();
     } catch(e) { console.error(e); alert(editingGroupId ? '수정 실패' : '그룹 추가 실패'); }

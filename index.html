@@ -655,20 +655,40 @@
                     <div id="customMembersList" class="flex flex-col gap-3"></div>
                 </div>
                 <div id="groupTabContent" class="hidden flex-col gap-4">
-                    <div class="flex flex-col gap-3 shrink-0">
-                        <div class="text-[14px] font-bold text-[#5D4037]">멤버 그룹 추가</div>
-                        <input type="text" id="newGroupName" placeholder="그룹 이름 (예: 합방팀A)" class="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 text-sm font-bold text-[#5D4037] outline-none focus:border-[#5D4037] focus:ring-2 focus:ring-[#5D4037]/10">
-                        <input type="text" id="groupMemberSearchInput" placeholder="그룹에 넣을 멤버 검색" oninput="filterGroupMemberCheckboxes()" class="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 text-sm font-bold text-[#5D4037] outline-none focus:border-[#5D4037] focus:ring-2 focus:ring-[#5D4037]/10">
-                        <div id="groupMemberCheckboxes" class="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto rounded-xl bg-gray-50 p-3"></div>
-                        <div id="groupSelectedMembersChips" class="flex flex-wrap items-center gap-1.5 min-h-[24px]"></div>
-                        <div class="flex gap-2">
-                            <button type="button" id="groupAddBtn" onclick="addMemberGroup()" class="flex-1 bg-[#5D4037] text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 transition">그룹 추가</button>
-                            <button type="button" id="groupEditCancelBtn" onclick="cancelEditGroup()" class="hidden flex-1 bg-gray-100 text-gray-500 py-3 rounded-xl font-bold text-sm hover:bg-gray-200 transition">수정 취소</button>
+                    <div class="flex items-center justify-between gap-3 shrink-0">
+                        <div>
+                            <div class="text-[15px] font-bold text-[#5D4037] font-paperozi">등록된 그룹</div>
+                            <div id="groupCountBadge" class="text-[11px] text-gray-400 font-bold mt-1">총 0개</div>
                         </div>
+                        <button type="button" onclick="openGroupEditorModal()" class="inline-flex items-center gap-2 bg-[#5D4037] text-white px-4 py-3 rounded-xl font-bold text-sm hover:brightness-110 transition shadow-sm shrink-0"><i class="fi fi-rr-plus"></i> 그룹 추가</button>
                     </div>
                     <input type="text" id="groupSearchInput" placeholder="등록된 그룹 검색" oninput="filterGroupsList()" class="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 text-sm font-bold text-[#5D4037] outline-none focus:border-[#5D4037] focus:ring-2 focus:ring-[#5D4037]/10">
-                    <div id="memberGroupsList" class="flex flex-col gap-3"></div>
+                    <div id="memberGroupsList" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="groupEditorModal" class="hidden fixed inset-0 bg-black/55 items-center justify-center z-[5200] p-4" onclick="if(event.target===this) closeGroupEditorModal()">
+        <div class="modal-content bg-[#FFFDF5] p-6 rounded-3xl w-full max-w-[680px] shadow-2xl border border-[#ECEDFA] flex flex-col max-h-[88vh]" role="dialog" aria-modal="true" aria-labelledby="groupEditorTitle">
+            <div class="flex items-center justify-between gap-3 mb-5 shrink-0">
+                <div>
+                    <div class="text-[11px] tracking-[0.18em] text-gray-400 font-bold mb-1">MEMBER GROUP</div>
+                    <h3 id="groupEditorTitle" class="text-xl font-bold text-[#5D4037] font-paperozi">새 그룹 만들기</h3>
+                </div>
+                <button type="button" onclick="closeGroupEditorModal()" class="w-10 h-10 rounded-full bg-white border border-gray-200 text-2xl text-[#5D4037] hover:text-red-500 transition flex items-center justify-center"><i class="fi fi-br-cross-small"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto modal-scroll pr-1 flex flex-col gap-3">
+                <label class="text-[12px] text-gray-500 font-bold">그룹 이름</label>
+                <input type="text" id="newGroupName" placeholder="그룹 이름 (예: 합방팀A)" class="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 text-sm font-bold text-[#5D4037] outline-none focus:border-[#5D4037] focus:ring-2 focus:ring-[#5D4037]/10">
+                <label class="text-[12px] text-gray-500 font-bold mt-1">멤버 선택</label>
+                <input type="text" id="groupMemberSearchInput" placeholder="그룹에 넣을 멤버 검색" oninput="filterGroupMemberCheckboxes()" class="w-full border border-gray-200 bg-white rounded-xl px-4 py-3 text-sm font-bold text-[#5D4037] outline-none focus:border-[#5D4037] focus:ring-2 focus:ring-[#5D4037]/10">
+                <div id="groupMemberCheckboxes" class="flex flex-wrap gap-2 max-h-[260px] overflow-y-auto rounded-2xl bg-gray-50 p-3 border border-gray-100"></div>
+                <div id="groupSelectedMembersChips" class="flex flex-wrap items-center gap-1.5 min-h-[28px]"></div>
+            </div>
+            <div class="flex gap-2 mt-5 shrink-0">
+                <button type="button" onclick="closeGroupEditorModal()" class="px-5 bg-gray-100 text-gray-500 py-3.5 rounded-xl font-bold text-sm hover:bg-gray-200 transition">취소</button>
+                <button type="button" id="groupAddBtn" onclick="addMemberGroup()" class="flex-1 bg-[#5D4037] text-white py-3.5 rounded-xl font-bold text-sm hover:brightness-110 transition">그룹 추가</button>
             </div>
         </div>
     </div>
@@ -828,3 +848,4 @@
 
 </body>
 </html>
+
