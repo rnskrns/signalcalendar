@@ -214,6 +214,35 @@ html.dark-mode .kanashi-upbo-table td { border-color:#40352d; }
 html.dark-mode .kanashi-upbo-table tbody tr:hover td { background:#29211b; }
 html.dark-mode .kanashi-upbo-table input, html.dark-mode .kanashi-upbo-table textarea { background:#171412; border-color:#4a3b30; color:#f5eee8; }
 
+/* 최또 업보 Google Sheet 표 - 최또 테마색 */
+.choi-upbo-table-wrap { border-color:#f2c8e5; background:#fffafd; }
+.choi-upbo-table { min-width:1040px; color:#53213f; }
+.choi-upbo-table th { background:#fff0fa; color:#9a236e; border-bottom-color:#f745c1; }
+.choi-upbo-table td { border-color:#f3deec; background:#fffafd; }
+.choi-upbo-table tbody tr:hover td { background:#fff1fa; }
+.choi-upbo-table input,
+.choi-upbo-table textarea { border-color:#eed2e5; border-radius:11px; background:#fff; color:#53213f; }
+.choi-upbo-table input:focus,
+.choi-upbo-table textarea:focus { border-color:#f745c1; box-shadow:0 0 0 3px rgba(247,69,193,.13); }
+.choi-upbo-table .kanashi-check-cell input { accent-color:#f745c1; }
+.choi-upbo-table .kanashi-station-link { background:#ffe4f6; color:#b51b7d; }
+.choi-upbo-table .kanashi-station-link:hover { background:#f745c1; color:#fff; }
+.choi-upbo-table .kanashi-row-delete { background:#fff0f5; color:#d43d72; }
+.choi-upbo-table .kanashi-row-delete:hover { background:#d43d72; color:#fff; }
+
+html.dark-mode .choi-upbo-table-wrap { background:#211a20; border-color:#58304c; }
+html.dark-mode .choi-upbo-table { color:#f7e9f3; }
+html.dark-mode .choi-upbo-table th { background:#3a2033; color:#ff9ddd; border-bottom-color:#f745c1; }
+html.dark-mode .choi-upbo-table td { border-color:#493343; background:#241d23; }
+html.dark-mode .choi-upbo-table tbody tr:hover td { background:#30212c; }
+html.dark-mode .choi-upbo-table input,
+html.dark-mode .choi-upbo-table textarea { background:#171217; border-color:#563149; color:#faedf6; }
+html.dark-mode .choi-upbo-table input:focus,
+html.dark-mode .choi-upbo-table textarea:focus { border-color:#f745c1; box-shadow:0 0 0 3px rgba(247,69,193,.2); }
+html.dark-mode .choi-upbo-table .kanashi-station-link { background:#44203a; color:#ff9ddd; }
+html.dark-mode .choi-upbo-table .kanashi-station-link:hover { background:#f745c1; color:#fff; }
+html.dark-mode .choi-upbo-table .kanashi-row-delete { background:#43222d; color:#ff91b8; }
+
 /* 카나시 업보관리 카드형 편집 화면 */
 .upbo-admin-card-grid {
     display: grid;

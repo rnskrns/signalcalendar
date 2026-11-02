@@ -1463,6 +1463,30 @@ const KANASHI_UPBO_ACCESS_KEY = 'kanashi-kk1231567-2026';
 // 최또 업보정리 전용 Google Apps Script. 최또는 Firebase 대신 이 저장소만 사용한다.
 const CHOI_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbz3e0zyL-xkIMlKjS0PzVinrDKVGk87r8fm11Z-HapEI5BWjB7u4QX1CRMqqYzFG8Kovw/exec';
 const CHOI_UPBO_ACCESS_KEY = 'tto-room-db-19l1uc-2026';
+const CHOI_UPBO_SITE_MENU_KEY = 'signal_choi_upbo_site_menu_v1';
+
+function loadChoiUpboSiteMenu() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(CHOI_UPBO_SITE_MENU_KEY) || '{}');
+        return {
+            menu: Array.isArray(saved.menu) ? saved.menu : [],
+            menuImage: String(saved.menuImage || ''),
+            menuListImage: String(saved.menuListImage || '')
+        };
+    } catch (error) {
+        console.warn('최또 사이트 메뉴 설정을 불러오지 못했습니다.', error);
+        return { menu: [], menuImage: '', menuListImage: '' };
+    }
+}
+
+function saveChoiUpboSiteMenu(data) {
+    const menuState = {
+        menu: Array.isArray(data?.menu) ? data.menu : [],
+        menuImage: String(data?.menuImage || ''),
+        menuListImage: String(data?.menuListImage || '')
+    };
+    localStorage.setItem(CHOI_UPBO_SITE_MENU_KEY, JSON.stringify(menuState));
+}
 
 const tabToHash = { 
     '홈': 'home', '달타': 'dalta', '다룽': 'darung', '최또': 'choiagain', '카나시': 'kanashi', 
@@ -8132,14 +8156,25 @@ async function loadUpboDataFromFirebase() {
 
 async function loadChoiUpboFromGoogleSheet() {
     try {
+        // 메뉴 관리는 구글시트와 완전히 분리하고 사이트의 메뉴 관리 상태만 사용한다.
+        const localMenu = loadChoiUpboSiteMenu();
         const url = `${CHOI_UPBO_API_URL}?accessKey=${encodeURIComponent(CHOI_UPBO_ACCESS_KEY)}&_=${Date.now()}`;
         const response = await fetch(url, { cache: 'no-store' });
         const result = await response.json();
         if (!response.ok || !result || result.ok === false || !Array.isArray(result.rows)) {
             throw new Error(result?.message || `HTTP ${response.status}`);
         }
+        const siteMenu = {
+            menu: Array.isArray(result.menu) ? result.menu : localMenu.menu,
+            menuImage: result.menuImage === undefined ? localMenu.menuImage : String(result.menuImage || ''),
+            menuListImage: result.menuListImage === undefined ? localMenu.menuListImage : String(result.menuListImage || '')
+        };
+        saveChoiUpboSiteMenu(siteMenu);
         upboData['최또'] = {
             products: [],
+            menu: siteMenu.menu,
+            menuImage: siteMenu.menuImage,
+            menuListImage: siteMenu.menuListImage,
             records: result.rows.map(row => ({
                 nickname: String(row.nickname || ''),
                 uid: String(row.userId || ''),
@@ -8155,7 +8190,7 @@ async function loadChoiUpboFromGoogleSheet() {
         return true;
     } catch (error) {
         console.error('최또 Google Sheet 업보 데이터 로드 실패:', error);
-        upboData['최또'] = { products: [], records: [] };
+        upboData['최또'] = { products: [], records: [], ...loadChoiUpboSiteMenu() };
         if (isAdmin && typeof showToast === 'function') {
             showToast('최또 업보 데이터를 불러오지 못했습니다. Apps Script 배포 상태를 확인해주세요.');
         }
@@ -10242,7 +10277,7 @@ function renderUpboPage() {
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h3 class="text-[22px] font-bold text-[#5D4037] font-paperozi"><i class="fi fi-rr-settings"></i> ${upboCurrentMember} 업보 관리</h3>
                     <div class="flex flex-wrap items-center justify-start sm:justify-end gap-2 shrink-0 upbo-admin-toolbar">
-                        <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#967978] text-white font-bold font-Diary rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap"><i class="fi fi-rr-disk"></i> 저장하기</button>
+                        <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#967978] text-white font-bold font-Diary rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap" style="${isChoiSheet ? `background-color:${themeColor};` : ''}"><i class="fi fi-rr-disk"></i> 저장하기</button>
                         
                         <div id="upboFileMenuWrapper" class="relative ${isChoiSheet ? 'hidden' : ''}">
                             <button type="button" onclick="event.stopPropagation(); toggleUpboFileMenu()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-Diary rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드</button>
@@ -10259,10 +10294,10 @@ function renderUpboPage() {
                 </div>
 
                 <!-- 메뉴 관리 -->
-                <div class="${isChoiSheet ? 'hidden' : ''} mb-4 bg-white border border-[#ECEDFA] rounded-2xl p-4 shadow-sm">
+                <div class="mb-4 bg-white border border-[#ECEDFA] rounded-2xl p-4 shadow-sm">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="text-[16px] font-bold text-[#5D4037] font-paperozi flex items-center gap-2"><i class="fi fi-rr-shop"></i> 메뉴 관리</h3>
-                        <button onclick="addUpboMenuItem()" class="px-3 py-1.5 bg-blue-50 text-blue-700 font-bold rounded-lg border-[1.5px] border-blue-200 shadow-sm text-[13px] hover:bg-blue-100 transition">+ 메뉴 추가</button>
+                        <button onclick="addUpboMenuItem()" class="px-3 py-1.5 bg-blue-50 text-blue-700 font-bold rounded-lg border-[1.5px] border-blue-200 shadow-sm text-[13px] hover:bg-blue-100 transition" style="${isChoiSheet ? `background-color:${themeColor};border-color:${themeColor};color:#fff;` : ''}">+ 메뉴 추가</button>
                     </div>
                     <div class="flex items-center gap-3 mb-4 pb-4 border-b border-[#ECEDFA]">
                         <label class="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 cursor-pointer shrink-0 border border-gray-200 hover:brightness-95 transition">
@@ -10325,7 +10360,7 @@ function renderUpboPage() {
 
     if (isAdmin && upboViewMode === 'admin') {
         renderUpboAdminTable();
-        if (!isChoiSheet) renderUpboMenuAdminList();
+        renderUpboMenuAdminList();
     }
 }
 
@@ -10394,6 +10429,7 @@ function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable
                 <td><textarea class="upbo-category" rows="1" placeholder="품목">${escapeHtml(record.category || '')}</textarea></td>
                 <td><textarea class="upbo-memo" rows="1" placeholder="메시지">${escapeHtml(record.memo || '')}</textarea></td>
                 <td><input type="hidden" class="upbo-station-url" value="${escapeHtml(stationUrl)}"><button type="button" class="kanashi-station-link" onclick="openChoiUpboStation(this)"><i class="fi fi-rr-link-alt"></i> 방송국 열기</button></td>
+                <td class="kanashi-delete-cell"><button type="button" class="kanashi-row-delete" onclick="deleteChoiUpboRow(this)" title="삭제"><i class="fi fi-rr-trash"></i></button></td>
             </tr>`;
         }
         return `<tr>
@@ -10406,13 +10442,14 @@ function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable
             <td>${stationUrl ? `<a class="kanashi-station-link" href="${escapeHtml(stationUrl)}" target="_blank" rel="noopener noreferrer"><i class="fi fi-rr-link-alt"></i> 방송국 열기</a>` : '-'}</td>
         </tr>`;
     }).join('');
-    const header = `<tr><th>${editable ? `<input type="checkbox" id="upboCheckAll" aria-label="전체 선택" onclick="toggleAllUpboCheckboxes(this.checked)">` : ''}</th><th>닉네임</th><th>사용자 ID</th><th>후원수</th><th>품목</th><th>메시지</th><th>방송국 URL</th></tr>`;
-    const markup = `<thead>${header}</thead><tbody>${rows || '<tr><td colspan="7" class="kanashi-table-empty">표시할 데이터가 없습니다.</td></tr>'}</tbody>`;
+    const header = `<tr><th>${editable ? `<input type="checkbox" id="upboCheckAll" aria-label="전체 선택" onclick="toggleAllUpboCheckboxes(this.checked)">` : ''}</th><th>닉네임</th><th>사용자 ID</th><th>후원수</th><th>품목</th><th>메시지</th><th>방송국 URL</th>${editable ? '<th>삭제</th>' : ''}</tr>`;
+    const columnCount = editable ? 8 : 7;
+    const markup = `<thead>${header}</thead><tbody>${rows || `<tr><td colspan="${columnCount}" class="kanashi-table-empty">표시할 데이터가 없습니다.</td></tr>`}</tbody>`;
     if (table) {
         table.innerHTML = markup;
         table.classList.add('kanashi-upbo-table', 'choi-upbo-table');
     } else {
-        target.innerHTML = `<div class="kanashi-upbo-table-wrap"><table class="kanashi-upbo-table choi-upbo-table">${markup}</table></div>`;
+        target.innerHTML = `<div class="kanashi-upbo-table-wrap choi-upbo-table-wrap"><table class="kanashi-upbo-table choi-upbo-table">${markup}</table></div>`;
     }
 }
 
@@ -10423,6 +10460,12 @@ window.openChoiUpboStation = function(button) {
     const url = savedUrl || (uid ? `https://www.sooplive.com/station/${encodeURIComponent(uid)}` : '');
     if (!url) return alert('사용자 ID 또는 방송국 URL이 없습니다.');
     window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+window.deleteChoiUpboRow = function(button) {
+    if (!confirm('이 항목을 삭제하시겠습니까?')) return;
+    button.closest('.upbo-data-row')?.remove();
+    syncUpboDomToState();
 };
 
 function renderKanashiUpboTable(query = '', targetId = 'upboSearchResult', editable = false) {
@@ -10823,6 +10866,8 @@ async function saveUpboData() {
         // 최또는 Firebase에 저장하지 않고 Google Sheet에만 저장한다.
         // 다른 멤버의 업보정리 데이터와 Firebase 저장 흐름에는 영향을 주지 않는다.
         if (upboCurrentMember === '최또') {
+            // 메뉴 관리는 사이트 설정으로 보관하며 업보 데이터 시트에는 기록하지 않는다.
+            saveChoiUpboSiteMenu(dataToSave);
             const records = Array.isArray(dataToSave.records) ? dataToSave.records : [];
             const rows = records.map(record => {
                 const itemText = record.category || Object.entries(record.items || {})
@@ -10844,7 +10889,12 @@ async function saveUpboData() {
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
                     accessKey: CHOI_UPBO_ACCESS_KEY,
-                    rows
+                    rows,
+                    siteMenu: {
+                        menu: Array.isArray(dataToSave.menu) ? dataToSave.menu : [],
+                        menuImage: dataToSave.menuImage || '',
+                        menuListImage: dataToSave.menuListImage || ''
+                    }
                 })
             });
             const choiApiText = await choiApiResponse.text();
