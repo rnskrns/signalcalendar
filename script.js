@@ -1496,6 +1496,7 @@ window.addEventListener('beforeunload', (event) => {
 });
 let upboCurrentMember = '달타';
 let upboViewMode = 'search'; // 'search' or 'admin'
+let isUpboDataLoading = false;
 
 // 카나시 업보 데이터는 Google Apps Script 저장소에도 함께 동기화한다.
 const KANASHI_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbw5aF5IHW4hWYwmXlPCWOt_28kS-Ku5R-x9QucTTJ2ObK4-E6rMd2oK1mL8DkP3rUxY/exec';
@@ -8151,6 +8152,8 @@ async function loadUpboDataFromFirebase() {
     // 업보 데이터(카나시 외부 시트 포함)는 업보정리 탭에 실제로 들어왔을 때만 읽는다.
     // 초기 화면이나 다른 탭의 백그라운드 로딩에서는 Firestore 읽기를 만들지 않는다.
     if (currentPage !== '업보정리') return false;
+    isUpboDataLoading = true;
+    renderUpboPage();
     try {
         const freshUpboData = {
             '달타': { products: [], records: [] },
@@ -8183,6 +8186,8 @@ async function loadUpboDataFromFirebase() {
     } catch (e) {
         console.error("업보데이터 로드 에러:", e);
         return false;
+    } finally {
+        isUpboDataLoading = false;
     }
 }
 
@@ -10240,6 +10245,19 @@ function renderUpboPage() {
             </div>
         </div>`;
 
+    if (isUpboDataLoading) {
+        mainHtml += `
+            <div class="min-h-[520px] flex flex-col items-center justify-center gap-4 text-center" role="status" aria-live="polite">
+                <div class="w-12 h-12 rounded-full border-4 border-[#EEEAF8] border-t-[var(--member-accent)] animate-spin"></div>
+                <strong class="text-[18px] text-[#5D4037] font-paperozi">업보정리 데이터를 불러오는 중...</strong>
+                <span class="text-[13px] text-gray-400 font-bold">잠시만 기다려주세요.</span>
+            </div>
+        </div>`;
+        content.innerHTML = mainHtml;
+        content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full mx-auto pb-6 upbo-content-wrap';
+        return;
+    }
+
     if (upboViewMode === 'search' || !isAdmin) {
         const menuData = upboData[upboCurrentMember] || {};
         const menuItems = menuData.menu || [];
@@ -10967,13 +10985,7 @@ async function saveUpboData() {
         }
         saveScheduleCache();
         rememberUpboSavedState(upboCurrentMember);
-        alert(
-            upboCurrentMember === '카나시'
-                ? "카나시 데이터가 성공적으로 저장·동기화되었습니다!"
-                : upboCurrentMember === '최또'
-                    ? "최또 데이터가 Google Sheet에 성공적으로 저장되었습니다!"
-                    : "데이터가 성공적으로 저장되었습니다!"
-        );
+        alert("저장됐습니다.");
     } catch(e) {
         console.error(e);
         alert("저장 실패: " + e.message);
