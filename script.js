@@ -1185,8 +1185,8 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// 멤버관리(스케줄 멤버) 전용 데이터베이스 - 별도 Firebase 프로젝트 연결
-// 멤버 그룹(memberGroups)은 기존 데이터베이스(db)를 그대로 사용합니다.
+// 파트분배기(싱크룸) 전용 Firebase 프로젝트 연결
+// 멤버 관리는 Supabase members 테이블을 사용하고, 멤버 그룹은 기존 Firestore를 유지합니다.
 const memberFirebaseConfig = {
     apiKey: "AIzaSyDVBD4FnLGFcUXqLWJyVOuZELCP-8jFO2E",
     authDomain: "memberlist-2e19f.firebaseapp.com",
@@ -1199,10 +1199,51 @@ const memberFirebaseConfig = {
 };
 
 const memberApp = initializeApp(memberFirebaseConfig, "memberApp");
-const memberDb = getFirestore(memberApp);
 
 // 파트분배기(싱크룸) 전용 실시간 데이터베이스 - memberApp에 이미 설정된 databaseURL을 재사용
 const partDividerDb = getDatabase(memberApp);
+
+const SUPABASE_MEMBERS_URL = 'https://yxpifubcykpwazjhisak.supabase.co/rest/v1/members';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_7Rtd60BWnbA3zIAgVdUBqQ_AskVdf31';
+
+async function requestSupabaseMembers(path = '', options = {}) {
+    const headers = new Headers(options.headers || {});
+    headers.set('apikey', SUPABASE_PUBLISHABLE_KEY);
+    headers.set('Accept', 'application/json');
+
+    // 조회는 publishable key만으로 가능하고, 쓰기는 Supabase의 Firebase JWT RLS 정책을 통과해야 합니다.
+    let bearerToken = SUPABASE_PUBLISHABLE_KEY;
+    const method = String(options.method || 'GET').toUpperCase();
+    if (method !== 'GET' && auth.currentUser) {
+        try { bearerToken = await auth.currentUser.getIdToken(); }
+        catch (error) { console.warn('멤버 관리 인증 토큰을 가져오지 못했습니다.', error); }
+    }
+    headers.set('Authorization', `Bearer ${bearerToken}`);
+
+    const response = await fetch(`${SUPABASE_MEMBERS_URL}${path}`, { ...options, headers });
+    if (!response.ok) {
+        let detail = '';
+        try {
+            const payload = await response.json();
+            detail = payload.message || payload.details || payload.hint || '';
+        } catch (_) { detail = await response.text().catch(() => ''); }
+        throw new Error(`Supabase members 요청 실패 (${response.status})${detail ? `: ${detail}` : ''}`);
+    }
+    if (response.status === 204) return null;
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+}
+
+function mapSupabaseMember(row) {
+    return {
+        id: String(row.id),
+        nickname: row.name || '',
+        soopId: row.soop_id || '',
+        imageUrl: row.img || 'https://via.placeholder.com/60',
+        isCrew: row.type === 'crew',
+        timestamp: row.created_at ? new Date(row.created_at).getTime() : 0
+    };
+}
 
 let scheduleList = []; 
 let memoList = { '달타':[], '다룽':[], '최또':[], '카나시':[] };
@@ -1404,7 +1445,7 @@ function hydrateScheduleCache(cache) {
     // 업보관리 데이터는 로컬 캐시에 저장/복원하지 않는다. 항상 loadUpboDataFromFirebase()로 즉시 최신 데이터를 받아온다.
     loadedMemberPages = new Set(Array.isArray(cache.loadedMemberPages) ? cache.loadedMemberPages : []);
 
-    // 이전에 멤버관리(memberDb) 목록을 불러오다 실패해서 빈 배열([])로 캐시된 경우,
+    // 이전에 Supabase 멤버 목록을 불러오다 실패해서 빈 배열([])로 캐시된 경우,
     // 캐시가 만료(최대 7분)되기 전까지 계속 사진이 안 뜨는 문제가 생길 수 있다.
     // 그래서 캐시를 그대로 사용하더라도 멤버 목록이 비어 있으면 조용히 한 번 더 불러와 복구한다.
     if (customMembers.length === 0 && typeof loadCustomMembersFromFirebase === 'function') {
@@ -2005,20 +2046,9 @@ function getAdminDefaultProfileImage(user = loggedInUser) {
     return ADMIN_DEFAULT_PROFILE_IMAGES[String(user?.email || '').toLowerCase()] || '';
 }
 let selectedAdminAvatarMember = '';
-let adminMemberPromptUid = '';
 
 function isGeneralAdminUser(user = loggedInUser) {
     return !!(isAdmin && user && !members.some(member => member.name === user.name));
-}
-
-function promptAdminMemberChoice() {
-    if (!isGeneralAdminUser()) return;
-    const uid = String(loggedInUser?.uid || loggedInUser?.email || 'admin');
-    if (adminMemberPromptUid === uid) return;
-    adminMemberPromptUid = uid;
-    setTimeout(() => {
-        if (isGeneralAdminUser() && String(loggedInUser?.uid || loggedInUser?.email || 'admin') === uid) openAdminAvatarModal();
-    }, 150);
 }
 
 function getAdminAvatarStorageKey(user = loggedInUser) {
@@ -2193,7 +2223,6 @@ async function checkPassword() {
         document.getElementById('idInput').value = '';
         document.getElementById('pwInput').value = '';
         closePasswordModal();
-        promptAdminMemberChoice();
     } catch (e) { 
         console.error("로그인 에러:", e); 
         document.getElementById('pwInput').value = '';
@@ -2440,7 +2469,6 @@ onAuthStateChanged(auth, async (user) => {
     if (isLinkingGoogleAccount) return;
 
     if (!user) {
-        adminMemberPromptUid = '';
         isAdmin = false;
         loggedInUser = null;
         // ⭐ 신규: SOOP 로그인 세션이 복원되어 있는 상태라면, Firebase의 '로그아웃 상태'로 덮어쓰지 않음
@@ -2459,7 +2487,6 @@ onAuthStateChanged(auth, async (user) => {
         clearSoopSession();
         currentUser = null;
         await loadAdminAvatarPreference(user);
-        promptAdminMemberChoice();
         return;
     }
 
@@ -5685,21 +5712,20 @@ function partDividerOpenBugsSearchFromInfo() {
 
 // 크루 멤버 프로필(이름 -> 프로필 사진 URL) 데이터를 최초 1회만 불러와 캐싱
 // (주의) 예전 코드는 존재하지 않는 Realtime Database 경로('crew/members')를 조회하고 있어 프사를 못 가져오는 버그가 있었다.
-// 실제 크루 멤버 프로필은 ① 기본 크루(하드코딩된 members 배열) + ② 멤버관리 화면에서 등록한 멤버(Firestore memberDb - 'members' 컬렉션) 두 곳에 있으므로 둘 다 합쳐서 조회한다.
+// 실제 크루 멤버 프로필은 ① 기본 크루(하드코딩된 members 배열) + ② Supabase 멤버 목록을 합쳐서 조회한다.
 function partDividerLoadMemberProfiles() {
     if (partDividerMemberProfiles) return Promise.resolve(partDividerMemberProfiles);
     if (partDividerMemberProfilesLoading) return partDividerMemberProfilesLoading;
 
-    partDividerMemberProfilesLoading = getDocs(collection(memberDb, 'members'))
-        .then(snap => {
+    partDividerMemberProfilesLoading = requestSupabaseMembers('?select=name,img&order=name.asc')
+        .then(rows => {
             const profiles = {};
 
             // 1) 기본 크루 멤버(달타/다룽/최또/카나시 등)를 먼저 채워둔다
             members.forEach(m => { profiles[m.name] = m.img; });
 
-            // 2) 멤버관리(Firestore memberDb - 'members' 컬렉션)에서 등록한 멤버로 덮어쓰거나 추가한다
-            snap.forEach(docSnap => {
-                const data = docSnap.data();
+            // 2) Supabase 멤버 관리에 등록한 프로필로 덮어쓰거나 추가한다
+            (rows || []).forEach(data => {
                 const name = data && data.name;
                 if (!name) return;
                 profiles[name] = (data.img && data.img.trim()) ? data.img : (profiles[name] || null);
@@ -5709,7 +5735,7 @@ function partDividerLoadMemberProfiles() {
             return profiles;
         })
         .catch(err => {
-            console.error('크루 멤버 프로필 로드 실패 (memberDb - members 컬렉션):', err);
+            console.error('크루 멤버 프로필 로드 실패 (Supabase members):', err);
             // Firestore 조회가 실패해도 최소한 기본 크루 멤버 프로필은 보여준다
             const fallback = {};
             members.forEach(m => { fallback[m.name] = m.img; });
@@ -8243,28 +8269,16 @@ async function loadKanashiUpboFromGoogleSheet() {
 }
 window.loadUpboDataFromFirebase = loadUpboDataFromFirebase;
 
-// 멤버관리(memberDb - members 컬렉션) 목록을 불러오는 전용 함수.
+// Supabase members 테이블에서 멤버 관리 목록을 불러오는 전용 함수.
 // 네트워크 지연/타이밍 문제로 가끔 한 번에 실패하는 경우가 있어, 실패 시 짧은 간격으로 재시도하고
 // 그래도 실패하면 잠시 후 백그라운드에서 한 번 더 시도해 사진(프로필 이미지)이 자동으로 복구되게 한다.
 async function loadCustomMembersFromFirebase(retriesLeft = 2) {
     try {
-        const smSnap = await getDocs(collection(memberDb, 'members'));
-        const loaded = [];
-        smSnap.forEach(docSnap => {
-            const data = docSnap.data();
-            loaded.push({
-                id: docSnap.id,
-                nickname: data.name || '',
-                soopId: data.soopId || '',
-                imageUrl: data.img || 'https://via.placeholder.com/60',
-                isCrew: data.type === 'crew',
-                timestamp: data.timestamp || 0
-            });
-        });
-        customMembers = loaded;
+        const rows = await requestSupabaseMembers('?select=id,name,type,img,soop_id,created_at&order=name.asc');
+        customMembers = (rows || []).map(mapSupabaseMember);
         return true;
     } catch (memberErr) {
-        console.error('멤버관리 데이터 로드 실패 (memberDb - members 컬렉션):', memberErr);
+        console.error('멤버관리 데이터 로드 실패 (Supabase members):', memberErr);
         if (retriesLeft > 0) {
             await new Promise(res => setTimeout(res, 700));
             return loadCustomMembersFromFirebase(retriesLeft - 1);
@@ -8407,7 +8421,7 @@ async function loadSchedulesFromFirebase({ forceReload = false, member = null, m
         }
 
         if (!cached) {
-            // 멤버관리 DB(memberDb)만 실패해도 스케줄 등 나머지 데이터 로드/렌더는 계속 진행되도록
+            // Supabase 멤버 목록만 실패해도 스케줄 등 나머지 데이터 로드/렌더는 계속 진행되도록
             // 별도 함수(재시도 + 백그라운드 자동 복구 포함)로 분리 처리
             await loadCustomMembersFromFirebase();
 
@@ -13350,6 +13364,166 @@ function handleDayRightClick(event, year, month, day, member) {
     openScheduleModal(year, month, day, member);
 }
 
+function getScheduleMemberSearchQuery(input) {
+    const value = String(input?.value || '');
+    const match = value.match(/(?:^|[,\s]+)([^,\s]*)$/);
+    return match ? match[1].trim().toLowerCase() : '';
+}
+
+function getScheduleMemberSuggestions(query) {
+    const normalized = String(query || '').trim().toLowerCase();
+    const seenMembers = new Set();
+    const allMembers = [
+        ...members.map(member => ({ nickname: member.name, imageUrl: member.img, soopId: '' })),
+        ...customMembers
+    ].filter(member => {
+        const key = String(member.nickname || '').trim().toLowerCase();
+        if (!key || seenMembers.has(key)) return false;
+        seenMembers.add(key);
+        return true;
+    });
+
+    const memberMatches = allMembers.filter(member => {
+        if (!normalized) return true;
+        return String(member.nickname || '').toLowerCase().includes(normalized)
+            || String(member.soopId || '').toLowerCase().includes(normalized);
+    }).slice(0, 10);
+
+    const groupMatches = memberGroups.map(group => {
+        const groupMembers = resolveGroupMembers(group.memberIds || []);
+        const nameMatches = String(group.name || '').toLowerCase().includes(normalized);
+        const matchingMembers = groupMembers.filter(member =>
+            String(member?.nickname || '').toLowerCase().includes(normalized)
+        );
+        return { group, groupMembers, nameMatches, matchingMembers };
+    }).filter(item => !normalized || item.nameMatches || item.matchingMembers.length > 0)
+      .sort((a, b) => Number(b.nameMatches) - Number(a.nameMatches))
+      .slice(0, 8);
+
+    return { memberMatches, groupMatches };
+}
+
+let scheduleMemberGroupsRefreshPromise = null;
+let scheduleMemberGroupsRefreshedAt = 0;
+let scheduleMemberSuggestionsDropdown = null;
+
+function getScheduleMemberSuggestionsDropdown(input) {
+    if (!scheduleMemberSuggestionsDropdown) {
+        scheduleMemberSuggestionsDropdown = document.createElement('div');
+        scheduleMemberSuggestionsDropdown.className = 'schedule-member-suggestions hidden fixed z-[5400] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl divide-y divide-gray-100';
+        document.body.appendChild(scheduleMemberSuggestionsDropdown);
+    }
+    scheduleMemberSuggestionsDropdown._scheduleInput = input;
+    return scheduleMemberSuggestionsDropdown;
+}
+
+function hideScheduleMemberSuggestions(input = null) {
+    const dropdown = scheduleMemberSuggestionsDropdown;
+    if (!dropdown || (input && dropdown._scheduleInput !== input)) return;
+    dropdown.classList.add('hidden');
+    dropdown._scheduleInput = null;
+}
+
+async function refreshScheduleMemberGroups() {
+    if (memberGroups.length > 0 && Date.now() - scheduleMemberGroupsRefreshedAt < 30000) return;
+    if (scheduleMemberGroupsRefreshPromise) return scheduleMemberGroupsRefreshPromise;
+    scheduleMemberGroupsRefreshPromise = getDocs(collection(db, 'memberGroups'))
+        .then(snapshot => {
+            memberGroups = [];
+            snapshot.forEach(docSnap => memberGroups.push({ id: docSnap.id, ...docSnap.data() }));
+            scheduleMemberGroupsRefreshedAt = Date.now();
+            saveScheduleCache();
+        })
+        .catch(error => console.error('일정 멤버 자동완성 그룹 로드 실패:', error))
+        .finally(() => { scheduleMemberGroupsRefreshPromise = null; });
+    return scheduleMemberGroupsRefreshPromise;
+}
+
+async function renderScheduleMemberSuggestions(input) {
+    if (!input) return;
+    const dropdown = getScheduleMemberSuggestionsDropdown(input);
+
+    const query = getScheduleMemberSearchQuery(input);
+    if (!query) {
+        dropdown.classList.add('hidden');
+        dropdown.innerHTML = '';
+        return;
+    }
+    await refreshScheduleMemberGroups();
+    if (query !== getScheduleMemberSearchQuery(input) || document.activeElement !== input) return;
+
+    const { memberMatches, groupMatches } = getScheduleMemberSuggestions(query);
+    const groupRows = [];
+    const memberRows = [];
+
+    groupMatches.forEach(({ group, groupMembers, matchingMembers }) => {
+        const previewMembers = (matchingMembers.length ? matchingMembers : groupMembers).slice(0, 4);
+        const previewText = previewMembers.map(member => member?.nickname).filter(Boolean).join(', ');
+        groupRows.push(`
+            <button type="button" class="schedule-member-suggestion flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#F3EEFF] transition" data-suggestion-value="${encodeURIComponent(group.name)}" onmousedown="event.preventDefault()" onclick="selectScheduleMemberSuggestion(this)">
+                <span class="flex -space-x-5 w-16 min-w-16 shrink-0">
+                    ${groupMembers.slice(0, 3).map(member => `<img src="${escapeHtml(member.imageUrl || 'https://via.placeholder.com/32')}" class="w-8 h-8 rounded-full object-cover border-2 border-white" onerror="this.src='https://via.placeholder.com/32'">`).join('') || '<span class="w-8 h-8 rounded-full bg-[#EEE7F8]"></span>'}
+                </span>
+                <span class="min-w-0 flex-1"><b class="block text-[13px] text-[#5D4037] truncate">${escapeHtml(group.name)}</b><small class="block text-[10px] text-[#7B61A8] truncate">그룹 · ${escapeHtml(previewText || `${groupMembers.length}명`)}</small></span>
+            </button>`);
+    });
+
+    memberMatches.forEach(member => {
+        memberRows.push(`
+            <button type="button" class="schedule-member-suggestion flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#F7F2EF] transition" data-suggestion-value="${encodeURIComponent(member.nickname)}" onmousedown="event.preventDefault()" onclick="selectScheduleMemberSuggestion(this)">
+                <img src="${escapeHtml(member.imageUrl || 'https://via.placeholder.com/36')}" class="w-9 h-9 rounded-full object-cover border border-gray-200 shrink-0" onerror="this.src='https://via.placeholder.com/36'">
+                <span class="min-w-0"><b class="block text-[13px] text-[#5D4037] truncate">${escapeHtml(member.nickname)}</b><small class="block text-[10px] text-gray-400">멤버${member.soopId ? ` · ${escapeHtml(member.soopId)}` : ''}</small></span>
+            </button>`);
+    });
+
+    const resultHtml = `${groupRows.length ? `<div class="px-3 py-1.5 bg-[#F8F5FC] text-[10px] text-[#7B61A8] font-bold">소속 그룹</div>${groupRows.join('')}` : ''}${memberRows.length ? `<div class="px-3 py-1.5 bg-gray-50 text-[10px] text-gray-400 font-bold">멤버</div>${memberRows.join('')}` : ''}`;
+    dropdown.innerHTML = resultHtml
+        ? resultHtml
+        : '<div class="px-4 py-3 text-[12px] text-gray-400 font-bold text-center">일치하는 멤버나 그룹이 없습니다.</div>';
+
+    const rect = input.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    dropdown.style.left = `${Math.max(8, rect.left)}px`;
+    dropdown.style.width = `${Math.min(rect.width, window.innerWidth - 16)}px`;
+    dropdown.style.top = `${spaceBelow >= 220 ? rect.bottom + 6 : Math.max(8, rect.top - 262)}px`;
+    dropdown.classList.remove('hidden');
+}
+
+function selectScheduleMemberSuggestion(button) {
+    const dropdown = button.closest('.schedule-member-suggestions');
+    const input = dropdown?._scheduleInput;
+    if (!input) return;
+
+    const selectedValue = decodeURIComponent(button.dataset.suggestionValue || '');
+    const currentValue = String(input.value || '');
+    const match = currentValue.match(/(?:^|[,\s]+)([^,\s]*)$/);
+    const queryLength = match ? match[1].length : 0;
+    const prefix = queryLength > 0 ? currentValue.slice(0, -queryLength) : currentValue;
+    input.value = `${prefix}${selectedValue} `.replace(/^\s+/, '');
+    dropdown.classList.add('hidden');
+    input.focus();
+}
+
+async function handleScheduleMemberSuggestionKeydown(event, input) {
+    const dropdown = scheduleMemberSuggestionsDropdown?._scheduleInput === input
+        ? scheduleMemberSuggestionsDropdown
+        : getScheduleMemberSuggestionsDropdown(input);
+    if (event.key === 'Escape') {
+        dropdown.classList.add('hidden');
+        return;
+    }
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (dropdown.classList.contains('hidden')) await renderScheduleMemberSuggestions(input);
+        dropdown.querySelector('.schedule-member-suggestion')?.focus();
+    }
+}
+
+window.renderScheduleMemberSuggestions = renderScheduleMemberSuggestions;
+window.selectScheduleMemberSuggestion = selectScheduleMemberSuggestion;
+window.handleScheduleMemberSuggestionKeydown = handleScheduleMemberSuggestionKeydown;
+window.hideScheduleMemberSuggestions = hideScheduleMemberSuggestions;
+
 function getScheduleFormHTML(data, isDeletable = true) {
     const id = data.id || ''; 
     const title = data.title || ''; 
@@ -13436,7 +13610,9 @@ function getScheduleFormHTML(data, isDeletable = true) {
 
             <div class="mb-5 optional-field">
                 <label class="${labelBase}">함께하는 멤버 / 크루 (선택)</label>
-                <input type="text" class="sch-mem ${inputBase}" placeholder="멤버 혹은 크루 이름 띄어쓰기로 입력" value="${escapeHtml(mem)}">
+                <div class="relative">
+                    <input type="text" class="sch-mem ${inputBase}" autocomplete="off" placeholder="멤버 또는 그룹 이름 입력" value="${escapeHtml(mem)}" oninput="renderScheduleMemberSuggestions(this)" onkeydown="handleScheduleMemberSuggestionKeydown(event, this)" onblur="setTimeout(() => hideScheduleMemberSuggestions(this), 120)">
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4 mb-2 items-start">
@@ -13602,7 +13778,10 @@ function addScheduleInputBlock() {
     syncDarkModeSurfaces();
 }
 
-function closeScheduleModal() { document.getElementById('scheduleModal').classList.replace('flex', 'hidden'); }
+function closeScheduleModal() {
+    hideScheduleMemberSuggestions();
+    document.getElementById('scheduleModal').classList.replace('flex', 'hidden');
+}
 
 function editFromMenu() {
     if(!contextTargetId) return; 
@@ -14012,7 +14191,7 @@ window.openMemberManageModal = async function() {
         if(pMenu) { pMenu.classList.remove('flex'); pMenu.classList.add('hidden'); }
     });
 
-    // 모달을 열 때마다 멤버관리 DB(memberDb)에서 최신 멤버 목록을 다시 불러온다.
+    // 모달을 열 때마다 Supabase에서 최신 멤버 목록을 다시 불러온다.
     // (스케줄 캐시 로직 때문에 customMembers가 갱신되지 않고 비어 보이는 문제를 방지하기 위함)
     // loadCustomMembersFromFirebase 내부에서 실패 시 자동 재시도 + 백그라운드 복구까지 처리한다.
     const memberOk = await loadCustomMembersFromFirebase();
@@ -14037,6 +14216,7 @@ window.openMemberManageModal = async function() {
 };
 
 window.closeMemberManageModal = function() {
+    if (!document.getElementById('groupEditorModal')?.classList.contains('hidden')) window.closeGroupEditorModal();
     document.getElementById('memberManageModal').classList.replace('flex', 'hidden');
     if (isMobile && isAdmin) openMobileAdminPage();
 };
@@ -14058,16 +14238,12 @@ window.addCustomMember = async function() {
     }
     
     try {
-        const newMem = { nickname, soopId, imageUrl, isCrew, timestamp: Date.now() };
-        const docId = `member_${nickname}`;
-        await setDoc(doc(memberDb, 'members', docId), {
-            name: nickname,
-            soopId,
-            img: imageUrl,
-            type: isCrew ? 'crew' : 'member',
-            timestamp: newMem.timestamp
+        const rows = await requestSupabaseMembers('', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+            body: JSON.stringify({ name: nickname, soop_id: soopId, img: imageUrl, type: isCrew ? 'crew' : 'member' })
         });
-        customMembers.push({ id: docId, ...newMem });
+        customMembers.push(mapSupabaseMember(rows[0]));
         saveScheduleCache();
         
         document.getElementById('newMemberNickname').value = '';
@@ -14084,11 +14260,8 @@ window.parseMembers = function(tagString) {
     names.forEach(name => {
         const group = memberGroups.find(g => g.name === name);
         if (group && group.memberIds && group.memberIds.length > 0) {
-            group.memberIds.forEach(mid => {
-                const found = customMembers.find(m => m.id === mid);
-                if (found) {
-                    result.push({ ...found, nickname: found.isCrew ? '' : found.nickname });
-                }
+            resolveGroupMembers(group.memberIds).forEach(found => {
+                result.push({ ...found, nickname: found.isCrew ? '' : found.nickname });
             });
             return;
         }
@@ -14106,7 +14279,7 @@ window.parseMembers = function(tagString) {
 window.deleteCustomMember = async function(id) {
     if(!confirm("이 멤버를 삭제하시겠습니까?")) return;
     try {
-        await deleteDoc(doc(memberDb, 'members', id));
+        await requestSupabaseMembers(`?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
         customMembers = customMembers.filter(m => m.id !== id);
         saveScheduleCache();
         renderCustomMembersList();
@@ -14220,16 +14393,12 @@ window.importMembersListFile = async function(event) {
             }
 
             try {
-                const newMem = { nickname, soopId, imageUrl, isCrew: false, timestamp: Date.now() };
-                const docId = `member_${nickname}`;
-                await setDoc(doc(memberDb, 'members', docId), {
-                    name: nickname,
-                    soopId,
-                    img: imageUrl,
-                    type: 'member',
-                    timestamp: newMem.timestamp
+                const rows = await requestSupabaseMembers('', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ name: nickname, soop_id: soopId, img: imageUrl, type: 'member' })
                 });
-                customMembers.push({ id: docId, ...newMem });
+                customMembers.push(mapSupabaseMember(rows[0]));
                 addedCount++;
             } catch (err) {
                 console.error('멤버 불러오기 실패:', nickname, err);
@@ -14263,8 +14432,6 @@ window.switchMemberManageTab = function(tab) {
         groupBtn.classList.add('bg-[#5D4037]', 'text-white'); groupBtn.classList.remove('bg-white', 'text-[#5D4037]');
         memberBtn.classList.remove('bg-[#5D4037]', 'text-white'); memberBtn.classList.add('bg-white', 'text-[#5D4037]');
         groupBtn.classList.add('is-active'); memberBtn.classList.remove('is-active');
-        editingGroupId = null;
-        renderGroupMemberCheckboxes([]);
         renderMemberGroupsList();
     }
 };
@@ -14278,16 +14445,49 @@ function getGroupAllMembers() {
 
 function resolveGroupMembers(memberIds) {
     return (memberIds || []).map(mid => {
-        if (mid.startsWith('__builtin__')) {
-            const bname = mid.replace('__builtin__', '');
+        const memberId = String(mid || '');
+        if (memberId.startsWith('__builtin__')) {
+            const bname = memberId.replace('__builtin__', '');
             const bm = members.find(m => m.name === bname);
             return bm ? { nickname: bm.name, imageUrl: bm.img } : null;
         }
-        return customMembers.find(m => m.id === mid) || null;
+        const legacyNickname = memberId.startsWith('member_') ? memberId.slice('member_'.length) : memberId;
+        return customMembers.find(m => String(m.id) === memberId)
+            || customMembers.find(m => m.nickname === legacyNickname)
+            || null;
     }).filter(Boolean);
 }
 
 let groupCheckboxSelectedIds = new Set();
+
+function resetGroupEditorForm() {
+    editingGroupId = null;
+    const nameInput = document.getElementById('newGroupName');
+    const searchInput = document.getElementById('groupMemberSearchInput');
+    const title = document.getElementById('groupEditorTitle');
+    const addBtn = document.getElementById('groupAddBtn');
+    if (nameInput) nameInput.value = '';
+    if (searchInput) searchInput.value = '';
+    if (title) title.textContent = '새 그룹 만들기';
+    if (addBtn) {
+        addBtn.textContent = '그룹 추가';
+        addBtn.classList.replace('bg-blue-600', 'bg-[#5D4037]');
+    }
+    renderGroupMemberCheckboxes([]);
+}
+
+window.openGroupEditorModal = function() {
+    resetGroupEditorForm();
+    const modal = document.getElementById('groupEditorModal');
+    if (modal) modal.classList.replace('hidden', 'flex');
+    setTimeout(() => document.getElementById('newGroupName')?.focus(), 50);
+};
+
+window.closeGroupEditorModal = function() {
+    const modal = document.getElementById('groupEditorModal');
+    if (modal) modal.classList.replace('flex', 'hidden');
+    resetGroupEditorForm();
+};
 
 window.toggleGroupMemberCheckbox = function(cb) {
     if (cb.checked) {
@@ -14350,9 +14550,9 @@ window.renderGroupMemberCheckboxes = function(preCheckedIds = null, filterText =
 
     container.innerHTML = filtered.map(m => `
         <label class="flex items-center gap-1.5 bg-white border-2 border-gray-200 rounded-xl px-2 py-1.5 cursor-pointer hover:border-[#5D4037] transition text-[12px] font-bold text-[#5D4037]">
-            <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${m.nickname}" onchange="toggleGroupMemberCheckbox(this)" ${groupCheckboxSelectedIds.has(m.id) ? 'checked' : ''}>
-            <img src="${m.imageUrl}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
-            ${m.nickname}
+            <input type="checkbox" class="group-member-cb accent-[#5D4037]" value="${m.id}" data-nickname="${escapeHtml(m.nickname)}" onchange="toggleGroupMemberCheckbox(this)" ${groupCheckboxSelectedIds.has(String(m.id)) ? 'checked' : ''}>
+            <img src="${escapeHtml(m.imageUrl || 'https://via.placeholder.com/24')}" loading="lazy" decoding="async" class="w-6 h-6 rounded-full object-cover border border-gray-200" onerror="this.src='https://via.placeholder.com/24'">
+            ${escapeHtml(m.nickname)}
         </label>
     `).join('');
 };
@@ -14389,26 +14589,28 @@ window.renderMemberGroupsList = function(filterText = '') {
     container.innerHTML = filtered.map(g => {
         const groupMems = resolveGroupMembers(g.memberIds);
         return `
-        <div class="bg-white border-2 border-[#5D4037] rounded-xl p-3 relative">
-            <div class="flex items-center justify-between mb-2 pr-1">
-                <div class="font-bold text-[#5D4037] text-[15px] font-paperozi flex items-center gap-1.5">
-                    <i class="fi fi-rr-users-alt text-[13px]"></i> ${g.name}
-                    <span class="text-[11px] text-gray-400 font-bold ml-1">(${groupMems.length}명)</span>
-                </div>
-                <div class="flex items-center gap-1">
-                    <button onclick="startEditGroup('${g.id}')" class="text-[#5D4037] hover:text-blue-500 transition p-1" title="수정"><i class="fi fi-rr-edit text-[13px]"></i></button>
-                    <button onclick="deleteMemberGroup('${g.id}')" class="text-red-400 hover:text-red-600 transition p-1" title="삭제"><i class="fi fi-br-cross-small text-[11px]"></i></button>
-                </div>
-            </div>
-            <div class="flex flex-wrap gap-2 mb-2">
-                ${groupMems.map(m => `
-                    <div class="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2 py-1">
-                        <img src="${m.imageUrl}" loading="lazy" decoding="async" class="w-5 h-5 rounded-full object-cover" onerror="this.src='https://via.placeholder.com/20'">
-                        <span class="text-[11px] font-bold text-[#5D4037]">${m.nickname || '크루'}</span>
+        <div class="group-gallery-card bg-white border border-gray-200 rounded-2xl p-4 relative shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[180px] flex flex-col">
+            <div class="flex items-start justify-between mb-4 gap-2">
+                <div class="min-w-0">
+                    <div class="font-bold text-[#5D4037] text-[16px] font-paperozi flex items-center gap-2 min-w-0">
+                        <span class="truncate">${escapeHtml(g.name)}</span>
                     </div>
-                `).join('')}
+                    <div class="text-[11px] text-gray-400 font-bold mt-1">${groupMems.length}명</div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="startEditGroup('${g.id}')" class="w-8 h-8 rounded-lg bg-gray-50 text-[#5D4037] hover:bg-blue-50 hover:text-blue-500 transition flex items-center justify-center" title="수정"><i class="fi fi-rr-edit text-[13px]"></i></button>
+                    <button onclick="deleteMemberGroup('${g.id}')" class="w-8 h-8 rounded-lg bg-gray-50 text-red-400 hover:bg-red-50 hover:text-red-600 transition flex items-center justify-center" title="삭제"><i class="fi fi-br-cross-small text-[11px]"></i></button>
+                </div>
             </div>
-            <div class="text-[11px] text-gray-400 font-bold">멤버 태그에 <span class="text-[#5D4037] font-bold">"${g.name}"</span> 입력하면 적용됩니다</div>
+            <div class="flex flex-wrap gap-2.5 content-start flex-1">
+                ${groupMems.length ? groupMems.map(m => `
+                    <div class="group-gallery-member flex flex-col items-center gap-1 w-[52px]" title="${escapeHtml(m.nickname || '크루')}">
+                        <img src="${escapeHtml(m.imageUrl || 'https://via.placeholder.com/44')}" loading="lazy" decoding="async" class="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-gray-200" onerror="this.src='https://via.placeholder.com/44'">
+                        <span class="text-[10px] font-bold text-[#5D4037] truncate w-full text-center">${escapeHtml(m.nickname || '크루')}</span>
+                    </div>
+                `).join('') : '<div class="w-full flex-1 min-h-[72px] rounded-xl bg-gray-50 text-gray-400 text-[12px] font-bold flex items-center justify-center">등록된 멤버가 없습니다.</div>'}
+            </div>
+            <div class="text-[10px] text-gray-400 font-bold mt-4 pt-3 border-t border-gray-100">일정 멤버 입력에서 <span class="text-[#5D4037]">${escapeHtml(g.name)}</span> 선택</div>
         </div>`;
     }).join('');
 };
@@ -14416,39 +14618,35 @@ window.renderMemberGroupsList = function(filterText = '') {
 window.startEditGroup = function(id) {
     const group = memberGroups.find(g => g.id === id);
     if (!group) return;
+    window.openGroupEditorModal();
     editingGroupId = id;
 
     document.getElementById('newGroupName').value = group.name;
 
     const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
     if (groupMemberSearchInput) groupMemberSearchInput.value = '';
-    renderGroupMemberCheckboxes(group.memberIds || []);
+    const allMembers = getGroupAllMembers();
+    const selectedIds = (group.memberIds || []).map(id => {
+        const memberId = String(id || '');
+        if (memberId.startsWith('__builtin__')) return memberId;
+        const resolved = resolveGroupMembers([memberId])[0];
+        return allMembers.find(member => member.nickname === resolved?.nickname)?.id || memberId;
+    });
+    renderGroupMemberCheckboxes(selectedIds);
 
     const addBtn = document.getElementById('groupAddBtn');
     if (addBtn) {
         addBtn.textContent = '수정 저장';
         addBtn.classList.replace('bg-[#5D4037]', 'bg-blue-600');
     }
-    const cancelBtn = document.getElementById('groupEditCancelBtn');
-    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    const title = document.getElementById('groupEditorTitle');
+    if (title) title.textContent = '그룹 수정';
 
     document.getElementById('newGroupName').focus();
-    document.getElementById('newGroupName').scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
 window.cancelEditGroup = function() {
-    editingGroupId = null;
-    document.getElementById('newGroupName').value = '';
-    const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
-    if (groupMemberSearchInput) groupMemberSearchInput.value = '';
-    renderGroupMemberCheckboxes([]);
-    const addBtn = document.getElementById('groupAddBtn');
-    if (addBtn) {
-        addBtn.textContent = '그룹 추가';
-        addBtn.classList.replace('bg-blue-600', 'bg-[#5D4037]');
-    }
-    const cancelBtn = document.getElementById('groupEditCancelBtn');
-    if (cancelBtn) cancelBtn.classList.add('hidden');
+    window.closeGroupEditorModal();
 };
 
 window.addMemberGroup = async function() {
@@ -14467,10 +14665,7 @@ window.addMemberGroup = async function() {
             const newGroup = { name, memberIds, timestamp: Date.now() };
             const docRef = await addDoc(collection(db, 'memberGroups'), newGroup);
             memberGroups.push({ id: docRef.id, ...newGroup });
-            document.getElementById('newGroupName').value = '';
-            const groupMemberSearchInput = document.getElementById('groupMemberSearchInput');
-            if (groupMemberSearchInput) groupMemberSearchInput.value = '';
-            renderGroupMemberCheckboxes([]);
+            window.closeGroupEditorModal();
         }
         renderMemberGroupsList();
     } catch(e) { console.error(e); alert(editingGroupId ? '수정 실패' : '그룹 추가 실패'); }
@@ -15959,3 +16154,4 @@ if (earlyVrCareerRoute) {
     render();
 }
 initApp().finally(hidePageLoadingScreen);
+
