@@ -1471,11 +1471,13 @@ function loadChoiUpboSiteMenu() {
         return {
             menu: Array.isArray(saved.menu) ? saved.menu : [],
             menuImage: String(saved.menuImage || ''),
-            menuListImage: String(saved.menuListImage || '')
+            menuListImage: String(saved.menuListImage || ''),
+            products: Array.isArray(saved.products) ? saved.products : [],
+            recordItems: Array.isArray(saved.recordItems) ? saved.recordItems : []
         };
     } catch (error) {
         console.warn('최또 사이트 메뉴 설정을 불러오지 못했습니다.', error);
-        return { menu: [], menuImage: '', menuListImage: '' };
+        return { menu: [], menuImage: '', menuListImage: '', products: [], recordItems: [] };
     }
 }
 
@@ -1483,7 +1485,11 @@ function saveChoiUpboSiteMenu(data) {
     const menuState = {
         menu: Array.isArray(data?.menu) ? data.menu : [],
         menuImage: String(data?.menuImage || ''),
-        menuListImage: String(data?.menuListImage || '')
+        menuListImage: String(data?.menuListImage || ''),
+        products: Array.isArray(data?.products) ? data.products : [],
+        recordItems: Array.isArray(data?.records)
+            ? data.records.map(record => record?.items || {})
+            : (Array.isArray(data?.recordItems) ? data.recordItems : [])
     };
     localStorage.setItem(CHOI_UPBO_SITE_MENU_KEY, JSON.stringify(menuState));
 }
@@ -8167,15 +8173,17 @@ async function loadChoiUpboFromGoogleSheet() {
         const siteMenu = {
             menu: Array.isArray(result.menu) ? result.menu : localMenu.menu,
             menuImage: result.menuImage === undefined ? localMenu.menuImage : String(result.menuImage || ''),
-            menuListImage: result.menuListImage === undefined ? localMenu.menuListImage : String(result.menuListImage || '')
+            menuListImage: result.menuListImage === undefined ? localMenu.menuListImage : String(result.menuListImage || ''),
+            products: Array.isArray(result.products) ? result.products : localMenu.products,
+            recordItems: Array.isArray(result.recordItems) ? result.recordItems : localMenu.recordItems
         };
         saveChoiUpboSiteMenu(siteMenu);
         upboData['최또'] = {
-            products: [],
+            products: siteMenu.products,
             menu: siteMenu.menu,
             menuImage: siteMenu.menuImage,
             menuListImage: siteMenu.menuListImage,
-            records: result.rows.map(row => ({
+            records: result.rows.map((row, rowIndex) => ({
                 nickname: String(row.nickname || ''),
                 uid: String(row.userId || ''),
                 donationCount: Number(row.donationCount || 0),
@@ -8183,8 +8191,8 @@ async function loadChoiUpboFromGoogleSheet() {
                 memo: String(row.message || ''),
                 roulette: '',
                 stationUrl: String(row.stationUrl || ''),
-                status: '배송중',
-                items: {}
+                status: row.status === '배송완료' ? '배송완료' : '배송중',
+                items: siteMenu.recordItems[rowIndex] && typeof siteMenu.recordItems[rowIndex] === 'object' ? siteMenu.recordItems[rowIndex] : {}
             }))
         };
         return true;
@@ -10279,7 +10287,7 @@ function renderUpboPage() {
                     <div class="flex flex-wrap items-center justify-start sm:justify-end gap-2 shrink-0 upbo-admin-toolbar">
                         <button onclick="saveUpboData()" class="px-5 py-2.5 bg-[#967978] text-white font-bold font-Diary rounded-xl hover:brightness-110 shadow-sm whitespace-nowrap" style="${isChoiSheet ? `background-color:${themeColor};` : ''}"><i class="fi fi-rr-disk"></i> 저장하기</button>
                         
-                        <div id="upboFileMenuWrapper" class="relative ${isChoiSheet ? 'hidden' : ''}">
+                        <div id="upboFileMenuWrapper" class="relative">
                             <button type="button" onclick="event.stopPropagation(); toggleUpboFileMenu()" class="px-4 py-2.5 bg-green-50 text-green-700 font-bold font-Diary rounded-xl hover:bg-green-100 border-[2px] border-green-200 shadow-sm whitespace-nowrap"><i class="fi fi-rr-file-upload"></i> 파일 업로드</button>
                             <div id="upboFileMenu" class="hidden absolute top-full right-0 mt-2 w-44 bg-white border-2 border-[#967978] rounded-xl shadow-lg z-20 overflow-hidden flex-col">
                                 <button type="button" onclick="event.stopPropagation(); closeUpboFileMenu(); openUpboTextUploadModal();" class="w-full text-left px-4 py-2.5 text-[14px] font-bold text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center gap-2"><i class="fi fi-rr-comment-alt"></i> 댓글 업로드</button>
@@ -10288,8 +10296,8 @@ function renderUpboPage() {
                         </div>
                         <input type="file" id="rouletteFileInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="processRouletteFile(this)">
                             
-                        <button type="button" onclick="addUpboProduct()" class="${isChoiSheet ? 'hidden' : ''} px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
-                        <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="${isChoiSheet ? 'hidden' : ''} px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
+                        <button type="button" onclick="addUpboProduct()" class="px-4 py-2.5 bg-blue-50 text-blue-700 font-bold font-Diary rounded-xl hover:bg-blue-100 border-[2px] border-blue-200 shadow-sm whitespace-nowrap">+ 상품(열) 추가</button>
+                        <button onclick="toggleUpboGuide()" id="upboGuideBtn" class="px-5 py-2.5 bg-white text-[#967978] font-bold font-Diary rounded-xl hover:bg-[#967978] hover:text-white border-2 border-[#967978] shadow-sm whitespace-nowrap transition-all duration-200"><i class="fi fi-rr-info"></i> 사용법</button>
                     </div>
                 </div>
 
@@ -10327,12 +10335,12 @@ function renderUpboPage() {
                 <!-- 일괄 처리 컨트롤 바 -->
                 <div class="flex flex-wrap items-center gap-2 mb-4 bg-[#F7F7FC] p-3 rounded-xl border border-[#ECEDFA] shadow-sm">
                     <span class="text-[14px] font-bold text-[#5D4037] ml-1">선택 항목:</span>
-                    <select id="batchStatusSelect" class="${isChoiSheet ? 'hidden' : ''} border-[2px] border-[#5D4037] rounded-lg p-1.5 text-[13px] outline-none font-bold text-[#5D4037] cursor-pointer">
+                    <select id="batchStatusSelect" class="border-[2px] border-[#5D4037] rounded-lg p-1.5 text-[13px] outline-none font-bold text-[#5D4037] cursor-pointer">
                         <option value="배송중">배송중</option>
                         <option value="배송완료">배송완료</option>
                     </select>
-                    <button onclick="changeStatusSelectedUpboRows()" class="${isChoiSheet ? 'hidden' : ''} px-3 py-1.5 bg-purple-50 text-purple-700 font-bold rounded-lg border-[1.5px] border-purple-200 shadow-sm text-[13px] hover:bg-purple-100 transition">일괄 상태 변경</button>
-                    <span class="${isChoiSheet ? 'hidden' : ''} text-gray-300 mx-1">|</span>
+                    <button onclick="changeStatusSelectedUpboRows()" class="px-3 py-1.5 bg-purple-50 text-purple-700 font-bold rounded-lg border-[1.5px] border-purple-200 shadow-sm text-[13px] hover:bg-purple-100 transition">일괄 상태 변경</button>
+                    <span class="text-gray-300 mx-1">|</span>
                     <button onclick="deleteSelectedUpboRows()" class="px-3 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border-[1.5px] border-red-200 shadow-sm text-[13px] hover:bg-red-100 transition">선택 삭제</button>
                 </div>
 
@@ -10412,6 +10420,7 @@ function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable
     const target = document.getElementById(targetId);
     if (!target) return;
     const normalizedQuery = normalizeUpboSearchText(query);
+    const products = upboData['최또']?.products || [];
     const records = (upboData['최또']?.records || []).filter(record => {
         if (!normalizedQuery) return true;
         return [record.nickname, record.uid, record.category, record.memo]
@@ -10420,14 +10429,21 @@ function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable
     const table = target.tagName === 'TABLE' ? target : null;
     const rows = records.map((record, index) => {
         const stationUrl = record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '');
+        const status = record.status === '배송완료' ? '배송완료' : '배송중';
         if (editable) {
+            const productCells = products.map((product, productIndex) => {
+                const value = record.items?.[product] ?? '';
+                return `<td><textarea class="upbo-qty" data-product-idx="${productIndex}" rows="1" placeholder="-">${escapeHtml(String(value))}</textarea></td>`;
+            }).join('');
             return `<tr class="upbo-data-row">
                 <td class="kanashi-check-cell"><input type="checkbox" class="upbo-row-checkbox" aria-label="행 선택"></td>
                 <td><input class="upbo-nick" value="${escapeHtml(record.nickname || '')}" placeholder="닉네임"></td>
                 <td><input class="upbo-uid" value="${escapeHtml(record.uid || '')}" placeholder="사용자 ID"></td>
                 <td><input type="number" min="0" class="upbo-donation-count" value="${Number(record.donationCount || 0)}"></td>
                 <td><textarea class="upbo-category" rows="1" placeholder="품목">${escapeHtml(record.category || '')}</textarea></td>
-                <td><textarea class="upbo-memo" rows="1" placeholder="메시지">${escapeHtml(record.memo || '')}</textarea></td>
+                ${productCells}
+                <td><textarea class="upbo-memo" rows="1" placeholder="메시지/룰렛 결과">${escapeHtml(record.memo || '')}</textarea><textarea class="upbo-roulette hidden"></textarea></td>
+                <td><input type="button" class="upbo-status kanashi-status-btn ${status === '배송완료' ? 'is-complete' : 'is-shipping'}" value="${status}" onclick="toggleKanashiTableStatus(this)"></td>
                 <td><input type="hidden" class="upbo-station-url" value="${escapeHtml(stationUrl)}"><button type="button" class="kanashi-station-link" onclick="openChoiUpboStation(this)"><i class="fi fi-rr-link-alt"></i> 방송국 열기</button></td>
                 <td class="kanashi-delete-cell"><button type="button" class="kanashi-row-delete" onclick="deleteChoiUpboRow(this)" title="삭제"><i class="fi fi-rr-trash"></i></button></td>
             </tr>`;
@@ -10442,8 +10458,11 @@ function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable
             <td>${stationUrl ? `<a class="kanashi-station-link" href="${escapeHtml(stationUrl)}" target="_blank" rel="noopener noreferrer"><i class="fi fi-rr-link-alt"></i> 방송국 열기</a>` : '-'}</td>
         </tr>`;
     }).join('');
-    const header = `<tr><th>${editable ? `<input type="checkbox" id="upboCheckAll" aria-label="전체 선택" onclick="toggleAllUpboCheckboxes(this.checked)">` : ''}</th><th>닉네임</th><th>사용자 ID</th><th>후원수</th><th>품목</th><th>메시지</th><th>방송국 URL</th>${editable ? '<th>삭제</th>' : ''}</tr>`;
-    const columnCount = editable ? 8 : 7;
+    const productHeaders = products.map((product, productIndex) => `<th><div class="flex items-center gap-1"><input type="text" class="upbo-product-header min-w-[70px] bg-transparent text-center outline-none" data-idx="${productIndex}" value="${escapeHtml(product)}" placeholder="상품명"><button type="button" onclick="removeUpboProduct(${productIndex})" title="상품 삭제"><i class="fi fi-br-cross-small"></i></button></div></th>`).join('');
+    const header = editable
+        ? `<tr><th><input type="checkbox" id="upboCheckAll" aria-label="전체 선택" onclick="toggleAllUpboCheckboxes(this.checked)"></th><th>닉네임</th><th>사용자 ID</th><th>후원수</th><th>품목</th>${productHeaders}<th>메시지/룰렛 결과</th><th>상태</th><th>방송국 URL</th><th>삭제</th></tr>`
+        : `<tr><th></th><th>닉네임</th><th>사용자 ID</th><th>후원수</th><th>품목</th><th>메시지/룰렛 결과</th><th>방송국 URL</th></tr>`;
+    const columnCount = editable ? 9 + products.length : 7;
     const markup = `<thead>${header}</thead><tbody>${rows || `<tr><td colspan="${columnCount}" class="kanashi-table-empty">표시할 데이터가 없습니다.</td></tr>`}</tbody>`;
     if (table) {
         table.innerHTML = markup;
@@ -10880,6 +10899,7 @@ async function saveUpboData() {
                     donationCount: Number(record.donationCount || 0),
                     items: itemText,
                     message: [record.memo, record.roulette].filter(Boolean).join(' / '),
+                    status: record.status === '배송완료' ? '배송완료' : '배송중',
                     stationUrl: record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '')
                 };
             });
@@ -10893,7 +10913,9 @@ async function saveUpboData() {
                     siteMenu: {
                         menu: Array.isArray(dataToSave.menu) ? dataToSave.menu : [],
                         menuImage: dataToSave.menuImage || '',
-                        menuListImage: dataToSave.menuListImage || ''
+                        menuListImage: dataToSave.menuListImage || '',
+                        products: Array.isArray(dataToSave.products) ? dataToSave.products : [],
+                        recordItems: records.map(record => record.items || {})
                     }
                 })
             });

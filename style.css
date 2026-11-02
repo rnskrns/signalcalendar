@@ -216,7 +216,7 @@ html.dark-mode .kanashi-upbo-table input, html.dark-mode .kanashi-upbo-table tex
 
 /* 최또 업보 Google Sheet 표 - 최또 테마색 */
 .choi-upbo-table-wrap { border-color:#f2c8e5; background:#fffafd; }
-.choi-upbo-table { min-width:1040px; color:#53213f; }
+.choi-upbo-table { min-width:1180px; color:#53213f; }
 .choi-upbo-table th { background:#fff0fa; color:#9a236e; border-bottom-color:#f745c1; }
 .choi-upbo-table td { border-color:#f3deec; background:#fffafd; }
 .choi-upbo-table tbody tr:hover td { background:#fff1fa; }
@@ -229,6 +229,8 @@ html.dark-mode .kanashi-upbo-table input, html.dark-mode .kanashi-upbo-table tex
 .choi-upbo-table .kanashi-station-link:hover { background:#f745c1; color:#fff; }
 .choi-upbo-table .kanashi-row-delete { background:#fff0f5; color:#d43d72; }
 .choi-upbo-table .kanashi-row-delete:hover { background:#d43d72; color:#fff; }
+.choi-upbo-table .kanashi-status-btn.is-shipping { background:#ffe4f6 !important; color:#b51b7d !important; }
+.choi-upbo-table .kanashi-status-btn.is-complete { background:#dcfce7 !important; color:#15803d !important; }
 
 html.dark-mode .choi-upbo-table-wrap { background:#211a20; border-color:#58304c; }
 html.dark-mode .choi-upbo-table { color:#f7e9f3; }
@@ -242,6 +244,8 @@ html.dark-mode .choi-upbo-table textarea:focus { border-color:#f745c1; box-shado
 html.dark-mode .choi-upbo-table .kanashi-station-link { background:#44203a; color:#ff9ddd; }
 html.dark-mode .choi-upbo-table .kanashi-station-link:hover { background:#f745c1; color:#fff; }
 html.dark-mode .choi-upbo-table .kanashi-row-delete { background:#43222d; color:#ff91b8; }
+html.dark-mode .choi-upbo-table .kanashi-status-btn.is-shipping { background:#54203f !important; color:#ff9ddd !important; }
+html.dark-mode .choi-upbo-table .kanashi-status-btn.is-complete { background:#173f2b !important; color:#86efac !important; }
 
 /* 카나시 업보관리 카드형 편집 화면 */
 .upbo-admin-card-grid {
