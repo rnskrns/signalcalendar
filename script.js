@@ -10245,19 +10245,6 @@ function renderUpboPage() {
             </div>
         </div>`;
 
-    if (isUpboDataLoading) {
-        mainHtml += `
-            <div class="min-h-[520px] flex flex-col items-center justify-center gap-4 text-center" role="status" aria-live="polite">
-                <div class="w-12 h-12 rounded-full border-4 border-[#EEEAF8] border-t-[var(--member-accent)] animate-spin"></div>
-                <strong class="text-[18px] text-[#5D4037] font-paperozi">업보정리 데이터를 불러오는 중...</strong>
-                <span class="text-[13px] text-gray-400 font-bold">잠시만 기다려주세요.</span>
-            </div>
-        </div>`;
-        content.innerHTML = mainHtml;
-        content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full mx-auto pb-6 upbo-content-wrap';
-        return;
-    }
-
     if (upboViewMode === 'search' || !isAdmin) {
         const menuData = upboData[upboCurrentMember] || {};
         const menuItems = menuData.menu || [];
@@ -10387,7 +10374,12 @@ function renderUpboPage() {
                     </div>
                 </div>
                 <div class="overflow-x-auto border border-[#ECEDFA] rounded-2xl bg-white mb-4 shadow-[0_10px_28px_rgba(70,60,160,0.08)] scrollbar-hide">
-                    <table class="w-full text-left border-collapse min-w-[980px]" id="upboAdminTable"></table>
+                    ${isUpboDataLoading ? `
+                        <div class="min-h-[280px] flex flex-col items-center justify-center gap-3 text-center" role="status" aria-live="polite">
+                            <div class="w-10 h-10 rounded-full border-4 border-[#EEEAF8] border-t-[var(--member-accent)] animate-spin"></div>
+                            <strong class="text-[16px] text-[#5D4037] font-paperozi">업보정리 데이터를 불러오는 중...</strong>
+                        </div>
+                    ` : '<table class="w-full text-left border-collapse min-w-[980px]" id="upboAdminTable"></table>'}
                 </div>
                 <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
             </div>
@@ -10399,8 +10391,8 @@ function renderUpboPage() {
     content.className = 'signal-centered-content shrink-0 transition-all duration-300 w-full mx-auto pb-6 upbo-content-wrap';
 
     if (isAdmin && upboViewMode === 'admin') {
-        renderUpboAdminTable();
         renderUpboMenuAdminList();
+        if (!isUpboDataLoading) renderUpboAdminTable();
     }
 }
 
