@@ -13186,6 +13186,11 @@ function renderScheduleMemberSuggestions(input) {
     });
 
     const query = getScheduleMemberSearchQuery(input);
+    if (!query) {
+        dropdown.classList.add('hidden');
+        dropdown.innerHTML = '';
+        return;
+    }
     const { memberMatches, groupMatches } = getScheduleMemberSuggestions(query);
     const resultRows = [];
 
@@ -13333,7 +13338,7 @@ function getScheduleFormHTML(data, isDeletable = true) {
             <div class="mb-5 optional-field">
                 <label class="${labelBase}">함께하는 멤버 / 크루 (선택)</label>
                 <div class="relative">
-                    <input type="text" class="sch-mem ${inputBase}" autocomplete="off" placeholder="멤버 또는 그룹 이름 입력" value="${escapeHtml(mem)}" onfocus="renderScheduleMemberSuggestions(this)" oninput="renderScheduleMemberSuggestions(this)" onkeydown="handleScheduleMemberSuggestionKeydown(event, this)" onblur="setTimeout(() => this.parentElement.querySelector('.schedule-member-suggestions')?.classList.add('hidden'), 120)">
+                    <input type="text" class="sch-mem ${inputBase}" autocomplete="off" placeholder="멤버 또는 그룹 이름 입력" value="${escapeHtml(mem)}" oninput="renderScheduleMemberSuggestions(this)" onkeydown="handleScheduleMemberSuggestionKeydown(event, this)" onblur="setTimeout(() => this.parentElement.querySelector('.schedule-member-suggestions')?.classList.add('hidden'), 120)">
                     <div class="schedule-member-suggestions hidden absolute left-0 right-0 top-[calc(100%+6px)] z-[80] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl divide-y divide-gray-100"></div>
                 </div>
             </div>
