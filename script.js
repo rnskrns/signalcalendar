@@ -13138,6 +13138,114 @@ function handleDayRightClick(event, year, month, day, member) {
     openScheduleModal(year, month, day, member);
 }
 
+function getScheduleMemberSearchQuery(input) {
+    const value = String(input?.value || '');
+    const match = value.match(/(?:^|[,\s]+)([^,\s]*)$/);
+    return match ? match[1].trim().toLowerCase() : '';
+}
+
+function getScheduleMemberSuggestions(query) {
+    const normalized = String(query || '').trim().toLowerCase();
+    const seenMembers = new Set();
+    const allMembers = [
+        ...members.map(member => ({ nickname: member.name, imageUrl: member.img, soopId: '' })),
+        ...customMembers
+    ].filter(member => {
+        const key = String(member.nickname || '').trim().toLowerCase();
+        if (!key || seenMembers.has(key)) return false;
+        seenMembers.add(key);
+        return true;
+    });
+
+    const memberMatches = allMembers.filter(member => {
+        if (!normalized) return true;
+        return String(member.nickname || '').toLowerCase().includes(normalized)
+            || String(member.soopId || '').toLowerCase().includes(normalized);
+    }).slice(0, 10);
+
+    const groupMatches = memberGroups.map(group => {
+        const groupMembers = resolveGroupMembers(group.memberIds || []);
+        const nameMatches = String(group.name || '').toLowerCase().includes(normalized);
+        const matchingMembers = groupMembers.filter(member =>
+            String(member?.nickname || '').toLowerCase().includes(normalized)
+        );
+        return { group, groupMembers, nameMatches, matchingMembers };
+    }).filter(item => !normalized || item.nameMatches || item.matchingMembers.length > 0)
+      .sort((a, b) => Number(b.nameMatches) - Number(a.nameMatches))
+      .slice(0, 8);
+
+    return { memberMatches, groupMatches };
+}
+
+function renderScheduleMemberSuggestions(input) {
+    const dropdown = input?.parentElement?.querySelector('.schedule-member-suggestions');
+    if (!dropdown) return;
+
+    document.querySelectorAll('.schedule-member-suggestions').forEach(item => {
+        if (item !== dropdown) item.classList.add('hidden');
+    });
+
+    const query = getScheduleMemberSearchQuery(input);
+    const { memberMatches, groupMatches } = getScheduleMemberSuggestions(query);
+    const resultRows = [];
+
+    memberMatches.forEach(member => {
+        resultRows.push(`
+            <button type="button" class="schedule-member-suggestion flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#F7F2EF] transition" data-suggestion-value="${encodeURIComponent(member.nickname)}" onmousedown="event.preventDefault()" onclick="selectScheduleMemberSuggestion(this)">
+                <img src="${escapeHtml(member.imageUrl || 'https://via.placeholder.com/36')}" class="w-9 h-9 rounded-full object-cover border border-gray-200 shrink-0" onerror="this.src='https://via.placeholder.com/36'">
+                <span class="min-w-0"><b class="block text-[13px] text-[#5D4037] truncate">${escapeHtml(member.nickname)}</b><small class="block text-[10px] text-gray-400">멤버${member.soopId ? ` · ${escapeHtml(member.soopId)}` : ''}</small></span>
+            </button>`);
+    });
+
+    groupMatches.forEach(({ group, groupMembers, matchingMembers }) => {
+        const previewMembers = (matchingMembers.length ? matchingMembers : groupMembers).slice(0, 4);
+        const previewText = previewMembers.map(member => member?.nickname).filter(Boolean).join(', ');
+        resultRows.push(`
+            <button type="button" class="schedule-member-suggestion flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#F3EEFF] transition" data-suggestion-value="${encodeURIComponent(group.name)}" onmousedown="event.preventDefault()" onclick="selectScheduleMemberSuggestion(this)">
+                <span class="w-9 h-9 rounded-full bg-[#EEE7F8] text-[#6F4A8E] flex items-center justify-center shrink-0"><i class="fi fi-rr-users-alt"></i></span>
+                <span class="min-w-0 flex-1"><b class="block text-[13px] text-[#5D4037] truncate">${escapeHtml(group.name)}</b><small class="block text-[10px] text-gray-400 truncate">그룹 · ${escapeHtml(previewText || `${groupMembers.length}명`)}</small></span>
+            </button>`);
+    });
+
+    dropdown.innerHTML = resultRows.length
+        ? resultRows.join('')
+        : '<div class="px-4 py-3 text-[12px] text-gray-400 font-bold text-center">일치하는 멤버나 그룹이 없습니다.</div>';
+    dropdown.classList.remove('hidden');
+}
+
+function selectScheduleMemberSuggestion(button) {
+    const dropdown = button.closest('.schedule-member-suggestions');
+    const input = dropdown?.parentElement?.querySelector('.sch-mem');
+    if (!input) return;
+
+    const selectedValue = decodeURIComponent(button.dataset.suggestionValue || '');
+    const currentValue = String(input.value || '');
+    const match = currentValue.match(/(?:^|[,\s]+)([^,\s]*)$/);
+    const queryLength = match ? match[1].length : 0;
+    const prefix = queryLength > 0 ? currentValue.slice(0, -queryLength) : currentValue;
+    input.value = `${prefix}${selectedValue} `.replace(/^\s+/, '');
+    dropdown.classList.add('hidden');
+    input.focus();
+}
+
+function handleScheduleMemberSuggestionKeydown(event, input) {
+    const dropdown = input?.parentElement?.querySelector('.schedule-member-suggestions');
+    if (!dropdown) return;
+    if (event.key === 'Escape') {
+        dropdown.classList.add('hidden');
+        return;
+    }
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (dropdown.classList.contains('hidden')) renderScheduleMemberSuggestions(input);
+        dropdown.querySelector('.schedule-member-suggestion')?.focus();
+    }
+}
+
+window.renderScheduleMemberSuggestions = renderScheduleMemberSuggestions;
+window.selectScheduleMemberSuggestion = selectScheduleMemberSuggestion;
+window.handleScheduleMemberSuggestionKeydown = handleScheduleMemberSuggestionKeydown;
+
 function getScheduleFormHTML(data, isDeletable = true) {
     const id = data.id || ''; 
     const title = data.title || ''; 
@@ -13224,7 +13332,10 @@ function getScheduleFormHTML(data, isDeletable = true) {
 
             <div class="mb-5 optional-field">
                 <label class="${labelBase}">함께하는 멤버 / 크루 (선택)</label>
-                <input type="text" class="sch-mem ${inputBase}" placeholder="멤버 혹은 크루 이름 띄어쓰기로 입력" value="${escapeHtml(mem)}">
+                <div class="relative">
+                    <input type="text" class="sch-mem ${inputBase}" autocomplete="off" placeholder="멤버 또는 그룹 이름 입력" value="${escapeHtml(mem)}" onfocus="renderScheduleMemberSuggestions(this)" oninput="renderScheduleMemberSuggestions(this)" onkeydown="handleScheduleMemberSuggestionKeydown(event, this)" onblur="setTimeout(() => this.parentElement.querySelector('.schedule-member-suggestions')?.classList.add('hidden'), 120)">
+                    <div class="schedule-member-suggestions hidden absolute left-0 right-0 top-[calc(100%+6px)] z-[80] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl divide-y divide-gray-100"></div>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4 mb-2 items-start">
@@ -13868,11 +13979,8 @@ window.parseMembers = function(tagString) {
     names.forEach(name => {
         const group = memberGroups.find(g => g.name === name);
         if (group && group.memberIds && group.memberIds.length > 0) {
-            group.memberIds.forEach(mid => {
-                const found = customMembers.find(m => m.id === mid);
-                if (found) {
-                    result.push({ ...found, nickname: found.isCrew ? '' : found.nickname });
-                }
+            resolveGroupMembers(group.memberIds).forEach(found => {
+                result.push({ ...found, nickname: found.isCrew ? '' : found.nickname });
             });
             return;
         }
@@ -14058,12 +14166,16 @@ function getGroupAllMembers() {
 
 function resolveGroupMembers(memberIds) {
     return (memberIds || []).map(mid => {
-        if (mid.startsWith('__builtin__')) {
-            const bname = mid.replace('__builtin__', '');
+        const memberId = String(mid || '');
+        if (memberId.startsWith('__builtin__')) {
+            const bname = memberId.replace('__builtin__', '');
             const bm = members.find(m => m.name === bname);
             return bm ? { nickname: bm.name, imageUrl: bm.img } : null;
         }
-        return customMembers.find(m => m.id === mid) || null;
+        const legacyNickname = memberId.startsWith('member_') ? memberId.slice('member_'.length) : memberId;
+        return customMembers.find(m => String(m.id) === memberId)
+            || customMembers.find(m => m.nickname === legacyNickname)
+            || null;
     }).filter(Boolean);
 }
 
