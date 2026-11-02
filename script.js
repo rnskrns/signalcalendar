@@ -14318,10 +14318,9 @@ window.renderMemberGroupsList = function(filterText = '') {
             <div class="flex items-start justify-between mb-4 gap-2">
                 <div class="min-w-0">
                     <div class="font-bold text-[#5D4037] text-[16px] font-paperozi flex items-center gap-2 min-w-0">
-                        <span class="w-8 h-8 rounded-xl bg-[#F1EAE6] flex items-center justify-center shrink-0"><i class="fi fi-rr-users-alt text-[14px]"></i></span>
                         <span class="truncate">${escapeHtml(g.name)}</span>
                     </div>
-                    <div class="text-[11px] text-gray-400 font-bold mt-1 ml-10">${groupMems.length}명</div>
+                    <div class="text-[11px] text-gray-400 font-bold mt-1">${groupMems.length}명</div>
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="startEditGroup('${g.id}')" class="w-8 h-8 rounded-lg bg-gray-50 text-[#5D4037] hover:bg-blue-50 hover:text-blue-500 transition flex items-center justify-center" title="수정"><i class="fi fi-rr-edit text-[13px]"></i></button>
