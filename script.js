@@ -13235,7 +13235,7 @@ async function renderScheduleMemberSuggestions(input) {
         const previewText = previewMembers.map(member => member?.nickname).filter(Boolean).join(', ');
         groupRows.push(`
             <button type="button" class="schedule-member-suggestion flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#F3EEFF] transition" data-suggestion-value="${encodeURIComponent(group.name)}" onmousedown="event.preventDefault()" onclick="selectScheduleMemberSuggestion(this)">
-                <span class="flex -space-x-2 w-12 shrink-0">
+                <span class="flex -space-x-5 w-16 min-w-16 shrink-0">
                     ${groupMembers.slice(0, 3).map(member => `<img src="${escapeHtml(member.imageUrl || 'https://via.placeholder.com/32')}" class="w-8 h-8 rounded-full object-cover border-2 border-white" onerror="this.src='https://via.placeholder.com/32'">`).join('') || '<span class="w-8 h-8 rounded-full bg-[#EEE7F8]"></span>'}
                 </span>
                 <span class="min-w-0 flex-1"><b class="block text-[13px] text-[#5D4037] truncate">${escapeHtml(group.name)}</b><small class="block text-[10px] text-[#7B61A8] truncate">그룹 · ${escapeHtml(previewText || `${groupMembers.length}명`)}</small></span>
