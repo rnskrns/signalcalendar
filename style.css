@@ -4900,6 +4900,26 @@ html.dark-mode .vr-career-page{color:#f5efec}html.dark-mode .vr-career-heading p
 @media(max-width:640px){.vr-career-page{width:min(100% - 24px,560px);padding:0 0 150px}.vr-career-heading{display:block;width:calc(100% - 4px);margin:24px 2px 18px}.vr-career-heading h1{font-size:24px}.vr-career-heading p{margin-top:9px}.vr-career-grid{grid-template-columns:1fr;gap:13px}.vr-career-card-logo{aspect-ratio:2/1}.vr-career-card h3{min-height:auto;padding:15px 17px 18px;font-size:15px}.vr-career-modal{padding:10px}.vr-career-modal-panel{max-height:92vh;border-radius:22px;padding:25px 18px}.vr-career-detail-title h2{font-size:21px}.vr-career-team-logo{height:120px;margin:15px 0 2px;padding:6px 16px}.vr-career-team-logo img{max-width:85%;max-height:108px}.vr-career-detail-grid{grid-template-columns:1fr;gap:8px}.vr-career-detail-grid>div{min-height:104px;padding:16px}.vr-career-detail-grid dd{font-size:17px}.vr-career-detail-grid>div:nth-child(3) dd{font-size:14px}.vr-career-batting>div{gap:6px}.vr-career-batting span{padding:13px 5px}.vr-career-batting b{font-size:20px}}
 
 /* Keep all five personal menu buttons fully inside narrow mobile screens. */
+
+/* VR career heading actions and contextual guide */
+.vr-career-heading{align-items:center;margin-right:auto;margin-bottom:14px;margin-left:auto}
+.vr-career-heading,.vr-career-guide{width:min(1180px,100%)}
+.vr-career-copy-link{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:10px 15px;border:1px solid color-mix(in srgb,var(--member-accent,#5d4037) 35%,transparent);border-radius:13px;background:color-mix(in srgb,var(--member-accent,#5d4037) 8%,#fff);color:var(--member-accent,#5d4037);font-size:13px;font-weight:900;box-shadow:0 5px 14px rgba(67,48,42,.06);transition:transform .18s ease,background .18s ease,color .18s ease}
+.vr-career-copy-link:hover{transform:translateY(-2px);background:var(--member-accent,#5d4037);color:#fff}
+.vr-career-copy-link:active{transform:translateY(0)}
+.vr-career-guide{display:flex;align-items:center;gap:8px;margin:0 auto 18px;padding:11px 14px;border-radius:13px;background:color-mix(in srgb,var(--member-accent,#5d4037) 7%,#fff);color:#817673;font-size:13px;font-weight:700}
+.vr-career-guide i{flex:0 0 auto;color:var(--member-accent,#5d4037);font-size:15px}
+html.dark-mode .vr-career-copy-link{border-color:color-mix(in srgb,var(--member-accent,#5d4037) 55%,#4a434b);background:color-mix(in srgb,var(--member-accent,#5d4037) 14%,#272329);color:#f4edf1}
+html.dark-mode .vr-career-copy-link:hover{background:var(--member-accent,#5d4037);color:#fff}
+html.dark-mode .vr-career-guide{background:color-mix(in srgb,var(--member-accent,#5d4037) 12%,#272329);color:#b7aeb3}
+@media(max-width:640px){
+    .vr-career-heading{display:flex;width:calc(100% - 4px);margin:24px 2px 12px;gap:10px}
+    .vr-career-copy-link{width:42px;min-width:42px;padding:10px}
+    .vr-career-copy-link span{display:none}
+    .vr-career-guide{margin-bottom:13px;padding:10px 12px;font-size:12px;line-height:1.45}
+}
+
+/* Keep all five personal menu buttons fully inside narrow mobile screens. */
 @media(max-width:1050px) {
     #mainContent .signal-member-top-navigation {
         padding-right:8px;
