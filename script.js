@@ -8935,6 +8935,7 @@ function renderVrCareerPage() {
     const content = document.getElementById('mainContent');
     if (!content) return;
     const member = vrCareerMember;
+    const copyButtonTextColor = member === '달타' ? '#342500' : '#ffffff';
     const careers = VR_CAREER_DATA[member] || [];
     const cards = careers.map(career => {
         const logo = VR_COMPETITION_LOGOS[career.id] || '';
@@ -8943,7 +8944,7 @@ function renderVrCareerPage() {
             <h3>${escapeHtml(career.name)}</h3>
         </article>`;
     }).join('');
-    content.innerHTML = `<section class="vr-career-page" style="--member-accent:${themeColors[member] || '#5D4037'}">
+    content.innerHTML = `<section class="vr-career-page" style="--member-accent:${themeColors[member] || '#5D4037'};--member-button-text:${copyButtonTextColor}">
         ${buildMemberTopNavigation(member, 'career')}
         <header class="vr-career-heading">
             <div class="vr-career-heading-copy">

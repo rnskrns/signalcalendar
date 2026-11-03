@@ -4914,22 +4914,22 @@ html.dark-mode .vr-career-page{color:#f5efec}html.dark-mode .vr-career-heading p
 .vr-career-heading-copy{min-width:0}
 .vr-career-heading-copy p{display:flex;align-items:center;gap:7px;margin-top:11px;color:#817673;font-size:13px;font-weight:700;letter-spacing:0}
 .vr-career-heading-copy p i{flex:0 0 auto;color:var(--member-accent,#5d4037);font-size:14px}
-.vr-career-copy-link{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:8px 15px;border:0;border-radius:999px;background:color-mix(in srgb,var(--member-accent,#5d4037) 15%,#f8f7fa);color:color-mix(in srgb,var(--member-accent,#5d4037) 76%,#30252d);font-family:'Juache',sans-serif;font-size:15px;font-weight:normal;letter-spacing:0;box-shadow:none;transition:transform .16s ease,background .16s ease,color .16s ease}
-.vr-career-copy-link i{display:inline-flex;width:auto;height:auto;align-items:center;justify-content:center;border-radius:0;background:transparent;color:inherit;font-size:14px;transition:color .16s ease}
-.vr-career-copy-link:hover{transform:translateY(-1px);background:color-mix(in srgb,var(--member-accent,#5d4037) 25%,#f8f7fa);color:color-mix(in srgb,var(--member-accent,#5d4037) 88%,#241b21);box-shadow:none}
+.vr-career-copy-link{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:126px;min-height:50px;padding:11px 21px;border:0;border-radius:15px;background:var(--member-accent,#5d4037);color:var(--member-button-text,#fff);font-family:'Juache',sans-serif;font-size:18px;font-weight:normal;line-height:1;letter-spacing:.015em;box-shadow:0 8px 20px color-mix(in srgb,var(--member-accent,#5d4037) 28%,transparent);transition:transform .16s ease,filter .16s ease,box-shadow .16s ease}
+.vr-career-copy-link i{display:inline-flex;width:auto;height:auto;align-items:center;justify-content:center;border-radius:0;background:transparent;color:inherit;font-size:18px;transition:color .16s ease}
+.vr-career-copy-link:hover{transform:translateY(-2px);background:var(--member-accent,#5d4037);color:var(--member-button-text,#fff);filter:brightness(1.07);box-shadow:0 11px 25px color-mix(in srgb,var(--member-accent,#5d4037) 38%,transparent)}
 .vr-career-copy-link:hover i{background:transparent;color:inherit}
 .vr-career-copy-link:active{transform:translateY(0)}
 .vr-career-guide{display:flex;align-items:center;gap:8px;margin:0 auto 18px;padding:11px 14px;border-radius:13px;background:color-mix(in srgb,var(--member-accent,#5d4037) 7%,#fff);color:#817673;font-size:13px;font-weight:700}
 .vr-career-guide i{flex:0 0 auto;color:var(--member-accent,#5d4037);font-size:15px}
-html.dark-mode .vr-career-copy-link{border:0;background:color-mix(in srgb,var(--member-accent,#5d4037) 22%,#f2edf1);color:color-mix(in srgb,var(--member-accent,#5d4037) 78%,#2c2229);box-shadow:none}
+html.dark-mode .vr-career-copy-link{border:0;background:var(--member-accent,#5d4037);color:var(--member-button-text,#fff);box-shadow:0 8px 22px color-mix(in srgb,var(--member-accent,#5d4037) 32%,transparent)}
 html.dark-mode .vr-career-copy-link i{background:transparent;color:inherit}
-html.dark-mode .vr-career-copy-link:hover{background:color-mix(in srgb,var(--member-accent,#5d4037) 32%,#f2edf1);color:color-mix(in srgb,var(--member-accent,#5d4037) 90%,#21191e)}
+html.dark-mode .vr-career-copy-link:hover{background:var(--member-accent,#5d4037);color:var(--member-button-text,#fff);filter:brightness(1.09)}
 html.dark-mode .vr-career-copy-link:hover i{background:transparent;color:inherit}
 html.dark-mode .vr-career-guide{background:color-mix(in srgb,var(--member-accent,#5d4037) 12%,#272329);color:#b7aeb3}
 html.dark-mode .vr-career-heading-copy p{color:#b7aeb3}
 @media(max-width:640px){
     .vr-career-heading{display:flex;width:calc(100% - 4px);margin:24px 2px 12px;gap:10px}
-    .vr-career-copy-link{width:40px;min-width:40px;min-height:38px;padding:8px}
+    .vr-career-copy-link{width:48px;min-width:48px;min-height:48px;padding:10px;border-radius:14px}
     .vr-career-copy-link span{display:none}
     .vr-career-heading-copy p{margin-top:9px;font-size:12px;line-height:1.45}
     .vr-career-guide{margin-bottom:13px;padding:10px 12px;font-size:12px;line-height:1.45}
