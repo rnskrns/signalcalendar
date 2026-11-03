@@ -355,6 +355,13 @@ html.dark-mode .cineti-panel-header,html.dark-mode .cineti-card,html.dark-mode .
     font-display: swap;
 }
 
+@font-face {
+    font-family: 'Juache';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/BMJUA.woff') format('woff');
+    font-weight: normal;
+    font-display: swap;
+}
+
 @font-face { font-family: 'Sweet'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
 
 .font-paperozi { font-family: 'Paperozi', sans-serif !important; }
@@ -4907,7 +4914,7 @@ html.dark-mode .vr-career-page{color:#f5efec}html.dark-mode .vr-career-heading p
 .vr-career-heading-copy{min-width:0}
 .vr-career-heading-copy p{display:flex;align-items:center;gap:7px;margin-top:11px;color:#817673;font-size:13px;font-weight:700;letter-spacing:0}
 .vr-career-heading-copy p i{flex:0 0 auto;color:var(--member-accent,#5d4037);font-size:14px}
-.vr-career-copy-link{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:7px 15px 7px 8px;border:1px solid rgba(93,64,55,.16);border-radius:14px;background:rgba(255,255,255,.76);color:#4b4140;font-size:13px;font-weight:800;box-shadow:0 6px 18px rgba(56,42,38,.08);backdrop-filter:blur(8px);transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease}
+.vr-career-copy-link{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:8px 18px 8px 9px;border:1px solid rgba(93,64,55,.18);border-radius:15px;background:rgba(255,255,255,.8);color:#403736;font-family:'Juache',sans-serif;font-size:16px;font-weight:normal;letter-spacing:.025em;box-shadow:0 7px 20px rgba(56,42,38,.09);backdrop-filter:blur(8px);transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease}
 .vr-career-copy-link i{display:grid;width:30px;height:30px;place-items:center;border-radius:9px;background:color-mix(in srgb,var(--member-accent,#5d4037) 13%,#fff);color:var(--member-accent,#5d4037);font-size:14px;transition:background .18s ease,color .18s ease}
 .vr-career-copy-link:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--member-accent,#5d4037) 38%,transparent);background:#fff;box-shadow:0 9px 22px rgba(56,42,38,.13)}
 .vr-career-copy-link:hover i{background:var(--member-accent,#5d4037);color:#fff}
@@ -4922,7 +4929,7 @@ html.dark-mode .vr-career-guide{background:color-mix(in srgb,var(--member-accent
 html.dark-mode .vr-career-heading-copy p{color:#b7aeb3}
 @media(max-width:640px){
     .vr-career-heading{display:flex;width:calc(100% - 4px);margin:24px 2px 12px;gap:10px}
-    .vr-career-copy-link{width:44px;min-width:44px;padding:6px}
+    .vr-career-copy-link{width:46px;min-width:46px;min-height:46px;padding:7px}
     .vr-career-copy-link span{display:none}
     .vr-career-heading-copy p{margin-top:9px;font-size:12px;line-height:1.45}
     .vr-career-guide{margin-bottom:13px;padding:10px 12px;font-size:12px;line-height:1.45}
