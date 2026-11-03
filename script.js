@@ -8946,10 +8946,13 @@ function renderVrCareerPage() {
     content.innerHTML = `<section class="vr-career-page" style="--member-accent:${themeColors[member] || '#5D4037'}">
         ${buildMemberTopNavigation(member, 'career')}
         <header class="vr-career-heading">
-            <div><span>VR COMPETITION CAREER</span><h1>${escapeHtml(member)}의 VR 대회 경력</h1></div>
+            <div class="vr-career-heading-copy">
+                <span>VR COMPETITION CAREER</span>
+                <h1>${escapeHtml(member)}의 VR 대회 경력</h1>
+                ${cards ? `<p><i class="fi fi-rr-info"></i> 카드를 선택하면 팀, 포지션과 대회 성적을 볼 수 있습니다.</p>` : ''}
+            </div>
             <button type="button" class="vr-career-copy-link" onclick="copyVrCareerLink('${member}', event)" title="VR 대회 경력 링크 복사" aria-label="${escapeHtml(member)} VR 대회 경력 링크 복사"><i class="fi fi-rr-link-alt"></i><span>링크 복사</span></button>
         </header>
-        ${cards ? `<div class="vr-career-guide"><i class="fi fi-rr-info"></i><p>카드를 선택하면 팀, 포지션과 대회 성적을 볼 수 있습니다.</p></div>` : ''}
         ${cards ? `<div class="vr-career-grid">${cards}</div>` : `<div class="vr-career-empty"><i class="fi fi-rr-trophy"></i><strong>등록된 대회 경력이 없습니다.</strong><span>멤버별 경력표가 준비되면 이곳에 추가됩니다.</span></div>`}
     </section>`;
 }
