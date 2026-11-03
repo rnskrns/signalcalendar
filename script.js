@@ -1624,7 +1624,13 @@ const VR_CAREER_DATA = {
             ]
         }
     ],
-    '다룽': [],
+    '다룽': [
+        {
+            id:'waktaverse-cycle', name:'왁타버스 사이클 대회', team:'—',
+            directors:[], players:['다룽'], coaches:[],
+            event:'사이클 (5조)', individual:'사이클 - 예선 탈락 (5조 3위)', rank:'—'
+        }
+    ],
     '최또': [
         {
             id:'lildongpa', name:'릴파 버츄얼 동계 스포츠 대회 (릴동파)', team:'레드힐즈',
