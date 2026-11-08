@@ -135,6 +135,7 @@
         <header><strong>관리자 메뉴</strong></header>
         <div id="mobileAdminProfile" class="mobile-admin-page-profile"></div>
         <div class="mobile-admin-page-menu">
+            <button class="general-admin-only" onclick="openInquiryAdminModal()"><i class="fi fi-rr-envelope"></i><span><b>문의 목록</b><small>사이트 문의를 확인하고 처리합니다.</small></span><i class="fi fi-rr-angle-small-right"></i></button>
             <button onclick="openMobileAdminSection('members')"><i class="fi fi-rr-users"></i><span><b>멤버관리</b><small>멤버와 그룹 정보를 관리합니다.</small></span><i class="fi fi-rr-angle-small-right"></i></button>
             <button onclick="openMobileAdminSection('manage')"><i class="fi fi-rr-settings"></i><span><b>관리</b><small>홈과 일정 관련 설정을 관리합니다.</small></span><i class="fi fi-rr-angle-small-right"></i></button>
             <button class="is-logout" onclick="logoutAdmin()"><i class="fi fi-rr-sign-out-alt"></i><span><b>로그아웃</b><small>관리자 모드를 종료합니다.</small></span><i class="fi fi-rr-angle-small-right"></i></button>
@@ -155,6 +156,7 @@
                     <button type="button" class="notif-tab active" data-notif-tab="all" onclick="setNotifTab('all')">전체</button>
                     <button type="button" class="notif-tab" data-notif-tab="live" onclick="setNotifTab('live')">SOOP</button>
                     <button type="button" class="notif-tab" data-notif-tab="cafe" onclick="setNotifTab('cafe')">카페</button>
+                    <button type="button" id="inquiryNotifTab" class="notif-tab hidden" data-notif-tab="inquiry" onclick="setNotifTab('inquiry')">문의</button>
                 </div>
                 <div class="relative">
                     <button type="button" class="notif-sort-btn" onclick="toggleNotifSortMenu(event)" aria-expanded="false" aria-controls="notifSortMenu">
@@ -211,7 +213,28 @@
         <a href="https://cafe.naver.com/restormy" target="_blank" rel="noopener"><span class="signal-footer-icon"><img src="./images/cafe.png" alt=""></span><span><strong>팬카페</strong><small>시그널 팬카페 바로가기</small></span><i class="fi fi-rr-arrow-up-right"></i></a>
         <a href="https://www.youtube.com/@SIGNAL_SOOP" target="_blank" rel="noopener"><span class="signal-footer-icon is-youtube" aria-hidden="true"><svg viewBox="0 0 24 24" role="img"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4L15.8 12l-6.2 3.6Z"/></svg></span><span><strong>유튜브</strong><small>시그널 공식 채널</small></span><i class="fi fi-rr-arrow-up-right"></i></a>
         <a href="https://rnskrns.github.io/signalVOD/" target="_blank" rel="noopener"><span class="signal-footer-icon is-vod">VOD</span><span><strong>VOD</strong><small>다시보기 모아보기</small></span><i class="fi fi-rr-arrow-up-right"></i></a>
+        <button type="button" class="signal-footer-inquiry" onclick="openInquiryModal()"><span class="signal-footer-icon is-inquiry"><i class="fi fi-rr-envelope"></i></span><span><strong>문의하기</strong><small>사이트 이용 문의를 남겨주세요</small></span><i class="fi fi-rr-angle-small-right"></i></button>
     </footer>
+
+    <div id="inquiryModal" class="inquiry-modal hidden" onclick="if(event.target===this) closeInquiryModal()">
+        <form id="inquiryForm" class="inquiry-modal-card" onsubmit="submitInquiry(event)">
+            <button type="button" class="inquiry-modal-close" onclick="closeInquiryModal()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button>
+            <div class="inquiry-modal-heading"><small>CONTACT</small><h2>문의하기</h2><p>남겨주신 문의는 담당 관리자만 확인할 수 있어요.</p></div>
+            <label><span>이름 <b>필수</b></span><input id="inquiryName" type="text" maxlength="30" required autocomplete="name" placeholder="이름 또는 닉네임"></label>
+            <label><span>답변 받을 연락처 <em>선택</em></span><input id="inquiryContact" type="text" maxlength="100" autocomplete="email" placeholder="이메일 또는 연락 가능한 수단"></label>
+            <label><span>문의 내용 <b>필수</b></span><textarea id="inquiryMessage" maxlength="2000" required rows="7" placeholder="문의 내용을 자세히 작성해주세요."></textarea><small class="inquiry-counter"><span id="inquiryMessageCount">0</span>/2000</small></label>
+            <input id="inquiryWebsite" class="inquiry-honeypot" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button id="inquirySubmitBtn" type="submit" class="inquiry-submit-btn"><span>문의 보내기</span><i class="fi fi-rr-paper-plane"></i></button>
+        </form>
+    </div>
+
+    <div id="inquiryAdminModal" class="inquiry-modal hidden" onclick="if(event.target===this) closeInquiryAdminModal()">
+        <section class="inquiry-admin-card" role="dialog" aria-modal="true" aria-labelledby="inquiryAdminTitle">
+            <header><div><small>ADMIN CONTACT</small><h2 id="inquiryAdminTitle">문의 목록</h2></div><button type="button" onclick="closeInquiryAdminModal()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button></header>
+            <div class="inquiry-admin-toolbar"><span id="inquiryAdminSummary">문의를 불러오는 중...</span><select id="inquiryStatusFilter" onchange="renderInquiryAdminList()"><option value="all">전체 문의</option><option value="new">새 문의</option><option value="resolved">처리 완료</option></select></div>
+            <div id="inquiryAdminList" class="inquiry-admin-list"><div class="inquiry-admin-empty">문의를 불러오는 중...</div></div>
+        </section>
+    </div>
 
     <div id="mobilePanelOverlay" class="fixed inset-0 bg-black/60 z-[3900] hidden lg:hidden" onclick="closeSidePanelUser()"></div>
 

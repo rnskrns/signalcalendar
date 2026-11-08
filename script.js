@@ -412,7 +412,7 @@ function saveExtNotifications() {
 }
 
 function updateNotifBadge() {
-    const unread = extNotifications.filter(n => !n.read).length;
+    const unread = extNotifications.filter(n => !n.read && (n.kind !== 'inquiry' || isGeneralAdminUser())).length;
     const bellBtns = [document.getElementById('notifBellBtn'), document.getElementById('notifBellBtnMobile')];
     const badges = [document.getElementById('notifBellBadge'), document.getElementById('notifBellBadgeMobile')];
 
@@ -494,6 +494,7 @@ function renderNotifPanelList() {
     if (filtered.length === 0) {
         const emptyLabel = currentNotifTab === 'live' ? 'SOOP 방송 알림이 없어요'
             : currentNotifTab === 'cafe' ? '카페 새 글 알림이 없어요'
+            : currentNotifTab === 'inquiry' ? '새 문의 알림이 없어요'
             : '아직 도착한 알림이 없어요';
         list.innerHTML = `<div class="notif-empty"><i class="fi fi-rr-bell-slash" style="font-size:26px;display:block;margin-bottom:8px;"></i>${emptyLabel}</div>`;
         return;
@@ -512,7 +513,9 @@ function renderNotifPanelList() {
             ? `<span class="notif-avatar-badge notif-avatar-badge-live" title="SOOP 방송"><i class="fi fi-rr-signal-stream"></i></span>`
             : n.kind === 'cafe'
                 ? `<span class="notif-avatar-badge notif-avatar-badge-cafe" title="카페 새 글"><i class="fi fi-rr-comment-alt"></i></span>`
-                : '';
+                : n.kind === 'inquiry'
+                    ? `<span class="notif-avatar-badge notif-avatar-badge-inquiry" title="사이트 문의"><i class="fi fi-rr-envelope"></i></span>`
+                    : '';
 
         return `
             <div class="notif-row" onclick="openNotifItem('${n.id}')">
@@ -535,9 +538,12 @@ function renderNotifPanelList() {
 
 // 현재 선택된 탭(전체/SOOP/카페)과 정렬(시간순/읽지 않은순)을 적용한 알림 목록을 반환
 function getFilteredNotifications() {
-    let result = extNotifications;
+    // 같은 브라우저에서 관리자 계정을 바꿔 로그인해도 멤버 관리자에게 문의가
+    // 노출되지 않도록, 렌더 단계에서도 일반 관리자 권한을 다시 확인한다.
+    let result = extNotifications.filter(n => n.kind !== 'inquiry' || isGeneralAdminUser());
     if (currentNotifTab === 'live') result = result.filter(n => n.kind === 'live');
     else if (currentNotifTab === 'cafe') result = result.filter(n => n.kind === 'cafe');
+    else if (currentNotifTab === 'inquiry') result = result.filter(n => n.kind === 'inquiry');
 
     if (currentNotifSort === 'unread') {
         // Array.prototype.sort는 안정 정렬이라, 같은 그룹(읽음/안읽음) 안에서는 기존 시간순이 그대로 유지됨
@@ -589,7 +595,7 @@ window.handleNotifPanelClick = function(event) {
 
 window.markAllNotifRead = function() {
     let changed = false;
-    extNotifications.forEach(n => { if (!n.read) { n.read = true; changed = true; } });
+    extNotifications.forEach(n => { if (!n.read && (n.kind !== 'inquiry' || isGeneralAdminUser())) { n.read = true; changed = true; } });
     if (changed) {
         saveExtNotifications();
         updateNotifBadge();
@@ -604,7 +610,10 @@ window.openNotifItem = function(id) {
     notif.read = true;
     saveExtNotifications();
     updateNotifBadge();
-    if (notif.url) window.open(notif.url, '_blank');
+    if (notif.kind === 'inquiry' && isGeneralAdminUser()) {
+        closeNotifPanel();
+        openInquiryAdminModal(notif.inquiryId || '');
+    } else if (notif.url) window.open(notif.url, '_blank');
 };
 
 // 알림 패널을 클릭한 알림벨 버튼 바로 아래에 붙여서 띄웁니다.
@@ -665,7 +674,7 @@ window.closeNotifPanel = function() {
 };
 
 window.clearAllNotifications = function() {
-    extNotifications = [];
+    extNotifications = isGeneralAdminUser() ? [] : extNotifications.filter(n => n.kind === 'inquiry');
     saveExtNotifications();
     updateNotifBadge();
     renderNotifPanelList();
@@ -2058,6 +2067,188 @@ function isGeneralAdminUser(user = loggedInUser) {
     return !!(isAdmin && user && !members.some(member => member.name === user.name));
 }
 
+// =========================================================================
+// 사이트 문의: 누구나 작성, 멤버 계정을 제외한 일반 관리자만 알림/목록 확인
+// =========================================================================
+const INQUIRY_SEEN_STORAGE_KEY = 'signalInquirySeenIds';
+let inquiryItems = [];
+let inquiryUnsubscribe = null;
+let inquiryFocusId = '';
+
+function getSeenInquiryIds() {
+    try { return new Set(JSON.parse(localStorage.getItem(INQUIRY_SEEN_STORAGE_KEY) || '[]')); }
+    catch (_) { return new Set(); }
+}
+
+function saveSeenInquiryIds(ids) {
+    try { localStorage.setItem(INQUIRY_SEEN_STORAGE_KEY, JSON.stringify([...ids].slice(-300))); }
+    catch (_) { /* 저장 공간 오류는 문의 목록 사용을 막지 않음 */ }
+}
+
+function addInquiryNotification(item) {
+    if (!item?.id || extNotifications.some(n => n.kind === 'inquiry' && n.inquiryId === item.id)) return;
+    extNotifications.unshift({
+        id: `inquiry_${item.id}`,
+        inquiryId: item.id,
+        kind: 'inquiry',
+        member: item.name || '문의',
+        title: `새 문의: ${item.name || '이름 없음'}`,
+        time: item.createdAt || Date.now(),
+        read: false
+    });
+    extNotifications = extNotifications.slice(0, EXT_NOTIF_MAX_COUNT);
+    saveExtNotifications();
+    updateNotifBadge();
+    if (!document.getElementById('notifPanelOverlay')?.classList.contains('hidden')) renderNotifPanelList();
+}
+
+function stopInquiryAdminSubscription() {
+    if (inquiryUnsubscribe) inquiryUnsubscribe();
+    inquiryUnsubscribe = null;
+    inquiryItems = [];
+}
+
+function syncInquiryAdminSubscription() {
+    const allowed = isGeneralAdminUser() && !!auth.currentUser;
+    document.getElementById('inquiryNotifTab')?.classList.toggle('hidden', !allowed);
+    if (!allowed) {
+        stopInquiryAdminSubscription();
+        if (currentNotifTab === 'inquiry') setNotifTab('all');
+        return;
+    }
+    if (inquiryUnsubscribe) return;
+
+    const inquiryQuery = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'), limit(200));
+    inquiryUnsubscribe = onSnapshot(inquiryQuery, snapshot => {
+        inquiryItems = snapshot.docs.map(item => ({ id:item.id, ...item.data() }));
+        const seen = getSeenInquiryIds();
+        inquiryItems.filter(item => item.status !== 'resolved' && !seen.has(item.id)).forEach(item => {
+            addInquiryNotification(item);
+            seen.add(item.id);
+        });
+        saveSeenInquiryIds(seen);
+        renderInquiryAdminList();
+    }, error => {
+        console.error('문의 목록 실시간 연결 실패:', error);
+        const list = document.getElementById('inquiryAdminList');
+        if (list && !document.getElementById('inquiryAdminModal')?.classList.contains('hidden')) {
+            list.innerHTML = '<div class="inquiry-admin-empty">문의 목록을 불러오지 못했습니다.<br>관리자 권한 또는 Firestore 규칙을 확인해주세요.</div>';
+        }
+    });
+}
+
+window.openInquiryModal = function() {
+    const modal = document.getElementById('inquiryModal');
+    if (!modal) return;
+    const nameInput = document.getElementById('inquiryName');
+    const contactInput = document.getElementById('inquiryContact');
+    if (nameInput && !nameInput.value) nameInput.value = currentUser?.displayName || '';
+    if (contactInput && !contactInput.value) contactInput.value = auth.currentUser?.email || '';
+    modal.classList.replace('hidden', 'flex');
+    document.body.classList.add('modal-open');
+    setTimeout(() => nameInput?.focus(), 0);
+};
+
+window.closeInquiryModal = function() {
+    document.getElementById('inquiryModal')?.classList.replace('flex', 'hidden');
+    if (document.getElementById('inquiryAdminModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open');
+};
+
+window.submitInquiry = async function(event) {
+    event?.preventDefault();
+    const name = document.getElementById('inquiryName')?.value.trim() || '';
+    const contact = document.getElementById('inquiryContact')?.value.trim() || '';
+    const message = document.getElementById('inquiryMessage')?.value.trim() || '';
+    const honeypot = document.getElementById('inquiryWebsite')?.value || '';
+    if (honeypot) return closeInquiryModal();
+    if (!name || !message) return alert('이름과 문의 내용을 입력해주세요.');
+    if (name.length > 30 || contact.length > 100 || message.length > 2000) return alert('입력 가능한 글자 수를 확인해주세요.');
+
+    const button = document.getElementById('inquirySubmitBtn');
+    if (button?.disabled) return;
+    if (button) { button.disabled = true; button.querySelector('span').textContent = '보내는 중...'; }
+    try {
+        await addDoc(collection(db, 'inquiries'), {
+            name,
+            contact,
+            message,
+            status: 'new',
+            createdAt: Date.now(),
+            authorUid: auth.currentUser?.uid || null,
+            authorType: isAdmin ? 'admin' : (currentUser ? 'user' : 'guest')
+        });
+        document.getElementById('inquiryForm')?.reset();
+        const count = document.getElementById('inquiryMessageCount');
+        if (count) count.textContent = '0';
+        closeInquiryModal();
+        alert('문의가 접수되었습니다. 감사합니다!');
+    } catch (error) {
+        console.error('문의 등록 실패:', error);
+        alert('문의를 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+        if (button) { button.disabled = false; button.querySelector('span').textContent = '문의 보내기'; }
+    }
+};
+
+window.openInquiryAdminModal = function(focusId = '') {
+    if (!isGeneralAdminUser() || !auth.currentUser) return alert('일반 관리자 계정만 문의를 확인할 수 있습니다.');
+    inquiryFocusId = focusId;
+    syncInquiryAdminSubscription();
+    document.getElementById('inquiryAdminModal')?.classList.replace('hidden', 'flex');
+    document.body.classList.add('modal-open');
+    renderInquiryAdminList();
+};
+
+window.closeInquiryAdminModal = function() {
+    inquiryFocusId = '';
+    document.getElementById('inquiryAdminModal')?.classList.replace('flex', 'hidden');
+    if (document.getElementById('inquiryModal')?.classList.contains('hidden')) document.body.classList.remove('modal-open');
+};
+
+window.renderInquiryAdminList = function() {
+    const list = document.getElementById('inquiryAdminList');
+    const summary = document.getElementById('inquiryAdminSummary');
+    if (!list || !summary || !isGeneralAdminUser()) return;
+    const filter = document.getElementById('inquiryStatusFilter')?.value || 'all';
+    const visible = filter === 'all' ? inquiryItems : inquiryItems.filter(item => item.status === filter);
+    const newCount = inquiryItems.filter(item => item.status !== 'resolved').length;
+    summary.textContent = `전체 ${inquiryItems.length}건 · 새 문의 ${newCount}건`;
+    if (!visible.length) {
+        list.innerHTML = `<div class="inquiry-admin-empty"><i class="fi fi-rr-inbox-in"></i><span>${inquiryItems.length ? '선택한 상태의 문의가 없습니다.' : '아직 등록된 문의가 없습니다.'}</span></div>`;
+        return;
+    }
+    list.innerHTML = visible.map(item => {
+        const resolved = item.status === 'resolved';
+        const date = item.createdAt ? new Date(item.createdAt).toLocaleString('ko-KR') : '';
+        return `<article id="inquiry-${item.id}" class="inquiry-admin-item ${resolved ? 'is-resolved' : ''} ${inquiryFocusId === item.id ? 'is-focused' : ''}">
+            <div class="inquiry-admin-item-head"><div><span class="inquiry-status">${resolved ? '처리 완료' : '새 문의'}</span><strong>${escapeHtml(item.name || '이름 없음')}</strong></div><time>${escapeHtml(date)}</time></div>
+            ${item.contact ? `<div class="inquiry-contact"><i class="fi fi-rr-at"></i>${escapeHtml(item.contact)}</div>` : ''}
+            <p>${escapeHtml(item.message || '')}</p>
+            <div class="inquiry-admin-actions"><button type="button" onclick="toggleInquiryResolved('${item.id}', ${resolved ? 'false' : 'true'})">${resolved ? '새 문의로 되돌리기' : '처리 완료'}</button><button type="button" class="is-delete" onclick="deleteInquiry('${item.id}')">삭제</button></div>
+        </article>`;
+    }).join('');
+    if (inquiryFocusId) requestAnimationFrame(() => document.getElementById(`inquiry-${inquiryFocusId}`)?.scrollIntoView({ behavior:'smooth', block:'center' }));
+};
+
+window.toggleInquiryResolved = async function(id, resolved) {
+    if (!isGeneralAdminUser()) return;
+    try { await updateDoc(doc(db, 'inquiries', id), { status: resolved ? 'resolved' : 'new', updatedAt:Date.now(), updatedBy:loggedInUser?.email || '' }); }
+    catch (error) { console.error('문의 상태 변경 실패:', error); alert('문의 상태를 변경하지 못했습니다.'); }
+};
+
+window.deleteInquiry = async function(id) {
+    if (!isGeneralAdminUser() || !confirm('이 문의를 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.')) return;
+    try { await deleteDoc(doc(db, 'inquiries', id)); }
+    catch (error) { console.error('문의 삭제 실패:', error); alert('문의를 삭제하지 못했습니다.'); }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('inquiryMessage')?.addEventListener('input', event => {
+        const count = document.getElementById('inquiryMessageCount');
+        if (count) count.textContent = String(event.target.value.length);
+    });
+});
+
 function getAdminAvatarStorageKey(user = loggedInUser) {
     return user?.email ? `signalAdminAvatar:${String(user.email).toLowerCase()}` : '';
 }
@@ -2378,6 +2569,10 @@ function renderAdminAuthHtml(scope, user) {
         : '';
     const memberManageItem = `<button onclick="openMemberManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>`;
     const memberManageItemMobile = `<button onclick="openMemberManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">멤버관리</button>`;
+    const inquiryItem = isGeneralAdminUser(user)
+        ? `<button onclick="openInquiryAdminModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">문의 목록</button>` : '';
+    const inquiryItemMobile = isGeneralAdminUser(user)
+        ? `<button onclick="openInquiryAdminModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">문의 목록</button>` : '';
     if (isDesktop) {
         return `
             <div class="relative inline-block text-left group z-[2000]">
@@ -2388,6 +2583,7 @@ function renderAdminAuthHtml(scope, user) {
                 </div>
                 <div id="desktopProfileMenu" class="desktop-account-menu hidden absolute right-0 top-full mt-2 w-36 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
                     ${memberSwitchItem}
+                    ${inquiryItem}
                     ${memberManageItem}
                     <button onclick="openManageModal()" class="px-4 py-3 text-left font-bold text-[#5D4037] font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                     <button onclick="logoutAdmin()" class="px-4 py-3 text-left font-bold text-red-500 font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -2402,6 +2598,7 @@ function renderAdminAuthHtml(scope, user) {
             </div>
             <div id="mobileProfileMenu" class="hidden absolute right-0 top-full mt-2 w-28 bg-white flex-col shadow-xl rounded-xl overflow-hidden">
                 ${memberSwitchItemMobile}
+                ${inquiryItemMobile}
                 ${memberManageItemMobile}
                 <button onclick="openManageModal()" class="px-3 py-2 text-left font-bold text-[#5D4037] text-sm font-paperozi hover:bg-gray-100 border-b border-gray-100">관리</button>
                 <button onclick="logoutAdmin()" class="px-3 py-2 text-left font-bold text-red-500 text-sm font-paperozi hover:bg-gray-100">로그아웃</button>
@@ -2457,6 +2654,9 @@ function refreshAuthUI() {
     const mobileContainer = document.getElementById('mobileAuthContainer');
 
     document.body.classList.toggle('admin-mode', !!(isAdmin && loggedInUser));
+    document.body.classList.toggle('general-admin-mode', isGeneralAdminUser());
+    document.getElementById('inquiryNotifTab')?.classList.toggle('hidden', !isGeneralAdminUser());
+    queueMicrotask(() => syncInquiryAdminSubscription());
 
     if (isAdmin && loggedInUser) {
         if (desktopContainer) desktopContainer.innerHTML = renderAdminAuthHtml('desktop', loggedInUser);
