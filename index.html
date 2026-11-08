@@ -220,7 +220,7 @@
         <form id="inquiryForm" class="inquiry-modal-card" onsubmit="submitInquiry(event)">
             <button type="button" class="inquiry-modal-close" onclick="closeInquiryModal()" aria-label="닫기"><i class="fi fi-br-cross-small"></i></button>
             <div class="inquiry-modal-heading"><small>CONTACT</small><h2>문의하기</h2><p>남겨주신 문의는 담당 관리자만 확인할 수 있어요.</p></div>
-            <label><span>이름 <b>필수</b></span><input id="inquiryName" type="text" maxlength="30" required autocomplete="name" placeholder="이름 또는 닉네임"></label>
+            <label><span>이름 또는 닉네임 <em>선택</em></span><input id="inquiryName" type="text" maxlength="30" autocomplete="name" placeholder="비워두면 익명으로 접수됩니다"></label>
             <label><span>답변 받을 연락처 <em>선택</em></span><input id="inquiryContact" type="text" maxlength="100" autocomplete="email" placeholder="이메일 또는 연락 가능한 수단"></label>
             <label><span>문의 내용 <b>필수</b></span><textarea id="inquiryMessage" maxlength="2000" required rows="7" placeholder="문의 내용을 자세히 작성해주세요."></textarea><small class="inquiry-counter"><span id="inquiryMessageCount">0</span>/2000</small></label>
             <input id="inquiryWebsite" class="inquiry-honeypot" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">

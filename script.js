@@ -2091,8 +2091,8 @@ function addInquiryNotification(item) {
         id: `inquiry_${item.id}`,
         inquiryId: item.id,
         kind: 'inquiry',
-        member: item.name || '문의',
-        title: `새 문의: ${item.name || '이름 없음'}`,
+        member: item.name || '익명',
+        title: `새 문의: ${item.name || '익명'}`,
         time: item.createdAt || Date.now(),
         read: false
     });
@@ -2161,7 +2161,7 @@ window.submitInquiry = async function(event) {
     const message = document.getElementById('inquiryMessage')?.value.trim() || '';
     const honeypot = document.getElementById('inquiryWebsite')?.value || '';
     if (honeypot) return closeInquiryModal();
-    if (!name || !message) return alert('이름과 문의 내용을 입력해주세요.');
+    if (!message) return alert('문의 내용을 입력해주세요.');
     if (name.length > 30 || contact.length > 100 || message.length > 2000) return alert('입력 가능한 글자 수를 확인해주세요.');
 
     const button = document.getElementById('inquirySubmitBtn');
@@ -2221,7 +2221,7 @@ window.renderInquiryAdminList = function() {
         const resolved = item.status === 'resolved';
         const date = item.createdAt ? new Date(item.createdAt).toLocaleString('ko-KR') : '';
         return `<article id="inquiry-${item.id}" class="inquiry-admin-item ${resolved ? 'is-resolved' : ''} ${inquiryFocusId === item.id ? 'is-focused' : ''}">
-            <div class="inquiry-admin-item-head"><div><span class="inquiry-status">${resolved ? '처리 완료' : '새 문의'}</span><strong>${escapeHtml(item.name || '이름 없음')}</strong></div><time>${escapeHtml(date)}</time></div>
+            <div class="inquiry-admin-item-head"><div><span class="inquiry-status">${resolved ? '처리 완료' : '새 문의'}</span><strong>${escapeHtml(item.name || '익명')}</strong></div><time>${escapeHtml(date)}</time></div>
             ${item.contact ? `<div class="inquiry-contact"><i class="fi fi-rr-at"></i>${escapeHtml(item.contact)}</div>` : ''}
             <p>${escapeHtml(item.message || '')}</p>
             <div class="inquiry-admin-actions"><button type="button" onclick="toggleInquiryResolved('${item.id}', ${resolved ? 'false' : 'true'})">${resolved ? '새 문의로 되돌리기' : '처리 완료'}</button><button type="button" class="is-delete" onclick="deleteInquiry('${item.id}')">삭제</button></div>
