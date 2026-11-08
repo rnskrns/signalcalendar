@@ -23,13 +23,19 @@ window.closeGoogleLinkModal = closeGoogleLinkModal;
 let isLinkingGoogleAccount = false;
 
 // 모바일 등 확장프로그램을 쓸 수 없는 환경에서 구글 계정으로 바로 로그인
-function loginWithGoogle() {
-    signInWithPopup(auth, new GoogleAuthProvider()).catch((e) => {
+async function loginWithGoogle() {
+    try {
+        // 로컬 ID 로그인과 동일하게 로그인 유지 방식을 먼저 확정한다.
+        // 팝업 로그인 직후 새로고침할 때 persistence 적용과 인증 복원이
+        // 서로 경합하면서 Firestore 초기 요청이 멈추는 현상을 방지한다.
+        await setPersistence(auth, browserLocalPersistence);
+        await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (e) {
         if (e.code !== 'auth/popup-closed-by-user') {
             console.error('구글 로그인 실패:', e);
             alert('구글 로그인에 실패했습니다. 다시 시도해주세요.');
         }
-    });
+    }
 }
 
 // ⭐ 신규: "구글 계정 연동" 모달 열기/닫기 + 현재 연동 상태 표시
@@ -1260,6 +1266,14 @@ let isAdmin = false;
 let loggedInUser = null; 
 let currentUser = null;           // 일반 유저(구글 로그인) - Firebase Auth 유저 객체
 let userLikedSongsCache = null;   // { [member]: [songId, ...] } - 로그인한 유저의 좋아요 캐시
+
+// 새로고침 시 Firebase가 저장된 Google 로그인 상태와 ID 토큰을 복원한 뒤에
+// Firestore 초기 데이터를 읽도록 순서를 맞춘다. SOOP/비로그인 상태에서도
+// onAuthStateChanged의 첫 호출(null 포함)이 오면 즉시 준비 완료된다.
+let resolveInitialFirebaseAuth;
+const initialFirebaseAuthReady = new Promise(resolve => {
+    resolveInitialFirebaseAuth = resolve;
+});
 
 // ⭐ 신규: 새로고침 시 SOOP 로그인 상태 복원 (Firebase onAuthStateChanged보다 먼저 currentUser를 채워둠)
 restoreSoopSession();
@@ -2672,6 +2686,11 @@ function refreshAuthUI() {
 }
 
 onAuthStateChanged(auth, async (user) => {
+    if (resolveInitialFirebaseAuth) {
+        resolveInitialFirebaseAuth(user || null);
+        resolveInitialFirebaseAuth = null;
+    }
+
     // 구글 계정 연동 처리 중에는 linkGoogleAccount() 쪽에서 모든 로직을 전담하므로 여기서는 무시합니다.
     if (isLinkingGoogleAccount) return;
 
@@ -14228,7 +14247,13 @@ async function initApp() {
     sessionStorage.removeItem('activeAdminSession');
     localStorage.removeItem('activeAdminSession');
     localStorage.removeItem('savedAdminProfiles');
-    // Firebase Auth가 저장된 로그인 상태를 복원하고 onAuthStateChanged에서 관리자 여부를 확인합니다.
+    // Firebase Auth가 저장된 Google 로그인 상태와 토큰을 먼저 복원한 뒤
+    // Firestore 초기 요청을 시작한다. 브라우저/네트워크 이상으로 인증 콜백이
+    // 오지 않는 경우에도 사이트가 막히지 않도록 제한 시간 후 계속 진행한다.
+    await Promise.race([
+        initialFirebaseAuthReady,
+        new Promise(resolve => setTimeout(resolve, 4000))
+    ]);
     
     // === 초기 탭 설정 분리 ===
     const today = getTodayYYYYMMDD();
@@ -16389,5 +16414,37 @@ if (earlyVrCareerRoute) {
     renderHeaderTabs();
     render();
 }
-initApp().finally(hidePageLoadingScreen);
+// Firebase Auth가 저장된 구글 로그인 상태를 복원하는 동안 네트워크 요청 하나가
+// 응답 없이 대기하더라도 로딩 화면이 영구히 사이트를 가리지 않도록 한다.
+// 초기화 작업 자체는 취소하지 않고 뒤에서 계속 진행되며, 완료되면 최신 데이터로
+// 정상 렌더링된다.
+const APP_STARTUP_LOADING_TIMEOUT_MS = 8000;
+let appStartupFinished = false;
+const appStartupLoadingWatchdog = setTimeout(() => {
+    if (appStartupFinished) return;
+    console.warn('초기 데이터 요청이 지연되어 로딩 화면을 먼저 닫습니다.');
+    try {
+        renderHeaderTabs();
+        render();
+    } catch (error) {
+        console.error('초기 화면 비상 렌더링 실패:', error);
+    }
+    hidePageLoadingScreen();
+}, APP_STARTUP_LOADING_TIMEOUT_MS);
+
+initApp()
+    .catch(error => {
+        console.error('사이트 초기화 실패:', error);
+        try {
+            renderHeaderTabs();
+            render();
+        } catch (renderError) {
+            console.error('초기화 실패 후 화면 렌더링 실패:', renderError);
+        }
+    })
+    .finally(() => {
+        appStartupFinished = true;
+        clearTimeout(appStartupLoadingWatchdog);
+        hidePageLoadingScreen();
+    });
 
