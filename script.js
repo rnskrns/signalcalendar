@@ -1536,6 +1536,10 @@ const DALTA_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbz3e0zyL-xkI
 const DALTA_UPBO_ACCESS_KEY = 'dalta-room-db-19l1uc-2026-f4X9qP7m';
 const DALTA_UPBO_MANUAL_ACCESS_KEY = 'dalta-manual-db-19l1uc-2026-v1';
 
+function isManualUpboRecord(record) {
+    return record?.origin === 'manual' || record?.isManual === true;
+}
+
 function loadChoiUpboSiteMenu() {
     try {
         const saved = JSON.parse(localStorage.getItem(CHOI_UPBO_SITE_MENU_KEY) || '{}');
@@ -8458,11 +8462,12 @@ async function loadDaltaUpboFromGoogleSheet() {
             const rowNickname = String(row.nickname || '').trim();
             // 사이트에서 수동으로 만든 행은 ID/닉네임이 같아도 시트 행과 합치지 않는다.
             const previous = firebaseRecords.find(record =>
-                record.origin !== 'manual' && isSameDaltaRecord(record, row)
+                !isManualUpboRecord(record) && isSameDaltaRecord(record, row)
             ) || {};
             return {
                 ...previous,
                 origin: 'sheet',
+                isManual: false,
                 nickname: rowNickname,
                 uid: rowUid,
                 donationCount: Number(row.donationCount || 0),
@@ -8476,6 +8481,7 @@ async function loadDaltaUpboFromGoogleSheet() {
         });
         const manualSheetRecords = manualResult.rows.map(row => ({
             origin: 'manual',
+            isManual: true,
             nickname: String(row.nickname || ''),
             uid: String(row.userId || ''),
             donationCount: Number(row.donationCount || 0),
@@ -8489,13 +8495,13 @@ async function loadDaltaUpboFromGoogleSheet() {
         // 전환 전에 Firebase에만 저장되어 있던 수동 행도 한 번은 함께 보여준다.
         // 관리 화면에서 저장하면 이 행들은 달타_수동 시트로 이전된다.
         const legacyManualRecords = firebaseRecords
-            .filter(record => record.origin === 'manual' || !sheetRows.some(row => isSameDaltaRecord(record, row)))
+            .filter(record => isManualUpboRecord(record) || !sheetRows.some(row => isSameDaltaRecord(record, row)))
             .filter(record => !manualSheetRecords.some(row =>
                 String(row.uid || '').trim() === String(record.uid || '').trim()
                 && String(row.nickname || '').trim() === String(record.nickname || '').trim()
                 && String(row.category || '').trim() === String(record.category || '').trim()
             ))
-            .map(record => ({ ...record, origin: 'manual' }));
+            .map(record => ({ ...record, origin: 'manual', isManual: true }));
         upboData['달타'] = {
             ...firebaseData,
             products: Array.isArray(firebaseData.products) ? firebaseData.products : [],
@@ -8550,6 +8556,7 @@ async function loadChoiUpboFromGoogleSheet() {
             records: [
                 ...result.rows.map((row, rowIndex) => ({
                 origin: 'sheet',
+                isManual: false,
                 nickname: String(row.nickname || ''),
                 uid: String(row.userId || ''),
                 donationCount: Number(row.donationCount || 0),
@@ -8562,6 +8569,7 @@ async function loadChoiUpboFromGoogleSheet() {
                 })),
                 ...manualResult.rows.map(row => ({
                     origin: 'manual',
+                    isManual: true,
                     nickname: String(row.nickname || ''),
                     uid: String(row.userId || ''),
                     donationCount: Number(row.donationCount || 0),
@@ -10837,7 +10845,8 @@ function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable
                 const value = record.items?.[product] ?? '';
                 return `<td><textarea class="upbo-qty" data-product-idx="${productIndex}" rows="1" placeholder="-">${escapeHtml(String(value))}</textarea></td>`;
             }).join('');
-            return `<tr class="upbo-data-row" data-upbo-origin="${escapeHtml(record.origin || (memberName === '달타' ? 'sheet' : 'legacy'))}">
+            const manualRow = isManualUpboRecord(record);
+            return `<tr class="upbo-data-row${manualRow ? ' upbo-manual-row' : ''}" data-upbo-origin="${manualRow ? 'manual' : escapeHtml(record.origin || 'sheet')}">
                 <td class="kanashi-check-cell"><input type="checkbox" class="upbo-row-checkbox" aria-label="행 선택"></td>
                 <td><input class="upbo-nick" value="${escapeHtml(record.nickname || '')}" placeholder="닉네임"></td>
                 <td><input class="upbo-uid" value="${escapeHtml(record.uid || '')}" placeholder="사용자 ID"></td>
@@ -11080,6 +11089,7 @@ function syncUpboDomToState() {
         const nick = tr.querySelector('.upbo-nick').value.trim();
         const uid = tr.querySelector('.upbo-uid').value.trim();
         const origin = String(tr.dataset.upboOrigin || '').trim();
+        const isManual = origin === 'manual' || tr.classList.contains('upbo-manual-row');
         const status = tr.querySelector('.upbo-status')?.value || '배송중';
         const categoryEl = tr.querySelector('.upbo-category');
         const category = categoryEl ? categoryEl.value.trim() : '';
@@ -11106,7 +11116,12 @@ function syncUpboDomToState() {
             }
         });
         if (nick || uid) {
-            newRecords.push({ nickname: nick, uid: uid, donationCount, category: category, items: items, status: status, memo: memo, roulette: roulette, stationUrl, ...(origin ? { origin } : {}) });
+            newRecords.push({
+                nickname: nick, uid: uid, donationCount, category: category, items: items,
+                status: status, memo: memo, roulette: roulette, stationUrl,
+                origin: isManual ? 'manual' : (origin || 'sheet'),
+                isManual
+            });
         }
     });
 
@@ -11120,7 +11135,7 @@ function addUpboRow() {
     syncUpboDomToState();
     upboData[upboCurrentMember].records.push({
         nickname:'', uid:'', category:'', items:{}, roulette:'', status:'배송중', memo:'',
-        ...(['달타', '최또'].includes(upboCurrentMember) ? { origin:'manual' } : {})
+        ...(['달타', '최또'].includes(upboCurrentMember) ? { origin:'manual', isManual:true } : {})
     });
     renderUpboAdminTable();
 }
@@ -11320,8 +11335,8 @@ async function saveUpboData() {
             };
             const records = Array.isArray(dataToSave.records) ? dataToSave.records : [];
             await Promise.all([
-                postDaltaSheet(DALTA_UPBO_ACCESS_KEY, records.filter(record => record.origin !== 'manual')),
-                postDaltaSheet(DALTA_UPBO_MANUAL_ACCESS_KEY, records.filter(record => record.origin === 'manual'))
+                postDaltaSheet(DALTA_UPBO_ACCESS_KEY, records.filter(record => !isManualUpboRecord(record))),
+                postDaltaSheet(DALTA_UPBO_MANUAL_ACCESS_KEY, records.filter(isManualUpboRecord))
             ]);
         }
 
@@ -11359,8 +11374,8 @@ async function saveUpboData() {
                     throw new Error(result?.message || `최또 DB 연결 실패 (HTTP ${response.status})`);
                 }
             };
-            const automaticRecords = records.filter(record => record.origin !== 'manual');
-            const manualRecords = records.filter(record => record.origin === 'manual');
+            const automaticRecords = records.filter(record => !isManualUpboRecord(record));
+            const manualRecords = records.filter(isManualUpboRecord);
             await Promise.all([
                 postSheet(CHOI_UPBO_ACCESS_KEY, automaticRecords, {
                     siteMenu: {
