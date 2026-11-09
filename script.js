@@ -1528,11 +1528,13 @@ const KANASHI_UPBO_ACCESS_KEY = 'kanashi-kk1231567-2026';
 // 최또 업보정리 전용 Google Apps Script. 최또는 Firebase 대신 이 저장소만 사용한다.
 const CHOI_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbz3e0zyL-xkIMlKjS0PzVinrDKVGk87r8fm11Z-HapEI5BWjB7u4QX1CRMqqYzFG8Kovw/exec';
 const CHOI_UPBO_ACCESS_KEY = 'tto-room-db-19l1uc-2026';
+const CHOI_UPBO_MANUAL_ACCESS_KEY = 'tto-manual-db-19l1uc-2026-v1';
 const CHOI_UPBO_SITE_MENU_KEY = 'signal_choi_upbo_site_menu_v1';
 
-// 달타는 기존 Firebase 연결을 유지하면서 같은 웹 앱의 달타 전용 키로 추가 동기화한다.
+// 달타 자동/수동 업보 데이터는 같은 웹 앱에서 서로 다른 시트 키로 분리한다.
 const DALTA_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbz3e0zyL-xkIMlKjS0PzVinrDKVGk87r8fm11Z-HapEI5BWjB7u4QX1CRMqqYzFG8Kovw/exec';
 const DALTA_UPBO_ACCESS_KEY = 'dalta-room-db-19l1uc-2026-f4X9qP7m';
+const DALTA_UPBO_MANUAL_ACCESS_KEY = 'dalta-manual-db-19l1uc-2026-v1';
 
 function loadChoiUpboSiteMenu() {
     try {
@@ -8424,41 +8426,84 @@ async function loadUpboDataFromFirebase() {
 async function loadDaltaUpboFromGoogleSheet() {
     const firebaseData = upboData['달타'] || { products: [], records: [] };
     try {
-        const url = `${DALTA_UPBO_API_URL}?accessKey=${encodeURIComponent(DALTA_UPBO_ACCESS_KEY)}&_=${Date.now()}`;
-        const response = await fetch(url, { cache: 'no-store' });
-        const result = await response.json();
-        if (!response.ok || !result || result.success === false || !Array.isArray(result.rows)) {
-            throw new Error(result?.message || `HTTP ${response.status}`);
+        const loadSheet = async accessKey => {
+            const url = `${DALTA_UPBO_API_URL}?accessKey=${encodeURIComponent(accessKey)}&_=${Date.now()}`;
+            const response = await fetch(url, { cache: 'no-store' });
+            const result = await response.json();
+            if (!response.ok || !result || result.ok === false || result.success === false || !Array.isArray(result.rows)) {
+                throw new Error(result?.message || `HTTP ${response.status}`);
+            }
+            return result;
+        };
+        const result = await loadSheet(DALTA_UPBO_ACCESS_KEY);
+        let manualResult = { rows: [] };
+        try {
+            manualResult = await loadSheet(DALTA_UPBO_MANUAL_ACCESS_KEY);
+        } catch (manualError) {
+            console.warn('달타 수동 업보 시트를 불러오지 못했습니다.', manualError);
         }
-
         const firebaseRecords = Array.isArray(firebaseData.records) ? firebaseData.records : [];
+        const sheetRows = result.rows;
+        const normalizeIdentity = value => String(value || '').trim().toLowerCase();
+        const isSameDaltaRecord = (record, row) => {
+            const recordUid = normalizeIdentity(record.uid);
+            const rowUid = normalizeIdentity(row.userId);
+            if (recordUid && rowUid) return recordUid === rowUid;
+            const recordNickname = normalizeUpboSearchText(record.nickname);
+            const rowNickname = normalizeUpboSearchText(row.nickname);
+            return !!(recordNickname && rowNickname && recordNickname === rowNickname);
+        };
+        const sheetRecords = sheetRows.map(row => {
+            const rowUid = String(row.userId || '').trim();
+            const rowNickname = String(row.nickname || '').trim();
+            // 사이트에서 수동으로 만든 행은 ID/닉네임이 같아도 시트 행과 합치지 않는다.
+            const previous = firebaseRecords.find(record =>
+                record.origin !== 'manual' && isSameDaltaRecord(record, row)
+            ) || {};
+            return {
+                ...previous,
+                origin: 'sheet',
+                nickname: rowNickname,
+                uid: rowUid,
+                donationCount: Number(row.donationCount || 0),
+                category: String(row.items || ''),
+                memo: String(row.message || ''),
+                roulette: previous.roulette || '',
+                stationUrl: String(row.stationUrl || ''),
+                status: previous.status || '배송중',
+                items: previous.items && typeof previous.items === 'object' ? previous.items : {}
+            };
+        });
+        const manualSheetRecords = manualResult.rows.map(row => ({
+            origin: 'manual',
+            nickname: String(row.nickname || ''),
+            uid: String(row.userId || ''),
+            donationCount: Number(row.donationCount || 0),
+            category: String(row.items || ''),
+            memo: String(row.message || ''),
+            roulette: '',
+            stationUrl: String(row.stationUrl || ''),
+            status: row.status === '배송완료' ? '배송완료' : '배송중',
+            items: {}
+        }));
+        // 전환 전에 Firebase에만 저장되어 있던 수동 행도 한 번은 함께 보여준다.
+        // 관리 화면에서 저장하면 이 행들은 달타_수동 시트로 이전된다.
+        const legacyManualRecords = firebaseRecords
+            .filter(record => record.origin === 'manual' || !sheetRows.some(row => isSameDaltaRecord(record, row)))
+            .filter(record => !manualSheetRecords.some(row =>
+                String(row.uid || '').trim() === String(record.uid || '').trim()
+                && String(row.nickname || '').trim() === String(record.nickname || '').trim()
+                && String(row.category || '').trim() === String(record.category || '').trim()
+            ))
+            .map(record => ({ ...record, origin: 'manual' }));
         upboData['달타'] = {
             ...firebaseData,
             products: Array.isArray(firebaseData.products) ? firebaseData.products : [],
-            records: result.rows.map(row => {
-                const rowUid = String(row.userId || '');
-                const rowNickname = String(row.nickname || '');
-                const previous = firebaseRecords.find(record =>
-                    (rowUid && String(record.uid || '') === rowUid) ||
-                    (!rowUid && rowNickname && String(record.nickname || '') === rowNickname)
-                ) || {};
-                return {
-                    ...previous,
-                    nickname: rowNickname,
-                    uid: rowUid,
-                    donationCount: Number(row.donationCount || 0),
-                    category: String(row.items || ''),
-                    memo: String(row.message || ''),
-                    roulette: previous.roulette || '',
-                    stationUrl: String(row.stationUrl || ''),
-                    status: previous.status || '배송중',
-                    items: previous.items && typeof previous.items === 'object' ? previous.items : {}
-                };
-            })
+            records: [...sheetRecords, ...manualSheetRecords, ...legacyManualRecords]
         };
         return true;
     } catch (error) {
-        // 외부 시트가 실패해도 달타의 기존 Firebase 데이터는 그대로 유지한다.
+        // 외부 시트가 실패해도 전환 전 Firebase 데이터는 임시로 그대로 유지한다.
         console.error('달타 Google Sheet 업보 데이터 로드 실패:', error);
         upboData['달타'] = firebaseData;
         if (isAdmin && typeof showToast === 'function') {
@@ -8472,11 +8517,22 @@ async function loadChoiUpboFromGoogleSheet() {
     try {
         // 메뉴 관리는 구글시트와 완전히 분리하고 사이트의 메뉴 관리 상태만 사용한다.
         const localMenu = loadChoiUpboSiteMenu();
-        const url = `${CHOI_UPBO_API_URL}?accessKey=${encodeURIComponent(CHOI_UPBO_ACCESS_KEY)}&_=${Date.now()}`;
-        const response = await fetch(url, { cache: 'no-store' });
-        const result = await response.json();
-        if (!response.ok || !result || result.ok === false || !Array.isArray(result.rows)) {
-            throw new Error(result?.message || `HTTP ${response.status}`);
+        const loadSheet = async accessKey => {
+            const url = `${CHOI_UPBO_API_URL}?accessKey=${encodeURIComponent(accessKey)}&_=${Date.now()}`;
+            const response = await fetch(url, { cache: 'no-store' });
+            const result = await response.json();
+            if (!response.ok || !result || result.ok === false || result.success === false || !Array.isArray(result.rows)) {
+                throw new Error(result?.message || `HTTP ${response.status}`);
+            }
+            return result;
+        };
+        const result = await loadSheet(CHOI_UPBO_ACCESS_KEY);
+        let manualResult = { rows: [] };
+        try {
+            manualResult = await loadSheet(CHOI_UPBO_MANUAL_ACCESS_KEY);
+        } catch (manualError) {
+            // 새 수동 시트 키가 아직 배포되지 않았더라도 기존 최또 데이터는 정상 표시한다.
+            console.warn('최또 수동 업보 시트를 불러오지 못했습니다.', manualError);
         }
         const siteMenu = {
             menu: Array.isArray(result.menu) ? result.menu : localMenu.menu,
@@ -8491,7 +8547,9 @@ async function loadChoiUpboFromGoogleSheet() {
             menu: siteMenu.menu,
             menuImage: siteMenu.menuImage,
             menuListImage: siteMenu.menuListImage,
-            records: result.rows.map((row, rowIndex) => ({
+            records: [
+                ...result.rows.map((row, rowIndex) => ({
+                origin: 'sheet',
                 nickname: String(row.nickname || ''),
                 uid: String(row.userId || ''),
                 donationCount: Number(row.donationCount || 0),
@@ -8501,7 +8559,20 @@ async function loadChoiUpboFromGoogleSheet() {
                 stationUrl: String(row.stationUrl || ''),
                 status: row.status === '배송완료' ? '배송완료' : '배송중',
                 items: siteMenu.recordItems[rowIndex] && typeof siteMenu.recordItems[rowIndex] === 'object' ? siteMenu.recordItems[rowIndex] : {}
-            }))
+                })),
+                ...manualResult.rows.map(row => ({
+                    origin: 'manual',
+                    nickname: String(row.nickname || ''),
+                    uid: String(row.userId || ''),
+                    donationCount: Number(row.donationCount || 0),
+                    category: String(row.items || ''),
+                    memo: String(row.message || ''),
+                    roulette: '',
+                    stationUrl: String(row.stationUrl || ''),
+                    status: row.status === '배송완료' ? '배송완료' : '배송중',
+                    items: {}
+                }))
+            ]
         };
         return true;
     } catch (error) {
@@ -10766,7 +10837,7 @@ function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable
                 const value = record.items?.[product] ?? '';
                 return `<td><textarea class="upbo-qty" data-product-idx="${productIndex}" rows="1" placeholder="-">${escapeHtml(String(value))}</textarea></td>`;
             }).join('');
-            return `<tr class="upbo-data-row">
+            return `<tr class="upbo-data-row" data-upbo-origin="${escapeHtml(record.origin || (memberName === '달타' ? 'sheet' : 'legacy'))}">
                 <td class="kanashi-check-cell"><input type="checkbox" class="upbo-row-checkbox" aria-label="행 선택"></td>
                 <td><input class="upbo-nick" value="${escapeHtml(record.nickname || '')}" placeholder="닉네임"></td>
                 <td><input class="upbo-uid" value="${escapeHtml(record.uid || '')}" placeholder="사용자 ID"></td>
@@ -11008,6 +11079,7 @@ function syncUpboDomToState() {
     rows.forEach(tr => {
         const nick = tr.querySelector('.upbo-nick').value.trim();
         const uid = tr.querySelector('.upbo-uid').value.trim();
+        const origin = String(tr.dataset.upboOrigin || '').trim();
         const status = tr.querySelector('.upbo-status')?.value || '배송중';
         const categoryEl = tr.querySelector('.upbo-category');
         const category = categoryEl ? categoryEl.value.trim() : '';
@@ -11034,7 +11106,7 @@ function syncUpboDomToState() {
             }
         });
         if (nick || uid) {
-            newRecords.push({ nickname: nick, uid: uid, donationCount, category: category, items: items, status: status, memo: memo, roulette: roulette, stationUrl });
+            newRecords.push({ nickname: nick, uid: uid, donationCount, category: category, items: items, status: status, memo: memo, roulette: roulette, stationUrl, ...(origin ? { origin } : {}) });
         }
     });
 
@@ -11046,7 +11118,10 @@ function syncUpboDomToState() {
 // 수동으로 행 추가 시 roulette 초기화
 function addUpboRow() {
     syncUpboDomToState();
-    upboData[upboCurrentMember].records.push({ nickname:'', uid:'', category:'', items:{}, roulette:'', status:'배송중', memo:'' });
+    upboData[upboCurrentMember].records.push({
+        nickname:'', uid:'', category:'', items:{}, roulette:'', status:'배송중', memo:'',
+        ...(['달타', '최또'].includes(upboCurrentMember) ? { origin:'manual' } : {})
+    });
     renderUpboAdminTable();
 }
 
@@ -11207,20 +11282,18 @@ function renderUpboMenuAdminList() {
 async function saveUpboData() {
     syncUpboDomToState();
     const dataToSave = upboData[upboCurrentMember];
-    let daltaGoogleSyncError = null;
 
     try {
         const memberToEng = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
         const docId = memberToEng[upboCurrentMember];
-        // 최또는 Google Sheet만 사용하고, 나머지 멤버는 기존 Firebase 저장을 유지한다.
-        if (upboCurrentMember !== '최또') {
+        // 달타와 최또는 Google Sheet만 사용한다. 다룽/카나시의 Firebase 흐름은 유지한다.
+        if (!['달타', '최또'].includes(upboCurrentMember)) {
             await setDoc(doc(db, 'upboData', docId), dataToSave);
         }
 
-        // 달타만 기존 Firebase 저장 후 달타 전용 키로 Google Sheet에도 동기화한다.
+        // 달타 자동 데이터와 사이트 수동 데이터를 서로 다른 시트에 저장한다.
         if (upboCurrentMember === '달타') {
-            try {
-                const rows = (dataToSave.records || []).map(record => {
+            const toSheetRow = record => {
                     const itemText = record.category || Object.entries(record.items || {})
                         .filter(([, value]) => value !== '' && value != null)
                         .map(([name, value]) => `${name}: ${value}`)
@@ -11233,20 +11306,23 @@ async function saveUpboData() {
                         message: [record.memo, record.roulette].filter(Boolean).join(' / '),
                         stationUrl: record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '')
                     };
-                });
-                const daltaApiResponse = await fetch(DALTA_UPBO_API_URL, {
+            };
+            const postDaltaSheet = async (accessKey, records) => {
+                const response = await fetch(DALTA_UPBO_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ accessKey: DALTA_UPBO_ACCESS_KEY, rows })
+                    body: JSON.stringify({ accessKey, rows: records.map(toSheetRow) })
                 });
-                const daltaApiResult = await daltaApiResponse.json().catch(() => null);
-                if (!daltaApiResponse.ok || !daltaApiResult || daltaApiResult.success === false) {
-                    throw new Error(daltaApiResult?.message || `달타 DB 연결 실패 (HTTP ${daltaApiResponse.status})`);
+                const result = await response.json().catch(() => null);
+                if (!response.ok || !result || result.ok === false || result.success === false) {
+                    throw new Error(result?.message || `달타 DB 연결 실패 (HTTP ${response.status})`);
                 }
-            } catch (syncError) {
-                daltaGoogleSyncError = syncError;
-                console.error('달타 Google Sheet 추가 동기화 실패:', syncError);
-            }
+            };
+            const records = Array.isArray(dataToSave.records) ? dataToSave.records : [];
+            await Promise.all([
+                postDaltaSheet(DALTA_UPBO_ACCESS_KEY, records.filter(record => record.origin !== 'manual')),
+                postDaltaSheet(DALTA_UPBO_MANUAL_ACCESS_KEY, records.filter(record => record.origin === 'manual'))
+            ]);
         }
 
         // 최또는 Firebase에 저장하지 않고 Google Sheet에만 저장한다.
@@ -11255,7 +11331,7 @@ async function saveUpboData() {
             // 메뉴 관리는 사이트 설정으로 보관하며 업보 데이터 시트에는 기록하지 않는다.
             saveChoiUpboSiteMenu(dataToSave);
             const records = Array.isArray(dataToSave.records) ? dataToSave.records : [];
-            const rows = records.map(record => {
+            const toSheetRow = record => {
                 const itemText = record.category || Object.entries(record.items || {})
                     .filter(([, value]) => value !== '' && value != null)
                     .map(([name, value]) => `${name}: ${value}`)
@@ -11269,29 +11345,34 @@ async function saveUpboData() {
                     status: record.status === '배송완료' ? '배송완료' : '배송중',
                     stationUrl: record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '')
                 };
-            });
-
-            const choiApiResponse = await fetch(CHOI_UPBO_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    accessKey: CHOI_UPBO_ACCESS_KEY,
-                    rows,
+            };
+            const postSheet = async (accessKey, sheetRecords, extra = {}) => {
+                const response = await fetch(CHOI_UPBO_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ accessKey, rows: sheetRecords.map(toSheetRow), ...extra })
+                });
+                const responseText = await response.text();
+                let result = null;
+                try { result = responseText ? JSON.parse(responseText) : null; } catch (_) {}
+                if (!response.ok || !result || result.ok === false || result.success === false) {
+                    throw new Error(result?.message || `최또 DB 연결 실패 (HTTP ${response.status})`);
+                }
+            };
+            const automaticRecords = records.filter(record => record.origin !== 'manual');
+            const manualRecords = records.filter(record => record.origin === 'manual');
+            await Promise.all([
+                postSheet(CHOI_UPBO_ACCESS_KEY, automaticRecords, {
                     siteMenu: {
                         menu: Array.isArray(dataToSave.menu) ? dataToSave.menu : [],
                         menuImage: dataToSave.menuImage || '',
                         menuListImage: dataToSave.menuListImage || '',
                         products: Array.isArray(dataToSave.products) ? dataToSave.products : [],
-                        recordItems: records.map(record => record.items || {})
+                        recordItems: automaticRecords.map(record => record.items || {})
                     }
-                })
-            });
-            const choiApiText = await choiApiResponse.text();
-            let choiApiResult = null;
-            try { choiApiResult = choiApiText ? JSON.parse(choiApiText) : null; } catch (_) {}
-            if (!choiApiResponse.ok || !choiApiResult || choiApiResult.ok === false) {
-                throw new Error(choiApiResult?.message || `최또 DB 연결 실패 (HTTP ${choiApiResponse.status})`);
-            }
+                }),
+                postSheet(CHOI_UPBO_MANUAL_ACCESS_KEY, manualRecords)
+            ]);
         }
 
         if (upboCurrentMember === '카나시') {
@@ -11320,11 +11401,7 @@ async function saveUpboData() {
         }
         saveScheduleCache();
         rememberUpboSavedState(upboCurrentMember);
-        if (daltaGoogleSyncError) {
-            alert(`Firebase에는 저장됐지만 달타 시트 동기화에 실패했습니다.\n${daltaGoogleSyncError.message}`);
-        } else {
-            alert("저장됐습니다.");
-        }
+        alert("저장됐습니다.");
     } catch(e) {
         console.error(e);
         alert("저장 실패: " + e.message);
