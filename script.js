@@ -10700,6 +10700,10 @@ function renderUpboPage() {
 }
 
 function renderUpboAdminTable() {
+    if (upboCurrentMember === '달타') {
+        renderChoiUpboTable('', 'upboAdminTable', true, '달타');
+        return;
+    }
     if (upboCurrentMember === '최또') {
         renderChoiUpboTable('', 'upboAdminTable', true);
         return;
@@ -10743,12 +10747,12 @@ function renderUpboAdminTable() {
     table.innerHTML = thead + tbody;
 }
 
-function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable = false) {
+function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable = false, memberName = '최또') {
     const target = document.getElementById(targetId);
     if (!target) return;
     const normalizedQuery = normalizeUpboSearchText(query);
-    const products = upboData['최또']?.products || [];
-    const records = (upboData['최또']?.records || []).filter(record => {
+    const products = upboData[memberName]?.products || [];
+    const records = (upboData[memberName]?.records || []).filter(record => {
         if (!normalizedQuery) return true;
         return [record.nickname, record.uid, record.category, record.memo]
             .some(value => normalizeUpboSearchText(value).includes(normalizedQuery));
