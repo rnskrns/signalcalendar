@@ -1530,6 +1530,10 @@ const CHOI_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbz3e0zyL-xkIM
 const CHOI_UPBO_ACCESS_KEY = 'tto-room-db-19l1uc-2026';
 const CHOI_UPBO_SITE_MENU_KEY = 'signal_choi_upbo_site_menu_v1';
 
+// 달타는 기존 Firebase 연결을 유지하면서 같은 웹 앱의 달타 전용 키로 추가 동기화한다.
+const DALTA_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbz3e0zyL-xkIMlKjS0PzVinrDKVGk87r8fm11Z-HapEI5BWjB7u4QX1CRMqqYzFG8Kovw/exec';
+const DALTA_UPBO_ACCESS_KEY = 'dalta-room-db-19l1uc-2026-f4X9qP7m';
+
 function loadChoiUpboSiteMenu() {
     try {
         const saved = JSON.parse(localStorage.getItem(CHOI_UPBO_SITE_MENU_KEY) || '{}');
@@ -8404,6 +8408,7 @@ async function loadUpboDataFromFirebase() {
             if (!freshUpboData[m].records) freshUpboData[m].records = [];
         }
         upboData = freshUpboData;
+        await loadDaltaUpboFromGoogleSheet();
         await loadChoiUpboFromGoogleSheet();
         await loadKanashiUpboFromGoogleSheet();
         Object.keys(upboData).forEach(memberName => rememberUpboSavedState(memberName));
@@ -8413,6 +8418,53 @@ async function loadUpboDataFromFirebase() {
         return false;
     } finally {
         isUpboDataLoading = false;
+    }
+}
+
+async function loadDaltaUpboFromGoogleSheet() {
+    const firebaseData = upboData['달타'] || { products: [], records: [] };
+    try {
+        const url = `${DALTA_UPBO_API_URL}?accessKey=${encodeURIComponent(DALTA_UPBO_ACCESS_KEY)}&_=${Date.now()}`;
+        const response = await fetch(url, { cache: 'no-store' });
+        const result = await response.json();
+        if (!response.ok || !result || result.success === false || !Array.isArray(result.rows)) {
+            throw new Error(result?.message || `HTTP ${response.status}`);
+        }
+
+        const firebaseRecords = Array.isArray(firebaseData.records) ? firebaseData.records : [];
+        upboData['달타'] = {
+            ...firebaseData,
+            products: Array.isArray(firebaseData.products) ? firebaseData.products : [],
+            records: result.rows.map(row => {
+                const rowUid = String(row.userId || '');
+                const rowNickname = String(row.nickname || '');
+                const previous = firebaseRecords.find(record =>
+                    (rowUid && String(record.uid || '') === rowUid) ||
+                    (!rowUid && rowNickname && String(record.nickname || '') === rowNickname)
+                ) || {};
+                return {
+                    ...previous,
+                    nickname: rowNickname,
+                    uid: rowUid,
+                    donationCount: Number(row.donationCount || 0),
+                    category: String(row.items || ''),
+                    memo: String(row.message || ''),
+                    roulette: previous.roulette || '',
+                    stationUrl: String(row.stationUrl || ''),
+                    status: previous.status || '배송중',
+                    items: previous.items && typeof previous.items === 'object' ? previous.items : {}
+                };
+            })
+        };
+        return true;
+    } catch (error) {
+        // 외부 시트가 실패해도 달타의 기존 Firebase 데이터는 그대로 유지한다.
+        console.error('달타 Google Sheet 업보 데이터 로드 실패:', error);
+        upboData['달타'] = firebaseData;
+        if (isAdmin && typeof showToast === 'function') {
+            showToast('달타 Google Sheet 연결이 지연되어 Firebase 데이터를 표시합니다.');
+        }
+        return false;
     }
 }
 
@@ -11148,6 +11200,7 @@ function renderUpboMenuAdminList() {
 async function saveUpboData() {
     syncUpboDomToState();
     const dataToSave = upboData[upboCurrentMember];
+    let daltaGoogleSyncError = null;
 
     try {
         const memberToEng = {'달타':'dalta', '다룽':'darung', '최또':'choiagain', '카나시':'kanashi'};
@@ -11155,6 +11208,38 @@ async function saveUpboData() {
         // 최또는 Google Sheet만 사용하고, 나머지 멤버는 기존 Firebase 저장을 유지한다.
         if (upboCurrentMember !== '최또') {
             await setDoc(doc(db, 'upboData', docId), dataToSave);
+        }
+
+        // 달타만 기존 Firebase 저장 후 달타 전용 키로 Google Sheet에도 동기화한다.
+        if (upboCurrentMember === '달타') {
+            try {
+                const rows = (dataToSave.records || []).map(record => {
+                    const itemText = record.category || Object.entries(record.items || {})
+                        .filter(([, value]) => value !== '' && value != null)
+                        .map(([name, value]) => `${name}: ${value}`)
+                        .join(', ');
+                    return {
+                        nickname: record.nickname || '',
+                        userId: record.uid || '',
+                        donationCount: Number(record.donationCount || 0),
+                        items: itemText,
+                        message: [record.memo, record.roulette].filter(Boolean).join(' / '),
+                        stationUrl: record.stationUrl || (record.uid ? `https://www.sooplive.com/station/${encodeURIComponent(record.uid)}` : '')
+                    };
+                });
+                const daltaApiResponse = await fetch(DALTA_UPBO_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ accessKey: DALTA_UPBO_ACCESS_KEY, rows })
+                });
+                const daltaApiResult = await daltaApiResponse.json().catch(() => null);
+                if (!daltaApiResponse.ok || !daltaApiResult || daltaApiResult.success === false) {
+                    throw new Error(daltaApiResult?.message || `달타 DB 연결 실패 (HTTP ${daltaApiResponse.status})`);
+                }
+            } catch (syncError) {
+                daltaGoogleSyncError = syncError;
+                console.error('달타 Google Sheet 추가 동기화 실패:', syncError);
+            }
         }
 
         // 최또는 Firebase에 저장하지 않고 Google Sheet에만 저장한다.
@@ -11228,7 +11313,11 @@ async function saveUpboData() {
         }
         saveScheduleCache();
         rememberUpboSavedState(upboCurrentMember);
-        alert("저장됐습니다.");
+        if (daltaGoogleSyncError) {
+            alert(`Firebase에는 저장됐지만 달타 시트 동기화에 실패했습니다.\n${daltaGoogleSyncError.message}`);
+        } else {
+            alert("저장됐습니다.");
+        }
     } catch(e) {
         console.error(e);
         alert("저장 실패: " + e.message);
