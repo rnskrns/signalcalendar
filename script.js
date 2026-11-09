@@ -10795,11 +10795,14 @@ function renderChoiUpboTable(query = '', targetId = 'upboSearchResult', editable
         : `<tr><th></th><th>닉네임</th><th>사용자 ID</th><th>후원수</th><th>품목</th><th>메시지/룰렛 결과</th><th>방송국 URL</th></tr>`;
     const columnCount = editable ? 9 + products.length : 7;
     const markup = `<thead>${header}</thead><tbody>${rows || `<tr><td colspan="${columnCount}" class="kanashi-table-empty">표시할 데이터가 없습니다.</td></tr>`}</tbody>`;
+    const memberTableClass = memberName === '달타' ? 'dalta-upbo-table' : 'choi-upbo-table';
+    const memberWrapClass = memberName === '달타' ? 'dalta-upbo-table-wrap' : 'choi-upbo-table-wrap';
     if (table) {
         table.innerHTML = markup;
-        table.classList.add('kanashi-upbo-table', 'choi-upbo-table');
+        table.classList.remove('choi-upbo-table', 'dalta-upbo-table');
+        table.classList.add('kanashi-upbo-table', memberTableClass);
     } else {
-        target.innerHTML = `<div class="kanashi-upbo-table-wrap choi-upbo-table-wrap"><table class="kanashi-upbo-table choi-upbo-table">${markup}</table></div>`;
+        target.innerHTML = `<div class="kanashi-upbo-table-wrap ${memberWrapClass}"><table class="kanashi-upbo-table ${memberTableClass}">${markup}</table></div>`;
     }
 }
 

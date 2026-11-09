@@ -247,6 +247,36 @@ html.dark-mode .choi-upbo-table .kanashi-row-delete { background:#43222d; color:
 html.dark-mode .choi-upbo-table .kanashi-status-btn.is-shipping { background:#54203f !important; color:#ff9ddd !important; }
 html.dark-mode .choi-upbo-table .kanashi-status-btn.is-complete { background:#173f2b !important; color:#86efac !important; }
 
+/* 달타 업보 표 - 행 구성은 최또와 같지만 색상은 달타 테마를 유지 */
+.dalta-upbo-table-wrap { border-color:#ead99a; background:#fffdf4; }
+.dalta-upbo-table { min-width:1180px; color:#4f421d; }
+.dalta-upbo-table th { background:#fff8dc; color:#66500a; border-bottom-color:#fbc02d; }
+.dalta-upbo-table td { border-color:#eee3bd; background:#fffdf4; }
+.dalta-upbo-table tbody tr:hover td { background:#fff8dc; }
+.dalta-upbo-table input,
+.dalta-upbo-table textarea { border-color:#eadca9; border-radius:11px; background:#fff; color:#4f421d; }
+.dalta-upbo-table input:focus,
+.dalta-upbo-table textarea:focus { border-color:#fbc02d; box-shadow:0 0 0 3px rgba(251,192,45,.16); }
+.dalta-upbo-table .kanashi-check-cell input { accent-color:#fbc02d; }
+.dalta-upbo-table .kanashi-station-link { background:#fff2bd; color:#755800; }
+.dalta-upbo-table .kanashi-station-link:hover { background:#fbc02d; color:#3d2f00; }
+.dalta-upbo-table .kanashi-status-btn.is-shipping { background:#fff2bd !important; color:#755800 !important; }
+.dalta-upbo-table .kanashi-status-btn.is-complete { background:#dcfce7 !important; color:#15803d !important; }
+
+html.dark-mode .dalta-upbo-table-wrap { background:#211e17; border-color:#5a4c24; }
+html.dark-mode .dalta-upbo-table { color:#f7f0d5; }
+html.dark-mode .dalta-upbo-table th { background:#352e18; color:#ffe38a; border-bottom-color:#fbc02d; }
+html.dark-mode .dalta-upbo-table td { border-color:#494027; background:#242119; }
+html.dark-mode .dalta-upbo-table tbody tr:hover td { background:#302b1c; }
+html.dark-mode .dalta-upbo-table input,
+html.dark-mode .dalta-upbo-table textarea { background:#18160f; border-color:#574b28; color:#fff8dc; }
+html.dark-mode .dalta-upbo-table input:focus,
+html.dark-mode .dalta-upbo-table textarea:focus { border-color:#fbc02d; box-shadow:0 0 0 3px rgba(251,192,45,.2); }
+html.dark-mode .dalta-upbo-table .kanashi-station-link { background:#4b3c0d; color:#ffe38a; }
+html.dark-mode .dalta-upbo-table .kanashi-station-link:hover { background:#fbc02d; color:#2d2300; }
+html.dark-mode .dalta-upbo-table .kanashi-status-btn.is-shipping { background:#4b3c0d !important; color:#ffe38a !important; }
+html.dark-mode .dalta-upbo-table .kanashi-status-btn.is-complete { background:#173f2b !important; color:#86efac !important; }
+
 /* 카나시 업보관리 카드형 편집 화면 */
 .upbo-admin-card-grid {
     display: grid;
