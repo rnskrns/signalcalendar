@@ -7280,7 +7280,7 @@ function renderCinetiPanel() {
                 ${isAdmin ? `<div class="cineti-card-admin-actions"><button type="button" class="cineti-edit-btn" onclick="openCinetiEditModal('${item.id}')" title="수정"><i class="fi fi-rr-edit"></i></button><button type="button" class="cineti-delete-btn" onclick="deleteCinetiItem('${item.id}')" title="삭제"><i class="fi fi-rr-trash"></i></button></div>` : ''}
             </div>
             <div class="cineti-card-body">
-                <div class="cineti-title-row"><h3>${escapeHtml(item.title || '작품명 없음')}</h3><span>${escapeHtml(item.category || '영화')}</span></div>
+                <div class="cineti-title-row"><div class="cineti-title-copy"><h3>${escapeHtml(item.title || '작품명 없음')}</h3>${item.replayPending ? '<b class="cineti-replay-marker"><i class="fi fi-sr-star"></i> 다시보기</b>' : ''}</div><span>${escapeHtml(item.category || '영화')}</span></div>
                 <dl class="cineti-dates">
                     <div><dt>방영일</dt><dd>${formatCinetiDate(item.airDate, item.airTime)}</dd></div>
                     <div><dt>종료일</dt><dd>${formatCinetiDate(item.endDate, item.endTime)}</dd></div>
@@ -7333,6 +7333,7 @@ async function openCinetiAddModal() {
                         <div class="cineti-date-time-field"><label>방영일<input id="cinetiAirDate" type="date" required></label><label>시간 (선택)<input id="cinetiAirTime" type="time"></label></div>
                         <div class="cineti-date-time-field"><label>종료일 (선택)<input id="cinetiEndDate" type="date"></label><label>시간 (선택)<input id="cinetiEndTime" type="time"></label></div>
                     </div>
+                    <label class="cineti-replay-check"><input id="cinetiReplayPending" type="checkbox"><span><i class="fi fi-sr-star"></i><b>다시보기</b><small>체크하면 시네티와 월간 일정에 다시보기 표시가 남습니다.</small></span></label>
                     <label>이미지 파일<input id="cinetiImageFile" type="file" accept="image/*" onchange="previewCinetiImage(this)"></label>
                     <div class="cineti-image-or"><span>또는</span></div>
                     <label>이미지 링크<input id="cinetiImageUrl" type="url" placeholder="https://example.com/image.jpg" oninput="previewCinetiImageUrl(this.value)"></label>
@@ -7371,6 +7372,7 @@ async function openCinetiEditModal(id) {
     document.getElementById('cinetiAirTime').value = item.airTime || '';
     document.getElementById('cinetiEndDate').value = item.endDate || '';
     document.getElementById('cinetiEndTime').value = item.endTime || '';
+    document.getElementById('cinetiReplayPending').checked = item.replayPending === true;
     document.getElementById('cinetiImageUrl').value = item.imageUrl || '';
     document.getElementById('cinetiImageX').value = Number.isFinite(Number(item.imagePositionX)) ? Number(item.imagePositionX) : 50;
     document.getElementById('cinetiImageY').value = Number.isFinite(Number(item.imagePositionY)) ? Number(item.imagePositionY) : 50;
@@ -7435,6 +7437,7 @@ async function saveCinetiItem(event) {
     const airTime = document.getElementById('cinetiAirTime').value;
     const endDate = document.getElementById('cinetiEndDate').value;
     const endTime = document.getElementById('cinetiEndTime').value;
+    const replayPending = document.getElementById('cinetiReplayPending').checked;
     const imagePositionX = Number(document.getElementById('cinetiImageX').value || 50);
     const imagePositionY = Number(document.getElementById('cinetiImageY').value || 50);
     const file = document.getElementById('cinetiImageFile').files[0];
@@ -7449,11 +7452,15 @@ async function saveCinetiItem(event) {
     try {
         const imageUrl = file ? await window.uploadImageToCloudinary(file) : imageLink;
         if (!imageUrl) throw new Error('이미지 업로드 실패');
-        const item = { title, category, airDate, airTime, endDate, endTime, imageUrl, imagePositionX, imagePositionY, timestamp: Date.now() };
+        const item = { title, category, airDate, airTime, endDate, endTime, replayPending, imageUrl, imagePositionX, imagePositionY, timestamp: Date.now() };
         if (editingId) {
+            const previousItem = cinetiItems.find(entry => entry.id === editingId);
             await updateDoc(doc(db, 'cinetiItems', editingId), item);
             const index = cinetiItems.findIndex(entry => entry.id === editingId);
             if (index !== -1) cinetiItems[index] = { id: editingId, ...item };
+            if (!!previousItem?.replayPending !== replayPending) {
+                await syncCinetiReplayFlagToSchedules(editingId, replayPending);
+            }
         } else {
             const docRef = await addDoc(collection(db, 'cinetiItems'), item);
             cinetiItems.unshift({ id: docRef.id, ...item });
@@ -7467,6 +7474,18 @@ async function saveCinetiItem(event) {
     } finally {
         btn.disabled = false; btn.textContent = editingId ? '수정하기' : '등록하기';
     }
+}
+
+async function syncCinetiReplayFlagToSchedules(cinetiId, replayPending) {
+    const collectionNames = [...new Set(Object.values(collectionMap).filter(Boolean))];
+    await Promise.all(collectionNames.map(async collectionName => {
+        const matches = await getDocs(query(collection(db, collectionName), where('cinetiId', '==', cinetiId)));
+        await Promise.all(matches.docs.map(scheduleDoc => updateDoc(scheduleDoc.ref, { cinetiReplayPending: replayPending })));
+    }));
+    scheduleList.forEach(schedule => {
+        if (schedule.cinetiId === cinetiId) schedule.cinetiReplayPending = replayPending;
+    });
+    saveScheduleCache();
 }
 
 async function deleteCinetiItem(id) {
@@ -7545,7 +7564,7 @@ async function registerCinetiSchedule(dateStr) {
         tabOrMember: currentPage, globalType: '뱅온', globalStartTime: '',
         title: item.title, startDate: dateStr, endDate: dateStr, time: '',
         broadType: '시네티', memberTag: '', detail: '', imageUrl: item.imageUrl || '',
-        cinetiId: item.id, timestamp: Date.now()
+        cinetiId: item.id, cinetiReplayPending: item.replayPending === true, timestamp: Date.now()
     };
     try {
         const docRef = await addDoc(collection(db, colName), newSchedule);
@@ -9124,7 +9143,8 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
     }
 
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
-    const displayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
+    const baseDisplayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
+    const displayTitle = sch.cinetiReplayPending === true ? `[다시보기 남음] ${baseDisplayTitle}` : baseDisplayTitle;
     // 모바일 카드/한 줄 표시용: 줄바꿈을 공백으로 합쳐서 한 줄로 보여줌
     const displayTitleOneLine = displayTitle.replace(/\n+/g, ' ').trim();
     // 데스크탑 카드용: 사용자가 입력한 줄바꿈을 그대로 <br>로 반영
