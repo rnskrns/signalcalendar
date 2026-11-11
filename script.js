@@ -7564,7 +7564,8 @@ async function registerCinetiSchedule(dateStr) {
         tabOrMember: currentPage, globalType: '뱅온', globalStartTime: '',
         title: item.title, startDate: dateStr, endDate: dateStr, time: '',
         broadType: '시네티', memberTag: '', detail: '', imageUrl: item.imageUrl || '',
-        cinetiId: item.id, cinetiReplayPending: item.replayPending === true, timestamp: Date.now()
+        cinetiId: item.id, cinetiReplayPending: item.replayPending === true,
+        cinetiWatchTogether: true, timestamp: Date.now()
     };
     try {
         const docRef = await addDoc(collection(db, colName), newSchedule);
@@ -9144,7 +9145,15 @@ function buildScheduleCardHtml(sch, isMobileCard = false) {
 
     const typeClass = sch.globalType === '휴방' ? 'hubang' : 'bangon';
     const baseDisplayTitle = sch.title || (sch.globalType === '휴방' ? '휴방' : '뱅온');
-    const displayTitle = sch.cinetiReplayPending === true ? `[다시보기 남음] ${baseDisplayTitle}` : baseDisplayTitle;
+    // 시네티에서 등록한 일정은 일반 제목을 수정해도 전용 표기가 사라지지 않도록
+    // 제목 문자열이 아니라 연결 메타데이터를 기준으로 화면에서 조합한다.
+    const isCinetiLinkedSchedule = sch.broadType === '시네티' || Boolean(sch.cinetiId) || sch.cinetiWatchTogether === true;
+    const watchTogetherTitle = isCinetiLinkedSchedule && !/\s같이보기\s*$/.test(baseDisplayTitle)
+        ? `${baseDisplayTitle} 같이보기`
+        : baseDisplayTitle;
+    const displayTitle = sch.cinetiReplayPending === true
+        ? `[다시보기 남음] ${watchTogetherTitle}`
+        : watchTogetherTitle;
     // 모바일 카드/한 줄 표시용: 줄바꿈을 공백으로 합쳐서 한 줄로 보여줌
     const displayTitleOneLine = displayTitle.replace(/\n+/g, ' ').trim();
     // 데스크탑 카드용: 사용자가 입력한 줄바꿈을 그대로 <br>로 반영
@@ -13132,6 +13141,15 @@ async function saveSchedule() {
         globalStartTime = buildTimeStr(ampm, hh, mm);
     }
 
+    // 이 저장 방식은 기존 문서를 삭제한 뒤 새로 만들기 때문에, 시네티에서 등록된
+    // 일정의 연결 정보가 사라지지 않도록 입력 블록별 원본 데이터를 먼저 보관한다.
+    const originalSchedulesById = new Map(
+        currentEditingIds
+            .map(oldId => scheduleList.find(schedule => schedule.id === oldId))
+            .filter(Boolean)
+            .map(schedule => [schedule.id, schedule])
+    );
+
     for (let oldId of currentEditingIds) {
         const oldSch = scheduleList.find(s => s.id === oldId);
         if (oldSch) {
@@ -13143,6 +13161,8 @@ async function saveSchedule() {
     let timestampOffset = 0;
 
     for (const block of blocks) {
+        const originalId = block.querySelector('.sch-id')?.value || '';
+        const originalSchedule = originalSchedulesById.get(originalId);
         let title = block.querySelector('.sch-title').value.trim();
         if (!title) title = '일정';
 
@@ -13182,6 +13202,12 @@ async function saveSchedule() {
             imageUrl: imageUrl, 
             timestamp: Date.now() + timestampOffset
         };
+
+        if (originalSchedule?.cinetiId) {
+            newSchedule.cinetiId = originalSchedule.cinetiId;
+            newSchedule.cinetiReplayPending = originalSchedule.cinetiReplayPending === true;
+            newSchedule.cinetiWatchTogether = true;
+        }
 
         timestampOffset++;
 
@@ -13232,6 +13258,13 @@ async function saveEditedSchedule() {
     
     const sch = scheduleList.find(s => s.id === contextTargetId);
     if(!sch) return;
+
+    // 우클릭 수정에서도 시네티 전용 상태를 명시적으로 유지한다.
+    if (sch.cinetiId) {
+        updatedData.cinetiId = sch.cinetiId;
+        updatedData.cinetiReplayPending = sch.cinetiReplayPending === true;
+        updatedData.cinetiWatchTogether = true;
+    }
 
     try {
         await updateDoc(doc(db, sch.collectionName, contextTargetId), updatedData);
