@@ -1520,6 +1520,8 @@ window.addEventListener('beforeunload', (event) => {
 let upboCurrentMember = '달타';
 let upboViewMode = 'search'; // 'search' or 'admin'
 let isUpboDataLoading = false;
+let upboLoadError = '';
+let upboLoadRequestId = 0;
 
 // 카나시 업보 데이터는 Google Apps Script 저장소에도 함께 동기화한다.
 const KANASHI_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbw5aF5IHW4hWYwmXlPCWOt_28kS-Ku5R-x9QucTTJ2ObK4-E6rMd2oK1mL8DkP3rUxY/exec';
@@ -1535,6 +1537,36 @@ const CHOI_UPBO_SITE_MENU_KEY = 'signal_choi_upbo_site_menu_v1';
 const DALTA_UPBO_API_URL = 'https://script.google.com/macros/s/AKfycbz3e0zyL-xkIMlKjS0PzVinrDKVGk87r8fm11Z-HapEI5BWjB7u4QX1CRMqqYzFG8Kovw/exec';
 const DALTA_UPBO_ACCESS_KEY = 'dalta-room-db-19l1uc-2026-f4X9qP7m';
 const DALTA_UPBO_MANUAL_ACCESS_KEY = 'dalta-manual-db-19l1uc-2026-v1';
+const UPBO_SHEET_TIMEOUT_MS = 10000;
+
+function waitForUpboSheetRetry(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchUpboSheetJson(baseUrl, accessKey, label, retries = 1) {
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), UPBO_SHEET_TIMEOUT_MS);
+        try {
+            const url = `${baseUrl}?accessKey=${encodeURIComponent(accessKey)}&_=${Date.now()}`;
+            const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+            const result = await response.json();
+            if (!response.ok || !result || result.ok === false || result.success === false || !Array.isArray(result.rows)) {
+                throw new Error(result?.message || `HTTP ${response.status}`);
+            }
+            return result;
+        } catch (error) {
+            lastError = error?.name === 'AbortError'
+                ? new Error(`${label} 응답 시간이 초과되었습니다.`)
+                : error;
+            if (attempt < retries) await waitForUpboSheetRetry(500);
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+    throw lastError || new Error(`${label} 데이터를 불러오지 못했습니다.`);
+}
 
 function isManualUpboRecord(record) {
     return record?.origin === 'manual' || record?.isManual === true;
@@ -8407,65 +8439,57 @@ async function loadUpboDataFromFirebase() {
     // 업보 데이터(카나시 외부 시트 포함)는 업보정리 탭에 실제로 들어왔을 때만 읽는다.
     // 초기 화면이나 다른 탭의 백그라운드 로딩에서는 Firestore 읽기를 만들지 않는다.
     if (currentPage !== '업보정리') return false;
+    const requestedMember = upboCurrentMember;
+    const requestId = ++upboLoadRequestId;
     isUpboDataLoading = true;
+    upboLoadError = '';
     renderUpboPage();
     try {
-        const freshUpboData = {
-            '달타': { products: [], records: [] },
-            '다룽': { products: [], records: [] },
-            '최또': { products: [], records: [] },
-            '카나시': { products: [], records: [] }
-        };
-        // 최또(choiagain)는 Google Sheet 단독 연결이므로 Firebase에서 읽지 않는다.
-        // 다른 멤버의 기존 Firebase 문서만 개별 조회한다.
-        const firebaseMembers = [
-            ['dalta', '달타'],
-            ['darung', '다룽'],
-            ['kanashi', '카나시']
-        ];
-        const firebaseSnapshots = await Promise.all(
-            firebaseMembers.map(([docId]) => getDoc(doc(db, 'upboData', docId)))
-        );
-        firebaseSnapshots.forEach((docSnap, index) => {
-            if (docSnap.exists()) freshUpboData[firebaseMembers[index][1]] = docSnap.data();
-        });
-        for (let m in freshUpboData) {
-            if (!freshUpboData[m].products) freshUpboData[m].products = [];
-            if (!freshUpboData[m].records) freshUpboData[m].records = [];
+        let loaded = true;
+        if (requestedMember === '달타') {
+            loaded = await loadDaltaUpboFromGoogleSheet();
+        } else if (requestedMember === '최또') {
+            loaded = await loadChoiUpboFromGoogleSheet();
+        } else if (requestedMember === '카나시') {
+            loaded = await loadKanashiUpboFromGoogleSheet();
+        } else if (requestedMember === '다룽') {
+            // 다룽의 기존 Firebase 흐름은 그대로 유지한다.
+            const snapshot = await getDoc(doc(db, 'upboData', 'darung'));
+            upboData['다룽'] = snapshot.exists() ? snapshot.data() : { products: [], records: [] };
         }
-        upboData = freshUpboData;
-        await loadDaltaUpboFromGoogleSheet();
-        await loadChoiUpboFromGoogleSheet();
-        await loadKanashiUpboFromGoogleSheet();
-        Object.keys(upboData).forEach(memberName => rememberUpboSavedState(memberName));
+
+        if (!loaded) throw new Error(`${requestedMember} Google Sheet 연결에 실패했습니다.`);
+        const loadedData = upboData[requestedMember] || {};
+        if (!Array.isArray(loadedData.products)) loadedData.products = [];
+        if (!Array.isArray(loadedData.records)) loadedData.records = [];
+        upboData[requestedMember] = loadedData;
+        rememberUpboSavedState(requestedMember);
         return true;
     } catch (e) {
         console.error("업보데이터 로드 에러:", e);
+        if (requestId === upboLoadRequestId) {
+            upboLoadError = e?.message || `${requestedMember} 업보정리 데이터를 불러오지 못했습니다.`;
+        }
         return false;
     } finally {
-        isUpboDataLoading = false;
+        if (requestId === upboLoadRequestId) {
+            isUpboDataLoading = false;
+            if (currentPage === '업보정리' && upboCurrentMember === requestedMember) renderUpboPage();
+        }
     }
 }
+
+async function retryUpboDataLoad() {
+    if (isUpboDataLoading || currentPage !== '업보정리') return;
+    await loadUpboDataFromFirebase();
+}
+window.retryUpboDataLoad = retryUpboDataLoad;
 
 async function loadDaltaUpboFromGoogleSheet() {
     const firebaseData = upboData['달타'] || { products: [], records: [] };
     try {
-        const loadSheet = async accessKey => {
-            const url = `${DALTA_UPBO_API_URL}?accessKey=${encodeURIComponent(accessKey)}&_=${Date.now()}`;
-            const response = await fetch(url, { cache: 'no-store' });
-            const result = await response.json();
-            if (!response.ok || !result || result.ok === false || result.success === false || !Array.isArray(result.rows)) {
-                throw new Error(result?.message || `HTTP ${response.status}`);
-            }
-            return result;
-        };
-        const result = await loadSheet(DALTA_UPBO_ACCESS_KEY);
-        let manualResult = { rows: [] };
-        try {
-            manualResult = await loadSheet(DALTA_UPBO_MANUAL_ACCESS_KEY);
-        } catch (manualError) {
-            console.warn('달타 수동 업보 시트를 불러오지 못했습니다.', manualError);
-        }
+        const result = await fetchUpboSheetJson(DALTA_UPBO_API_URL, DALTA_UPBO_ACCESS_KEY, '달타 자동 업보');
+        const manualResult = await fetchUpboSheetJson(DALTA_UPBO_API_URL, DALTA_UPBO_MANUAL_ACCESS_KEY, '달타 수동 업보');
         const firebaseRecords = Array.isArray(firebaseData.records) ? firebaseData.records : [];
         const sheetRows = result.rows;
         const normalizeIdentity = value => String(value || '').trim().toLowerCase();
@@ -8529,13 +8553,8 @@ async function loadDaltaUpboFromGoogleSheet() {
         };
         return true;
     } catch (error) {
-        // 외부 시트가 실패해도 전환 전 Firebase 데이터는 임시로 그대로 유지한다.
         console.error('달타 Google Sheet 업보 데이터 로드 실패:', error);
-        upboData['달타'] = firebaseData;
-        if (isAdmin && typeof showToast === 'function') {
-            showToast('달타 Google Sheet 연결이 지연되어 Firebase 데이터를 표시합니다.');
-        }
-        return false;
+        throw new Error(error?.message || '달타 Google Sheet 데이터를 불러오지 못했습니다.');
     }
 }
 
@@ -8543,23 +8562,8 @@ async function loadChoiUpboFromGoogleSheet() {
     try {
         // 메뉴 관리는 구글시트와 완전히 분리하고 사이트의 메뉴 관리 상태만 사용한다.
         const localMenu = loadChoiUpboSiteMenu();
-        const loadSheet = async accessKey => {
-            const url = `${CHOI_UPBO_API_URL}?accessKey=${encodeURIComponent(accessKey)}&_=${Date.now()}`;
-            const response = await fetch(url, { cache: 'no-store' });
-            const result = await response.json();
-            if (!response.ok || !result || result.ok === false || result.success === false || !Array.isArray(result.rows)) {
-                throw new Error(result?.message || `HTTP ${response.status}`);
-            }
-            return result;
-        };
-        const result = await loadSheet(CHOI_UPBO_ACCESS_KEY);
-        let manualResult = { rows: [] };
-        try {
-            manualResult = await loadSheet(CHOI_UPBO_MANUAL_ACCESS_KEY);
-        } catch (manualError) {
-            // 새 수동 시트 키가 아직 배포되지 않았더라도 기존 최또 데이터는 정상 표시한다.
-            console.warn('최또 수동 업보 시트를 불러오지 못했습니다.', manualError);
-        }
+        const result = await fetchUpboSheetJson(CHOI_UPBO_API_URL, CHOI_UPBO_ACCESS_KEY, '최또 자동 업보');
+        const manualResult = await fetchUpboSheetJson(CHOI_UPBO_API_URL, CHOI_UPBO_MANUAL_ACCESS_KEY, '최또 수동 업보');
         const siteMenu = {
             menu: Array.isArray(result.menu) ? result.menu : localMenu.menu,
             menuImage: result.menuImage === undefined ? localMenu.menuImage : String(result.menuImage || ''),
@@ -8605,22 +8609,13 @@ async function loadChoiUpboFromGoogleSheet() {
         return true;
     } catch (error) {
         console.error('최또 Google Sheet 업보 데이터 로드 실패:', error);
-        upboData['최또'] = { products: [], records: [], ...loadChoiUpboSiteMenu() };
-        if (isAdmin && typeof showToast === 'function') {
-            showToast('최또 업보 데이터를 불러오지 못했습니다. Apps Script 배포 상태를 확인해주세요.');
-        }
-        return false;
+        throw new Error(error?.message || '최또 Google Sheet 데이터를 불러오지 못했습니다.');
     }
 }
 
 async function loadKanashiUpboFromGoogleSheet() {
     try {
-        const url = `${KANASHI_UPBO_API_URL}?accessKey=${encodeURIComponent(KANASHI_UPBO_ACCESS_KEY)}&_=${Date.now()}`;
-        const response = await fetch(url, { cache: 'no-store' });
-        const result = await response.json();
-        if (!response.ok || !result || result.ok === false || !Array.isArray(result.rows)) {
-            throw new Error(result?.message || `HTTP ${response.status}`);
-        }
+        const result = await fetchUpboSheetJson(KANASHI_UPBO_API_URL, KANASHI_UPBO_ACCESS_KEY, '카나시 업보');
         const previous = upboData['카나시'] || {};
         upboData['카나시'] = {
             ...previous,
@@ -8644,8 +8639,8 @@ async function loadKanashiUpboFromGoogleSheet() {
         };
         return true;
     } catch (error) {
-        console.warn('카나시 구글시트 데이터 로드 실패 - Firebase 데이터를 사용합니다.', error);
-        return false;
+        console.error('카나시 Google Sheet 업보 데이터 로드 실패:', error);
+        throw new Error(error?.message || '카나시 Google Sheet 데이터를 불러오지 못했습니다.');
     }
 }
 window.loadUpboDataFromFirebase = loadUpboDataFromFirebase;
@@ -10790,6 +10785,15 @@ function renderUpboPage() {
                             <div class="w-10 h-10 rounded-full border-4 border-[#EEEAF8] border-t-[var(--member-accent)] animate-spin"></div>
                             <strong class="text-[16px] text-[#5D4037] font-paperozi">업보정리 데이터를 불러오는 중...</strong>
                         </div>
+                    ` : upboLoadError ? `
+                        <div class="min-h-[280px] flex flex-col items-center justify-center gap-4 px-6 text-center" role="alert">
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center bg-red-50 text-red-500 text-xl"><i class="fi fi-rr-cloud-disabled"></i></div>
+                            <div>
+                                <strong class="block text-[17px] text-[#5D4037] font-paperozi mb-2">Google Sheet 데이터를 불러오지 못했습니다.</strong>
+                                <p class="text-[13px] font-bold text-gray-400">${escapeHtml(upboLoadError)}</p>
+                            </div>
+                            <button type="button" onclick="retryUpboDataLoad()" class="px-5 py-2.5 rounded-xl text-white font-bold font-paperozi shadow-sm" style="background:var(--member-accent);">다시 시도</button>
+                        </div>
                     ` : '<table class="w-full text-left border-collapse min-w-[980px]" id="upboAdminTable"></table>'}
                 </div>
                 <button onclick="addUpboRow()" class="w-full py-4 bg-gray-50 text-gray-500 font-bold font-paperozi rounded-xl border-[2.5px] border-dashed border-gray-300 hover:bg-gray-100 hover:text-[#5D4037] transition text-lg">+ 새 사용자 행 추가</button>
@@ -10803,7 +10807,7 @@ function renderUpboPage() {
 
     if (isAdmin && upboViewMode === 'admin') {
         renderUpboMenuAdminList();
-        if (!isUpboDataLoading) renderUpboAdminTable();
+        if (!isUpboDataLoading && !upboLoadError) renderUpboAdminTable();
     }
 }
 
